@@ -45,9 +45,10 @@ Os termos do domínio abaixo seguem o glossário do projeto (`CONTEXT.md`).
 - **Comunidade** — estudantes (com matrícula de aluno) e professores/servidores (com SIAPE/matrícula funcional) da UnB. É o público que pode ter conta no Bandejão.
 - **Visitante** — quem usa o Bandejão sem estar logado, tenha ou não conta. Consulta o cardápio e, na Release 2, a previsão de pico, mas não avalia refeições nem faz check-in. É uma condição de uso, não um tipo de pessoa: quem faz login deixa de ser Visitante.
 - **Usuário** — conta no Bandejão, ligada a exatamente uma matrícula ou um SIAPE. É a conta que se autentica, avalia e faz check-in, não a pessoa: quem tem mais de uma vinculação pode ter mais de um Usuário.
-- **Tipo de usuário** — vínculo declarado no cadastro: Estudante (matrícula) ou Professor/Servidor (SIAPE/matrícula funcional).
-- **Matrícula / SIAPE** — identificador institucional informado no cadastro (SIAPE/matrícula funcional para professores e servidores). É dado privado: nunca é exibido a outros usuários.
-- **Apelido** — nome público do usuário, escolhido uma única vez no cadastro e único entre os usuários. É sob ele que as avaliações aparecem.
+- **Tipo de usuário** — vínculo declarado no cadastro: Estudante (matrícula) ou Professor/Servidor (SIAPE/matrícula funcional). É um único tipo interno: "Professor" e "Servidor" são duas opções na tela de cadastro que levam ao mesmo fluxo.
+- **Matrícula / SIAPE** — identificador institucional associado à conta. Para Estudante, é extraído do e-mail institucional informado no cadastro; para Professor/Servidor, é informado diretamente. É dado privado: nunca é exibido a outros usuários.
+- **E-mail institucional** — e-mail da UnB informado no cadastro (`matricula@aluno.unb.br` para estudantes, `@unb.br` para professores/servidores), único canal de confirmação de cadastro e de recuperação de senha; fonte da Matrícula (estudantes) e do Apelido (professores/servidores).
+- **Apelido** — nome público do usuário, escolhido uma única vez no cadastro e único entre os usuários. É sob ele que as avaliações aparecem. Escolhido manualmente por Estudante; extraído do e-mail institucional para Professor/Servidor.
 
 **Lugares**
 
@@ -75,6 +76,8 @@ Os termos do domínio abaixo seguem o glossário do projeto (`CONTEXT.md`).
 - FGA-EPS-MDS. *Documento de Visão — Projeto 2018.2-Lino*. Disponível em: https://github.com/fga-eps-mds/2018.2-Lino/blob/master/docs/documento-de-visao.md. Acesso em: 6 set. 2026.
 - IBM. *Vision document*. In: IBM Engineering Lifecycle Management Suite — DOORS Next, versão 7.2.0. Disponível em: https://www.ibm.com/docs/pt-br/engineering-lifecycle-management-suite/doors-next/7.2.0?topic=requirements-vision-document. Acesso em: 6 set. 2026.
 - Documento de Requisitos de Software — Bandejão, Grupo 6, FCTE/UnB, 2026.
+- ADR 0001 — Escolha da stack de backend (`docs/adr/0001-escolha-stack-backend.md`).
+- ADR 0002 — Matrícula e apelido extraídos do e-mail institucional (`docs/adr/0002-matricula-apelido-extraidos-do-email.md`).
 - Decanato de Assuntos Comunitários/UnB. *Resolução nº 002/2024 — Regimento de funcionamento do Restaurante Universitário da Universidade de Brasília*. Disponível em: https://ru.unb.br/images/Artigos/00DRUResolucao2024/SEI_11843224_Resolucao_002.pdf.
 - BRASIL. Lei nº 13.709, de 14 de agosto de 2018 (Lei Geral de Proteção de Dados Pessoais — LGPD).
 
@@ -225,7 +228,7 @@ A descrição de cada perfil está na Seção 3.3. Estudantes e professores/serv
 O Bandejão é um sistema web PWA independente e autocontido. Para funcionar em sua capacidade total, depende de fontes externas e de recursos do dispositivo:
 
 - **Leitura automatizada do PDF do cardápio** publicado no site do RU, fonte externa e não estruturada, fora do controle da equipe (4.3 e Seção 6).
-- **Identidade por matrícula/SIAPE:** o cadastro exige matrícula (estudantes) ou SIAPE/matrícula funcional (professores e servidores), mas o sistema valida apenas o formato do identificador: não confere se ele existe, se está ativo nem se pertence a quem o informa. Validação real de identidade junto a sistemas da UnB não está prevista (Seção 6).
+- **Identidade por matrícula/SIAPE e e-mail institucional:** o cadastro exige matrícula (estudantes, extraída do e-mail institucional `matricula@aluno.unb.br`) ou SIAPE/matrícula funcional (professores e servidores, informado diretamente), além do próprio e-mail institucional. Para estudantes, o sistema confere o formato de forma mais rigorosa que uma simples contagem de dígitos: 9 dígitos numéricos, com os 3 primeiros consistentes com um ano/semestre de ingresso entre 2010.1 e o semestre corrente, e os 6 restantes sem ser uma sequência óbvia (crescente, decrescente ou todos iguais). Ainda assim, isso segue sendo apenas uma validação de **formato**: o sistema não confere se a matrícula/SIAPE existe, está ativa ou pertence a quem a informa junto a nenhum sistema da UnB. Validação real de identidade não está prevista (Seção 6).
 - **Localização do dispositivo (Release 2):** o GPS do navegador confirma o check-in no RU do campus; as coordenadas são usadas apenas na conferência e não são armazenadas.
 
 O sistema se comporta "como uma espécie de porta": o visitante pode consultar o cardápio (e, na Release 2, a previsão de pico) sem se cadastrar; o usuário, com conta e login, acessa funcionalidades adicionais: avaliação de refeições e, na Release 2, check-in.
@@ -265,7 +268,7 @@ A alocação de cada recurso é indicada abaixo (MVP, Release 2 ou Backlog); imp
 
 ### Épico 1 — Login
 
-- **5.1** Cadastro por matrícula (estudantes) ou SIAPE/matrícula funcional (professores e servidores), com confirmação de e-mail e login; inclui aviso de privacidade (RF01 a RF03) — MVP
+- **5.1** Cadastro em duas etapas — escolha do tipo de usuário (Estudante, Professor ou Servidor) e, em seguida, os campos daquele tipo — com validação de formato de matrícula (estudantes, extraída do e-mail institucional) ou SIAPE/matrícula funcional (professores e servidores), apelido manual (estudantes) ou extraído do e-mail institucional (professores e servidores), confirmação de e-mail e login; inclui aviso de privacidade (RF01 a RF03) — MVP
 - **5.2** Recuperação de senha por e-mail (RF04) — MVP
 - **5.3** Navegação sem login: consulta ao cardápio sem necessidade de cadastro (RF05) — MVP
 
@@ -302,6 +305,7 @@ Todos os recursos deste épico pertencem à Release 2 ou ao Backlog. A fila é c
 - **Cardápio em PDF:** o cardápio vem de um PDF publicado pelo próprio RU, fonte não estruturada e fora do controle da equipe. Mudanças no formato do arquivo podem comprometer a leitura automatizada (4.3).
 - **Fila sem sensor e sem votação:** a previsão de pico (Release 2) não usa sensor físico, votação nem fonte de dados independente; depende inteiramente dos check-ins dos usuários cadastrados (4.3).
 - **Identidade não validada:** o cadastro exige matrícula ou SIAPE/matrícula funcional em formato válido, mas o sistema não valida a existência, a situação ativa nem a titularidade do identificador; não há validação real prevista. Terceirizados e demais pessoas sem matrícula ou SIAPE não podem se cadastrar e usam o sistema como visitantes.
+- **Matrícula de estudante restrita a 9 dígitos:** por enquanto, o sistema só aceita matrícula de estudante com exatamente 9 dígitos (padrão em uso desde 2010). Estudantes com matrícula de 8 dígitos (anterior a 2010) não conseguem se cadastrar nesta fase; a forma de tratar esse caso fica para decisão futura (L10 no Documento de Requisitos).
 - **Filtros auxiliares:** os filtros de marcadores e de dieta se baseiam no cardápio oficial, que está sujeito a alteração. A ausência de marcador não garante que o prato esteja livre do ingrediente, e o cardápio oficial não marca peixe nem frutos do mar.
 - **Escopo:** restrito às informações dos RUs dos campi da UnB, sem abranger outros restaurantes ou cantinas. O Restaurante Executivo do Campus Darcy Ribeiro está excluído do escopo.
 
@@ -358,7 +362,7 @@ O tratamento dos dados pessoais (matrícula/SIAPE, e-mail e apelido) deve observ
 
 ### 9.2 Requisitos de sistema
 
-O requisito de sistema definido é a entrega como PWA, que exige navegador compatível (instalação na tela inicial, service workers), em desktop e dispositivos móveis (RNF05). Stack e hospedagem ainda a definir.
+O requisito de sistema definido é a entrega como PWA, que exige navegador compatível (instalação na tela inicial, service workers), em desktop e dispositivos móveis (RNF05). O backend é em Python, com Django REST Framework para construir a API; o banco de dados é SQLite em desenvolvimento e MySQL em produção (ver ADR 0001, `docs/adr/0001-escolha-stack-backend.md`). Hospedagem ainda a definir.
 
 ### 9.3 Requisitos de desempenho
 
@@ -414,6 +418,7 @@ Os riscos e as limitações conhecidos estão na Seção 5 do Documento de Requi
 - **Identidade não validada e contas múltiplas (L01, L02):** alguém pode cadastrar a matrícula de outra pessoa, uma matrícula inventada de formato válido ou várias contas. Isso afeta a confiabilidade da nota média já no MVP.
 - **Avaliação sem prova de presença (L06):** no MVP, qualquer usuário autenticado pode avaliar uma refeição do dia depois que ela começou, sem comprovar que comeu.
 - **Baixa adesão ao check-in (L08), risco da Release 2:** com poucos check-ins, a previsão de pico é pouco representativa.
+- **Matrícula de 8 dígitos não suportada (L10):** estudantes com matrícula anterior a 2010 não conseguem se cadastrar nesta fase (Seção 6).
 
 ### 11.5 Estabilidade
 

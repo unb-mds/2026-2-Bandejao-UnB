@@ -40,6 +40,8 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 - FGA-EPS-MDS. *Documento de Visão — Projeto 2018.2-Lino*. Disponível em: https://github.com/fga-eps-mds/2018.2-Lino/blob/master/docs/documento-de-visao.md.
 - Decanato de Assuntos Comunitários/UnB. *Resolução nº 002/2024 — Regimento de funcionamento do Restaurante Universitário da Universidade de Brasília*. Disponível em: https://ru.unb.br/images/Artigos/00DRUResolucao2024/SEI_11843224_Resolucao_002.pdf.
 - Restaurante Universitário da UnB. *Cardápio semanal — Campus Gama, 21/9 a 27/9/2026* (exemplo do arquivo de cardápio lido pelo sistema).
+- ADR 0001 — Escolha da stack de backend (`docs/adr/0001-escolha-stack-backend.md`).
+- ADR 0002 — Matrícula e apelido extraídos do e-mail institucional (`docs/adr/0002-matricula-apelido-extraidos-do-email.md`).
 
 ### 1.5 Termos
 
@@ -47,9 +49,10 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 |---|---|
 | **Visitante** | Pessoa que usa o Bandejão sem estar logada, tenha ou não conta. Consulta o cardápio e, na Release 2, a previsão de pico, mas não avalia refeições nem faz check-in. É uma condição de uso, não um tipo de pessoa: quem faz login deixa de ser visitante |
 | **Usuário** | Conta no Bandejão, ligada a exatamente uma matrícula ou um SIAPE. É a conta que se autentica, avalia e faz check-in, não a pessoa: quem tem mais de uma vinculação pode ter mais de um usuário |
-| **Tipo de usuário** | Vínculo declarado no cadastro: Estudante (matrícula) ou Professor/Servidor (SIAPE/matrícula funcional) |
-| **Matrícula / SIAPE** | Identificador informado no cadastro. O sistema confere apenas o formato; não confere existência, situação ativa nem titularidade. É dado privado |
-| **Apelido** | Nome público, escolhido uma única vez no cadastro e único entre os usuários, sob o qual as avaliações são exibidas |
+| **Tipo de usuário** | Vínculo declarado no cadastro: Estudante (matrícula) ou Professor/Servidor (SIAPE/matrícula funcional). É um único tipo interno: "Professor" e "Servidor" são duas opções na tela de cadastro que levam ao mesmo fluxo |
+| **Matrícula / SIAPE** | Identificador associado à conta. Para Estudante, extraído do e-mail institucional; para Professor/Servidor, informado diretamente no cadastro. O sistema confere apenas o formato; não confere existência, situação ativa nem titularidade. É dado privado |
+| **E-mail institucional** | E-mail da UnB informado no cadastro (`matricula@aluno.unb.br` para estudantes, `@unb.br` para professores/servidores), único canal de confirmação de cadastro e de recuperação de senha; fonte da Matrícula (estudantes) e do Apelido (professores/servidores) |
+| **Apelido** | Nome público, escolhido uma única vez no cadastro e único entre os usuários, sob o qual as avaliações são exibidas. Escolhido manualmente por Estudante; extraído do e-mail institucional para Professor/Servidor |
 | **Refeição** | Cada serviço de café da manhã, almoço ou jantar de um dia em um campus. É a unidade avaliada |
 | **Categoria** | Linha do cardápio de uma refeição (Bebidas, Guarnição, Sopa, Prato principal ovolactovegetariano…) |
 | **Prato** | Cada opção individual dentro de uma categoria. "ou/OU" separa pratos; "/" não separa. Não recebe nota própria |
@@ -62,6 +65,10 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 | **Previsão de pico** | Estimativa do nível de fila esperado em cada faixa de horário de uma refeição, calculada exclusivamente a partir dos check-ins |
 | **Nível agora** | Nível de fila atual da refeição em andamento, calculado a partir dos check-ins recentes (Backlog) |
 
+### 1.6 Stack tecnológica
+
+O backend é em Python, com Django REST Framework (DRF) para construir a API. O banco de dados é SQLite em desenvolvimento e MySQL em produção. A justificativa da escolha está na ADR 0001 (`docs/adr/0001-escolha-stack-backend.md`).
+
 ---
 
 ## 2. Requisitos Funcionais
@@ -72,13 +79,21 @@ Cada requisito funcional é descrito com um identificador único, sua descriçã
 
 #### RF01 — Cadastro de usuário
 
-**Descrição:** O sistema deve permitir que uma pessoa da comunidade da UnB crie uma conta informando o tipo de usuário (Estudante ou Professor/Servidor), a matrícula (estudantes) ou o SIAPE/matrícula funcional (professores e servidores), um apelido, um e-mail e uma senha. O sistema confere apenas o formato da matrícula/SIAPE; não verifica se ela existe, se está ativa ou se pertence a quem a informa (ver L01).
+**Descrição:** O sistema deve permitir que uma pessoa da comunidade da UnB crie uma conta em duas etapas. Na primeira, a pessoa escolhe o tipo de usuário: Estudante, Professor ou Servidor (Professor e Servidor levam ao mesmo fluxo e são internamente o mesmo Tipo de usuário — ver glossário). Na segunda, aparecem os campos daquele tipo:
+
+- **Estudante:** apelido, senha e e-mail institucional no formato `matricula@aluno.unb.br`. A matrícula não é digitada separadamente: o sistema a extrai da parte antes do "@" do e-mail informado.
+- **Professor/Servidor:** matrícula funcional/SIAPE, e-mail institucional `@unb.br` e senha. O apelido não é digitado: o sistema o extrai automaticamente do texto antes do "@" do e-mail informado (geralmente no formato nome.sobrenome, mas qualquer texto é aceito).
+
+O sistema confere apenas o formato da matrícula/SIAPE; não verifica se ela existe, se está ativa ou se pertence a quem a informa (ver L01).
 
 **Critério de aceite:**
-- Para Estudante, o sistema aceita matrícula com 8 ou 9 dígitos numéricos; para Professor/Servidor, aceita SIAPE com 7 dígitos numéricos. Valores com outros formatos ou com pontuação são rejeitados com mensagem específica.
+- Para Estudante, o sistema aceita matrícula (extraída do e-mail institucional) com exatamente 9 dígitos numéricos, sujeita à checagem adicional abaixo. Matrícula com 8 dígitos (padrão anterior a 2010) é rejeitada nesta fase (ver L10). Para Professor/Servidor, aceita SIAPE/matrícula funcional com exatamente 7 dígitos numéricos. Valores com outros formatos ou com pontuação são rejeitados com mensagem específica.
+- **Checagem dos 3 primeiros dígitos da matrícula de Estudante (ano/semestre de ingresso):** os 2 primeiros dígitos devem corresponder aos 2 últimos dígitos de um ano entre 2010 e o ano corrente, e o 3º dígito deve ser `1` (primeiro semestre) ou `2` (segundo semestre). O intervalo válido é calculado dinamicamente a partir da data do sistema, do código `101` (2010, primeiro semestre) até o código do semestre corrente (ex.: `262` para o 2º semestre de 2026) — nenhum código fora desse intervalo, incluindo códigos "futuros", é aceito. O ano e o semestre correntes usados nesse cálculo são parâmetros configuráveis (Anexo A).
+- **Checagem dos 6 dígitos restantes da matrícula de Estudante:** o bloco de 6 dígitos é rejeitado se formar uma sequência inteira crescente (ex.: `123456`), uma sequência inteira decrescente (ex.: `654321`) ou se todos os dígitos forem iguais (ex.: `111111`).
+- Para Estudante, o e-mail institucional deve seguir exatamente o formato `matricula@aluno.unb.br`, em que a parte antes do "@" é a matrícula extraída e validada pelas regras acima; qualquer outro formato de e-mail é rejeitado com mensagem específica. Para Professor/Servidor, o e-mail institucional deve pertencer ao domínio `@unb.br`; a parte antes do "@" é extraída como apelido (ver regra de apelido abaixo).
 - O sistema rejeita cadastro com matrícula/SIAPE já associada a outra conta, com mensagem de erro específica. Cada matrícula/SIAPE pertence a uma única conta.
-- O sistema rejeita e-mail com formato inválido ou já associado a outra conta.
-- O apelido tem de 3 a 20 caracteres, sem espaços, é único entre os usuários (sem distinção de maiúsculas e minúsculas), é definido apenas no cadastro e não pode ser alterado depois.
+- O sistema rejeita e-mail institucional com formato inválido ou já associado a outra conta.
+- O apelido (digitado por Estudante ou extraído do e-mail para Professor/Servidor) tem de 3 a 20 caracteres, sem espaços, é único entre os usuários (sem distinção de maiúsculas e minúsculas), é definido apenas no cadastro e não pode ser alterado depois. Se o apelido extraído do e-mail de um Professor/Servidor já estiver em uso por outra conta, o cadastro automático é rejeitado e o sistema pede que a pessoa digite um apelido alternativo manualmente.
 - O sistema rejeita senhas com menos de 8 caracteres.
 - O cadastro só é concluído se o usuário confirmar ciência de um aviso de privacidade que informa quais dados são coletados e para quê (recuperação de senha e identificação do autor de avaliações).
 - Após o cadastro, a conta fica pendente até a confirmação do e-mail (RF02).
@@ -90,7 +105,7 @@ Cada requisito funcional é descrito com um identificador único, sua descriçã
 
 #### RF02 — Confirmação de e-mail
 
-**Descrição:** O sistema deve enviar ao e-mail informado no cadastro um link de confirmação. A conta só pode se autenticar depois de confirmar o e-mail, que é o único canal de recuperação de senha (RF04).
+**Descrição:** O sistema deve enviar ao e-mail institucional informado no cadastro um link de confirmação. A conta só pode se autenticar depois de confirmar o e-mail, que é o único canal de recuperação de senha (RF04).
 
 **Critério de aceite:**
 - O link de confirmação é de uso único e válido por 24 horas.
@@ -105,12 +120,13 @@ Cada requisito funcional é descrito com um identificador único, sua descriçã
 
 #### RF03 — Login de usuário cadastrado
 
-**Descrição:** O sistema deve permitir que um usuário com conta confirmada se autentique informando matrícula/SIAPE e senha, para acessar as funcionalidades restritas (avaliação de refeições e, na Release 2, check-in).
+**Descrição:** O sistema deve permitir que um usuário com conta confirmada se autentique informando matrícula/SIAPE e senha, para acessar as funcionalidades restritas (avaliação de refeições e, na Release 2, check-in). A tela de login tem um único campo de identificador, que aceita tanto matrícula (9 dígitos) quanto SIAPE/matrícula funcional (7 dígitos); o sistema identifica automaticamente qual é o caso pela quantidade de dígitos informada, sem exigir que o usuário escolha o tipo antes de digitar.
 
 **Critério de aceite:**
 - Credenciais corretas resultam em sessão autenticada e redirecionamento à página inicial.
 - Credenciais incorretas exibem mensagem de erro genérica, sem indicar se a matrícula/SIAPE existe ou não na base (proteção contra enumeração de contas).
-- Após 5 tentativas malsucedidas consecutivas para a mesma matrícula/SIAPE em um intervalo de 10 minutos, o sistema bloqueia novas tentativas por 10 minutos.
+- Um identificador com quantidade de dígitos diferente de 7 ou de 9 é rejeitado antes mesmo de consultar a base, com mensagem de formato inválido.
+- Após 5 tentativas malsucedidas consecutivas para o mesmo identificador em um intervalo de 10 minutos, o sistema bloqueia novas tentativas por 10 minutos.
 
 **Release:** MVP · **Prioridade:** Essencial
 **Origem:** Épico Login · Pré-requisito para avaliação de refeições · Decisão de projeto
@@ -381,7 +397,7 @@ O sistema, como PWA, deve funcionar corretamente nas **duas versões mais recent
 
 #### RNF06 — Manutenibilidade
 
-O código-fonte deve manter cobertura de testes automatizados de, no mínimo, **60% nos módulos críticos** (leitura de cardápio, incluindo a leitura dos ícones de marcadores; cadastro e autenticação; avaliação de refeições e, na Release 2, check-in e previsão de pico), e a arquitetura deve separar claramente esses módulos, de modo que uma mudança no formato do PDF do cardápio exija alteração apenas no módulo de leitura de cardápio.
+O código-fonte deve manter cobertura de testes automatizados de, no mínimo, **60% nos módulos críticos** (leitura de cardápio, incluindo a leitura dos ícones de marcadores; cadastro e autenticação; avaliação de refeições e, na Release 2, check-in e previsão de pico), e a arquitetura deve separar claramente esses módulos, de modo que uma mudança no formato do PDF do cardápio exija alteração apenas no módulo de leitura de cardápio. No backend em Django REST Framework (1.6, ADR 0001), essa separação se reflete em apps Django distintos por recurso (ex.: cadastro/autenticação, cardápio, avaliação, fila), cada um com seu próprio conjunto de models, serializers, views e URLs.
 
 **Justificativa:** meta de cobertura de testes compatível com uma equipe sem experiência prévia em projetos de grande porte, mas suficiente para reduzir o risco já identificado de dependência do PDF externo e de inexperiência da equipe com as tecnologias escolhidas.
 
@@ -435,6 +451,7 @@ Requisitos inversos definem explicitamente o que o sistema **não deve** fazer, 
 | **L07** | **Recuperação de senha depende do e-mail.** Sem acesso ao e-mail cadastrado, o usuário não recupera a conta no MVP. | Confirmação do e-mail no cadastro (RF02). |
 | **L08** | **Baixa adesão ao check-in.** A previsão depende de os usuários fazerem check-in; com pouca adesão, ela é pouco representativa. | Exibição de "dados insuficientes" abaixo do mínimo de dados (RF13); nível "agora" mantido no Backlog (RF14). |
 | **L09** | **Avaliações de semanas anteriores.** No MVP, elas não são exibidas na interface, embora permaneçam armazenadas. | Histórico de refeições na Release 2 (RF16). |
+| **L10** | **Matrícula de estudante com menos de 9 dígitos não suportada.** O sistema só aceita matrícula de estudante com exatamente 9 dígitos (padrão em uso desde 2010). Estudantes com matrícula de 8 dígitos (anterior a 2010) não conseguem se cadastrar nesta fase. | Decisão de projeto consciente de adiar o tratamento desse caso; forma de abordá-lo fica para decisão futura da equipe. |
 
 ---
 
@@ -497,3 +514,4 @@ Valores ajustáveis pela equipe sem alterar os requisitos.
 | Validade do link de redefinição de senha | 1 hora | RF04 |
 | Limite de solicitações de redefinição | 3 por hora por matrícula/SIAPE | RF04 |
 | Bloqueio de login | 5 tentativas em 10 minutos, bloqueio de 10 minutos | RF03 |
+| Janela de validação do prefixo da matrícula de estudante | Dinâmica: de `101` (2010, 1º semestre) até o código do semestre corrente do sistema (ex.: `262` no 2º semestre de 2026), recalculada automaticamente a cada semestre | RF01 |
