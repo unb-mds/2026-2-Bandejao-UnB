@@ -91,9 +91,9 @@ O sistema confere apenas o formato da matrícula/SIAPE; não verifica se ela exi
 - **Checagem dos 3 primeiros dígitos da matrícula de Estudante (ano/semestre de ingresso):** os 2 primeiros dígitos devem corresponder aos 2 últimos dígitos de um ano entre 2010 e o ano corrente, e o 3º dígito deve ser `1` (primeiro semestre) ou `2` (segundo semestre). O intervalo válido é calculado dinamicamente a partir da data do sistema, do código `101` (2010, primeiro semestre) até o código do semestre corrente (ex.: `262` para o 2º semestre de 2026) — nenhum código fora desse intervalo, incluindo códigos "futuros", é aceito. O ano e o semestre correntes usados nesse cálculo são parâmetros configuráveis (Anexo A).
 - **Checagem dos 6 dígitos restantes da matrícula de Estudante:** o bloco de 6 dígitos é rejeitado se formar uma sequência inteira crescente (ex.: `123456`), uma sequência inteira decrescente (ex.: `654321`) ou se todos os dígitos forem iguais (ex.: `111111`).
 - Para Estudante, o e-mail institucional deve seguir exatamente o formato `matricula@aluno.unb.br`, em que a parte antes do "@" é a matrícula extraída e validada pelas regras acima; qualquer outro formato de e-mail é rejeitado com mensagem específica. Para Professor/Servidor, o e-mail institucional deve pertencer ao domínio `@unb.br`; a parte antes do "@" é extraída como apelido (ver regra de apelido abaixo).
-- O sistema rejeita cadastro com matrícula/SIAPE já associada a outra conta, com mensagem de erro específica. Cada matrícula/SIAPE pertence a uma única conta.
-- O sistema rejeita e-mail institucional com formato inválido ou já associado a outra conta.
-- O apelido (digitado por Estudante ou extraído do e-mail para Professor/Servidor) tem de 3 a 20 caracteres, sem espaços, é único entre os usuários (sem distinção de maiúsculas e minúsculas), é definido apenas no cadastro e não pode ser alterado depois. Se o apelido extraído do e-mail de um Professor/Servidor já estiver em uso por outra conta, o cadastro automático é rejeitado e o sistema pede que a pessoa digite um apelido alternativo manualmente.
+- O sistema rejeita cadastro com matrícula/SIAPE já associada a outra conta — confirmada ou ainda pendente de confirmação (RF02) —, com mensagem de erro específica. Cada matrícula/SIAPE pertence a uma única conta.
+- O sistema rejeita e-mail institucional com formato inválido ou já associado a outra conta, confirmada ou pendente.
+- O apelido (digitado por Estudante ou extraído do e-mail para Professor/Servidor) tem de 3 a 20 caracteres, sem espaços, é único entre os usuários (sem distinção de maiúsculas e minúsculas), é definido apenas no cadastro e não pode ser alterado depois. Para Professor/Servidor, caracteres não alfanuméricos do texto extraído (como o "." em "nome.sobrenome") são removidos antes da checagem. Se, depois dessa limpeza, o apelido resultante já estiver em uso por outra conta **ou** não atender ao tamanho mínimo/máximo, o cadastro automático é rejeitado e o sistema pede que a pessoa digite um apelido alternativo manualmente.
 - O sistema rejeita senhas com menos de 8 caracteres.
 - O cadastro só é concluído se o usuário confirmar ciência de um aviso de privacidade que informa quais dados são coletados e para quê (recuperação de senha e identificação do autor de avaliações).
 - Após o cadastro, a conta fica pendente até a confirmação do e-mail (RF02).
@@ -110,8 +110,9 @@ O sistema confere apenas o formato da matrícula/SIAPE; não verifica se ela exi
 **Critério de aceite:**
 - O link de confirmação é de uso único e válido por 24 horas.
 - Após a confirmação, a conta passa a poder se autenticar (RF03).
-- Se o link expirou, o usuário pode solicitar o reenvio de um novo link.
-- Uma tentativa de login com matrícula/SIAPE e senha corretas em conta ainda não confirmada é recusada com mensagem orientando a confirmação e oferecendo o reenvio do link.
+- Um cadastro pendente que não for confirmado dentro das 24 horas de validade do link é automaticamente excluído, liberando a matrícula/SIAPE e o e-mail para um novo cadastro.
+- Dentro das 24 horas ainda vigentes, o usuário pode solicitar o reenvio de um novo link, o que renova o prazo de 24 horas a partir do reenvio; passadas as 24 horas sem confirmação nem reenvio, o cadastro é excluído conforme o item anterior.
+- Uma tentativa de login com matrícula/SIAPE e senha corretas em conta ainda não confirmada (e dentro do prazo) é recusada com mensagem orientando a confirmação e oferecendo o reenvio do link.
 
 **Release:** MVP · **Prioridade:** Essencial
 **Origem:** Épico Login · Decisão de projeto (se o e-mail estiver errado, a pessoa perde o único canal de recuperação de senha)
@@ -188,7 +189,7 @@ O sistema confere apenas o formato da matrícula/SIAPE; não verifica se ela exi
 - O campus escolhido fica lembrado no aparelho, sem exigir login, e pode ser trocado a qualquer momento.
 - O usuário consegue alternar entre ao menos dois campi distintos e visualizar cardápios diferentes para cada um.
 - O seletor de refeição oferece apenas as refeições que o PDF traz para aquele campus e dia. Por padrão, é exibida a refeição em andamento ou, se nenhuma estiver em andamento, a próxima do dia, conforme os horários configurados (Anexo A).
-- O usuário navega entre os dias da semana vigente e, quando o RU publicar, da semana seguinte, sem recarregar a página inteira (abas ou equivalente). A semana é definida pelas datas do PDF do campus. Semanas anteriores não são exibidas.
+- O usuário navega entre os dias da semana vigente, sem recarregar a página inteira (abas ou equivalente). A semana é definida pelas datas do PDF do campus. Semanas anteriores e a semana seguinte não são exibidas no MVP; a exibição da semana seguinte, quando publicada, é tratada no RF18 (Release 2).
 - Quando um campus ainda não tem cardápio publicado para a semana, o sistema exibe "cardápio ainda não publicado".
 - O cardápio exibe o aviso de que está sujeito a alteração.
 - A apresentação tem hierarquia visual clara entre categorias, destaca as linhas de dieta, é funcional em telas a partir de 360 px e é validada por revisão de design da equipe.
@@ -239,6 +240,20 @@ O sistema confere apenas o formato da matrícula/SIAPE; não verifica se ela exi
 
 **Release:** Backlog · **Prioridade:** Desejável
 **Origem:** Épico Cardápio · Necessidade "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro"
+
+---
+
+#### RF18 — Exibição do cardápio da semana seguinte
+
+**Descrição:** O sistema deve exibir, além da semana vigente (RF07), os dias e refeições da semana seguinte de um campus assim que o RU publicar o PDF correspondente, na mesma navegação por abas do RF07.
+
+**Critério de aceite:**
+- A aba da semana seguinte só aparece depois que o PDF daquela semana for lido com sucesso (RF06) para o campus em questão; até lá, o sistema exibe apenas a semana vigente (RF07).
+- Como o RU raramente publica o cardápio da semana seguinte antes do fim da semana letiva vigente, na prática essa aba costuma só aparecer a partir do fim de semana ou do início da nova semana; a funcionalidade não depende de nenhuma antecedência mínima de publicação, apenas da leitura bem-sucedida do PDF.
+- A navegação entre a semana vigente e a semana seguinte segue o mesmo padrão de abas do RF07, sem recarregar a página inteira.
+
+**Release:** Release 2 · **Prioridade:** Importante
+**Origem:** Épico Cardápio · Necessidade "Planejar a refeição com informação antecipada" · Decisão de projeto (correção de escopo: no refinamento anterior este item estava erroneamente descrito como parte do MVP)
 
 ---
 
@@ -471,6 +486,7 @@ Necessidades das partes interessadas conforme o Documento de Visão.
 | RF08 | Cardápio | "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro"; decisão de projeto | MVP |
 | RF09 | Cardápio | "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro"; decisão de projeto | MVP |
 | RF10 | Cardápio | "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro" | Backlog |
+| RF18 | Cardápio | "Planejar a refeição com informação antecipada"; decisão de projeto (correção de escopo) | Release 2 |
 | RF11 | Fila | "Evitar longas filas no horário de pico"; decisão de projeto | Release 2 |
 | RF12 | Fila | "Evitar longas filas no horário de pico" (confiabilidade da previsão); decisão de projeto | Release 2 |
 | RF13 | Fila | "Evitar longas filas no horário de pico"; "Planejar a refeição com informação antecipada"; decisão de projeto | Release 2 |
@@ -488,7 +504,7 @@ Necessidades das partes interessadas conforme o Documento de Visão.
 | Release | Requisitos Funcionais |
 |---|---|
 | **MVP** | RF01, RF02, RF03, RF04, RF05, RF06, RF07, RF08, RF09, RF15, RF17 |
-| **Release 2** | RF11, RF12, RF13, RF16 |
+| **Release 2** | RF11, RF12, RF13, RF16, RF18 |
 | **Backlog** | RF10, RF14 |
 
 Todos os requisitos não funcionais (RNF01–RNF08) e todos os requisitos inversos (RI01–RI10) aplicam-se transversalmente a partir do MVP, ainda que alguns (ex.: RNF06 quanto a check-in e previsão, RI03, RI05, RI09) só se manifestem completamente a partir da entrada em vigor das funcionalidades de fila na Release 2.

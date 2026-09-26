@@ -37,7 +37,7 @@ Os termos do domínio abaixo seguem o glossário do projeto (`CONTEXT.md`).
 - **MVP (Release 1)** — Produto Mínimo Viável: conjunto de funcionalidades priorizadas para a primeira entrega.
 - **Release 2** — segunda entrega do produto, com as funcionalidades de prioridade média (Seção 8).
 - **Backlog** — funcionalidades de baixa prioridade, sem release agendada (Seção 8).
-- **Épico** — agrupamento de funcionalidades relacionadas que representa uma grande etapa da jornada do usuário: Login, Visualização do Cardápio, Visualização da Fila/Previsão de Pico e Avaliação das Refeições (Seção 5).
+- **Épico** — agrupamento de funcionalidades relacionadas que representa uma grande etapa da jornada do usuário: Login, Visualização do Cardápio, Visualização da Fila e Previsão de Pico e Avaliação das Refeições (Seção 5).
 
 **Pessoas**
 
@@ -275,7 +275,8 @@ A alocação de cada recurso é indicada abaixo (MVP, Release 2 ou Backlog); imp
 ### Épico 2 — Visualização do Cardápio
 
 - **5.4** Leitura automatizada do PDF do cardápio publicado no site do RU, incluindo marcadores e dietas (RF06) — MVP
-- **5.5** Exibição do cardápio por campus, refeição e dia, em abas, com apresentação refinada e voltada a dispositivos móveis (RF07) — MVP
+- **5.5** Exibição do cardápio por campus, refeição e dia, em abas, com apresentação refinada e voltada a dispositivos móveis; no MVP, restrita à semana vigente (RF07) — MVP
+- **5.5.1** Exibição do cardápio da semana seguinte, quando publicado pelo RU (RF18) — Release 2
 - **5.6** Filtro de marcadores alimentares (RF08) — MVP
 - **5.7** Filtro de dieta (RF09) — MVP
 - **5.8** Ícones de indicação de marcadores nos pratos (ex.: cogumelo, leite e derivados, mel) (RF10) — Backlog
@@ -343,6 +344,7 @@ O MVP inclui, além do cadastro/login, da leitura do cardápio e da avaliação 
 | 5.7 Filtro de dieta | MVP | Alta | Alto impacto / Baixo esforço | Matriz |
 | 5.13 Avaliação por estrelas e comentário | MVP | Alta | Alto impacto / Baixo esforço | Matriz |
 | 5.15 Design do site (identidade visual) | MVP | Alta | Alto impacto / Baixo esforço | Matriz |
+| 5.5.1 Exibição da semana seguinte do cardápio | Release 2 | Média | — | Decisão de projeto (correção de escopo: item estava erroneamente descrito como parte do MVP) |
 | 5.9 Check-in no RU | Release 2 | Média | Alto impacto / Alto esforço | Matriz |
 | 5.10 Confirmação do check-in por GPS | Release 2 | Média | Alto impacto / Alto esforço (uso do GPS); Baixo impacto / Baixo esforço (confirmação do check-in) | Matriz; decisão de projeto (GPS passa a ser parte obrigatória do check-in) |
 | 5.11 Previsão de pico | Release 2 | Média | Alto impacto / Baixo esforço (versão estática) | Decisão de projeto (a previsão depende do histórico de check-ins; não há versão estática) |
