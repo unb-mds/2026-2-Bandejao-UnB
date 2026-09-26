@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class Avaliacao(models.Model):
@@ -8,7 +9,9 @@ class Avaliacao(models.Model):
     prato = models.ForeignKey(
         "cardapio.Prato", on_delete=models.CASCADE, related_name="avaliacoes"
     )
-    nota = models.PositiveSmallIntegerField()
+    nota = models.PositiveSmallIntegerField(
+    validators=[MinValueValidator(1), MaxValueValidator(5)]
+)
     comentario = models.TextField(blank=True, null=True)
     data = models.DateField()
 
