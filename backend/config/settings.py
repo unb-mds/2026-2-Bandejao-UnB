@@ -10,8 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
+import sys
 from pathlib import Path
-from decouple import config 
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -43,7 +45,7 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.usuarios',
     'apps.cardapio',
-
+    'apps.avaliacoes',
 ]
 
 MIDDLEWARE = [
@@ -79,19 +81,32 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': config('DB_NAME', default='ru_db'),
-        'USER': config('DB_USER', default='ru_user'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST', default='127.0.0.1'),
-        'PORT': config('DB_PORT', default='3306'),
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-        },
+DB_ENGINE = config('DB_ENGINE', default='sqlite')
+
+if DB_ENGINE == 'mysql':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': config('DB_NAME', default='ru_db'),
+            'USER': config('DB_USER', default='ru_user'),
+            'PASSWORD': config('DB_PASSWORD'),
+            'HOST': config('DB_HOST', default='127.0.0.1'),
+            'PORT': config('DB_PORT', default='3306'),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+            },
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+if DEBUG and 'runserver' in sys.argv and (os.environ.get('RUN_MAIN') or '--noreload' in sys.argv):
+    print(f"Banco ativo: {DB_ENGINE}", file=sys.stderr)
 
 
 # Password validation
