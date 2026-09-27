@@ -10,8 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
+import sys
 from pathlib import Path
-from decouple import config 
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -104,7 +106,8 @@ else:
         }
     }
 
-print(f"[settings] Usando banco de dados: {DB_ENGINE}")
+if DEBUG and 'runserver' in sys.argv and (os.environ.get('RUN_MAIN') or '--noreload' in sys.argv):
+    print(f"Banco ativo: {DB_ENGINE}", file=sys.stderr)
 
 
 # Password validation
