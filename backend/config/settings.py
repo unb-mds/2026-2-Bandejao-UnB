@@ -104,6 +104,8 @@ else:
         }
     }
 
+print(f"[settings] Usando banco de dados: {DB_ENGINE}")
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
