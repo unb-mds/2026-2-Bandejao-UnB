@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bandejão — Documentação</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="description" content="Documentação do Bandejão — Grupo 6, MDS 2026/2 (FCTE/UnB)." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css" />
+</head>
+<body>
+  <div id="app">Carregando documentação…</div>
+
+  <script>
+    window.$docsify = {
+      name: 'Bandejão',
+      repo: 'https://github.com/unb-mds/2026-2-Bandejao-UnB',
+      loadSidebar: true,
+      subMaxLevel: 2,
+      auto2top: true,
+      homepage: 'README.md',
+      search: {
+        placeholder: 'Buscar na documentação',
+        noData: 'Nada encontrado.',
+        depth: 3
+      }
+    };
+  </script>
+
+  <!-- Docsify -->
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+
+  <!-- Diagramas Mermaid (C4, ER etc.) -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify-mermaid@2.0.1/dist/docsify-mermaid.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true });</script>
+</body>
+</html>
