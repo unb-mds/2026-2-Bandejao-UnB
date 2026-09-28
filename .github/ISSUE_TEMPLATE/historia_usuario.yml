@@ -13,7 +13,7 @@ body:
     id: referencia-backlog
     attributes:
       label: Referência no Backlog
-      description: Número/ID da história no backlog do produto (ex: 4.2)
+      description: "Número/ID da história no backlog do produto (ex: 4.2)"
       placeholder: "Ex: 2.3"
     validations:
       required: false
@@ -22,7 +22,7 @@ body:
     id: historia
     attributes:
       label: História de Usuário
-      description: Formato "Como [persona], quero [ação], para [motivo]"
+      description: "Formato: Como [persona], quero [ação], para [motivo]"
       placeholder: "Como Usuário autenticado, quero..., para..."
     validations:
       required: true
@@ -42,8 +42,8 @@ body:
   - type: textarea
     id: especificacao-api
     attributes:
-      label: Especificação técnica (SDD)
-      description: Contrato da API envolvida (endpoint, método, entrada, saída) ou regra de negócio relevante, definida ANTES da implementação.
+      label: "Especificação técnica (SDD)"
+      description: "Contrato da API envolvida (endpoint, método, entrada, saída) ou regra de negócio relevante, definida ANTES da implementação."
       placeholder: |
         Endpoint: POST /api/relatos/
         Entrada: { ru_id, nivel_fila, latitude, longitude }
