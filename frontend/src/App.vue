@@ -1,19 +1,28 @@
 <script setup>
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterView } from 'vue-router'
 </script>
 
 <template>
-  <header>
-    <strong>Bandejão</strong>
-    <nav style="display: flex; gap: 1rem">
-      <RouterLink :to="{ name: 'cardapio' }">Cardápio</RouterLink>
-      <RouterLink :to="{ name: 'fila' }">Fila</RouterLink>
-      <RouterLink :to="{ name: 'avaliacoes' }">Avaliações</RouterLink>
-      <RouterLink :to="{ name: 'login' }">Entrar</RouterLink>
-    </nav>
-  </header>
-
-  <main>
+  <!-- Moldura mobile: o app ocupa a tela toda no celular e fica centralizado no desktop. -->
+  <div class="app">
     <RouterView />
-  </main>
+  </div>
 </template>
+
+<style scoped>
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: var(--largura-app);
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--bege);
+}
+
+.app > :deep(*) {
+  flex: 1;
+  min-height: 0;
+}
+</style>
