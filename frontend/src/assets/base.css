@@ -1,0 +1,130 @@
+/*
+ * Tokens de design do Bandejão (RF17) — paleta, tipografia e raios
+ * extraídos do protótipo. Toda tela usa estas variáveis; nenhuma cor
+ * "solta" deve aparecer nos componentes.
+ */
+:root {
+  /* Marca */
+  --verde-mais-escuro: #0a1a0c;
+  --verde-escuro: #162d1a;
+  --verde-medio: #2f5233;
+  --dourado: #bf9a3a;
+  --bege: #ede5d6;
+  --bege-claro: #f5ede0;
+  --bege-selecionado: #f0eae0;
+  --cartao: #fefcf8;
+  --borda: #e4d9c8;
+  --borda-estrela: #cfc0ac;
+
+  /* Texto */
+  --texto-escuro: #1a2e1c;
+  --texto-suave: #7a6558;
+  --texto-claro: #a8937e;
+
+  /* Texto sobre o cabeçalho verde */
+  --branco-90: rgba(255, 255, 255, 0.9);
+  --branco-75: rgba(255, 255, 255, 0.75);
+  --branco-70: rgba(255, 255, 255, 0.7);
+  --branco-65: rgba(255, 255, 255, 0.65);
+  --branco-60: rgba(255, 255, 255, 0.6);
+  --branco-55: rgba(255, 255, 255, 0.55);
+  --branco-45: rgba(255, 255, 255, 0.45);
+  --branco-40: rgba(255, 255, 255, 0.4);
+  --branco-35: rgba(255, 255, 255, 0.35);
+  --branco-25: rgba(255, 255, 255, 0.25);
+  --branco-20: rgba(255, 255, 255, 0.2);
+  --branco-10: rgba(255, 255, 255, 0.1);
+  --branco-08: rgba(255, 255, 255, 0.08);
+  --branco-07: rgba(255, 255, 255, 0.07);
+
+  /* Feedback */
+  --sucesso-fundo: #eaf4ea;
+  --sucesso-icone-fundo: #d0ead0;
+  --sucesso-borda: #5a9a5a;
+  --sucesso-texto: #1a5a1a;
+  --sucesso-icone: #1a6a1a;
+  --sucesso-texto-suave: #4a8a4a;
+  --erro-fundo: #fbe9e4;
+  --erro-borda: #e8b4a8;
+  --erro-texto: #a82020;
+  --alerta-fundo: #fbf3dc;
+  --alerta-borda: #e8d59a;
+  --alerta-texto: #7a5c08;
+
+  /* Níveis de fila (semântica independente da marca) */
+  --fila-vazia: #1a7a3a;
+  --fila-curta: #b8900a;
+  --fila-moderada: #c04a10;
+  --fila-longa: #a82020;
+
+  /* Tipografia */
+  --fonte-titulo: 'Nunito', system-ui, sans-serif;
+  --fonte-texto: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Raios */
+  --raio-sm: 8px;
+  --raio-md: 12px;
+  --raio-lg: 16px;
+  --raio-xl: 24px;
+
+  /* Largura máxima do app (mobile first, RNF03) */
+  --largura-app: 430px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  font-family: var(--fonte-texto);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--texto-escuro);
+  background: var(--verde-mais-escuro);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--dourado);
+  outline-offset: 2px;
+}
