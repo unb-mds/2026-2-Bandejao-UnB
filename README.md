@@ -40,7 +40,7 @@ O cardápio e a previsão de pico podem ser consultados por qualquer pessoa, sem
 
 | Release | Data | Conteúdo |
 |---|---|---|
-| **R1 — MVP (protótipo)** | 28/09/2026 | Protótipo **somente de frontend**, com dados fixos: cardápio por campus, dia e refeição; filtros de marcadores e de dieta; avaliações de exemplo e campo demonstrativo de avaliação; identidade visual. Acompanha a documentação inicial (requisitos e arquitetura). |
+| **R1** | 28/09/2026 | Protótipo **somente de frontend**, com dados fixos: cardápio por campus, dia e refeição; filtros de marcadores e de dieta; avaliações de exemplo e campo demonstrativo de avaliação; identidade visual. Acompanha a documentação inicial (requisitos e arquitetura). |
 | **R2 — Produto completo** | 25/11/2026 | Entrega final, com **todos os requisitos (RF01 a RF18)** operando em produção: cadastro e login por matrícula/SIAPE com confirmação de e-mail e recuperação de senha · leitura automatizada do PDF do cardápio · filtros aplicados no backend · ícones de marcadores nos pratos · cardápio da semana seguinte · avaliação de refeições · histórico de refeições anteriores · check-in confirmado por GPS · previsão de pico em quatro níveis (vazia, curta, moderada, longa) · nível da fila agora · PWA instalável. |
 
 O detalhamento, com histórias de usuário, critérios de aceite, ordem de execução e o marco de check-in em produção em 03/11/2026, está no [Backlog do produto](https://unb-mds.github.io/2026-2-Bandejao-UnB/#/requisitos/backlog).
