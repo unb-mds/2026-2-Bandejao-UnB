@@ -1,0 +1,157 @@
+<script setup>
+import { useId } from 'vue'
+
+defineProps({
+  tamanho: { type: Number, default: 64 },
+})
+
+// Ids únicos por instância: mais de um logo na página não pode compartilhar gradientes.
+const id = useId()
+const ref = (nome) => `url(#${id}-${nome})`
+</script>
+
+<template>
+  <svg
+    :width="tamanho"
+    :height="tamanho"
+    viewBox="0 0 80 80"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    role="img"
+    aria-label="Logo do Bandejão"
+  >
+    <defs>
+      <radialGradient :id="`${id}-fundo`" cx="35%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#1C3A22" />
+        <stop offset="100%" stop-color="#060E07" />
+      </radialGradient>
+      <linearGradient
+        :id="`${id}-borda`"
+        x1="16"
+        y1="44"
+        x2="64"
+        y2="44"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0%" stop-color="#D8D0C0" />
+        <stop offset="50%" stop-color="#F0E8D8" />
+        <stop offset="100%" stop-color="#D0C8B8" />
+      </linearGradient>
+      <linearGradient
+        :id="`${id}-tigela`"
+        x1="40"
+        y1="44"
+        x2="40"
+        y2="66"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0%" stop-color="#F7F2EA" />
+        <stop offset="100%" stop-color="#EDE5D6" />
+      </linearGradient>
+      <linearGradient
+        :id="`${id}-carne`"
+        x1="32"
+        y1="54"
+        x2="48"
+        y2="58"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0%" stop-color="#C8823A" />
+        <stop offset="100%" stop-color="#A86028" />
+      </linearGradient>
+      <linearGradient
+        :id="`${id}-feijao`"
+        x1="22"
+        y1="52"
+        x2="36"
+        y2="56"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0%" stop-color="#6B3A18" />
+        <stop offset="100%" stop-color="#4A2810" />
+      </linearGradient>
+    </defs>
+
+    <!-- Fundo -->
+    <rect width="80" height="80" rx="18" :fill="ref('fundo')" />
+
+    <!-- Vapor -->
+    <path
+      d="M29 38 C28 34 30 31 29 27"
+      stroke="white"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-opacity="0.38"
+      fill="none"
+    />
+    <path
+      d="M40 36 C39 32 41 29 40 25"
+      stroke="white"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-opacity="0.38"
+      fill="none"
+    />
+    <path
+      d="M51 38 C50 34 52 31 51 27"
+      stroke="white"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-opacity="0.38"
+      fill="none"
+    />
+
+    <!-- Sombra, parede e interior da tigela -->
+    <ellipse cx="41" cy="65" rx="21" ry="4" fill="black" fill-opacity="0.28" />
+    <path d="M17 44 Q17 65 40 65 Q63 65 63 44 Z" fill="#2C4E30" />
+    <path d="M19 44 Q19 63 40 63 Q61 63 61 44 Z" :fill="ref('tigela')" />
+
+    <!-- Borda -->
+    <ellipse cx="40" cy="44" rx="23" ry="7" :fill="ref('borda')" />
+    <ellipse cx="40" cy="43.2" rx="21" ry="5.5" fill="#F8F3EB" fill-opacity="0.6" />
+
+    <!-- Arroz -->
+    <ellipse cx="50" cy="52" rx="9" ry="5.5" fill="#F2EDE4" />
+    <ellipse cx="47" cy="51" rx="1.8" ry="0.9" fill="white" fill-opacity="0.85" />
+    <ellipse cx="50.5" cy="50.2" rx="1.8" ry="0.9" fill="white" fill-opacity="0.85" />
+    <ellipse cx="53" cy="51.5" rx="1.8" ry="0.9" fill="white" fill-opacity="0.85" />
+    <ellipse cx="48" cy="53.2" rx="1.8" ry="0.9" fill="white" fill-opacity="0.75" />
+    <ellipse cx="51.5" cy="53.5" rx="1.8" ry="0.9" fill="white" fill-opacity="0.75" />
+
+    <!-- Feijão -->
+    <ellipse cx="29" cy="53.5" rx="9" ry="5" :fill="ref('feijao')" />
+    <ellipse cx="27" cy="52" rx="3.5" ry="2" fill="#5A3418" fill-opacity="0.6" />
+    <ellipse cx="30.5" cy="53" rx="3.5" ry="2" fill="#5A3418" fill-opacity="0.6" />
+    <ellipse cx="28" cy="55" rx="3" ry="1.8" fill="#5A3418" fill-opacity="0.5" />
+
+    <!-- Proteína com marcas de grelha -->
+    <ellipse cx="40" cy="57.5" rx="8.5" ry="4" fill="#9B5820" />
+    <ellipse cx="40" cy="57" rx="8" ry="3.6" :fill="ref('carne')" />
+    <path
+      d="M34 56 L37.5 58.5"
+      stroke="#8B4818"
+      stroke-width="1"
+      stroke-linecap="round"
+      stroke-opacity="0.5"
+    />
+    <path
+      d="M37.5 55.5 L41 58"
+      stroke="#8B4818"
+      stroke-width="1"
+      stroke-linecap="round"
+      stroke-opacity="0.5"
+    />
+    <path
+      d="M41 56 L44.5 58.5"
+      stroke="#8B4818"
+      stroke-width="1"
+      stroke-linecap="round"
+      stroke-opacity="0.5"
+    />
+
+    <!-- Folha de enfeite -->
+    <path d="M40 48 C37 44.5 33 41.5 36 38 C38 36 43.5 38.5 40 48 Z" fill="#3A7040" />
+    <path d="M40 48 C43 45 47 42.5 45 39 C43 37 38 39 40 48 Z" fill="#4A8050" fill-opacity="0.75" />
+    <path d="M40 48 L40 40" stroke="#2A5C30" stroke-width="0.8" stroke-opacity="0.5" />
+  </svg>
+</template>
