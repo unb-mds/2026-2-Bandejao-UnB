@@ -27,6 +27,8 @@
   - [0004 — Acesso direto da equipe ao banco](arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md)
   - [0005 — Filtros de marcador e dieta no backend](arquitetura/adr/0005-filtros-de-marcador-e-dieta-no-backend.md)
   - [0006 — Alerta de falha do leitor por e-mail](arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md)
+  - [0007 — Sessão autenticada por cookie HttpOnly](arquitetura/adr/0007-sessao-autenticada-por-cookie-httponly.md)
+  - [0008 — Matrícula/SIAPE em texto claro](arquitetura/adr/0008-matricula-siape-em-texto-claro.md)
 
 - **Gestão do projeto**
   - [Atas de reunião](atas-reunioes/README.md)
@@ -44,4 +46,6 @@
   - [Extração de PDF e média ponderada](estudos/semana01-extracao-pdf-e-media-ponderada.md)
   - [HTML](estudos/semana01-html.md)
   - [Docker](estudos/semana0-docker.md)
-  - [C4 Model](estudos/semana03-c4-model.md)
+  - [C4 Model — Cristiano](estudos/semana03-c4-model.md)
+  - [C4 Model — Alana](estudos/semana03-arquitetura-c4-model.md)
+  - [Arquitetura de software e C4 — Álvaro](estudos/semana03-arquitetura-de-software-c4-model.md)
