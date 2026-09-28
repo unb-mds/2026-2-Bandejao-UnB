@@ -16,7 +16,7 @@ Projeto do **Grupo 6 (G6)** na disciplina **Métodos de Desenvolvimento de Softw
 - [Documentação](#documentação)
 - [Tecnologias](#tecnologias)
 - [Estrutura do repositório](#estrutura-do-repositório)
-- [Como abrir o projeto](#como-abrir-o-projeto)
+- [Como abrir a documentação](#como-abrir-a-documentação)
 - [Como contribuir](#como-contribuir)
 - [Equipe](#equipe)
 
@@ -103,29 +103,7 @@ Para incluir uma página nova: crie o arquivo `.md` dentro de `docs/` e adicione
 └── .github/            # templates de issue e de pull request
 ```
 
-## Como abrir o projeto
-
-### Frontend (Vue 3 + Vite)
-
-Requer Node.js 22.18+ ou 24.12+.
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-O site abre em http://localhost:5173.
-
-| Comando | O que faz |
-|---|---|
-| `npm run dev` | Servidor de desenvolvimento com recarga automática |
-| `npm run build` | Build de produção |
-| `npm run test:unit` | Testes com Vitest |
-| `npm run lint` | Oxlint + ESLint, com correção automática |
-| `npm run format` | Formata o código com Prettier |
-
-### Documentação (GitHub Pages)
+## Como abrir a documentação
 
 **Online:** abra https://unb-mds.github.io/2026-2-Bandejao-UnB/. Não precisa instalar nada.
 
