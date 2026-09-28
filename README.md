@@ -16,7 +16,7 @@ Projeto do **Grupo 6 (G6)** na disciplina **Métodos de Desenvolvimento de Softw
 - [Documentação](#documentação)
 - [Tecnologias](#tecnologias)
 - [Estrutura do repositório](#estrutura-do-repositório)
-- [Como rodar localmente](#como-rodar-localmente)
+- [Como abrir o projeto](#como-abrir-o-projeto)
 - [Como contribuir](#como-contribuir)
 - [Equipe](#equipe)
 
@@ -74,14 +74,6 @@ O GitHub Pages publica a pasta `docs/` da branch **`develop`**. Todo merge na `d
 
 Para incluir uma página nova: crie o arquivo `.md` dentro de `docs/` e adicione o link em [`docs/_sidebar.md`](docs/_sidebar.md). Diagramas em blocos ` ```mermaid ` são renderizados automaticamente. Para linkar um PDF, use `[texto](caminho/arquivo.pdf ':ignore')`.
 
-Para ver o site localmente antes do merge, rode na raiz do repositório:
-
-```bash
-python -m http.server 3000 --directory docs
-```
-
-e abra http://localhost:3000.
-
 ## Tecnologias
 
 | Camada | Tecnologia |
@@ -111,36 +103,7 @@ e abra http://localhost:3000.
 └── .github/            # templates de issue e de pull request
 ```
 
-## Como rodar localmente
-
-### Backend (Django/DRF)
-
-Requer Python 3.12 ou mais recente (Django 6).
-
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate        # no Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-Crie o arquivo `backend/.env` com pelo menos:
-
-```env
-SECRET_KEY=uma-chave-qualquer-para-desenvolvimento
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-DB_ENGINE=sqlite
-```
-
-Para usar MySQL, troque para `DB_ENGINE=mysql` e informe `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` e `DB_PORT`. O driver do MySQL (`mysqlclient`) ainda não está no `requirements.txt` e precisa ser instalado à parte.
-
-```bash
-python manage.py migrate
-python manage.py runserver
-```
-
-A API responde em http://127.0.0.1:8000/api/status/. Para rodar os testes: `python manage.py test`.
+## Como abrir o projeto
 
 ### Frontend (Vue 3 + Vite)
 
@@ -152,6 +115,8 @@ npm install
 npm run dev
 ```
 
+O site abre em http://localhost:5173.
+
 | Comando | O que faz |
 |---|---|
 | `npm run dev` | Servidor de desenvolvimento com recarga automática |
@@ -159,6 +124,18 @@ npm run dev
 | `npm run test:unit` | Testes com Vitest |
 | `npm run lint` | Oxlint + ESLint, com correção automática |
 | `npm run format` | Formata o código com Prettier |
+
+### Documentação (GitHub Pages)
+
+**Online:** abra https://unb-mds.github.io/2026-2-Bandejao-UnB/. Não precisa instalar nada.
+
+**Localmente** (para conferir uma alteração em `docs/` antes do merge), rode na raiz do repositório:
+
+```bash
+python -m http.server 3000 --directory docs
+```
+
+e abra http://localhost:3000.
 
 ## Como contribuir
 
