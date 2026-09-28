@@ -5,13 +5,11 @@
 > `c4-nivel-3-backend.md`). Cobre a parte de leitura do Épico Cardápio
 > (RF06).
 >
-> Referência: ADR 0003 — *Leitor de PDF como módulo do backend*
-> (`docs/adr/0003-leitor-pdf-como-modulo-do-backend.md`), citada em
-> `c4-niveis-1-2.md` mas não incluída no material enviado para este
-> documento. O desenho abaixo segue o que já está descrito sobre o módulo
-> no Nível 2/3 e no RF06 do Documento de Requisitos; qualquer detalhe de
-> implementação que a ADR 0003 trouxer além disso (ex.: biblioteca de
-> leitura de PDF escolhida) deve ser conferido contra ela depois.
+> Referências: ADR 0003 — *Leitor de PDF como módulo do backend* e ADR 0006
+> — *Alerta de falha do leitor por e-mail* (`docs/arquitetura/adr/`). A
+> biblioteca de leitura de PDF será escolhida no spike SP-01 do backlog, com
+> o PDF real do RU do Gama; a frequência do cron, no spike SP-02. O módulo
+> faz parte da Release 2 (no protótipo da Release 1, o cardápio é simulado).
 
 ## Nível 4 — Diagrama de Classes do Leitor de Cardápio
 
@@ -98,6 +96,22 @@ classDiagram
     +quantidadeEnviada: int
     +ultimoEnvioEm: datetime
   }
+  class AlertaLeituraCardapio {
+    +campus: Campus
+    +refeicao: Refeicao
+    +tipo: TipoAlerta
+    +mensagem: str
+    +ocorridoEm: datetime
+    +resolvido: bool
+  }
+  class AlertaLeituraCardapio {
+    +campus: Campus
+    +refeicao: Refeicao
+    +tipo: TipoAlerta
+    +mensagem: str
+    +ocorridoEm: datetime
+    +resolvido: bool
+  }
 
   class CardapioRepository {
     +salvar(refeicao: RefeicaoEstruturada) void
@@ -145,6 +159,8 @@ classDiagram
   CategoriaEstruturada *-- PratoEstruturado
 
   AlertaEquipeService --> TipoAlerta : usa
+  AlertaEquipeService --> AlertaLeituraCardapio : grava histórico (sempre)
+  AlertaEquipeService --> AlertaLeituraCardapio : grava histórico (sempre)
   AlertaEquipeService --> ContadorAlerta : lê/incrementa por (campus, tipo, dia)
   AlertaEquipeService ..> EmailSvc : envia aviso [SMTP], se deveEnviar() = true
 
@@ -179,7 +195,15 @@ classDiagram
   boa candidata a teste unitário dedicado.
 - **`AlertaEquipeService` limita a no máximo 3 avisos por dia, por
   combinação de campus + tipo de falha**, controlado por `ContadorAlerta`
-  (campus, tipo, dia, quantidade já enviada, horário do último envio).
+  (campus, tipo, dia, quantidade já enviada, horário do último envio). Além
+  do e-mail, **toda** falha gera uma linha em `AlertaLeituraCardapio`, que é
+  o histórico consultado pela equipe (ADR 0006). Os valores de `TipoAlerta`
+  correspondem aos do banco: `legenda_invalida`, `associacao_falhou` e
+  `falha_leitura_pdf`. Além
+  do e-mail, **toda** falha gera uma linha em `AlertaLeituraCardapio`, que é
+  o histórico consultado pela equipe (ADR 0006). Os valores de `TipoAlerta`
+  correspondem aos do banco: `legenda_invalida`, `associacao_falhou` e
+  `falha_leitura_pdf`.
   `deveEnviar()` também impõe um intervalo mínimo de 6 horas entre avisos
   repetidos da mesma falha, para espalhar os 3 avisos ao longo do dia em vez
   de disparar todos de uma vez se o cron rodar mais de uma vez por dia. O
@@ -187,17 +211,17 @@ classDiagram
   mais tardar, no dia seguinte) — assim, uma falha de vários dias seguidos
   continua gerando pelo menos 1 aviso por dia, em vez de ficar em silêncio
   total depois do 3º e-mail. Decisão registrada na ADR 0006
-  (`docs/adr/0006-alerta-de-falha-do-leitor-por-email.md`), que compara o
+  (`docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md`), que compara o
   e-mail com log passivo e consulta manual ao banco. O e-mail de destino
-  desses avisos ainda não foi definido — fica pendente, como registrado na
-  própria ADR.
+  desses avisos será definido no spike SP-03 do backlog, junto com o
+  provedor de e-mail.
 - **`MarcadorIconMatcher` funciona por posição**, não por texto, porque o
   RF06 é explícito: os ícones dos marcadores são imagens sobrepostas ao
   texto do PDF, fora da camada de texto extraível. Essa é provavelmente a
   classe de maior risco técnico do módulo (L03) e a que mais provavelmente
   muda de implementação dependendo da biblioteca de leitura de PDF adotada
-  (ADR 0003, ainda não avaliada com o PDF real do campus do Gama segundo a
-  nota do Nível 2).
+  (ADR 0003; a biblioteca será escolhida no spike SP-01 do backlog, com o PDF
+  real do campus do Gama).
 - **`Refeicao`, `Categoria`, `Prato` e `Marcador` são os models Django do
   app Cardápio** (não deste módulo) — aparecem aqui só como o destino da
   persistência do `CardapioRepository`, para deixar explícito o que o Leitor
