@@ -16,7 +16,14 @@
 > o que justifica `FiltroMarcadorService` e `FiltroDietaService` existirem
 > como serviços de backend testáveis à parte, e não apenas como lógica no
 > Vue. Decisão registrada na ADR 0005
-> (`docs/adr/0005-filtros-de-marcador-e-dieta-no-backend.md`).
+> (`docs/arquitetura/adr/0005-filtros-de-marcador-e-dieta-no-backend.md`).
+>
+> **Protótipo da Release 1.** Como ainda não há backend, o protótipo aplica
+> os mesmos filtros no navegador (`frontend/src/utils/cardapio.js`), com a
+> mesma regra deste desenho: o prato com marcador evitado continua visível e
+> é sinalizado, e a categoria recebe `semOpcaoCompativel` quando todos os
+> pratos são sinalizados. Na Release 2, esse código sai do frontend e a
+> regra passa a rodar aqui.
 
 ## Nível 4 — Diagrama de Classes da Exposição do Cardápio
 
@@ -94,7 +101,7 @@ classDiagram
   class PratoFiltrado {
     +descricao: str
     +marcadores: list~str~
-    +contemMarcadorSelecionado: bool
+    +marcadoresSelecionados: list~str~
   }
 
   class Refeicao {
@@ -157,6 +164,10 @@ classDiagram
   desativado para ela — o serviço não aplica sinalização nenhuma e
   `CardapioFiltrado.filtroMarcadorDesativado` fica `true`, para a interface
   informar o motivo.
+- **O filtro de marcador sinaliza, não oculta (RF08).** Todo prato continua
+  na resposta; `PratoFiltrado.marcadoresSelecionados` traz os marcadores
+  evitados que ele contém (lista vazia = prato não sinalizado), para a
+  interface exibir o alerta "Contém: …".
 - **`CategoriaFiltrada.semOpcaoCompativel`** cobre o caso do RF08 em que
   todos os pratos de uma categoria têm algum marcador selecionado — é uma
   informação calculada por `FiltroMarcadorService`, não um campo do model
@@ -184,7 +195,7 @@ classDiagram
   em relação ao que fazer com eles. Por isso não há, neste diagrama, nenhuma
   classe de preferência de usuário persistida — não é responsabilidade
   deste componente.
-- **RF10 (ícones de marcador sempre visíveis, Backlog) não exige nenhuma
+- **RF10 (ícones de marcador sempre visíveis, Release 2) não exige nenhuma
   classe nova**: `PratoFiltrado.marcadores` já carrega essa informação
   independentemente do filtro estar ativo ou não; falta só a interface
   exibir os ícones sem exigir interação, o que é responsabilidade do PWA.

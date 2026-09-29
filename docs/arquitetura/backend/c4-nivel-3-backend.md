@@ -18,11 +18,14 @@
 > - ✅ `c4-nivel-4-fila.md` — Épico Fila e Previsão de Pico → componente
 >   Fila
 >
-> Referências: ADR 0003 — *Leitor de PDF como módulo do backend*
-> (`docs/adr/0003-leitor-pdf-como-modulo-do-backend.md`) e ADR 0004 —
-> *Acesso direto da equipe ao banco* (`docs/adr/0004-acesso-direto-da-equipe-ao-banco.md`),
-> ambas citadas em `c4-niveis-1-2.md` mas não incluídas no material enviado
-> para este documento.
+> Referências: ADR 0003 — *Leitor de PDF como módulo do backend*, ADR 0004 —
+> *Acesso direto da equipe ao banco*, ADR 0005 — *Filtros de marcador e de
+> dieta no backend*, ADR 0006 — *Alerta de falha do leitor por e-mail* e
+> ADR 0007 — *Sessão autenticada por cookie HttpOnly*, todas em
+> `docs/arquitetura/adr/`.
+>
+> Todo este backend faz parte da **Release 2**. No protótipo da Release 1, um
+> backend simulado dentro do frontend faz o papel desta API.
 
 ### Legenda de formas (Nível 3)
 
@@ -70,17 +73,18 @@ avaliações e check-ins.")]
 Componente — Django app
 Model, Serializer, View, URL
 Cadastro em duas etapas, confirmação de
-e-mail, login, recuperação de senha
+e-mail, login com sessão em cookie
+(ADR 0007), recuperação de senha
 (RF01–RF04). Extrai matrícula/apelido
 do e-mail institucional (ADR 0002)."]
 
     subgraph cardapio_boundary["📋 App Cardápio"]
       direction TB
       cardapio["📋 Exposição do Cardápio
-Componente — Django app
-Model, Serializer, View, URL
+Componente — módulo do app Cardápio
+Serializer, View, URL
 Endpoints de consulta, filtros de
-marcador e dieta (RF07–RF09, RF18)."]
+marcador e dieta (RF07–RF10, RF18)."]
       leitor["📖 Leitor de Cardápio
 Componente — módulo do app Cardápio (ADR 0003)
 Baixa e interpreta o PDF semanal, associa
@@ -101,8 +105,7 @@ histórico de refeições (RF15, RF16)."]
 Componente — Django app
 Model, Serializer, View, URL
 Check-in, confirmação por GPS, previsão
-de pico, nível agora (RF11–RF14,
-Release 2 / Backlog)."]
+de pico, nível agora (RF11–RF14)."]
   end
 
   pwa -->|"Cadastro, login, confirmação
@@ -122,9 +125,10 @@ e redefinição [SMTP]"| email_svc
 [Django ORM]"| db
   leitor -->|"Baixa o PDF semanal
 de cada campus [HTTPS]"| site_ru
-  leitor -->|"Grava cardápio estruturado e mantém
+  leitor -->|"Grava cardápio estruturado, mantém
 o último cardápio válido em caso
-de falha [Django ORM]"| db
+de falha e registra os alertas
+[Django ORM]"| db
   leitor -->|"Envia alerta por e-mail em falha
 (legenda inválida, associação falhou,
 falha de leitura) — máx. 3 avisos/dia
@@ -166,7 +170,7 @@ calcula previsão de pico [Django ORM]"| db
 - **Nenhuma seta entre componentes.** Os apps Django deste backend não se
   chamam uns aos outros via HTTP interno nem import direto de lógica de
   negócio: é um monólito que compartilha um único banco, e a relação entre,
-  por exemplo, uma Avaliação e a Conta que a escreveu é uma *foreign key* no
+  por exemplo, uma Avaliação e o Usuário que a escreveu é uma *foreign key* no
   banco, não uma chamada entre componentes. Por isso todo componente se
   relaciona com o Banco de Dados, e não uns com os outros.
 - **Leitor de Cardápio aparece dentro da fronteira do App Cardápio**, e não
@@ -184,10 +188,10 @@ calcula previsão de pico [Django ORM]"| db
   persistente, o envio é limitado a **no máximo 3 avisos por dia, por
   campus + tipo de falha** (detalhado no `AlertaEquipeService` em
   `c4-nivel-4-leitor-cardapio.md`) — decisão registrada na ADR 0006
-  (`docs/adr/0006-alerta-de-falha-do-leitor-por-email.md`).
+  (`docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md`).
 - **A relação Equipe → Banco de Dados continua tracejada e vermelha**
   (herdada do Nível 2, ADR 0004): é acesso administrativo direto e
   deliberado, de natureza diferente do alerta automático acima — por isso
   as duas exceções ao fluxo normal permanecem visualmente distintas.
-- **App Fila é mostrado por completude**, mas pertence à Release 2/Backlog
-  (RF11–RF14); não faz parte do MVP.
+- **App Fila** entra na Release 2 (RF11–RF14), com o check-in em produção
+  até 03/11/2026 (marco MC-01 do backlog).

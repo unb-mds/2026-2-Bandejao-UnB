@@ -4,10 +4,17 @@
 > e banco de dados). Os Níveis 3 (Components) e 4 (Code) ficam a cargo de
 > cada dupla responsável por sua frente e não são tratados neste documento.
 >
-> Decisões de arquitetura referenciadas aqui: `docs/adr/0001-escolha-stack-backend.md`,
-> `docs/adr/0002-matricula-apelido-extraidos-do-email.md`,
-> `docs/adr/0003-leitor-pdf-como-modulo-do-backend.md`,
-> `docs/adr/0004-acesso-direto-da-equipe-ao-banco.md`.
+> Decisões de arquitetura referenciadas aqui: ADRs 0001 a 0008, em
+> `docs/arquitetura/adr/` (stack do backend, matrícula/apelido extraídos do
+> e-mail, leitor de PDF como módulo do backend, acesso direto da equipe ao
+> banco, filtros no backend, alerta do leitor por e-mail, sessão por cookie
+> HttpOnly e matrícula/SIAPE em texto claro).
+>
+> **Release 1 × Release 2.** Os diagramas descrevem a arquitetura-alvo da
+> **Release 2** (25/11/2026). O protótipo da **Release 1** (28/09/2026) é só o
+> container **PWA (Frontend)**: um backend simulado, dentro do próprio
+> frontend, faz o papel da Backend API sobre dados fixos, e não há Banco de
+> Dados, Site do RU nem Serviço de E-mail em uso.
 >
 > A arquitetura (elementos, relações e decisões) é a mesma das versões
 > anteriores deste documento. O que muda aqui é a técnica de desenho: em vez
@@ -199,11 +206,15 @@ fora da API (ADR 0004) [SQL/DB direto]"| db
   dentro do Backend, com fronteira nítida, conforme ADR 0003. Só seria
   promovido a container separado se a melhor biblioteca de leitura de PDF
   exigisse outra linguagem — o que ainda depende de um teste com o PDF real
-  do RU do Gama.
+  do RU do Gama (spike SP-01 do backlog).
 - **O cron do sistema operacional que dispara a leitura do cardápio não
   aparece como elemento no diagrama.** É infraestrutura de deploy, não um
   container da aplicação (ADR 0003).
 - **Serviço de E-mail com tecnologia em aberto.** O protocolo (SMTP) é uma
-  suposição de trabalho; o provedor concreto ainda não foi escolhido pela
-  equipe. Atualizar este diagrama e a ADR correspondente quando essa decisão
-  for tomada.
+  suposição de trabalho; o provedor concreto será escolhido no spike SP-03 do
+  backlog. Atualizar este diagrama e a ADR 0006 quando essa decisão for
+  tomada.
+- **PWA e Backend API no mesmo domínio.** A sessão autenticada usa cookie
+  HttpOnly (ADR 0007), o que exige servir o PWA e a API sob o mesmo domínio
+  (ex.: `/` e `/api/`). É um requisito para a escolha da hospedagem (spike
+  SP-02 do backlog), ainda não definida.

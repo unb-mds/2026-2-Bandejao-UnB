@@ -3,16 +3,18 @@
 > Detalha, em diagrama de classes, o componente **Fila**, desenhado no
 > Nível 3 do backend (ver `c4-nivel-3-backend.md`). Cobre o Épico Fila e
 > Previsão de Pico: check-in no RU (RF11), confirmação por GPS (RF12),
-> previsão de pico por faixa de horário (RF13) e, como item de Backlog,
-> nível de fila "agora" (RF14).
+> previsão de pico por faixa de horário (RF13) e nível de fila "agora"
+> (RF14).
 >
-> Todo o épico é **Release 2 / Backlog**: nada aqui faz parte do MVP. O
-> diagrama existe para que a decomposição já esteja pensada quando a
-> Release 2 começar.
+> Todo o épico entra na **Release 2**, inclusive o nível agora (RF14), cuja
+> janela e limiares serão definidos no spike SP-05 do backlog. O check-in
+> precisa estar em produção até 03/11/2026 (marco MC-01), para que a
+> previsão tenha dados na apresentação de 25/11.
 >
 > Como nos outros Níveis 4, este componente só **lê** models de outros
-> componentes (`Conta`, do Cadastro/Autenticação) por chave estrangeira, sem
-> chamada entre componentes (ver nota do Nível 3).
+> componentes (`Usuario`, do Cadastro/Autenticação, e `Refeicao`, do
+> Cardápio) por chave estrangeira ou consulta, sem chamada entre componentes
+> (ver nota do Nível 3).
 
 ## Nível 4 — Diagrama de Classes da Fila
 
@@ -25,15 +27,24 @@ classDiagram
     +get(campus: Campus, tipoRefeicao: str, data: date) Response
   }
   class NivelAgoraView {
-    <<backlog>>
+    <<R2 - SP-05>>
     +get(campus: Campus, tipoRefeicao: str) Response
   }
 
   class CheckinService {
-    +registrar(conta: Conta, campus: Campus, tipoRefeicao: str, coordenadas: Coordenadas, agora: datetime) Checkin
+    +registrar(usuario: Usuario, campus: Campus, tipoRefeicao: str, coordenadas: Coordenadas, agora: datetime) Checkin
   }
   class JanelaCheckinValidator {
     +dentroDoHorario(tipoRefeicao: str, agora: datetime) bool
+  }
+  class RefeicaoServidaValidator {
+    +servida(campus: Campus, tipoRefeicao: str, data: date) bool
+  }
+  class RefeicaoNaoServidaError
+  class RefeicaoRepository {
+    <<App Cardápio, só leitura>>
+    +existeCardapioPublicado(campus: Campus, data: date) bool
+    +refeicoesDoDia(campus: Campus, data: date) list
   }
   class ConfirmacaoLocalizacaoService {
     +confirmar(campus: Campus, coordenadas: Coordenadas) bool
@@ -51,22 +62,22 @@ classDiagram
   class LocalizacaoNaoConfirmadaError
 
   class CheckinRepository {
-    +existeCheckin(conta: Conta, campus: Campus, tipoRefeicao: str, data: date) bool
+    +existeCheckin(usuario: Usuario, campus: Campus, tipoRefeicao: str, data: date) bool
     +salvarCheckin(checkin: Checkin) Checkin
     +registrarTentativa(tentativa: TentativaCheckin) void
     +contarPorFaixa(campus: Campus, tipoRefeicao: str, datas: list~date~, faixas: list~FaixaHorario~) list~ContagemDia~
   }
   class Checkin {
-    +id: UUID
-    +contaId: UUID
+    +id: int
+    +usuarioId: int
     +campus: Campus
     +tipoRefeicao: str
     +data: date
     +registradoEm: datetime
   }
   class TentativaCheckin {
-    +id: UUID
-    +contaId: UUID
+    +id: int
+    +usuarioId: int
     +campus: Campus
     +tipoRefeicao: str
     +dataHora: datetime
@@ -131,7 +142,7 @@ classDiagram
   }
 
   class NivelAgoraService {
-    <<backlog>>
+    <<R2 - SP-05>>
     +calcular(campus: Campus, tipoRefeicao: str, agora: datetime) NivelFila
   }
 
@@ -154,8 +165,8 @@ classDiagram
     +cortes: tuple = 25, 50, 75
   }
 
-  class Conta {
-    +id: UUID
+  class Usuario {
+    +id: int
   }
 
   CheckinView --> CheckinService : registrar()
@@ -165,14 +176,17 @@ classDiagram
   CheckinService --> JanelaCheckinValidator : 1. valida horário
   JanelaCheckinValidator ..> CheckinForaDoHorarioError : lança se fora da refeição
   JanelaCheckinValidator --> HorariosRefeicaoConfig : lê
-  CheckinService --> CheckinRepository : 2. verifica duplicidade
+  CheckinService --> RefeicaoServidaValidator : 2. refeição é servida?
+  RefeicaoServidaValidator --> RefeicaoRepository : lê, se houver cardápio publicado
+  RefeicaoServidaValidator ..> RefeicaoNaoServidaError : lança se o cardápio publicado não lista a refeição
+  CheckinService --> CheckinRepository : 3. verifica duplicidade
   CheckinRepository ..> CheckinDuplicadoError : lança se já existe (RI03)
-  CheckinService --> ConfirmacaoLocalizacaoService : 3. confirma localização
+  CheckinService --> ConfirmacaoLocalizacaoService : 4. confirma localização
   ConfirmacaoLocalizacaoService --> DistanciaGeografica : calcula distância ao RU
   ConfirmacaoLocalizacaoService --> LocalizacaoRUConfig : lê centro e raio
   ConfirmacaoLocalizacaoService ..> LocalizacaoNaoConfirmadaError : lança se fora do raio
   ConfirmacaoLocalizacaoService ..> Coordenadas : usa e descarta
-  CheckinService --> CheckinRepository : 4. registra tentativa / salva check-in
+  CheckinService --> CheckinRepository : 5. registra tentativa / salva check-in
   CheckinService --> Checkin : cria, se confirmado
 
   CheckinRepository ..> Checkin : grava/lê
@@ -201,8 +215,8 @@ classDiagram
   NivelAgoraService --> CheckinRepository : lê check-ins recentes
   NivelAgoraService --> NivelFila : produz
 
-  Checkin --> Conta : pertence a (FK)
-  TentativaCheckin --> Conta : pertence a (FK)
+  Checkin --> Usuario : pertence a (FK)
+  TentativaCheckin --> Usuario : pertence a (FK)
 ```
 
 ### Notas do diagrama
@@ -214,14 +228,11 @@ classDiagram
   implementação, isso vale também para o log de acesso do servidor: o corpo
   da requisição de check-in não deve ser gravado.
 - **A ordem das validações do `CheckinService` é deliberada**: horário,
-  depois duplicidade, depois localização — do mais barato ao mais caro, e de
-  modo que uma tentativa que já seria rejeitada por outro motivo não
-  dependa do GPS. Como a conferência de localização é o passo que o RF12
-  descreve como "cada tentativa registra usuário, campus, refeição, data/hora
-  e resultado", desenhei `TentativaCheckin` como gravada a partir dessa
-  etapa (confirmada ou rejeitada). **Ponto para alinhar:** o texto do RF12
-  não deixa claro se tentativas rejeitadas por horário ou por duplicidade
-  também devem gerar `TentativaCheckin`; na leitura literal, não.
+  refeição servida, duplicidade e, por último, localização — do mais barato
+  ao mais caro, e de modo que uma tentativa que já seria rejeitada por outro
+  motivo não dependa do GPS. **Decidido (RF12):** só a tentativa que chega à
+  conferência de localização gera `TentativaCheckin` (confirmada ou
+  rejeitada); as recusadas antes dessa etapa não são registradas.
 - **`CheckinDuplicadoError` também é a resposta a uma corrida.** Além da
   verificação prévia em `existeCheckin`, o banco deve ter restrição de
   unicidade em (conta, campus, tipo de refeição, data): um duplo toque no
@@ -233,10 +244,11 @@ classDiagram
 - **`Checkin` guarda campus + tipo de refeição + data, e não uma FK para
   `Refeicao` (Cardápio).** Assim, o check-in e a previsão continuam
   funcionando mesmo que a leitura do PDF do cardápio falhe naquela semana.
-  **Ponto para alinhar:** o Anexo A diz que "os dias e as refeições
-  servidos vêm do PDF"; se a equipe quiser recusar check-in em refeição que
-  o PDF não lista para aquele dia, o `JanelaCheckinValidator` passa a
-  consultar `Refeicao` e a fila fica dependente da leitura do cardápio.
+  **Decidido (RF11):** quando existe cardápio publicado para a semana e
+  ele não lista a refeição naquele dia, o check-in é recusado
+  (`RefeicaoServidaValidator`, que só lê `Refeicao`); quando o cardápio não
+  foi publicado ou a leitura falhou, o check-in é aceito normalmente. Assim a
+  fila não depende do leitor quando ele quebra.
 - **A previsão (RF13) é calculada sob demanda, em seis passos separados**,
   cada um com regra própria e testável sem PDF nem interface: janela de 4
   semanas no mesmo dia da semana, faixas de 15 minutos, suficiência de dados
@@ -245,20 +257,17 @@ classDiagram
   `HorariosRefeicaoConfig` (Anexo A), não de constantes espalhadas.
   `HorariosRefeicaoConfig` é a mesma configuração já lida por Exposição do
   Cardápio e Avaliação.
-- **Interpretação a confirmar em `MediaPorFaixaCalculator`:** o RF13 manda
-  calcular a média "considerando apenas os dias com dados". Adotei "dia com
-  dados" = dia da janela com pelo menos um check-in naquela refeição e
-  campus; nesses dias, uma faixa sem check-in entra na média como zero. A
-  alternativa (excluir o dia só daquela faixa quando ela está vazia) daria
-  médias maiores e mais instáveis. Vale confirmar com quem escreveu o
-  requisito.
-- **Detalhes de cálculo que o requisito não fixa:** a suficiência de dados é
-  verificada antes de qualquer média, o que garante que a "faixa mais cheia"
-  tem média maior que zero e evita divisão por zero no classificador; em
-  caso de empate entre faixas mais cheias, proponho destacar todas como pico
-  (`ehPico = true`); e o agrupamento em faixas de 15 minutos deve usar o
-  horário local (America/Sao_Paulo), não UTC, senão as faixas ficam
-  deslocadas em relação aos horários das refeições.
+- **"Dia com dados" em `MediaPorFaixaCalculator` (decidido, RF13):** dia da
+  janela com pelo menos um check-in naquela refeição e campus; nesses dias,
+  uma faixa sem check-in entra na média como zero. A alternativa (excluir o
+  dia só daquela faixa quando ela está vazia) daria médias maiores e mais
+  instáveis.
+- **Detalhes de cálculo:** a suficiência de dados é verificada antes de
+  qualquer média, o que garante que a "faixa mais cheia" tem média maior que
+  zero e evita divisão por zero no classificador; em caso de empate entre
+  faixas mais cheias, todas são destacadas como pico (`ehPico = true`, RF13);
+  e o agrupamento em faixas de 15 minutos usa o horário local
+  (America/Sao_Paulo, Anexo A), não UTC.
 - **Os níveis são relativos à faixa mais cheia, por definição do RF13.**
   Com pouca adesão (L08), a faixa de pico é "longa" mesmo que a média
   absoluta seja de poucos check-ins; a única proteção é a regra de "dados
@@ -267,15 +276,16 @@ classDiagram
 - **`PrevisaoView` é pública (sem login) e devolve só agregados** — nenhuma
   informação de conta ou de check-in individual sai desse endpoint. Já
   `CheckinView` exige autenticação (RI01).
-- **`NivelAgoraService` (RF14) está marcado como Backlog e fica
-  deliberadamente incompleto**: o requisito diz que janela de check-ins e
-  limiares serão definidos quando o item for priorizado. Por isso ele não
+- **`NivelAgoraService` (RF14) entra na Release 2, mas fica deliberadamente
+  incompleto até o spike SP-05 do backlog**, que define a janela de
+  check-ins e os limiares com base nos check-ins reais. Por isso ele não
   depende de `ClassificadorNivelFila`; se os limiares finais seguirem a
   mesma lógica relativa do RF13, a classe pode ser reaproveitada.
 - **Config de localização:** `LocalizacaoRUConfig` guarda centro e raio por
   RU. O Anexo A exige que o raio do Darcy Ribeiro exclua o Restaurante
   Executivo (RI08); isso só pode ser validado com as coordenadas reais dos
-  dois locais, e vale registrar o valor escolhido junto com essa justificativa.
+  dois locais (spike SP-04 do backlog), e vale registrar o valor escolhido
+  junto com essa justificativa.
 - Este diagrama é uma **proposta de decomposição inicial**, não uma decisão
   de arquitetura registrada — ajuste-o se a dupla responsável encontrar um
   desenho diferente ao implementar.
