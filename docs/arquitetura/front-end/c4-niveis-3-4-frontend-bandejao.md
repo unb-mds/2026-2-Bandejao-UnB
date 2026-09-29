@@ -9,14 +9,32 @@
 > e-mail) usam `sequenceDiagram`, que é o tipo do Mermaid feito para isso e não
 > cruza linhas por design.
 >
-> **Estado atual do código (`frontend/src`, branch `develop`):** existem apenas
-> as *Views* e o *Router* (cada view é um placeholder com `TODO: implementar`).
-> Não há ainda pasta `components/`, `stores/` nem `services/`, e o Pinia não está
-> no `package.json`. Este documento formaliza a decisão de arquitetura interna
-> — componentes, roteamento, estado e comunicação com a API — para orientar a
-> implementação das próximas sprints; não é uma engenharia reversa de código já
-> escrito. Onde uma decisão ainda depende de confirmação da dupla de frontend,
-> isso é sinalizado explicitamente.
+> **Estado atual do código (`frontend/src`, branch `develop`, Release 1 —
+> 28/09/2026):** o protótipo segue esta arquitetura. Existem as Views, o
+> Router, os componentes (`FiltroCardapio`, `AvaliacaoWidget` e outros), as
+> stores Pinia `auth`, `preferencias`, `cardapio` e `avaliacoes` e o
+> `apiClient` único. Como ainda não há backend real, o `apiClient` conversa
+> com um **backend simulado** (`src/services/mock/`), que aplica as regras de
+> negócio sobre dados fixos; com `VITE_USE_MOCK=false`, ele passa a chamar a
+> API real. Há manifest e service worker do PWA.
+>
+> **Diferenças conhecidas da Release 1**, a resolver na Release 2 (tarefa
+> TT-05 do backlog):
+> - a sessão usa um token em memória, enviado no cabeçalho `Authorization`;
+>   na Release 2 passa a ser o cookie HttpOnly da ADR 0007;
+> - os filtros de marcador e de dieta rodam no navegador
+>   (`src/utils/cardapio.js`); na Release 2 passam para o backend (ADR 0005);
+> - o filtro de marcadores **oculta** o prato com marcador evitado e avisa o
+>   que está oculto; o RF08 define que o prato fique visível e sinalizado, e
+>   o comportamento final é decidido pela equipe na Release 2;
+> - o login e a recuperação de senha simulados usam o e-mail institucional;
+>   o RF03 e o RF04 definem matrícula/SIAPE;
+> - o cardápio simulado é pedido em `GET /cardapio/{campus}/` (semana
+>   inteira); o contrato da Release 2 é `GET /api/cardapio/` com parâmetros
+>   de consulta (ADR 0005);
+> - o reenvio do link de confirmação simulado pede o e-mail; o RF02 define
+>   que ele é pedido pela matrícula/SIAPE;
+> - não há `filaStore` (a tela de fila mostra só "em breve").
 >
 > **Nível 4 é seletivo, por design.** Só entram aqui os fluxos complexos o
 > bastante para justificar o detalhamento de código (ver critério no início da
@@ -104,10 +122,12 @@ por GPS (RF11)."]
 
 ### Notas
 
-- **`AvaliacaoWidget` fica dentro de `CardapioView`, não em rota própria**,
-  porque o RF15 exige que a avaliação apareça junto ao cardápio da refeição.
-  A rota `/avaliacoes` (já existente no código) é reservada para o histórico
-  de semanas anteriores (RF16, Release 2).
+- **A avaliação aparece junto ao cardápio da refeição (RF15).** No
+  protótipo da Release 1, a rota `/avaliacoes` (`AvaliacoesView`) é a tela
+  de avaliações **da refeição selecionada no cardápio** (nota média,
+  comentários e formulário, com `AvaliacaoWidget`). O histórico de semanas
+  anteriores (RF16, Release 2) ganha rota própria (proposta: `/historico`),
+  para não misturar as duas telas.
 - **`HomeView` e `NotFoundView`** existem no código, mas ficam de fora do
   diagrama por não agregarem componentes próprios — são apenas destino de
   rota (ver nota do C4 skill: "só criar o que agrega valor").
@@ -138,20 +158,21 @@ flowchart TB
       authViews["🖼️ Views de Autenticação"]
     end
 
-    subgraph stores["Estado — Pinia (proposto)"]
+    subgraph stores["Estado — Pinia"]
       direction LR
       authStore["📦 authStore
-Sessão em memória."]
+Apelido e tipo do usuário logado."]
       preferenciasStore["📦 preferenciasStore
-Campus, dia, refeição, filtros."]
+Campus e filtros (lembrados);
+dia e refeição (só na sessão)."]
       dadosStore["📦 cardapioStore /
-avaliacoesStore / filaStore
+avaliacoesStore / filaStore (R2)
 Cache dos dados da API."]
     end
 
     apiClient["🔌 apiClient
-Monta requisições HTTPS, injeta
-token, trata erros (RNF04)."]
+Monta requisições HTTPS, envia a
+sessão, trata erros (RNF04)."]
   end
 
   geo{{"🌐 Geolocation API"}}
@@ -208,16 +229,18 @@ token, trata erros (RNF04)."]
   persistência local do aparelho, não uma chamada de rede, por isso é
   visualmente distinta das setas cheias que representam o fluxo principal
   até o backend.
-- **`authStore` não persiste em `localStorage`.** O token de sessão fica em
-  memória; ao recarregar a página, o usuário perde a sessão até
-  implementarmos um mecanismo de renovação — decisão deliberadamente simples
-  para o MVP, a revisitar se a equipe priorizar "lembrar login".
+- **`authStore` não guarda credencial.** Na Release 2, a sessão fica em um
+  cookie HttpOnly controlado pelo servidor (ADR 0007): sobrevive a recargas e
+  à reabertura do PWA, e nenhum script da página consegue lê-la. O
+  `authStore` guarda só o apelido e o tipo do usuário, obtidos em
+  `GET /api/sessao/` ao abrir o app. No protótipo da Release 1, a sessão
+  simulada usa um token em memória (perdido ao recarregar), que será
+  substituído.
 - **Backend API aparece em retângulo de barras duplas, sem decompor** — já
   foi decomposto no Nível 2; aqui é só o destino das chamadas do
   `apiClient`.
-- **Pinia ainda não está no `package.json`.** É a biblioteca de estado
-  proposta neste documento (ver seção seguinte); a dupla de frontend precisa
-  confirmar a adoção antes de criar as stores.
+- **Pinia foi adotado na Release 1** (está no `package.json`). A
+  `filaStore` será criada na Release 2, junto com o check-in.
 
 ---
 
@@ -253,17 +276,17 @@ que falta:
 
 ## Estratégia de gerenciamento de estado
 
-**Proposta: Pinia**, a biblioteca de estado oficial do ecossistema Vue 3
-(ainda não adicionada ao projeto). Divisão em stores por responsabilidade,
+**Pinia**, a biblioteca de estado oficial do ecossistema Vue 3, adotada na
+Release 1. Divisão em stores por responsabilidade,
 espelhando a separação por app do backend (RNF06):
 
 | Store | Responsabilidade | Persistência |
 |---|---|---|
-| `authStore` | Sessão do usuário autenticado (token, apelido, tipo de usuário) | Em memória; perdida ao recarregar (ver nota acima) |
-| `preferenciasStore` | Campus, dia e refeição selecionados; filtros de marcador e dieta ativos | `localStorage` (RF07, RF08, RF09) |
+| `authStore` | Apelido e tipo do usuário autenticado | A sessão fica em cookie HttpOnly do servidor e sobrevive a recargas (ADR 0007). Na Release 1, token simulado em memória |
+| `preferenciasStore` | Campus e filtros de marcador e dieta (lembrados); dia e refeição selecionados (só na sessão de navegação) | Campus e filtros em `localStorage` (RF07, RF08, RF09, RNF03); dia e refeição em memória, porque a refeição exibida segue a regra do RF07 |
 | `cardapioStore` | Cache do cardápio já lido da API, por campus/semana | Em memória, por sessão de navegação |
 | `avaliacoesStore` | Avaliações da refeição em exibição; envio/edição da avaliação do usuário | Em memória |
-| `filaStore` | Previsão de pico e resultado do check-in mais recente | Em memória; nunca guarda coordenadas (RI09) |
+| `filaStore` (Release 2) | Previsão de pico e resultado do check-in mais recente | Em memória; nunca guarda coordenadas (RI09) |
 
 Critério de decisão: **o que precisa sobreviver a um recarregamento de
 página vira `localStorage`; o resto fica em memória.** Isso restringe a
@@ -292,7 +315,7 @@ sequenceDiagram
     CS-->>CV: retorna dados em cache
   else sem cache
     CS->>AC: solicita dados
-    AC->>BE: GET /api/cardapio/{campus}/{semana}/ [HTTPS]
+    AC->>BE: GET /api/cardapio/?campus=…&semana=…&dia=…&refeicao=… [HTTPS]
     BE-->>AC: 200 OK (JSON do cardápio)
     AC-->>CS: repassa resposta
     CS-->>CS: atualiza cache
@@ -301,9 +324,9 @@ sequenceDiagram
   CV-->>V: renderiza o cardápio
 ```
 
-O `apiClient` é o único ponto que conhece a URL base da API, injeta o
-cabeçalho de autenticação quando há sessão (`authStore`), e trata erros de
-forma centralizada (rede indisponível, 401 → sessão expirada, 4xx →
+O `apiClient` é o único ponto que conhece a URL base da API, envia o cookie
+de sessão e o token CSRF nas requisições que alteram dados (ADR 0007), e
+trata erros de forma centralizada (rede indisponível, 401 → sessão expirada, 4xx →
 mensagem específica do backend) — nunca a View trata `fetch` diretamente.
 Esse mesmo padrão vale para escrita (avaliação, check-in, cadastro),
 variando apenas o verbo HTTP e a store de origem.
@@ -355,7 +378,7 @@ sequenceDiagram
       AC-->>FS: repassa resultado
       FS-->>CB: descarta coordenadas da memória (RI09)
       CB-->>U: exibe confirmação
-    else fora do raio, fora do horário ou já fez check-in hoje
+    else fora do raio, fora do horário, refeição não servida ou já fez check-in hoje
       BE-->>AC: 422 rejeitado + motivo
       AC-->>FS: repassa resultado
       FS-->>CB: descarta coordenadas da memória (RI09)
@@ -414,11 +437,16 @@ sequenceDiagram
     AC-->>AS: repassa resultado
     AS-->>CV: pede apelido manual
     CV-->>V: solicita apelido alternativo e reenvia
-  else matrícula/SIAPE ou e-mail já em uso, ou formato inválido
+  else matrícula/SIAPE ou e-mail já em uso
+    BE-->>AC: 409 já cadastrado
+    AC-->>AS: repassa resultado
+    AS-->>CV: erro de duplicidade
+    CV-->>V: "matrícula/SIAPE ou e-mail já cadastrado" + canal de contato (RF01)
+  else formato inválido
     BE-->>AC: 422 rejeitado + motivo específico
     AC-->>AS: repassa resultado
-    AS-->>CV: erro específico
-    CV-->>V: exibe a mensagem de erro (sem indicar qual campo já existe na base, RI01)
+    AS-->>CV: erro de formato
+    CV-->>V: exibe a mensagem do campo com formato inválido
   end
 ```
 
@@ -435,7 +463,7 @@ sequenceDiagram
 
   V->>CE: Abre o link do e-mail (token na query string)
   CE->>AC: confirmarEmail(token) [ao montar a tela]
-  AC->>BE: POST /api/confirmar-email/{token}/ [HTTPS]
+  AC->>BE: POST /api/confirmar-email/ (token no corpo) [HTTPS]
   alt token válido, dentro de 24h, ainda não usado
     BE-->>AC: 200 confirmado
     AC-->>CE: sucesso
@@ -445,9 +473,9 @@ sequenceDiagram
     AC-->>CE: erro
     CE-->>V: "link expirado ou inválido" + botão reenviar
     V->>CE: Pede reenvio
-    CE->>AC: reenviarConfirmacao()
+    CE->>AC: reenviarConfirmacao(matrícula/SIAPE)
     AC->>BE: POST /api/reenviar-confirmacao/ [HTTPS]
-    BE-->>AC: 200 novo link enviado (prazo de 24h renovado)
+    BE-->>AC: 200 resposta sempre igual (se houver cadastro pendente, novo link e prazo de 24h renovado)
     AC-->>CE: confirma reenvio
     CE-->>V: "novo link enviado, confira seu e-mail"
   end
@@ -469,8 +497,8 @@ sequenceDiagram
   mesma regra. O `CadastroView` só formata o campo (ex. limitar a dígitos
   numéricos) para reduzir erros óbvios antes do envio.
 - **A mensagem de rejeição nunca revela qual campo colidiu com uma conta
-  existente** (RI01, e por analogia à proteção contra enumeração de contas
-  do RF03) — "matrícula ou e-mail já cadastrados", nunca "esta matrícula já
+  existente** (RF01: mensagem combinada, por analogia à proteção contra
+  enumeração de contas do RF03) — "matrícula ou e-mail já cadastrados", nunca "esta matrícula já
   existe" isoladamente, para não confirmar a existência de uma matrícula
   específica a quem não é o dono dela.
 - **A colisão de apelido é o único caso em que o cadastro é reapresentado
@@ -491,15 +519,16 @@ sequenceDiagram
 
 | Componente | Requisitos atendidos | Nível 4? |
 |---|---|---|
-| `CardapioView` | RF05, RF06, RF07 | — |
-| `FiltroCardapio` | RF08, RF09 | — |
+| `CardapioView` | RF05, RF07, RF10, RF18 | — |
+| `FiltroCardapio` | RF08 (na Release 1 oculta o prato e avisa; ver "Diferenças conhecidas"), RF09 | — |
 | `AvaliacaoWidget` | RF15, RI01, RI10 | — |
-| `AvaliacoesView` | RF16 | — |
+| `AvaliacoesView` | RF15 (avaliações da refeição selecionada) | — |
+| Tela de histórico (Release 2, proposta `/historico`) | RF16 | — |
 | `FilaView` / `FilaPrevisao` | RF13, L08 | — |
 | `CheckinBotao` | RF11, RF12, RI03, RI09 | ✅ 4a |
 | `CadastroView` | RF01, RI01, RI07, L01 | ✅ 4b |
 | `ConfirmarEmailView` | RF02 | ✅ 4b |
 | Demais Views de Autenticação (Login, Recuperar/Redefinir senha) | RF03, RF04 | — |
-| `authStore` | RF01, RF02, RF03, RNF04 | — |
+| `authStore` | RF01, RF02, RF03, RNF04, ADR 0007 | — |
 | `preferenciasStore` | RF07, RF08, RF09, RNF03 | — |
 | `apiClient` | RNF01, RNF04 | — |
