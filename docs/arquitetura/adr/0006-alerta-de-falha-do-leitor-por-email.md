@@ -91,7 +91,14 @@ complemento.
 ## Relacionadas
 
 - Requisitos: RF06, RF02, RF04, RNF08, L03, L05.
-- `docs/adr/0003-leitor-pdf-como-modulo-do-backend.md` (módulo do Leitor de
+- `docs/arquitetura/adr/0003-leitor-pdf-como-modulo-do-backend.md` (módulo do Leitor de
   Cardápio e disparo por cron).
-- `docs/adr/0004-acesso-direto-da-equipe-ao-banco.md` (canal passivo de
+- `docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md` (canal passivo de
   consulta que esta decisão complementa).
+
+## Atualização (28/09/2026)
+
+- **Histórico de alertas: decidido.** Além do e-mail, **toda** falha do leitor gera uma linha na tabela `ALERTA_LEITURA_CARDAPIO` (C4 do Banco de Dados), com o campo `resolvido` marcado pela equipe. A tabela `CONTADOR_ALERTA` controla só o limite de e-mails. A consequência "o alerta não deixa histórico próprio além do contador" deixa de valer.
+- **Tipos de falha padronizados** entre o banco e o C4 Nível 4 do Leitor de Cardápio: `legenda_invalida`, `associacao_falhou` e `falha_leitura_pdf`.
+- **Parâmetros:** o limite de 3 avisos por dia e o intervalo de 6 horas passaram a constar do Anexo A do Documento de Requisitos.
+- **Pontos em aberto:** o destinatário do alerta e o provedor de e-mail serão decididos no spike **SP-03** do backlog do produto.
