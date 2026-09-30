@@ -67,6 +67,7 @@ Toda a documentação fica na pasta [`docs/`](docs/) e é publicada automaticame
 | **Gestão do projeto** | [Atas de reunião](docs/atas-reunioes/README.md) · [Reviews de sprint](docs/reviews-sprints/README.md) |
 | **Estudos** | [Resumos semanais da equipe](docs/estudos/) |
 | **Design** | [Double Diamond no Figma](https://www.figma.com/board/acRlPdHQYnCuHXr8dEDaF7/Template-MDS--c%C3%B3pia-limpa---c%C3%B3pia-) (cópia local em [`double-diamond/`](double-diamond/)) |
+| **Protótipo**| [protótipo] (https://pin-round-77758179.figma.site/) |
 
 ### Como o site é publicado
 
