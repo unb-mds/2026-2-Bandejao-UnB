@@ -5,8 +5,13 @@
 > Épico Login por inteiro: cadastro em duas etapas (RF01), confirmação de
 > e-mail (RF02), login (RF03) e recuperação de senha (RF04).
 >
-> Referência: ADR 0002 — *Matrícula e apelido extraídos do e-mail
-> institucional* (`docs/adr/0002-matricula-apelido-extraidos-do-email.md`).
+> Referências: ADR 0002 — *Matrícula e apelido extraídos do e-mail
+> institucional*, ADR 0007 — *Sessão autenticada por cookie HttpOnly* e
+> ADR 0008 — *Matrícula/SIAPE em texto claro* (`docs/arquitetura/adr/`).
+>
+> O componente faz parte da Release 2. No protótipo da Release 1, as telas
+> de cadastro, login e recuperação de senha funcionam sobre um backend
+> simulado dentro do frontend, que reproduz os desfechos descritos aqui.
 
 ## Nível 4 — Diagrama de Classes do Cadastro/Autenticação
 
@@ -26,13 +31,19 @@ classDiagram
     +post(request) Response
   }
   class ConfirmacaoEmailView {
-    +get(token: str) Response
+    +post(request) Response
   }
   class ReenvioConfirmacaoView {
     +post(request) Response
   }
   class LoginView {
     +post(request) Response
+  }
+  class LogoutView {
+    +post(request) Response
+  }
+  class SessaoView {
+    +get(request) Response
   }
   class SolicitarRecuperacaoSenhaView {
     +post(request) Response
@@ -42,7 +53,7 @@ classDiagram
   }
 
   class CadastroService {
-    +registrar(tipoUsuario: TipoUsuario, dados: dict) Conta
+    +registrar(tipoUsuario: TipoUsuario, dados: dict) Usuario
   }
 
   class IdentificadorExtractor {
@@ -89,38 +100,55 @@ classDiagram
     +verificar(senha: str, hash: str) bool
   }
 
-  class ContaRepository {
+  class UsuarioRepository {
     +existeMatriculaOuSiape(identificador: str) bool
     +existeEmail(email: str) bool
-    +buscarPorIdentificador(identificador: str) Conta
-    +salvar(conta: Conta) Conta
-    +excluirPendenteExpirada(conta: Conta) void
+    +buscarPorIdentificador(identificador: str) Usuario
+    +salvar(usuario: Usuario) Usuario
+    +excluirPendenteExpirada(usuario: Usuario) void
   }
   class IdentificadorJaCadastradoError
   class EmailJaCadastradoError
 
-  class Conta {
-    +id: UUID
+  class Usuario {
+    +id: int
     +tipoUsuario: TipoUsuario
-    +identificadorCifrado: str
+    +matriculaSiape: str
     +email: str
     +apelido: str
     +senhaHash: str
-    +confirmada: bool
-    +criadaEm: datetime
+    +status: StatusUsuario
+    +criadoEm: datetime
+  }
+  class StatusUsuario {
+    <<enumeration>>
+    PENDENTE
+    ATIVO
+    SUSPENSO
+    REMOVIDO
   }
 
   class ConfirmacaoEmailService {
-    +enviarLink(conta: Conta) void
+    +enviarLink(usuario: Usuario) void
     +confirmar(token: str) void
-    +reenviar(conta: Conta) void
+    +reenviar(identificador: str) void
   }
-  class TokenConfirmacao {
-    +token: str
-    +contaId: UUID
+  class SolicitacaoReenvioTracker {
+    +podeReenviar(identificador: str) bool
+    -MAX_POR_HORA: int = 3
+  }
+  class Token {
+    +usuarioId: int
+    +tipo: TipoToken
+    +tokenHash: str
     +criadoEm: datetime
     +expiraEm: datetime
-    +usado: bool
+    +usadoEm: datetime
+  }
+  class TipoToken {
+    <<enumeration>>
+    CONFIRMACAO_EMAIL
+    REDEFINICAO_SENHA
   }
   class TokenExpiradoOuInvalidoError
 
@@ -129,7 +157,8 @@ classDiagram
   }
 
   class LoginService {
-    +autenticar(identificador: str, senha: str) Sessao
+    +autenticar(request, identificador: str, senha: str) Usuario
+    +encerrar(request) void
   }
   class TentativaLoginTracker {
     +registrarTentativa(identificador: str, sucesso: bool) void
@@ -138,23 +167,18 @@ classDiagram
     -JANELA: timedelta = 10min
     -BLOQUEIO: timedelta = 10min
   }
-  class ContaNaoConfirmadaError
+  class UsuarioPendenteError
+  class UsuarioInativoError
   class CredenciaisInvalidasError
-  class Sessao {
-    +contaId: UUID
-    +criadaEm: datetime
+  class SessaoDjango {
+    <<django.contrib.sessions>>
+    +usuarioId: int
+    +expiraEm: datetime
   }
 
   class RecuperacaoSenhaService {
     +solicitar(identificador: str) void
     +redefinir(token: str, novaSenha: str) void
-  }
-  class TokenRedefinicaoSenha {
-    +token: str
-    +contaId: UUID
-    +criadoEm: datetime
-    +expiraEm: datetime
-    +usado: bool
   }
   class SolicitacaoRedefinicaoTracker {
     +podeSolicitar(identificador: str) bool
@@ -169,6 +193,8 @@ classDiagram
   ConfirmacaoEmailView --> ConfirmacaoEmailService : confirmar()
   ReenvioConfirmacaoView --> ConfirmacaoEmailService : reenviar()
   LoginView --> LoginService : autenticar()
+  LogoutView --> LoginService : encerrar()
+  SessaoView ..> SessaoDjango : lê apelido e tipo do usuário logado
   SolicitarRecuperacaoSenhaView --> RecuperacaoSenhaService : solicitar()
   RedefinirSenhaView --> RecuperacaoSenhaService : redefinir()
 
@@ -184,33 +210,37 @@ classDiagram
   ApelidoResolver ..> ApelidoIndisponivelError : lança se indisponível
   CadastroService --> SenhaValidator : valida senha
   SenhaValidator --> PasswordHasher : gera hash
-  CadastroService --> ContaRepository : verifica duplicidade / salva
-  ContaRepository ..> IdentificadorJaCadastradoError : lança se já em uso
-  ContaRepository ..> EmailJaCadastradoError : lança se já em uso
-  CadastroService --> Conta : cria (pendente)
+  CadastroService --> UsuarioRepository : verifica duplicidade / salva
+  UsuarioRepository ..> IdentificadorJaCadastradoError : lança se já em uso
+  UsuarioRepository ..> EmailJaCadastradoError : lança se já em uso
+  CadastroService --> Usuario : cria (pendente)
   CadastroService --> ConfirmacaoEmailService : dispara envio de link
 
-  ConfirmacaoEmailService --> TokenConfirmacao : gera/consome
+  ConfirmacaoEmailService --> Token : gera/consome (CONFIRMACAO_EMAIL)
+  ConfirmacaoEmailService --> SolicitacaoReenvioTracker : limita reenvios a 3/hora
   ConfirmacaoEmailService ..> TokenExpiradoOuInvalidoError : lança se inválido/expirado
-  ConfirmacaoEmailService --> ContaRepository : marca confirmada
+  ConfirmacaoEmailService --> UsuarioRepository : marca confirmada
   ConfirmacaoEmailService ..> EmailSvc : envia link [SMTP]
-  ExclusaoCadastroPendenteJob --> ContaRepository : exclui pendentes expiradas
+  ExclusaoCadastroPendenteJob --> UsuarioRepository : exclui pendentes expiradas
 
   LoginService --> TentativaLoginTracker : verifica bloqueio / registra tentativa
-  LoginService --> ContaRepository : busca conta
+  LoginService --> UsuarioRepository : busca conta
   LoginService --> PasswordHasher : verifica senha
-  LoginService ..> ContaNaoConfirmadaError : lança se conta pendente
+  LoginService ..> UsuarioPendenteError : lança se usuário pendente
+  LoginService ..> UsuarioInativoError : lança se suspenso ou removido (mensagem genérica)
   LoginService ..> CredenciaisInvalidasError : lança em erro (mensagem genérica)
-  LoginService --> Sessao : cria, em sucesso
+  LoginService --> SessaoDjango : cria em sucesso, apaga no logout (cookie HttpOnly, ADR 0007)
 
   RecuperacaoSenhaService --> SolicitacaoRedefinicaoTracker : limita 3/hora
-  RecuperacaoSenhaService --> TokenRedefinicaoSenha : gera/consome
-  RecuperacaoSenhaService --> ContaRepository : busca conta / atualiza senha
+  RecuperacaoSenhaService --> Token : gera/consome (REDEFINICAO_SENHA)
+  RecuperacaoSenhaService --> UsuarioRepository : busca conta / atualiza senha
   RecuperacaoSenhaService --> PasswordHasher : gera hash da nova senha
   RecuperacaoSenhaService ..> EmailSvc : envia link [SMTP]
 
-  ContaRepository ..> Conta : grava/lê
-  Conta --> TipoUsuario : tem
+  UsuarioRepository ..> Usuario : grava/lê
+  Usuario --> TipoUsuario : tem
+  Usuario --> StatusUsuario : tem
+  Token --> TipoToken : tem
 ```
 
 ### Notas do diagrama
@@ -240,31 +270,48 @@ classDiagram
   Métodos separados tornam cada regra testável isoladamente com casos de
   borda próprios, sem depender de montar uma matrícula "válida no resto"
   só para testar uma das três checagens.
-- **`Conta.identificadorCifrado` é armazenado de forma recuperável**, não
-  como hash irreversível — diferente de `senhaHash`. Isso segue a RNF07: a
-  equipe precisa conseguir recuperar a matrícula/SIAPE a partir do apelido
-  para tratar matrícula contestada (L01) e para moderação (RNF08), então não
-  pode ser um hash de mão única como a senha; deve ser criptografia
-  simétrica ou equivalente, com a chave restrita à equipe. Essa distinção —
-  dado recuperável vs. dado irreversível — é proposital e não deve ser
-  "simplificada" para os dois usarem o mesmo mecanismo na implementação.
+- **`Usuario.matriculaSiape` é armazenada em texto claro, de forma
+  recuperável** (ADR 0008), e não como hash irreversível — diferente de
+  `senhaHash`. A equipe precisa recuperar a matrícula/SIAPE a partir do
+  apelido para tratar matrícula contestada (L01) e para moderação (RNF08), e
+  o login precisa buscar o usuário pela matrícula/SIAPE com uma restrição
+  `UNIQUE`, o que a criptografia comum impediria. A proteção vem do acesso
+  restrito ao banco (ADR 0004), de nunca expor o campo em resposta pública
+  (RI10) e de nunca gravá-lo em log. Essa distinção — dado recuperável vs.
+  dado irreversível — é proposital e não deve ser "simplificada" para os
+  dois usarem o mesmo mecanismo na implementação.
+- **Um único `Token`, com `tipo`**, cobre a confirmação de e-mail (24 h) e a
+  redefinição de senha (1 h), como no C4 do Banco de Dados. Só o hash do
+  token é guardado (`tokenHash`); o token em claro existe apenas no link
+  enviado por e-mail (RNF04).
+- **A confirmação de e-mail é um `POST`** disparado pela tela aberta a partir
+  do link, e não um `GET` no próprio link: provedores de e-mail costumam
+  pré-carregar links, e um `GET` que altera estado consumiria o token antes
+  de a pessoa clicar.
+- **A sessão é a do próprio Django, em cookie HttpOnly** (ADR 0007).
+  `LoginService.autenticar` cria a sessão, `encerrar` a apaga (logout), e
+  `SessaoView` informa ao PWA quem está logado (apenas apelido e tipo). A
+  redefinição de senha encerra todas as sessões da conta, e um usuário
+  `SUSPENSO` ou `REMOVIDO` não autentica (`UsuarioInativoError`, com a mesma
+  mensagem genérica de credenciais inválidas).
 - **`ExclusaoCadastroPendenteJob` é um job separado do `CadastroService`**,
   análogo ao `LerCardapioCommand` do Leitor de Cardápio: o RF02 exige que um
   cadastro pendente não confirmado em 24h seja excluído automaticamente,
-  o que é responsabilidade de um processo periódico (cron ou scheduler),
-  não de uma ação disparada por requisição HTTP. Ainda não está definido
-  nos documentos enviados se roda por cron do SO (como o Leitor de
-  Cardápio) ou por outro mecanismo — vale alinhar isso junto com a mesma
-  decisão de infraestrutura do RF06.
-- **`TentativaLoginTracker` e `SolicitacaoRedefinicaoTracker` são duas
-  classes, não uma genérica de "rate limiting"**, porque os parâmetros e a
+  o que é responsabilidade de um processo periódico, não de uma ação
+  disparada por requisição HTTP. Roda no mesmo agendador do Leitor de
+  Cardápio (cron do SO), cuja frequência será definida no spike SP-02 do
+  backlog, junto com a hospedagem.
+- **`TentativaLoginTracker`, `SolicitacaoRedefinicaoTracker` e
+  `SolicitacaoReenvioTracker` são classes separadas, não uma genérica de
+  "rate limiting"**, porque os parâmetros e a
   granularidade são diferentes: bloqueio de login é por identificador, 5
   tentativas em 10 minutos, bloqueio de 10 minutos (RF03); recuperação de
-  senha é por identificador, 3 solicitações por hora (RF04). Também evita
+  senha é por identificador, 3 solicitações por hora (RF04); reenvio do link
+  de confirmação é por identificador, 3 por hora (RF02). Também evita
   que uma implementação genérica demais esconda esses números do Anexo A
   atrás de uma configuração difícil de rastrear até o requisito.
 - **`LoginService` nunca deixa a `LoginView` saber se a matrícula/SIAPE
-  existe** — tanto `ContaNaoConfirmadaError` quanto `CredenciaisInvalidasError`
+  existe** — tanto `UsuarioPendenteError` quanto `CredenciaisInvalidasError`
   viram mensagens específicas de propósito diferente (uma convida a
   confirmar o e-mail; a outra é genérica de propósito, para não permitir
   enumeração de contas, RF03) — mas nenhuma das duas revela existência da

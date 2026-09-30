@@ -6,7 +6,7 @@
 > refeições anteriores (RF16).
 >
 > Este componente **lê, mas não escreve**, em dois models de outros
-> componentes: `Conta` (Cadastro/Autenticação, para obter o apelido do
+> componentes: `Usuario` (Cadastro/Autenticação, para obter o apelido do
 > autor) e `Refeicao`/`Categoria`/`Prato` (Cardápio, para montar o
 > histórico do RF16) — a mesma relação de leitura entre apps que já aparece
 > entre Leitor de Cardápio e Exposição do Cardápio. Nenhuma chamada entre
@@ -21,14 +21,14 @@ classDiagram
     +post(request) Response
   }
   class RefeicaoAvaliacoesView {
-    +get(refeicaoId: UUID) Response
+    +get(refeicaoId: int) Response
   }
   class HistoricoRefeicoesView {
     +get(campus: Campus, data: date, refeicao: str) Response
   }
 
   class AvaliacaoService {
-    +avaliar(conta: Conta, refeicao: Refeicao, nota: int, comentario: str) Avaliacao
+    +avaliar(usuario: Usuario, refeicao: Refeicao, nota: int, comentario: str) Avaliacao
   }
 
   class JanelaAvaliacaoValidator {
@@ -48,20 +48,21 @@ classDiagram
   class ComentarioMuitoLongoError
 
   class AvaliacaoRepository {
-    +buscarPorContaERefeicao(conta: Conta, refeicao: Refeicao) Avaliacao
+    +buscarPorUsuarioERefeicao(usuario: Usuario, refeicao: Refeicao) Avaliacao
     +salvar(avaliacao: Avaliacao) Avaliacao
     +listarPorRefeicao(refeicao: Refeicao) list~Avaliacao~
     +mediaEQuantidade(refeicao: Refeicao) ResumoAvaliacoes
   }
 
   class Avaliacao {
-    +id: UUID
-    +contaId: UUID
-    +refeicaoId: UUID
+    +id: int
+    +usuarioId: int
+    +refeicaoId: int
     +nota: int
     +comentario: str
     +criadaEm: datetime
     +editadaEm: datetime
+    +oculta: bool
   }
   class ResumoAvaliacoes {
     +media: float
@@ -69,7 +70,7 @@ classDiagram
   }
 
   class AvaliacaoPublicaMapper {
-    +paraPublico(avaliacao: Avaliacao, conta: Conta) AvaliacaoPublica
+    +paraPublico(avaliacao: Avaliacao, usuario: Usuario) AvaliacaoPublica
   }
   class AvaliacaoPublica {
     +apelido: str
@@ -91,10 +92,10 @@ classDiagram
     +comentarios: list~AvaliacaoPublica~
   }
 
-  class Conta {
-    +id: UUID
+  class Usuario {
+    +id: int
     +apelido: str
-    +removida: bool
+    +status: str
   }
   class Refeicao {
     +campus: Campus
@@ -122,7 +123,7 @@ classDiagram
   AvaliacaoRepository --> ResumoAvaliacoes : calcula
 
   AvaliacaoPublicaMapper --> AvaliacaoPublica : produz
-  AvaliacaoPublicaMapper ..> Conta : lê apelido (ou "usuário removido")
+  AvaliacaoPublicaMapper ..> Usuario : lê apelido (ou "usuário removido")
 
   HistoricoService --> AvaliacaoRepository : lê avaliações da refeição
   HistoricoService --> AvaliacaoPublicaMapper : converte comentários
@@ -130,7 +131,7 @@ classDiagram
   HistoricoService ..> Refeicao : lê (Épico Cardápio)
   HistoricoService ..> Categoria : lê (Épico Cardápio)
 
-  Avaliacao --> Conta : pertence a (FK)
+  Avaliacao --> Usuario : pertence a (FK)
   Avaliacao --> Refeicao : refere-se a (FK)
   HistoricoRefeicao *-- AvaliacaoPublica
 ```
@@ -156,14 +157,22 @@ classDiagram
   componentes (Matrícula, no Cadastro/Autenticação): são regras
   isoladas — nota obrigatória de 1 a 5, comentário opcional até 500
   caracteres — testáveis sem precisar simular uma refeição completa.
-- **`AvaliacaoPublicaMapper` é o único lugar por onde uma `Conta` vira
+- **`AvaliacaoPublicaMapper` é o único lugar por onde uma `Usuario` vira
   visível para terceiros**, e ele deliberadamente só extrai o apelido —
   nunca a matrícula/SIAPE ou o e-mail (RI10, RNF04). Também é aqui que a
-  exclusão de conta (RNF07) se reflete: se `Conta.removida` for
-  verdadeiro, o mapper devolve "usuário removido" no lugar do apelido, em
+  exclusão de conta (RNF07) se reflete: se `Usuario.status` for `removido`,
+  o mapper devolve "usuário removido" no lugar do apelido, em
   vez de a avaliação sumir — a RNF07 exige que a avaliação em si
   permaneça, só o autor fica anônimo.
-- **`Avaliacao.contaId` nunca é apagado, mesmo com a conta removida** —
+- **Avaliação oculta pela moderação não aparece em lugar nenhum da API
+  pública.** `AvaliacaoRepository.listarPorRefeicao` e `mediaEQuantidade`
+  consideram só avaliações com `oculta = false` (RF15, RNF08); o campo é
+  marcado pela equipe por acesso direto ao banco (ADR 0004). As avaliações
+  de um usuário `suspenso` continuam visíveis, a menos que sejam ocultadas
+  uma a uma.
+- **`Avaliacao.usuarioId` nunca é apagado, mesmo com a conta removida** (a
+  exclusão de conta é feita marcando `Usuario.status = removido`, não com
+  `DELETE`; ver C4 do Banco de Dados) —
   é o vínculo permanente exigido pela RNF08 (rastreabilidade e moderação:
   a equipe precisa conseguir identificar o autor de uma avaliação
   problemática por consulta administrativa manual, o mesmo acesso direto
