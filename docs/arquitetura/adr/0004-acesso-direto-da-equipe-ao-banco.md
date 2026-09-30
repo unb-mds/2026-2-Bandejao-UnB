@@ -50,7 +50,7 @@ caminho principal.
 
 ## Consequências
 
-- Nenhuma tela ou endpoint administrativo precisa ser construído no MVP, o que
+- Nenhuma tela ou endpoint administrativo precisa ser construído no produto (Release 2), o que
   libera tempo para as funcionalidades principais.
 - O acesso ao banco dá visibilidade a dados pessoais, incluindo a matrícula ou
   o SIAPE de todos os usuários. Ele deve ficar restrito a membros nomeados da
@@ -89,7 +89,15 @@ futura da moderação de rotina.
 ## Relacionadas
 
 - Requisitos: RNF07, RNF08, L01, L02.
-- `docs/adr/0001-escolha-stack-backend.md` (bancos de dados usados em
+- `docs/arquitetura/adr/0001-escolha-stack-backend.md` (bancos de dados usados em
   desenvolvimento e produção).
-- `docs/adr/0002-matricula-apelido-extraidos-do-email.md` (origem da matrícula
+- `docs/arquitetura/adr/0002-matricula-apelido-extraidos-do-email.md` (origem da matrícula
   e do apelido rastreados).
+
+## Atualização (28/09/2026)
+
+- Os campos de estado que a API precisa respeitar foram definidos no C4 do Banco de Dados:
+  - **`AVALIACAO.oculta`** (booleano, padrão `false`): avaliação oculta não é retornada pela API pública e não entra na média nem na contagem (RF15);
+  - **`USUARIO.status`** (`pendente`, `ativo`, `suspenso`, `removido`): conta `suspenso` ou `removido` não se autentica, e as sessões abertas deixam de valer (ADR 0007). A exclusão de conta é feita marcando `removido`, e não com `DELETE`, para manter o vínculo de rastreabilidade das avaliações (RNF08).
+- As operações manuais permitidas, quem tem acesso e como executar cada uma ficam em um **roteiro de moderação**, tarefa **TT-07** do backlog do produto.
+- A matrícula/SIAPE é armazenada em texto claro, com acesso restrito a este caminho (ADR 0008).
