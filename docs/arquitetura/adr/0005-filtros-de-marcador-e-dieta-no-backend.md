@@ -77,5 +77,11 @@ centralizadas e testáveis.
 ## Relacionadas
 
 - Requisitos: RF06, RF07, RF08, RF09, RNF06.
-- `docs/adr/0001-escolha-stack-backend.md` (padrão Model → Serializer → View
+- `docs/arquitetura/adr/0001-escolha-stack-backend.md` (padrão Model → Serializer → View
   → URL, no qual os serviços de filtro se apoiam).
+
+## Nota — protótipo da Release 1 (28/09/2026)
+
+Como a Release 1 é um protótipo somente de frontend, sem backend real, os filtros de marcador e de dieta rodam **no navegador** (`frontend/src/utils/cardapio.js`). O código segue a mesma regra desta ADR e do RF08: o prato com marcador evitado **continua visível e é sinalizado** (não é ocultado), e a categoria recebe "sem opção compatível" quando todos os seus pratos são sinalizados.
+
+A decisão desta ADR continua valendo para a **Release 2**: quando o endpoint de cardápio existir, a regra passa a rodar nos serviços do backend e o código de filtro sai do frontend (histórias US-08.1 e US-09.1 e tarefa TT-05 do backlog).
