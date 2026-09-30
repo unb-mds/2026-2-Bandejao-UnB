@@ -86,6 +86,12 @@ de evolução se o teste com o PDF do Gama indicar o contrário.
 ## Relacionadas
 
 - Requisitos: RF06, RNF02, RNF06, L03, L05.
-- `docs/adr/0001-escolha-stack-backend.md` (linguagem e framework do backend).
-- `docs/adr/0006-alerta-de-falha-do-leitor-por-email.md` (aviso à equipe em
+- `docs/arquitetura/adr/0001-escolha-stack-backend.md` (linguagem e framework do backend).
+- `docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md` (aviso à equipe em
   caso de falha de leitura).
+
+## Atualização (28/09/2026)
+
+- As duas pendências desta ADR viraram spikes com prazo no backlog do produto (`docs/requisitos/backlog.md`): a **biblioteca de leitura de PDF**, testada com o PDF real do RU do Gama, é decidida no **SP-01**; a **hospedagem** e a **frequência do cron** (com margem para a meta de 24 horas do RF06) são decididas no **SP-02**. Esta ADR deve ser atualizada com as duas escolhas quando os spikes terminarem.
+- O mesmo agendador do sistema operacional roda também o job de exclusão de cadastros pendentes expirados (RF02) e a limpeza de sessões do Django (ADR 0007).
+- O Leitor de Cardápio faz parte da Release 2. No protótipo da Release 1, o cardápio é simulado dentro do frontend.
