@@ -42,6 +42,10 @@ Restaurante do Campus Darcy Ribeiro. Fora do escopo do Bandejão.
 **Campus**
 Unidade da UnB com RU: Darcy Ribeiro, Ceilândia, Gama, Planaltina e Fazenda Água Limpa.
 
+**Campus detectado**
+Campus em que o dispositivo do usuário ou visitante se encontra, identificado pela localização no início de uma sessão de uso. Não é o mesmo que estar no RU: basta estar dentro da área do campus.
+_Evitar:_ confundir com a confirmação de localização do Check-in, que exige estar nas imediações do RU.
+
 ## Cardápio
 
 **Refeição**
@@ -68,7 +72,7 @@ Nota de 1 a 5 estrelas dada por um usuário a uma refeição, com comentário op
 ## Fila
 
 **Check-in**
-Registro de presença do usuário no RU de um campus durante uma refeição. É a única fonte de dados da fila: não há votação nem sensores.
+Registro de presença do usuário no RU de um campus durante uma refeição. Junto com a Saída da fila, é a fonte de dados da fila: ela é estimada exclusivamente a partir do que os próprios usuários informam sobre a sua presença e a sua saída da fila. Não há votação sobre o nível da fila nem sensores.
 
 **Nível de fila**
 Classificação em quatro níveis: vazia, curta, moderada e longa. Aplica-se tanto à Previsão de pico quanto ao Nível agora.
@@ -78,3 +82,19 @@ Níveis de fila esperados em cada faixa de horário de uma refeição, calculado
 
 **Nível agora**
 Nível de fila atual da refeição em andamento, calculado a partir dos check-ins recentes.
+
+**Saída da fila**
+Momento em que o usuário, depois de um Check-in, deixa a fila e começa a comer, informado por ele mesmo ao responder a pergunta de saída da fila. É, junto com a Desistência, o único desfecho posterior ao Check-in registrado pelo sistema: o fim da refeição não é registrado.
+_Evitar:_ "fim da refeição" ou "terminou de comer" para este evento.
+
+**Tempo de espera**
+Intervalo entre o Check-in e a Saída da fila de um mesmo usuário em uma refeição. Só existe para check-ins que tiveram Saída da fila informada.
+
+**Desistência**
+Resposta do usuário à Pergunta de saída da fila informando que desistiu de comer no RU depois de ter feito o Check-in. Não gera Saída da fila nem Tempo de espera.
+
+**Pergunta de saída da fila**
+Pergunta feita ao usuário, algum tempo depois do Check-in, sobre se ele já saiu da fila e começou a comer. Sua resposta é a fonte da Saída da fila.
+
+**Espera estimada**
+Estimativa, em minutos, do Tempo de espera em uma faixa de horário de uma refeição, calculada a partir do histórico de Tempos de espera. Acompanha a Previsão de pico quando há dados suficientes; não substitui o Nível de fila.
