@@ -283,7 +283,8 @@ A alocação de cada recurso é indicada abaixo (MVP, Release 2 ou Backlog); imp
 
 ### Épico 1 — Login
 
-- **5.1** Cadastro em duas etapas — escolha do tipo de usuário (Estudante, Professor ou Servidor) e, em seguida, os campos daquele tipo — com validação de formato de matrícula (estudantes, extraída do e-mail institucional) ou SIAPE/matrícula funcional (professores e servidores), apelido manual (estudantes) ou extraído do e-mail institucional (professores e servidores), confirmação de e-mail e login; inclui aviso de privacidade (RF01 a RF03) — MVP
+- **5.1** Cadastro em duas etapas — escolha do tipo de usuário (Estudante, Professor ou Servidor) e, em seguida, os campos daquele tipo — com validação de formato de matrícula (estudantes, extraída do e-mail institucional) ou SIAPE/matrícula funcional (professores e servidores), apelido manual (estudantes) ou extraído do e-mail institucional (professores e servidores), confirmação de e-mail e login; inclui aviso de privacidade (RF01 a RF03, exceto RF03.3 e RF03.4) — MVP
+- **5.1.1** Encerramento de sessão (sair da conta) (RF03.3) — Release 2
 - **5.2** Recuperação de senha por e-mail (RF04) — MVP
 - **5.3** Navegação sem login: consulta ao cardápio sem necessidade de cadastro (RF05) — MVP
 
@@ -297,7 +298,7 @@ A alocação de cada recurso é indicada abaixo (MVP, Release 2 ou Backlog); imp
 - **5.8** Ícones de indicação de marcadores nos pratos (ex.: cogumelo, leite e derivados, mel) (RF10) — Backlog; os ícones a usar serão definidos com a equipe de frontend
 
 - **5.16** Aviso e pedido de permissão de localização no primeiro acesso, para visitante e usuário logado (RF19) — Release 2
-- **5.17** Detecção do campus por GPS, feita no aparelho, e tela do campus com cardápio, avaliações, previsão de pico e espera estimada da refeição padrão, com aviso de que os dados são apenas do RU quando o campus é o Darcy Ribeiro (RF20) — Release 2
+- **5.17** Detecção do campus por GPS, feita no aparelho, e tela do campus com cardápio, avaliações, previsão de pico e espera estimada da refeição padrão, com aviso de que os dados são apenas do RU quando o campus é o Darcy Ribeiro (RF20); inclui a abertura da tela do campus logo após o login (RF03.4) — Release 2
 
 ### Épico 3 — Visualização da Fila e Previsão de Pico
 
@@ -367,6 +368,7 @@ O MVP, já entregue, incluiu, além do cadastro/login, da leitura do cardápio e
 | 5.13 Avaliação por estrelas e comentário | MVP | Alta | Alto impacto / Baixo esforço | Matriz |
 | 5.15 Design do site (identidade visual) | MVP | Alta | Alto impacto / Baixo esforço | Matriz |
 | 5.5.1 Exibição da semana seguinte do cardápio | Release 2 | Média | — | Decisão de projeto (correção de escopo: item estava erroneamente descrito como parte do MVP) |
+| 5.1.1 Encerramento de sessão (sair da conta) | Release 2 | Média | — | Decisão de projeto (item novo; sair da conta, sobretudo em aparelho compartilhado) |
 | 5.9 Check-in no RU | Release 2 | Média | Alto impacto / Alto esforço | Matriz |
 | 5.10 Confirmação do check-in por GPS | Release 2 | Média | Alto impacto / Alto esforço (uso do GPS); Baixo impacto / Baixo esforço (confirmação do check-in) | Matriz; decisão de projeto (GPS passa a ser parte obrigatória do check-in) |
 | 5.11 Previsão de pico | Release 2 | Média | Alto impacto / Baixo esforço (versão estática) | Decisão de projeto (a previsão depende do histórico de check-ins; não há versão estática) |

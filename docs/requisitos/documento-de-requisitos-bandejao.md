@@ -19,7 +19,7 @@ Este documento especifica, de forma detalhada e verificável, os requisitos func
 
 O documento cobre a totalidade das funcionalidades do produto, independentemente da release em que estão alocadas — MVP, Release 2 ou Backlog do produto —, permitindo o planejamento e a rastreabilidade completa do sistema desde a primeira entrega até a visão de longo prazo do produto.
 
-O MVP (Release 1) já foi entregue. A Release 2 é a entrega final do projeto na disciplina: além das funcionalidades de fila, ela amplia comportamentos já entregues no MVP (RF03, RF07 e RNF03), conforme indicado em cada requisito. O Backlog reúne o que fica sem release agendada.
+O MVP (Release 1) já foi entregue. A Release 2 é a entrega final do projeto na disciplina: além das funcionalidades de fila, ela acrescenta ao login o encerramento de sessão e a tela do campus (RF03.3 e RF03.4) e amplia comportamentos já entregues no MVP (a escolha do campus e da refeição padrão, nas RN04 e RN05, e o RNF03). O Backlog reúne o que fica sem release agendada.
 
 O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O Restaurante Executivo do Campus Darcy Ribeiro não faz parte do escopo (RI08). Ele funciona no mesmo prédio do RU, com fila e cardápio próprios, e o sistema não trata nenhum dado sobre ele (RI08, L11).
 
@@ -28,14 +28,17 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 | Elemento | Convenção |
 |---|---|
 | ID de requisito funcional | `RF` + dois dígitos sequenciais, únicos em todo o documento (ex.: RF01, RF02, ...) |
-| ID de requisito não funcional | `RNF` + dois dígitos sequenciais (ex.: RNF01, RNF02, ...) |
+| ID de subrequisito | `RFxx.y`: parte verificável de um RF (ex.: RF01.3). Quando há história correspondente no backlog, `RFxx.y` corresponde a `US-xx.y`. O RF que cobre um único comportamento não tem subrequisitos |
+| ID de requisito não funcional | `RNF` + dois dígitos sequenciais (ex.: RNF01, RNF02, ...). O RNF07 tem itens `RNF07.y` |
 | ID de requisito inverso | `RI` + dois dígitos sequenciais (ex.: RI01, RI02, ...) |
+| ID de regra de negócio | `RN` + dois dígitos sequenciais (ex.: RN01, RN02, ...). As regras estão no Anexo B, e os requisitos as citam em vez de repeti-las |
 | ID de limitação ou risco | `L` + dois dígitos sequenciais (ex.: L01, L02, ...) |
-| Release | MVP, Release 2 ou Backlog, conforme a alocação de cada requisito neste documento |
+| Critério de aceite | Escrito em Dado/Quando/Então. Cada subrequisito tem um cenário (no máximo dois); o RF sem subrequisitos tem no máximo três (quatro no RF08). Os cenários citam os valores iniciais do Anexo A; se um valor mudar, o cenário acompanha |
+| Release | MVP, Release 2 ou Backlog, conforme a alocação de cada requisito neste documento. O subrequisito herda a release do RF; quando difere, ela vem indicada no próprio subrequisito (ex.: RF03.3) |
 | Prioridade | Derivada da alocação de release: **Essencial** (MVP), **Importante** (Release 2), **Desejável** (Backlog) |
-| Origem | Épico e necessidade da parte interessada que o requisito atende. Quando o requisito resulta de uma decisão do grupo durante o refinamento do projeto, consta "decisão de projeto" |
+| Origem | Épico e necessidade da parte interessada que o requisito atende. Quando o requisito resulta de uma decisão do grupo durante o refinamento do projeto, consta "decisão de projeto". A origem de cada RF está na Matriz de Rastreabilidade (Seção 6), e não nos blocos de requisito |
 | Parâmetros configuráveis | Valores ajustáveis sem alterar o requisito (horários, raios, limiares) estão no Anexo A |
-| Numeração e posição | Os IDs são únicos e seguem a ordem de criação. Os requisitos acrescentados na Release 2 (RF18 a RF23) aparecem dentro do épico a que pertencem, e não ao fim do documento |
+| Numeração e posição | Os IDs são únicos, seguem a ordem de criação e não mudam. Os requisitos acrescentados na Release 2 (RF18 a RF23) aparecem dentro do épico a que pertencem, e não ao fim do documento |
 
 ### 1.4 Documentos de referência
 
@@ -84,93 +87,98 @@ O backend é em Python, com Django REST Framework (DRF) para construir a API. O 
 
 ## 2. Requisitos Funcionais
 
-Cada requisito funcional é descrito com um identificador único, sua descrição, ao menos um critério de aceite objetivo e testável, a release em que está alocado, a prioridade e a origem (épico e necessidade da parte interessada, ou decisão de projeto).
+Cada requisito funcional tem um identificador único, uma descrição curta, a release e a prioridade. Os critérios de aceite são escritos em Dado/Quando/Então. O RF que cobre mais de um comportamento independente é dividido em subrequisitos (`RFxx.y`), cada um com uma frase e um cenário de aceite. Regras detalhadas estão no Anexo B (RN01 a RN08) e valores ajustáveis, no Anexo A. A origem de cada requisito (épico e necessidade da parte interessada, ou decisão de projeto) está na Matriz de Rastreabilidade (Seção 6).
 
 ### Épico 1 — Login
 
 #### RF01 — Cadastro de usuário
 
-**Descrição:** O sistema deve permitir que uma pessoa da comunidade da UnB crie uma conta em duas etapas. Na primeira, a pessoa escolhe o tipo de usuário: Estudante, Professor ou Servidor (Professor e Servidor levam ao mesmo fluxo e são internamente o mesmo Tipo de usuário — ver glossário). Na segunda, aparecem os campos daquele tipo:
-
-- **Estudante:** apelido, senha e e-mail institucional no formato `matricula@aluno.unb.br`. A matrícula não é digitada separadamente: o sistema a extrai da parte antes do "@" do e-mail informado.
-- **Professor/Servidor:** matrícula funcional/SIAPE, e-mail institucional `@unb.br` e senha. O apelido não é digitado: o sistema o extrai automaticamente do texto antes do "@" do e-mail informado (geralmente no formato nome.sobrenome, mas qualquer texto é aceito).
-
-O sistema confere apenas o formato da matrícula/SIAPE; não verifica se ela existe, se está ativa ou se pertence a quem a informa (ver L01).
-
-**Critério de aceite:**
-- Para Estudante, o sistema aceita matrícula (extraída do e-mail institucional) com exatamente 9 dígitos numéricos, sujeita à checagem adicional abaixo. Matrícula com 8 dígitos (padrão anterior a 2010) é rejeitada nesta fase (ver L10). Para Professor/Servidor, aceita SIAPE/matrícula funcional com exatamente 7 dígitos numéricos. Valores com outros formatos ou com pontuação são rejeitados com mensagem específica.
-- **Checagem dos 3 primeiros dígitos da matrícula de Estudante (ano/semestre de ingresso):** os 2 primeiros dígitos devem corresponder aos 2 últimos dígitos de um ano entre 2010 e o ano corrente, e o 3º dígito deve ser `1` (primeiro semestre) ou `2` (segundo semestre). O intervalo válido é calculado dinamicamente a partir da data do sistema, do código `101` (2010, primeiro semestre) até o código do semestre corrente (ex.: `262` para o 2º semestre de 2026) — nenhum código fora desse intervalo, incluindo códigos "futuros", é aceito. O ano e o semestre correntes usados nesse cálculo são parâmetros configuráveis (Anexo A).
-- **Checagem dos 6 dígitos restantes da matrícula de Estudante:** o bloco de 6 dígitos é rejeitado se formar uma sequência inteira crescente (ex.: `123456`), uma sequência inteira decrescente (ex.: `654321`) ou se todos os dígitos forem iguais (ex.: `111111`).
-- Para Estudante, o e-mail institucional deve seguir exatamente o formato `matricula@aluno.unb.br`, em que a parte antes do "@" é a matrícula extraída e validada pelas regras acima; qualquer outro formato de e-mail é rejeitado com mensagem específica. Para Professor/Servidor, o e-mail institucional deve pertencer ao domínio `@unb.br`; a parte antes do "@" é extraída como apelido (ver regra de apelido abaixo).
-- O sistema rejeita cadastro com matrícula/SIAPE já associada a outra conta — confirmada ou ainda pendente de confirmação (RF02) —, com mensagem de erro específica. Cada matrícula/SIAPE pertence a uma única conta.
-- O sistema rejeita e-mail institucional com formato inválido ou já associado a outra conta, confirmada ou pendente.
-- O apelido (digitado por Estudante ou extraído do e-mail para Professor/Servidor) tem de 3 a 20 caracteres, sem espaços, é único entre os usuários (sem distinção de maiúsculas e minúsculas), é definido apenas no cadastro e não pode ser alterado depois. Para Professor/Servidor, caracteres não alfanuméricos do texto extraído (como o "." em "nome.sobrenome") são removidos antes da checagem. Se, depois dessa limpeza, o apelido resultante já estiver em uso por outra conta **ou** não atender ao tamanho mínimo/máximo, o cadastro automático é rejeitado e o sistema pede que a pessoa digite um apelido alternativo manualmente.
-- O sistema rejeita senhas com menos de 8 caracteres.
-- O cadastro só é concluído se o usuário confirmar ciência de um aviso de privacidade que informa quais dados são coletados e para quê (recuperação de senha e identificação do autor de avaliações). Na Release 2, o aviso passa a incluir a estimativa da fila e o uso da localização (RNF07).
-- Após o cadastro, a conta fica pendente até a confirmação do e-mail (RF02).
-
+**Descrição:** O sistema deve permitir que uma pessoa da comunidade da UnB crie uma conta em duas etapas: a escolha do tipo de usuário (Estudante, Professor ou Servidor) e o preenchimento dos campos daquele tipo. O sistema confere apenas o formato da matrícula/SIAPE, não a existência nem a titularidade (L01).
 **Release:** MVP · **Prioridade:** Essencial
-**Origem:** Épico Login · Pré-requisito para avaliação de refeições (necessidade "Saber a qualidade da comida antes de decidir comer no RU") · Decisão de projeto
+
+**RF01.1 — Cadastro em duas etapas.** O sistema deve pedir primeiro o tipo de usuário e mostrar em seguida os campos correspondentes, deixando a conta pendente até a confirmação do e-mail (RF02).
+- Dado que abro o cadastro, quando escolho "Estudante", então vejo os campos e-mail institucional, apelido e senha; quando escolho "Professor" ou "Servidor", então vejo os campos SIAPE/matrícula funcional, e-mail institucional e senha, no mesmo fluxo.
+- Dado que informo uma senha com menos de 8 caracteres ou não confirmo ciência do aviso de privacidade (RNF07.1), quando envio, então o cadastro é rejeitado.
+
+**RF01.2 — Cadastro de Estudante.** O sistema deve cadastrar o Estudante com apelido, senha e e-mail institucional no formato `matricula@aluno.unb.br`, extraindo a matrícula do e-mail (ADR 0002).
+- Dado o e-mail `251098732@aluno.unb.br`, quando envio, então o sistema extrai a matrícula `251098732` e a valida conforme a RN01.
+- Dado um e-mail fora do formato `matricula@aluno.unb.br` ou um apelido fora das regras da RN02, quando envio, então o cadastro é rejeitado com mensagem específica.
+
+**RF01.3 — Validação do formato da matrícula de Estudante.** O sistema deve rejeitar matrículas de Estudante com formato impossível, conforme a RN01.
+- Dado uma matrícula com 8 dígitos (L10), com letras ou pontuação, com prefixo fora do intervalo válido ou com os 6 dígitos finais em sequência óbvia (ex.: `123456`, `111111`), quando envio, então o cadastro é rejeitado com mensagem específica.
+- Dado que o semestre corrente passa a ser outro, quando o sistema recalcula o intervalo de prefixos, então o novo código de semestre é aceito sem alteração de código.
+
+**RF01.4 — Cadastro de Professor/Servidor.** O sistema deve cadastrar Professor/Servidor com SIAPE/matrícula funcional de 7 dígitos, e-mail institucional `@unb.br` e senha, gerando o apelido a partir do e-mail (RN02, ADR 0002).
+- Dado o e-mail `maria.silva@unb.br` e um SIAPE de 7 dígitos, quando envio, então a conta é criada com o apelido `mariasilva`.
+- Dado um SIAPE com formato diferente de 7 dígitos numéricos ou um e-mail fora do domínio `@unb.br`, quando envio, então o cadastro é rejeitado com mensagem específica.
+
+**RF01.5 — Unicidade de matrícula/SIAPE, e-mail e apelido.** O sistema deve garantir que matrícula/SIAPE, e-mail institucional e apelido pertençam a uma única conta, confirmada ou pendente (RF02). O apelido é definido apenas no cadastro e não pode ser alterado depois.
+- Dado que a matrícula/SIAPE ou o e-mail já está associado a outra conta, confirmada ou pendente, quando envio, então o cadastro é rejeitado com mensagem de erro específica.
+- Dado que o apelido digitado já existe (sem distinguir maiúsculas e minúsculas), quando envio, então o cadastro é rejeitado; dado que o apelido gerado a partir do e-mail de Professor/Servidor já está em uso ou fora do tamanho (RN02), então o formulário pede um apelido digitado.
 
 ---
 
 #### RF02 — Confirmação de e-mail
 
 **Descrição:** O sistema deve enviar ao e-mail institucional informado no cadastro um link de confirmação. A conta só pode se autenticar depois de confirmar o e-mail, que é o único canal de recuperação de senha (RF04).
-
-**Critério de aceite:**
-- O link de confirmação é de uso único e válido por 24 horas.
-- Após a confirmação, a conta passa a poder se autenticar (RF03).
-- Um cadastro pendente que não for confirmado dentro das 24 horas de validade do link é automaticamente excluído, liberando a matrícula/SIAPE e o e-mail para um novo cadastro.
-- Dentro das 24 horas ainda vigentes, o usuário pode solicitar o reenvio de um novo link, o que renova o prazo de 24 horas a partir do reenvio; passadas as 24 horas sem confirmação nem reenvio, o cadastro é excluído conforme o item anterior.
-- Uma tentativa de login com matrícula/SIAPE e senha corretas em conta ainda não confirmada (e dentro do prazo) é recusada com mensagem orientando a confirmação e oferecendo o reenvio do link.
-
 **Release:** MVP · **Prioridade:** Essencial
-**Origem:** Épico Login · Decisão de projeto (se o e-mail estiver errado, a pessoa perde o único canal de recuperação de senha)
+
+**RF02.1 — Confirmação por link.** O sistema deve ativar a conta quando o usuário abrir o link de confirmação, de uso único e com validade conforme o Anexo A.
+- Dado um link ainda não usado, aberto dentro de 24 horas, quando o confirmo, então a conta passa a poder se autenticar (RF03).
+- Dado um link expirado ou já usado, quando o abro, então a confirmação é recusada e posso pedir um novo link (RF02.2).
+
+**RF02.2 — Reenvio do link.** O sistema deve permitir que o usuário com cadastro pendente peça um novo link dentro do prazo, o que renova a validade.
+- Dado um cadastro pendente dentro das 24 horas, quando peço o reenvio, então um novo link é enviado e o prazo de 24 horas recomeça.
+- Dado matrícula/SIAPE e senha corretas em conta ainda não confirmada, quando tento entrar, então o login é recusado com orientação para confirmar o e-mail e a opção de reenviar o link.
+
+**RF02.3 — Exclusão de cadastro pendente expirado.** O sistema deve excluir o cadastro que não for confirmado dentro do prazo, liberando a matrícula/SIAPE e o e-mail para novo cadastro.
+- Dado um cadastro pendente sem confirmação nem reenvio por mais de 24 horas, quando o prazo vence, então o cadastro é excluído e a matrícula/SIAPE e o e-mail ficam livres.
 
 ---
 
 #### RF03 — Login de usuário cadastrado
 
-**Descrição:** O sistema deve permitir que um usuário com conta confirmada se autentique informando matrícula/SIAPE e senha, para acessar as funcionalidades restritas (avaliação de refeições e, na Release 2, check-in). A tela de login tem um único campo de identificador, que aceita tanto matrícula (9 dígitos) quanto SIAPE/matrícula funcional (7 dígitos); o sistema identifica automaticamente qual é o caso pela quantidade de dígitos informada, sem exigir que o usuário escolha o tipo antes de digitar.
+**Descrição:** O sistema deve permitir que o usuário com conta confirmada se autentique com matrícula ou SIAPE e senha.
+**Release:** MVP · **Prioridade:** Essencial
 
-**Critério de aceite:**
-- Credenciais corretas resultam em sessão autenticada e redirecionamento à página inicial. **Release 2:** a página inicial passa a ser a tela do campus (RF20), exibida já com o campus resolvido pelas regras do RF20, sem passo adicional após o login.
-- Credenciais incorretas exibem mensagem de erro genérica, sem indicar se a matrícula/SIAPE existe ou não na base (proteção contra enumeração de contas).
-- Um identificador com quantidade de dígitos diferente de 7 ou de 9 é rejeitado antes mesmo de consultar a base, com mensagem de formato inválido.
-- Após 5 tentativas malsucedidas consecutivas para o mesmo identificador em um intervalo de 10 minutos, o sistema bloqueia novas tentativas por 10 minutos.
+**RF03.1 — Login com identificador único.** O sistema deve aceitar matrícula ou SIAPE no mesmo campo, identificando o tipo pela quantidade de dígitos (RN01), sem revelar se a conta existe.
+- Dado credenciais corretas de conta confirmada, quando entro, então a sessão é iniciada e sou levado à página inicial.
+- Dado que informo credenciais incorretas, quando envio, então vejo uma mensagem genérica, sem indicar se a matrícula/SIAPE existe.
 
-**Release:** MVP (entregue); ampliação na Release 2 · **Prioridade:** Essencial
-**Origem:** Épico Login · Pré-requisito para avaliação de refeições · Decisão de projeto
+**RF03.2 — Bloqueio após tentativas malsucedidas.** O sistema deve bloquear novas tentativas de login após falhas consecutivas (Anexo A).
+- Dado 5 tentativas malsucedidas consecutivas para o mesmo identificador em 10 minutos, quando faço a 6ª, então novas tentativas ficam bloqueadas por 10 minutos.
+
+**RF03.3 — Sair da conta.** *(Release 2 · Importante)* O sistema deve permitir que o usuário encerre a sessão.
+- Dado que estou logado, quando toco em "Sair", então a sessão termina e volto a navegar como Visitante.
+
+**RF03.4 — Tela do campus após o login.** *(Release 2 · Importante)* O sistema deve levar o usuário, depois do login, à tela do campus (RF20), sem passo adicional.
+- Dado credenciais corretas, quando entro, então vejo a tela do campus já resolvido conforme a RN04.
 
 ---
 
 #### RF04 — Recuperação de senha
 
-**Descrição:** O sistema deve permitir que um usuário que perdeu a senha defina uma nova, por meio de um link enviado ao e-mail cadastrado.
-
-**Critério de aceite:**
-- O usuário solicita a redefinição informando a matrícula/SIAPE. A resposta é sempre a mesma ("se houver conta, enviaremos o e-mail"), exista ou não a conta.
-- O link de redefinição é de uso único e válido por 1 hora.
-- São aceitas no máximo 3 solicitações de redefinição por hora para a mesma matrícula/SIAPE.
-- A nova senha segue a regra de mínimo de 8 caracteres. Após a redefinição, a senha anterior deixa de valer e as sessões ativas da conta são encerradas.
-- Sem acesso ao e-mail cadastrado, não há recuperação de senha no MVP (ver L07).
-
+**Descrição:** O sistema deve permitir que um usuário que perdeu a senha defina uma nova, por meio de um link enviado ao e-mail cadastrado. Sem acesso a esse e-mail, não há recuperação de senha no MVP (L07).
 **Release:** MVP · **Prioridade:** Essencial
-**Origem:** Épico Login · Decisão de projeto
+
+**RF04.1 — Solicitar redefinição.** O sistema deve enviar o link de redefinição ao e-mail da conta identificada pela matrícula/SIAPE, sem revelar se a conta existe, e limitar as solicitações (Anexo A).
+- Dado que informo uma matrícula/SIAPE, quando peço a redefinição, então a resposta é sempre "se houver conta, enviaremos o e-mail", exista ou não a conta.
+- Dado 3 solicitações na última hora para a mesma matrícula/SIAPE, quando peço a 4ª, então nenhum e-mail é enviado.
+
+**RF04.2 — Redefinir pelo link.** O sistema deve permitir definir a nova senha por um link de uso único, válido por 1 hora (Anexo A), e encerrar as sessões ativas da conta.
+- Dado um link válido, quando defino uma nova senha com pelo menos 8 caracteres, então a senha anterior deixa de valer e as sessões ativas da conta são encerradas.
+- Dado um link expirado ou já usado, quando tento redefinir, então a redefinição é recusada e posso pedir outro link.
 
 ---
 
 #### RF05 — Navegação sem autenticação
 
-**Descrição:** O sistema deve permitir que qualquer visitante, sem necessidade de cadastro ou login, consulte o cardápio diário/semanal dos campi.
-
-**Critério de aceite:**
-- A página de cardápio é acessível a partir da URL raiz do sistema sem exigir autenticação.
-- Funcionalidades que exigem autenticação (avaliar refeição e, na Release 2, fazer check-in) exibem um convite ao cadastro/login ao serem acionadas por um visitante, em vez de erro genérico.
-
+**Descrição:** O sistema deve permitir que qualquer visitante, sem cadastro ou login, consulte o cardápio diário/semanal dos campi.
 **Release:** MVP · **Prioridade:** Essencial
-**Origem:** Transversal (perspectiva do produto — sistema como "porta") · Necessidade "Planejar a refeição com informação antecipada"
+
+**Critérios de aceite:**
+- Dado que não estou logado, quando acesso a URL raiz do sistema, então vejo o cardápio sem que seja exigida autenticação.
+- Dado que não estou logado, quando aciono uma função que exige conta (avaliar refeição ou, na Release 2, fazer check-in), então vejo um convite ao cadastro/login, e não um erro genérico.
 
 ---
 
@@ -178,140 +186,123 @@ O sistema confere apenas o formato da matrícula/SIAPE; não verifica se ela exi
 
 #### RF06 — Leitura automatizada do arquivo de cardápio
 
-**Descrição:** O sistema deve extrair automaticamente as informações do cardápio a partir do arquivo PDF semanal publicado no site oficial do RU para cada campus (uma página por refeição: café da manhã, almoço e jantar). A extração cobre as categorias, os pratos, os marcadores de cada prato e as linhas de dieta, sem intervenção manual da equipe em condições normais de publicação. Os marcadores são ícones gráficos sobrepostos ao texto e não fazem parte da camada de texto do PDF, de modo que a leitura precisa associar cada ícone ao prato correspondente pela posição e identificá-lo pela legenda do arquivo.
-
-**Critério de aceite:**
-- Diante de uma nova publicação do PDF de um campus, o cardápio exibido no sistema é atualizado em até 24 horas.
-- Os dias e as refeições servidos em cada campus são os que constam no PDF (por exemplo, almoço de sábado quando presente).
-- Cada prato é associado aos marcadores cujos ícones aparecem junto a ele. Opções separadas por "ou/OU" são pratos distintos, cada um com seus marcadores.
-- O sistema valida que a legenda do arquivo contém exatamente os 10 marcadores conhecidos. Se surgir um ícone desconhecido, ou se os ícones de uma refeição não puderem ser associados a pratos, o cardápio em texto é publicado, a refeição é marcada como "informação de alérgenos indisponível", o filtro de marcadores (RF08) fica desativado para ela e a equipe recebe um alerta.
-- Caso a leitura do texto falhe (ex.: mudança no formato do arquivo), o sistema mantém em exibição o último cardápio lido com sucesso e registra um alerta para a equipe, em vez de exibir uma página vazia ou quebrada.
-
+**Descrição:** O sistema deve extrair automaticamente o cardápio do arquivo PDF semanal publicado no site oficial do RU para cada campus (uma página por refeição: café da manhã, almoço e jantar), incluindo categorias, pratos, marcadores e linhas de dieta, sem intervenção manual da equipe em condições normais de publicação.
 **Release:** MVP · **Prioridade:** Essencial
-**Origem:** Épico Cardápio · Necessidade "Planejar a refeição com informação antecipada" · Decisão de projeto (leitura dos marcadores e das dietas)
+
+**RF06.1 — Download e atualização semanal.** O sistema deve obter o PDF de cada campus e atualizar o cardápio exibido em até 24 horas depois de uma nova publicação.
+- Dado que o RU publica um novo PDF para um campus, quando o sistema o processa, então o cardápio exibido é atualizado em até 24 horas.
+
+**RF06.2 — Categorias, pratos e dietas.** O sistema deve extrair do PDF as categorias, os pratos e as linhas de dieta, respeitando os dias e as refeições servidos em cada campus.
+- Dado o PDF de um campus, quando lido, então só existem as refeições e os dias que constam nele (por exemplo, almoço de sábado quando presente).
+- Dado o texto "Arroz branco OU arroz integral", quando lido, então vira dois pratos; dado "Feijão carioca/preto", então continua um prato só ("ou/OU" separa pratos; "/" não separa).
+
+**RF06.3 — Marcadores e validação da legenda.** O sistema deve associar a cada prato os marcadores cujos ícones aparecem junto a ele e validar que a legenda do arquivo contém exatamente os 10 marcadores conhecidos. Os ícones são imagens sobrepostas ao texto, fora da camada de texto do PDF: a associação é feita pela posição e a identificação, pela legenda.
+- Dado os ícones de uma refeição, quando lidos, então cada prato fica associado aos marcadores cujos ícones aparecem junto a ele (opções separadas por "ou" têm cada uma os seus).
+- Dado um ícone desconhecido, ou ícones que não podem ser associados a pratos, quando a refeição é lida, então o cardápio é publicado só em texto, a refeição fica marcada como "informação de alérgenos indisponível" (filtro de marcadores desativado, RF08) e a equipe recebe um alerta (RF06.5).
+
+**RF06.4 — Manter o último cardápio válido.** O sistema deve continuar exibindo o último cardápio lido com sucesso quando a leitura falhar (RNF02).
+- Dado que a leitura do texto falha (por exemplo, por mudança no formato do arquivo), quando isso ocorre, então o último cardápio lido com sucesso continua em exibição, sem página vazia ou quebrada, e a equipe recebe um alerta (RF06.5).
+
+**RF06.5 — Alerta de falha à equipe.** O sistema deve alertar a equipe quando a leitura do cardápio falhar ou quando uma refeição ficar sem informação de alérgenos (ADR 0006).
+- Dado uma falha de leitura ou uma refeição marcada como "informação de alérgenos indisponível", quando isso ocorre, então a equipe recebe um alerta.
 
 ---
 
 #### RF07 — Exibição do cardápio por campus, refeição e dia
 
-**Descrição:** O sistema deve permitir que o usuário, logado ou não, escolha manualmente o campus cujo cardápio deseja ver (na Release 2, a escolha manual convive com a detecção automática, conforme a hierarquia do RF20) e exibir o cardápio de uma refeição de um dia por vez, com apresentação visual refinada e voltada a dispositivos móveis. As categorias aparecem em lista hierarquizada; a tabela do PDF não é reproduzida.
+**Descrição:** O sistema deve permitir que o usuário, logado ou não, escolha o campus e exibir o cardápio de uma refeição de um dia por vez, com apresentação voltada a dispositivos móveis. As categorias aparecem em lista hierarquizada; a tabela do PDF não é reproduzida.
+**Release:** MVP · **Prioridade:** Essencial
 
-**Critério de aceite:**
-- O campus escolhido fica lembrado no aparelho, sem exigir login, e pode ser trocado a qualquer momento. O campus lembrado é o último escolhido manualmente; o campus detectado (RF20) não o substitui.
-- O usuário consegue alternar entre ao menos dois campi distintos e visualizar cardápios diferentes para cada um.
-- O seletor de refeição oferece apenas as refeições que o PDF traz para aquele campus e dia. Por padrão, é exibida a refeição em andamento ou, se nenhuma estiver em andamento, a próxima do dia, conforme os horários configurados (Anexo A). **Release 2:** a refeição padrão passa a seguir a regra completa do RF20, que acrescenta o que mostrar depois da última refeição do dia e nos dias sem serviço.
-- O usuário navega entre os dias da semana vigente, sem recarregar a página inteira (abas ou equivalente). A semana é definida pelas datas do PDF do campus. Semanas anteriores e a semana seguinte não são exibidas no MVP; a exibição da semana seguinte, quando publicada, é tratada no RF18 (Release 2).
-- Quando um campus ainda não tem cardápio publicado para a semana, o sistema exibe "cardápio ainda não publicado".
-- O cardápio exibe o aviso de que está sujeito a alteração.
-- A apresentação tem hierarquia visual clara entre categorias, destaca as linhas de dieta, é funcional em telas a partir de 360 px e é validada por revisão de design da equipe.
+**RF07.1 — Exibição por refeição e dia.** O sistema deve exibir o cardápio de uma refeição por vez, com seletor de refeição e navegação entre os dias da semana vigente, definida pelas datas do PDF do campus. A semana seguinte é tratada no RF18.
+- Dado o cardápio de um campus, quando troco de dia pelas abas (ou equivalente), então o cardápio do dia aparece sem recarregar a página inteira, e o seletor de refeição oferece só as refeições que o PDF traz para aquele campus e dia.
+- Dado qualquer cardápio exibido, quando o consulto, então vejo o aviso de que está sujeito a alteração, categorias em lista hierarquizada com as linhas de dieta em destaque, e a tela é funcional a partir de 360 px, validada por revisão de design da equipe.
 
-**Release:** MVP (entregue); ampliação na Release 2 · **Prioridade:** Essencial
-**Origem:** Épico Cardápio · Necessidade "Planejar a refeição com informação antecipada" · Decisão de projeto (visualização refinada já no MVP; ampliação na Release 2 conforme feedback da orientadora)
+**RF07.2 — Campus escolhido e lembrado.** O sistema deve permitir escolher e trocar o campus a qualquer momento e lembrar no aparelho, sem login, o último campus escolhido manualmente (RN04).
+- Dado que escolhi um campus, quando volto ao sistema, então o campus continua lembrado e o cardápio dele abre sem interação adicional.
+- Dado dois campi distintos, quando alterno entre eles, então vejo um cardápio diferente para cada um.
+
+**RF07.3 — Refeição padrão e cardápio ainda não publicado.** O sistema deve abrir a refeição padrão definida na RN05 e informar quando o campus ainda não tem cardápio publicado para a semana.
+- Dado o horário atual (Anexo A), quando o cardápio abre, então é exibida a refeição padrão da RN05.
+- Dado um campus sem cardápio publicado para a semana, quando o abro, então vejo "cardápio ainda não publicado".
 
 ---
 
 #### RF08 — Filtro de marcadores alimentares
 
-**Descrição:** O sistema deve permitir que o usuário escolha, entre os 10 marcadores da legenda do cardápio oficial (cogumelo, leite e derivados, mel, pimenta, soja, trigo/glúten, amendoim, oleaginosa, ovo e suíno), quais deseja evitar, sinalizando os pratos que os contêm.
-
-**Critério de aceite:**
-- Pratos com um marcador selecionado permanecem visíveis e exibem um alerta que indica o marcador (ex.: "Contém: leite e derivados").
-- Uma categoria em que todos os pratos têm algum marcador selecionado exibe "sem opção compatível".
-- A seleção fica lembrada no aparelho e permanece ativa ao navegar entre dias, refeições e campi.
-- Junto ao filtro há um aviso fixo informando que ele se baseia no cardápio oficial, que está sujeito a alteração; que a ausência de marcador não garante que o prato esteja livre do ingrediente; e que o cardápio oficial não marca peixe nem frutos do mar.
-- Em refeição marcada como "informação de alérgenos indisponível" (RF06), o filtro fica desativado e informa o motivo.
-
+**Descrição:** O sistema deve permitir que o usuário escolha, entre os 10 marcadores do cardápio oficial (ver Marcador, 1.5), quais deseja evitar, sinalizando os pratos que os contêm.
 **Release:** MVP · **Prioridade:** Essencial
-**Origem:** Épico Cardápio · Necessidade "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro" · Decisão de projeto
+
+**Critérios de aceite:**
+- Dado que seleciono "leite e derivados", quando o cardápio é exibido, então os pratos com esse marcador permanecem visíveis e exibem "Contém: leite e derivados", e uma categoria em que todos os pratos têm marcador selecionado exibe "sem opção compatível".
+- Dado que selecionei marcadores, quando troco de dia, de refeição ou de campus, ou reabro o sistema, então a seleção continua ativa (lembrada no aparelho).
+- Dado uma refeição marcada como "informação de alérgenos indisponível" (RF06.3), quando exibida, então o filtro fica desativado e informa o motivo.
+- Dado o filtro exibido, quando o consulto, então um aviso fixo informa que ele se baseia no cardápio oficial, sujeito a alteração, que a ausência de marcador não garante que o prato esteja livre do ingrediente e que peixe e frutos do mar não são marcados (L04).
 
 ---
 
 #### RF09 — Filtro de dieta
 
 **Descrição:** O sistema deve permitir que o usuário escolha uma dieta ("Sem filtro", "Ovolactovegetariano" ou "Vegetariano estrito") e exiba as linhas de prato compatíveis do cardápio.
-
-**Critério de aceite:**
-- Com "Ovolactovegetariano", o sistema exibe as linhas ovolactovegetariana e vegetariana estrita (prato principal no almoço e no jantar; complemento no café da manhã) e oculta a linha padrão.
-- Com "Vegetariano estrito", exibe apenas a linha vegetariana estrita e oculta as demais.
-- As demais categorias (saladas, guarnição, acompanhamentos, sopa, torrada etc.) permanecem visíveis, por serem comuns a todas as dietas conforme o cardápio oficial.
-- Um botão "mostrar todas" reverte temporariamente o filtro.
-- A escolha fica lembrada no aparelho e pode ser combinada com o filtro de marcadores (RF08).
-
 **Release:** MVP · **Prioridade:** Essencial
-**Origem:** Épico Cardápio · Necessidade "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro" · Decisão de projeto
+
+**Critérios de aceite:**
+- Dado "Ovolactovegetariano", quando aplicado, então aparecem as linhas ovolactovegetariana e vegetariana estrita e a linha padrão é ocultada; com "Vegetariano estrito", aparece só a linha vegetariana estrita.
+- Dado qualquer dieta aplicada, quando o cardápio é exibido, então as demais categorias (saladas, guarnição, sopa etc.) continuam visíveis, e o botão "mostrar todas" reverte o filtro temporariamente.
+- Dado que escolhi uma dieta, quando troco de dia, de refeição ou de campus, então ela continua ativa (lembrada no aparelho) e pode ser combinada com o filtro de marcadores (RF08).
 
 ---
 
 #### RF10 — Ícones de indicação de marcadores
 
-**Descrição:** O sistema deve exibir, ao lado de cada prato do cardápio, os ícones dos marcadores que ele contém, independentemente de qualquer filtro ativo. Os ícones a serem usados serão definidos com a equipe de frontend, para evitar a criação de novos ícones a cada cardápio.
-
-**Critério de aceite:**
-- Cada prato com um ou mais marcadores exibe os ícones correspondentes, visíveis sem necessidade de interação adicional (hover ou clique).
-
+**Descrição:** O sistema deve exibir, ao lado de cada prato, os ícones dos marcadores que ele contém, independentemente de qualquer filtro ativo. Os ícones serão definidos com a equipe de frontend, para evitar a criação de novos ícones a cada cardápio.
 **Release:** Backlog · **Prioridade:** Desejável
-**Origem:** Épico Cardápio · Necessidade "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro"
+
+**Critérios de aceite:**
+- Dado um prato com um ou mais marcadores, quando exibido, então os ícones correspondentes aparecem ao lado dele, sem necessidade de hover ou clique.
 
 ---
 
 #### RF18 — Exibição do cardápio da semana seguinte
 
-**Descrição:** O sistema deve exibir, além da semana vigente (RF07), os dias e refeições da semana seguinte de um campus assim que o RU publicar o PDF correspondente, na mesma navegação por abas do RF07.
-
-**Critério de aceite:**
-- A aba da semana seguinte só aparece depois que o PDF daquela semana for lido com sucesso (RF06) para o campus em questão; até lá, o sistema exibe apenas a semana vigente (RF07).
-- Como o RU raramente publica o cardápio da semana seguinte antes do fim da semana letiva vigente, na prática essa aba costuma só aparecer a partir do fim de semana ou do início da nova semana; a funcionalidade não depende de nenhuma antecedência mínima de publicação, apenas da leitura bem-sucedida do PDF.
-- A navegação entre a semana vigente e a semana seguinte segue o mesmo padrão de abas do RF07, sem recarregar a página inteira.
-
+**Descrição:** O sistema deve exibir, além da semana vigente (RF07), os dias e as refeições da semana seguinte de um campus assim que o RU publicar o PDF correspondente, na mesma navegação por abas do RF07.1. Não há antecedência mínima de publicação: a aba depende apenas da leitura bem-sucedida do PDF (RF06).
 **Release:** Release 2 · **Prioridade:** Importante
-**Origem:** Épico Cardápio · Necessidade "Planejar a refeição com informação antecipada" · Decisão de projeto (correção de escopo: no refinamento anterior este item estava erroneamente descrito como parte do MVP)
+
+**Critérios de aceite:**
+- Dado que o PDF da semana seguinte de um campus foi lido com sucesso, quando abro o cardápio, então aparece a aba da semana seguinte, na mesma navegação por abas e sem recarregar a página inteira.
+- Dado que o PDF da semana seguinte ainda não foi lido, quando abro o cardápio, então só a semana vigente aparece.
 
 ---
 
 #### RF19 — Aviso e permissão de localização
 
-**Descrição:** O sistema deve pedir ao usuário, logado ou não, permissão para usar a localização do dispositivo, a fim de identificar em qual campus a pessoa está (RF20) e, no check-in, confirmar que ela está no RU (RF12). O pedido é feito em duas etapas: primeiro uma tela do próprio Bandejão que explica o uso da localização e, só se a pessoa aceitar, o pedido do navegador.
-
-**Critério de aceite:**
-- Na primeira vez que a pessoa acessa o sistema como visitante, ou faz login, em um aparelho, é exibido o aviso do Bandejão com as opções "Permitir" e "Agora não".
-- O aviso informa, em linguagem simples, que a localização serve para identificar o campus e confirmar o check-in; que, na identificação do campus, as coordenadas não saem do aparelho; e que, no check-in, elas são enviadas ao servidor apenas para a conferência e descartadas em seguida (RI09).
-- "Permitir" aciona o pedido de permissão do navegador. "Agora não" não aciona o navegador, de modo que a pessoa pode ser perguntada de novo mais tarde, e o sistema segue com o campus lembrado ou com o seletor de campus (RF20).
-- O aviso não reaparece a cada abertura do app. Ele reaparece quando a pessoa tenta fazer check-in sem permissão de localização (RF11) e fica disponível em um ponto fixo da interface, com o texto "Usar minha localização".
-- Se o navegador já bloqueou a localização, o check-in exibe um passo a passo para liberá-la nas configurações do navegador; o sistema não insiste no pedido.
-- A recusa da permissão não impede o uso do cardápio, das avaliações (para quem está logado) nem da previsão de pico.
-
+**Descrição:** O sistema deve pedir ao usuário, logado ou não, permissão para usar a localização do dispositivo, a fim de identificar o campus (RF20) e confirmar o check-in (RF12), em duas etapas: uma tela do próprio Bandejão e, se a pessoa aceitar, o pedido do navegador. O aviso também fica disponível em um ponto fixo da interface ("Usar minha localização").
 **Release:** Release 2 · **Prioridade:** Importante
-**Origem:** Épico Cardápio (jornada do usuário) · Necessidade "Planejar a refeição com informação antecipada" · Decisão de projeto (feedback da orientadora: reduzir o número de toques até as informações)
+
+**Critérios de aceite:**
+- Dado o primeiro acesso em um aparelho, como visitante ou logado, quando o sistema abre, então vejo o aviso do Bandejão com "Permitir" e "Agora não", explicando que a localização identifica o campus (coordenadas não saem do aparelho) e confirma o check-in (coordenadas descartadas após a conferência, RI09).
+- Dado o aviso exibido, quando escolho "Permitir", então o navegador pede a permissão; quando escolho "Agora não", então o navegador não é acionado, o sistema segue com o campus lembrado ou o seletor (RN04) e o aviso não reaparece a cada abertura do app.
+- Dado que tento fazer check-in sem permissão de localização, quando toco em "Fazer check-in", então vejo o aviso de novo ou, se o navegador já bloqueou, um passo a passo para liberar a localização; a recusa não impede o uso do cardápio, das avaliações nem da previsão.
 
 ---
 
 #### RF20 — Detecção de campus e tela do campus
 
-**Descrição:** O sistema deve identificar, por meio da localização do dispositivo, em qual campus a pessoa está e abrir a tela desse campus com as informações de que ela precisa, sem que precise navegar até elas: o cardápio, as avaliações da refeição e, quando houver dados, a previsão de pico e a espera estimada. O objetivo é reduzir o número de toques até a informação. Vale para o visitante e para o usuário logado.
-
-**Critério de aceite:**
-
-*Detecção*
-- A detecção ocorre quando o app é aberto e quando volta ao primeiro plano depois de ficar parado pelo tempo configurado (Anexo A), desde que haja permissão de localização (RF19).
-- A comparação entre a posição do dispositivo e o campus é feita **no próprio aparelho**, com as coordenadas e o raio de detecção de cada campus fornecidos pelo servidor (Anexo A). O servidor recebe apenas o identificador do campus; as coordenadas não saem do aparelho (RI09).
-- O raio de detecção de campus é diferente do raio de confirmação do check-in (RF12).
-
-*Qual campus é exibido*
-- O campus exibido segue esta ordem: (1) escolha manual feita depois da última detecção, que prevalece até a próxima abertura do app ou volta ao primeiro plano com nova detecção; (2) campus detectado; (3) campus lembrado (RF07); (4) seletor de campus, se nenhum dos anteriores existir.
-- Sem permissão, com GPS indisponível, com leitura fora do tempo limite ou da precisão mínima (Anexo A), ou com a pessoa fora do raio de qualquer campus, valem o campus lembrado e, na falta dele, o seletor.
-- O app abre imediatamente com o campus lembrado (ou o seletor) e a detecção corre em paralelo, sem bloquear o cardápio. Se a detecção apontar outro campus, o app troca e exibe um aviso com a opção de voltar ao campus anterior (ex.: "Você está no Campus Darcy Ribeiro · voltar para Gama").
-- A tela exibe sempre o nome do campus com a opção "trocar"; quando o campus veio da localização, o rótulo indica isso.
-
-*Conteúdo da tela*
-- A tela mostra uma refeição por vez: o cardápio, a nota média, a quantidade de avaliações e os comentários (RF15) e, quando existirem, a previsão de pico e a espera estimada dessa refeição (RF13, RF22). As demais refeições do dia ficam no seletor de refeição, cada uma exibindo sua nota média.
-- A refeição padrão segue esta ordem: (1) a refeição em andamento; (2) senão, a próxima refeição ainda por vir no mesmo dia; (3) senão (todas as refeições do dia já terminaram), a última refeição do dia, até as 23h59, com a avaliação aberta conforme o RF15 e, no lugar da previsão e do check-in, a indicação "refeição encerrada"; (4) depois da meia-noite volta a valer o item 2, e o café da manhã do novo dia passa a ser o padrão; (5) se o campus não serve refeições no dia (por exemplo, no domingo), a padrão é a primeira refeição do próximo dia com serviço, com o dia indicado na tela. Se o dia a exibir pertencer a uma semana cujo PDF ainda não foi lido com sucesso (RF18), a tela informa que o cardápio ainda não foi publicado. Horários conforme o Anexo A; dias e refeições servidos conforme o PDF.
-
-*Aviso sobre o Restaurante Executivo*
-- Sempre que o campus exibido for o Darcy Ribeiro, seja por detecção, por escolha ou troca manual ou por ser o campus lembrado, a tela exibe de forma discreta uma linha fixa de texto, sem pop-up e sem botão de fechar, informando que as informações exibidas são apenas sobre o RU e não se aplicam ao Restaurante Executivo (texto sugerido: "Informações apenas do RU. Não se aplicam ao Restaurante Executivo."; o texto final fica com a equipe). Vale para visitante e para usuário logado.
-- O aviso não se repete na tela de check-in, que é acessada a partir da tela do campus.
-
+**Descrição:** O sistema deve identificar, pela localização do dispositivo, em qual campus a pessoa está e abrir a tela desse campus com as informações de que ela precisa (cardápio, avaliações e, quando houver dados, previsão de pico e espera estimada), para reduzir o número de toques até a informação. Vale para o visitante e para o usuário logado.
 **Release:** Release 2 · **Prioridade:** Importante
-**Origem:** Épico Cardápio (jornada do usuário) · Necessidades "Planejar a refeição com informação antecipada" e "Evitar longas filas no horário de pico" · Decisão de projeto (feedback da orientadora: reduzir o número de toques até as informações)
+
+**RF20.1 — Detecção no aparelho.** O sistema deve detectar o campus no aparelho, ao abrir o app e ao voltar ao primeiro plano depois do tempo parado do Anexo A, com permissão de localização (RF19). O raio de detecção é diferente do raio de confirmação do check-in (RF12).
+- Dado que há permissão de localização, quando abro o app dentro do raio de detecção de um campus, então o campus é detectado no aparelho e o servidor recebe apenas o identificador do campus, nunca as coordenadas (RI09, ADR 0009).
+
+**RF20.2 — Campus exibido.** O sistema deve exibir o campus conforme a RN04, abrindo de imediato com o campus lembrado (ou o seletor) enquanto a detecção corre em paralelo. A tela mostra o nome do campus com a opção "trocar" e, se ele veio da localização, indica isso.
+- Dado que a detecção aponta um campus diferente do exibido, quando ela termina, então o app troca de campus e exibe um aviso com a opção de voltar ao anterior (ex.: "Você está no Campus Darcy Ribeiro · voltar para Gama").
+- Dado que não há permissão, que o GPS está indisponível, que a leitura não atende à RN03 ou que estou fora do raio de qualquer campus, quando abro o app, então vale o campus lembrado ou, na falta dele, o seletor de campus.
+
+**RF20.3 — Conteúdo da tela e refeição padrão.** O sistema deve mostrar uma refeição por vez (a padrão da RN05), com cardápio, nota média, quantidade de avaliações, comentários (RF15.2) e, quando existirem, previsão de pico e espera estimada (RF13, RF22); as demais refeições do dia ficam no seletor, cada uma com sua nota média.
+- Dado a tela do campus, quando abre, então ela mostra a refeição padrão (RN05) com cardápio, nota média, avaliações e, quando existirem, previsão de pico e espera estimada.
+- Dado que todas as refeições do dia já terminaram, quando abro a tela até as 23h59, então vejo a última refeição do dia, com a avaliação aberta (RF15.1) e a indicação "refeição encerrada" no lugar da previsão e do check-in.
+
+**RF20.4 — Aviso sobre o Restaurante Executivo.** O sistema deve exibir, quando o campus exibido for o Darcy Ribeiro, uma linha fixa de texto, sem pop-up nem botão de fechar, informando que as informações são apenas do RU e não valem para o Restaurante Executivo (RI08, L11). Vale para visitante e logado e não se repete na tela de check-in.
+- Dado que o campus exibido é o Darcy Ribeiro, seja por detecção, escolha manual ou campus lembrado, quando a tela abre, então vejo a linha fixa do aviso.
 
 ---
 
@@ -321,117 +312,88 @@ Todos os requisitos deste épico pertencem à Release 2 ou ao Backlog; o MVP nã
 
 #### RF11 — Check-in no RU
 
-**Descrição:** O sistema deve permitir que um usuário autenticado registre sua presença no RU do campus escolhido durante uma refeição (check-in).
-
-**Critério de aceite:**
-- Cada usuário faz no máximo um check-in por refeição por dia; uma nova tentativa para a mesma refeição é rejeitada com mensagem informativa.
-- O check-in só é aceito entre o início e o fim da refeição, conforme os horários configurados (Anexo A); fora desse intervalo, é rejeitado com mensagem informando o horário da refeição.
-- O check-in não pode ser desfeito.
-- Um visitante que tenta fazer check-in recebe o convite ao cadastro/login (RF05).
-- O check-in só é efetivado após a confirmação de localização (RF12). Sem permissão de localização, o check-in exibe o aviso do RF19.
-- Após um check-in confirmado, o sistema registra a pergunta de saída da fila correspondente (RF21).
-- O usuário que já tinha conta antes da Release 2 só faz o primeiro check-in depois de dar ciência ao aviso de privacidade atualizado, exibido uma vez no login seguinte (RNF07).
-
+**Descrição:** O sistema deve permitir que um usuário autenticado registre sua presença no RU do campus escolhido durante uma refeição (check-in), uma vez por refeição por dia. O check-in só vale depois da confirmação de localização (RF12) e não pode ser desfeito. Quem já tinha conta antes da Release 2 só faz o primeiro check-in depois de dar ciência ao aviso de privacidade atualizado (RNF07.1).
 **Release:** Release 2 · **Prioridade:** Importante
-**Origem:** Épico Fila · Necessidade "Evitar longas filas no horário de pico" · Decisão de projeto (o check-in passa a ser a única fonte de dados da previsão)
+
+**Critérios de aceite:**
+- Dado que estou logado, dentro do horário da refeição (Anexo A) e com a localização confirmada (RF12), quando faço o check-in, então ele é registrado e a pergunta de saída da fila fica pendente (RF21.1).
+- Dado que já fiz check-in nessa refeição hoje (RI03) ou que estou fora do horário da refeição, quando tento, então o check-in é rejeitado com mensagem informativa (no segundo caso, com o horário da refeição).
+- Dado que sou visitante, quando tento fazer check-in, então recebo o convite ao cadastro/login (RF05).
 
 ---
 
 #### RF12 — Confirmação de check-in por GPS
 
-**Descrição:** O sistema deve utilizar a localização do dispositivo para confirmar que o usuário está nas imediações do RU do campus escolhido; somente então o check-in é aceito.
-
-**Critério de aceite:**
-- O check-in só é aceito quando a localização do dispositivo está dentro do raio de confirmação do check-in (Anexo A, distinto do raio de detecção de campus do RF20) do RU do campus escolhido. A posição usada deve respeitar o tempo limite, a precisão mínima e a idade máxima do Anexo A; do contrário, o check-in é rejeitado com mensagem informando que a localização não pôde ser lida com precisão suficiente. Fora do raio, o sistema informa que o check-in não pôde ser confirmado por localização, inclusive quando o usuário está no RU de outro campus.
-- A permissão de localização é pedida conforme o RF19, no primeiro acesso. Sem a permissão, o check-in não é possível: ao tentar, o usuário vê o aviso do RF19 ou, se o navegador já bloqueou, o passo a passo para liberar a localização.
-- No check-in, as coordenadas são enviadas ao servidor apenas para a conferência e descartadas em seguida; não são armazenadas (RI09). Na detecção de campus (RF20), as coordenadas não saem do aparelho.
-- Cada tentativa registra usuário, campus, refeição, data/hora e resultado (confirmado ou rejeitado). O vínculo desses registros com a conta segue o prazo de retenção do RNF07.
-- No Campus Darcy Ribeiro, o RU e o Restaurante Executivo funcionam no mesmo prédio e o GPS não os distingue; o check-in não verifica para qual dos dois a pessoa vai (L11).
-
+**Descrição:** O sistema deve utilizar a localização do dispositivo para confirmar que o usuário está nas imediações do RU do campus escolhido; somente então o check-in é aceito. Sem permissão de localização, o check-in não é possível (RF19). No Campus Darcy Ribeiro, o RU e o Restaurante Executivo funcionam no mesmo prédio e o GPS não os distingue (L11).
 **Release:** Release 2 · **Prioridade:** Importante
-**Origem:** Épico Fila · Necessidade "Evitar longas filas no horário de pico" (confiabilidade da previsão) · Decisão de projeto
+
+**Critérios de aceite:**
+- Dado que a posição está dentro do raio de confirmação do RU do campus escolhido (Anexo A) e atende à RN03, quando envio o check-in, então ele é confirmado.
+- Dado que a posição está fora do raio, inclusive no RU de outro campus, ou que não atende à RN03, quando envio o check-in, então ele é rejeitado com mensagem informando que a localização não pôde ser confirmada (ou lida com precisão suficiente).
+- Dado qualquer desfecho da conferência, quando ela termina, então as coordenadas foram descartadas e não ficam armazenadas (RI09), e a tentativa registra usuário, campus, refeição, data/hora e resultado (confirmado ou rejeitado), com vínculo à conta pelo prazo do RNF07.3.
 
 ---
 
 #### RF13 — Previsão de pico por faixa de horário
 
-**Descrição:** O sistema deve exibir, para a refeição, o campus e o dia escolhidos, o nível de fila esperado em cada faixa de 15 minutos, em quatro níveis (vazia, curta, moderada e longa), calculado exclusivamente a partir dos check-ins confirmados, e destacar a faixa de maior movimento (pico). Quando há dados suficientes, cada faixa também mostra a espera estimada em minutos (RF22), calculada a partir das respostas à pergunta de saída da fila (RF21). A previsão e a espera estimada podem ser consultadas sem login.
-
-**Critério de aceite:**
-- As faixas são de 15 minutos e cobrem o horário da refeição (Anexo A).
-- Para cada faixa, o sistema calcula a média de check-ins nas últimas 4 semanas para o mesmo dia da semana, o mesmo campus e a mesma refeição, considerando apenas os dias com dados.
-- O nível de cada faixa é a razão entre a sua média e a média da faixa mais cheia: menos de 25% é vazia; de 25% a menos de 50% é curta; de 50% a menos de 75% é moderada; 75% ou mais é longa. A faixa mais cheia é sempre longa.
-- A previsão só é exibida quando há check-ins em ao menos 3 dias distintos dentro da janela de 4 semanas. Caso contrário, o sistema exibe "dados insuficientes", sem valor de reserva.
-- O nível continua sendo calculado só com check-ins: as respostas à pergunta de saída da fila não o alteram, apenas alimentam a espera estimada (RF22).
-
+**Descrição:** O sistema deve exibir, para a refeição, o campus e o dia escolhidos, o nível de fila esperado em cada faixa de 15 minutos (vazia, curta, moderada ou longa), calculado exclusivamente a partir dos check-ins confirmados, e destacar a faixa de maior movimento (pico). Quando há dados suficientes, cada faixa também mostra a espera estimada (RF22). A previsão pode ser consultada sem login.
 **Release:** Release 2 · **Prioridade:** Importante
-**Origem:** Épico Fila · Necessidades "Evitar longas filas no horário de pico" e "Planejar a refeição com informação antecipada" · Decisão de projeto
+
+**Critérios de aceite:**
+- Dado campus, refeição e dia escolhidos, quando abro a previsão, sem login, então vejo as faixas de 15 minutos cobrindo o horário da refeição (Anexo A), cada uma com seu nível (RN06), e a faixa de maior movimento destacada como pico.
+- Dado check-ins em pelo menos 3 dias distintos dentro da janela de 4 semanas (Anexo A), quando abro a previsão, então ela é exibida; com menos dados, vejo "dados insuficientes", sem valor de reserva.
+- Dado que há respostas à pergunta de saída da fila, quando o nível é calculado, então ele não muda: só os check-ins o determinam, e as respostas apenas alimentam a espera estimada (RF22).
 
 ---
 
 #### RF14 — Nível de fila em tempo real ("agora")
 
 **Descrição:** O sistema deve exibir o nível de fila atual (vazia, curta, moderada ou longa) da refeição em andamento, com base nos check-ins recentes.
-
-**Critério de aceite:**
-- O nível atual é exibido com os mesmos quatro níveis do RF13. A janela de check-ins considerada e os limiares serão definidos quando o item for priorizado, considerando o risco de indicar "vazia" por baixa adesão dos usuários (ver L08).
-
 **Release:** Backlog · **Prioridade:** Desejável
-**Origem:** Épico Fila · Necessidade "Evitar longas filas no horário de pico" · Decisão de projeto
+
+**Critérios de aceite:**
+- Dado uma refeição em andamento, quando consulto o nível agora, então vejo um dos quatro níveis da RN06, calculado com os check-ins recentes. A janela e os limiares serão definidos quando o item for priorizado, considerando o risco de indicar "vazia" por baixa adesão dos usuários (L08).
 
 ---
 
 #### RF21 — Pergunta de saída da fila
 
-**Descrição:** O sistema deve perguntar ao usuário, algum tempo depois do check-in, se ele já saiu da fila e começou a comer, para registrar a saída da fila e calcular o tempo de espera. A pergunta é um pop-up dentro do app, de resposta em um toque. O sistema não pergunta nem registra o fim da refeição.
-
-**Critério de aceite:**
-- Ao confirmar um check-in (RF11), o servidor registra uma pergunta pendente, com a hora prevista para ser feita (tempo até a primeira pergunta, Anexo A).
-- A pergunta aparece como pop-up quando o app está em primeiro plano e a hora prevista já passou. Como o registro fica no servidor, a pergunta aparece em qualquer aparelho em que o usuário esteja logado, e uma notificação push poderá ser acrescentada depois sem alterar o registro (RF23).
-- A pergunta oferece cinco respostas: "Saí da fila agora há pouco (até 5 min)", "Saí da fila há 5 a 10 min", "Saí da fila há mais de 10 min", "Ainda estou na fila" e "Desisti de comer no RU".
-- Se a resposta for "Ainda estou na fila", a pergunta é repetida após o intervalo configurado (Anexo A), no máximo uma vez.
-- A pergunta expira após o tempo configurado a partir do check-in (Anexo A); depois disso, não é mais exibida nem aceita resposta.
-- Fechar o pop-up sem responder conta como ausência de resposta, e a pergunta não é exibida de novo (exceto a repetição prevista para "Ainda estou na fila").
-- Cada resposta registra o check-in, a resposta e a data/hora, marcada pelo servidor. Na desistência, o check-in continua contando no nível (RF13), mas não gera saída da fila nem tempo de espera.
-- Só o autor do check-in recebe e responde a pergunta; visitante nunca (RI01).
-- Os dados seguem o prazo de retenção do RNF07.
-
+**Descrição:** O sistema deve perguntar ao usuário, algum tempo depois do check-in, se já saiu da fila e começou a comer, para registrar a saída e calcular o tempo de espera. A pergunta é um pop-up dentro do app, de resposta em um toque, e só o autor do check-in a recebe (RI01). O sistema não pergunta nem registra o fim da refeição.
 **Release:** Release 2 · **Prioridade:** Importante
-**Origem:** Épico Fila · Necessidade "Evitar longas filas no horário de pico" · Decisão de projeto (feedback da orientadora: melhorar o cálculo da previsão)
+
+**RF21.1 — Registro e exibição da pergunta.** O sistema deve registrar no servidor uma pergunta pendente ao confirmar o check-in e exibi-la como pop-up quando o app estiver em primeiro plano e a hora prevista tiver passado, em qualquer aparelho em que o usuário esteja logado. Uma notificação push poderá ser acrescentada depois sem alterar o registro (RF23).
+- Dado um check-in confirmado, quando passa o tempo até a primeira pergunta (Anexo A) com o app em primeiro plano, então o pop-up aparece, só para o autor do check-in, em qualquer aparelho em que ele esteja logado.
+
+**RF21.2 — Respostas, repetição e expiração.** O sistema deve oferecer cinco respostas (RN07), repetir a pergunta uma vez se a resposta for "Ainda estou na fila", encerrá-la depois da expiração (Anexo A) e registrar cada resposta com a data/hora do servidor. Na desistência, o check-in continua contando no nível (RF13), mas não gera saída da fila nem tempo de espera (RN07).
+- Dado o pop-up da pergunta, quando escolho uma das cinco respostas, então ela é registrada com a data/hora do servidor; com "Ainda estou na fila", a pergunta é repetida uma vez, após o intervalo do Anexo A.
+- Dado que a pergunta expirou ou que fechei o pop-up sem responder, quando o app é aberto de novo, então a pergunta não aparece mais nem aceita resposta (exceto a repetição prevista).
 
 ---
 
 #### RF22 — Espera estimada por faixa de horário
 
-**Descrição:** O sistema deve exibir, junto à previsão de pico, a espera estimada em minutos para cada faixa de horário em que houver dados suficientes, calculada a partir dos tempos de espera informados pelos usuários (RF21). O objetivo é dar ao usuário o tempo que ele provavelmente vai gastar na fila, e não apenas um nível relativo.
-
-**Critério de aceite:**
-- O tempo de espera de um check-in é o intervalo entre o check-in e a saída da fila, obtida da resposta assim: "agora há pouco (até 5 min)" situa a saída 2,5 minutos antes da hora da resposta; "há 5 a 10 min" situa a saída 7,5 minutos antes (pontos médios, Anexo A); "há mais de 10 min" não gera tempo de espera, porque a saída não pode ser situada no tempo; "Ainda estou na fila" sem resposta posterior de saída gera um tempo de espera igual ao intervalo entre o check-in e a última resposta "Ainda estou na fila" (um piso: a espera real é pelo menos esse valor); desistência e ausência de resposta não geram tempo de espera.
-- Cada tempo de espera pertence à faixa de horário em que o check-in foi feito.
-- A espera estimada de uma faixa é a mediana dos tempos de espera da faixa nas últimas 4 semanas, para o mesmo dia da semana, o mesmo campus e a mesma refeição (mesma janela do RF13), arredondada para minutos inteiros.
-- A espera estimada só é exibida quando a faixa tem ao menos 3 tempos de espera em ao menos 2 dias distintos dentro da janela (Anexo A) e a previsão do RF13 é exibida. Caso contrário, a faixa mostra só o nível.
-- Nas faixas com espera estimada, os minutos aparecem em destaque e o nível aparece como cor ou rótulo da faixa. As faixas sem espera estimada mostram só o nível.
-- A tela inclui um texto de apoio explicando que o nível indica o movimento da faixa em relação ao pico do dia e que os minutos são a espera típica observada, e informando que se trata de estimativa baseada em respostas de outros usuários, que pode ficar abaixo da espera real (L12).
-- O visitante pode consultar a espera estimada.
-
+**Descrição:** O sistema deve exibir, junto à previsão de pico, a espera estimada em minutos para cada faixa em que houver dados suficientes, calculada a partir dos tempos de espera informados pelos usuários (RF21), para dar o tempo que a pessoa provavelmente vai gastar na fila, e não apenas um nível relativo. O visitante pode consultar a espera estimada.
 **Release:** Release 2 · **Prioridade:** Importante
-**Origem:** Épico Fila · Necessidade "Evitar longas filas no horário de pico" · Decisão de projeto (feedback da orientadora: melhorar o cálculo da previsão; foco na precisão do tempo de fila)
+
+**RF22.1 — Cálculo do tempo de espera e da espera estimada.** O sistema deve calcular o tempo de espera de cada check-in a partir da resposta à pergunta de saída da fila (RN07) e a espera estimada da faixa como a mediana desses tempos na janela de histórico (RN08).
+- Dado um check-in respondido 20 minutos depois com "Saí da fila há 5 a 10 min", quando o tempo de espera é calculado, então ele é de 12,5 minutos (a saída é situada 7,5 minutos antes da resposta).
+- Dado a resposta "Saí da fila há mais de 10 min", uma desistência ou ausência de resposta, quando o tempo de espera é calculado, então não é gerado tempo de espera.
+
+**RF22.2 — Exibição da espera estimada.** O sistema deve exibir a espera estimada em destaque nas faixas com dados suficientes (RN08) e só o nível nas demais, com um texto de apoio sobre a natureza da estimativa (L12).
+- Dado uma faixa com dados suficientes e a previsão do RF13 exibida, quando abro a previsão, então os minutos aparecem em destaque e o nível aparece como cor ou rótulo; as faixas sem dados suficientes mostram só o nível.
+- Dado a tela com espera estimada, quando a consulto, então um texto de apoio explica que o nível é relativo ao pico do dia, que os minutos são a espera típica observada e que é uma estimativa que pode ficar abaixo da realidade (L12).
 
 ---
 
 #### RF23 — Notificação push da pergunta de saída da fila
 
-**Descrição:** O sistema deve enviar uma notificação ao dispositivo do usuário quando a pergunta de saída da fila (RF21) estiver pronta, mesmo com o app fechado, para aumentar o número de respostas.
-
-**Critério de aceite:**
-- A notificação é enviada quando chega a hora prevista da pergunta, usando o mesmo registro de pergunta pendente do RF21.
-- A permissão de notificação é pedida em momento próprio, separada da permissão de localização (RF19), e pode ser recusada sem afetar o restante do sistema.
-- A inscrição do dispositivo para receber notificações é dado pessoal: entra no aviso de privacidade e no prazo de retenção (RNF07), e o usuário pode cancelá-la.
-- Tocar na notificação abre o app na pergunta pendente.
-- No iOS (16.4 ou superior), a notificação só funciona com o PWA instalado na tela inicial; para quem não o instalou, a pergunta continua aparecendo dentro do app (RF21).
-
+**Descrição:** O sistema deve enviar uma notificação ao dispositivo do usuário quando a pergunta de saída da fila (RF21) estiver pronta, mesmo com o app fechado, para aumentar as respostas. A permissão de notificação é pedida em momento próprio, separado da de localização (RF19), e a inscrição do dispositivo é dado pessoal (RNF07). No iOS (16.4 ou superior), só funciona com o PWA instalado; sem ele, a pergunta aparece só dentro do app (RF21).
 **Release:** Backlog · **Prioridade:** Desejável
-**Origem:** Épico Fila · Necessidade "Evitar longas filas no horário de pico" · Decisão de projeto
+
+**Critérios de aceite:**
+- Dado uma pergunta pendente e uma inscrição ativa, quando chega a hora prevista, então o dispositivo recebe a notificação, mesmo com o app fechado, e tocar nela abre o app na pergunta pendente.
+- Dado que recuso a permissão de notificação, quando uso o sistema, então tudo funciona normalmente e a pergunta aparece dentro do app (RF21).
+- Dado uma inscrição ativa, quando a cancelo, então deixo de receber notificações.
 
 ---
 
@@ -439,32 +401,28 @@ Todos os requisitos deste épico pertencem à Release 2 ou ao Backlog; o MVP nã
 
 #### RF15 — Avaliação de refeição por estrelas e comentário
 
-**Descrição:** O sistema deve permitir que um usuário autenticado avalie uma refeição (campus + dia + tipo de refeição) atribuindo uma nota de 1 a 5 estrelas e, opcionalmente, um comentário em texto livre que pode citar pratos ou ingredientes. A avaliação é exibida publicamente com o apelido do autor. Não há nota por prato.
-
-**Critério de aceite:**
-- A nota é obrigatória; o comentário é opcional e tem no máximo 500 caracteres.
-- Só é possível avaliar refeições do dia corrente e somente depois que a refeição começou, conforme os horários configurados (Anexo A). Antes do início, ou em outro dia, a avaliação fica indisponível e o sistema informa o motivo.
-- Cada usuário registra no máximo uma avaliação por refeição; uma segunda tentativa edita a avaliação anterior. A edição é permitida até as 23h59 do mesmo dia.
-- A avaliação é exibida junto ao cardápio da refeição, com o apelido do autor, para qualquer visitante. Matrícula/SIAPE e e-mail nunca são exibidos (RI10).
-- Cada refeição exibe sua nota média, a quantidade de avaliações e a lista de comentários com apelido, inclusive para os dias já passados da semana vigente. Sem avaliações, exibe "sem avaliações ainda".
-- Avaliações de semanas anteriores deixam de ser exibidas na interface, mas permanecem armazenadas, sem limite de retenção.
-
+**Descrição:** O sistema deve permitir que um usuário autenticado avalie uma refeição (campus + dia + tipo de refeição) com uma nota de 1 a 5 estrelas e, opcionalmente, um comentário em texto livre que pode citar pratos ou ingredientes. A avaliação é exibida publicamente com o apelido do autor. Não há nota por prato.
 **Release:** MVP · **Prioridade:** Essencial
-**Origem:** Épico Avaliação · Necessidade "Saber a qualidade da comida antes de decidir comer no RU" · Decisão de projeto
+
+**RF15.1 — Avaliar a refeição.** O sistema deve exigir a nota e aceitar comentário opcional de até 500 caracteres, apenas para refeições do dia corrente que já começaram (Anexo A), com uma avaliação por usuário por refeição, editável até as 23h59 do mesmo dia.
+- Dado que estou logado e a refeição do dia já começou, quando envio nota de 1 a 5 e comentário opcional de até 500 caracteres, então a avaliação é salva ligada à minha conta; sem nota, ou com comentário maior que o limite, é rejeitada.
+- Dado que já avaliei a refeição, quando avalio de novo até as 23h59 do mesmo dia, então a avaliação anterior é editada, não duplicada; dado uma refeição de outro dia ou que ainda não começou, então a avaliação fica indisponível e o sistema informa o motivo.
+
+**RF15.2 — Ver as avaliações da refeição.** O sistema deve exibir, junto ao cardápio de cada refeição da semana vigente, a nota média, a quantidade de avaliações e os comentários com o apelido do autor, para qualquer visitante. Matrícula/SIAPE e e-mail nunca são exibidos (RI10). Avaliações de semanas anteriores deixam de ser exibidas na interface, mas permanecem armazenadas, sem limite de retenção (L09).
+- Dado uma refeição da semana vigente, inclusive de dias passados, quando exibida, então vejo a nota média, a quantidade de avaliações e os comentários com apelido, mesmo sem login; sem avaliações, vejo "sem avaliações ainda".
+- Dado qualquer exibição de avaliações, quando a inspeciono, então não aparecem matrícula/SIAPE nem e-mail do autor.
 
 ---
 
 #### RF16 — Histórico de refeições anteriores
 
 **Descrição:** O sistema deve disponibilizar uma tela dedicada para consultar refeições de semanas anteriores, com o cardápio, a nota média e os comentários de cada uma.
-
-**Critério de aceite:**
-- O usuário navega por campus, data e refeição, em modo somente leitura (não é possível avaliar refeições passadas).
-- Uma refeição sem avaliações exibe "sem avaliações ainda".
-- O histórico começa na primeira leitura de cardápio feita pelo sistema; não há carga de PDFs anteriores como requisito.
-
 **Release:** Release 2 · **Prioridade:** Importante
-**Origem:** Épico Avaliação · Necessidade "Saber a qualidade da comida antes de decidir comer no RU"
+
+**Critérios de aceite:**
+- Dado a tela de histórico, quando navego por campus, data e refeição de semanas anteriores, então vejo cardápio, nota média e comentários, em modo somente leitura (não é possível avaliar refeições passadas).
+- Dado uma refeição sem avaliações, quando exibida, então vejo "sem avaliações ainda".
+- Dado uma data anterior à primeira leitura de cardápio feita pelo sistema, quando a procuro, então ela não está disponível (não há carga de PDFs anteriores).
 
 ---
 
@@ -473,12 +431,10 @@ Todos os requisitos deste épico pertencem à Release 2 ou ao Backlog; o MVP nã
 #### RF17 — Design e identidade visual do site
 
 **Descrição:** O sistema deve seguir uma distribuição de informações e paleta de cores definidas e consistentes em todas as telas, garantindo identidade visual coesa ao produto.
-
-**Critério de aceite:**
-- Todas as telas do sistema utilizam a mesma paleta de cores e os mesmos padrões de tipografia e espaçamento definidos pelo guia de estilo da equipe, verificável por inspeção visual comparativa entre telas.
-
 **Release:** MVP · **Prioridade:** Essencial
-**Origem:** Transversal (item "Design do site" do Documento de Visão)
+
+**Critérios de aceite:**
+- Dado o guia de estilo da equipe, quando comparo todas as telas do sistema lado a lado, então todas usam a mesma paleta de cores e os mesmos padrões de tipografia e espaçamento.
 
 ---
 
@@ -504,7 +460,9 @@ O sistema deve estar disponível pelo menos **95% do tempo** durante o horário 
 
 #### RNF03 — Usabilidade
 
-Um visitante deve conseguir visualizar o cardápio de um campus em **no máximo 3 interações** (cliques/toques) na primeira visita. Nas visitas seguintes, o campus e a refeição escolhidos ficam lembrados no aparelho e o cardápio abre sem interação adicional. **Release 2:** na primeira visita, as etapas do aviso de localização (RF19) e do pedido do navegador contam como interações: com permissão, são 2 interações até o cardápio do campus detectado; sem permissão, "Agora não" e a escolha do campus também somam 2. Nas visitas seguintes, o cardápio abre sem interação, com o campus resolvido pelas regras do RF20, e a leitura da localização não bloqueia a exibição do cardápio. A interface deve ser funcional em telas a partir de **360px de largura**, compatível com o caráter PWA/mobile do produto.
+Um visitante deve conseguir visualizar o cardápio de um campus em **no máximo 3 interações** (cliques/toques) na primeira visita. Nas visitas seguintes, o campus escolhido fica lembrado no aparelho e o cardápio abre sem interação adicional. A interface deve ser funcional em telas a partir de **360px de largura**, compatível com o caráter PWA/mobile do produto.
+
+**Release 2:** na primeira visita, as etapas do aviso de localização (RF19) e do pedido do navegador contam como interações: com permissão, são 2 interações até o cardápio do campus detectado; sem permissão, "Agora não" e a escolha do campus também somam 2. Nas visitas seguintes, o cardápio abre sem interação, com o campus resolvido pela RN04, sem esperar a leitura da localização.
 
 **Justificativa:** o perfil de usuário descrito no ambiente do usuário do Documento de Visão é de pessoas com pouco tempo disponível; a usabilidade precisa refletir isso objetivamente.
 
@@ -536,7 +494,12 @@ O código-fonte deve manter cobertura de testes automatizados de, no mínimo, **
 
 #### RNF07 — Privacidade e proteção de dados pessoais
 
-O sistema trata como dados pessoais a matrícula/SIAPE, o e-mail e o apelido e, na Release 2, os registros de check-in e de saída da fila ligados à conta, e deve observar a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). Os dados são coletados apenas para as finalidades declaradas no aviso de privacidade do cadastro (login, recuperação de senha e identificação do autor de avaliações) e, na Release 2, também para estimar a fila (check-in e saída da fila) e para usar a localização do dispositivo na identificação do campus e na confirmação do check-in. O aviso atualizado é apresentado uma vez, no login seguinte, a quem já tinha conta, e essa pessoa só faz o primeiro check-in depois de dar ciência a ele. A matrícula/SIAPE é armazenada de forma que a equipe possa recuperá-la a partir do apelido (não como hash irreversível), com acesso restrito à equipe. A exclusão de conta é feita por solicitação à equipe, e as avaliações do usuário permanecem de forma anônima ("usuário removido"). A localização do usuário não é armazenada (RI09); na detecção de campus, as coordenadas não saem do aparelho. Os registros de check-in, de tentativas de check-in (RF12) e de respostas à pergunta de saída da fila mantêm o vínculo com a conta apenas durante a janela de 4 semanas da previsão (Anexo A). Depois dela, o vínculo é removido e permanece só um registro anônimo (campus, refeição, data, faixa de horário e tempo de espera). Na exclusão de conta, o vínculo desses registros é removido imediatamente.
+O sistema deve tratar como dados pessoais a matrícula/SIAPE, o e-mail, o apelido e, na Release 2, os registros de check-in e de saída da fila ligados à conta, conforme a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). A localização não é armazenada (RI09).
+
+- **RNF07.1 Finalidade:** os dados são coletados só para as finalidades do aviso de privacidade (login, recuperação de senha, identificação do autor de avaliações e, na Release 2, estimativa da fila e uso da localização). Quem já tinha conta vê o aviso atualizado uma vez, no login seguinte (efeito sobre o check-in no RF11).
+- **RNF07.2 Acesso:** a matrícula/SIAPE é armazenada de forma recuperável pela equipe (não como hash), com acesso restrito à equipe.
+- **RNF07.3 Retenção:** o vínculo dos registros de check-in, de tentativas e de respostas com a conta dura a janela de 4 semanas (Anexo A); depois, resta só o registro anônimo (campus, refeição, data, faixa e tempo de espera).
+- **RNF07.4 Exclusão:** a conta é excluída por solicitação à equipe; as avaliações permanecem como "usuário removido" e o vínculo dos registros de fila é removido na hora.
 
 **Justificativa:** o cadastro por matrícula/SIAPE cria um vínculo entre identidade e comportamento no sistema; o tratamento precisa ser transparente e minimizado.
 
@@ -563,8 +526,8 @@ Requisitos inversos definem explicitamente o que o sistema **não deve** fazer, 
 | **RI05** | O sistema não deve depender de sensores físicos (câmeras, contadores de pessoas) nem de votação dos usuários sobre o nível da fila para estimar a fila. A fila é estimada exclusivamente a partir de dados que os próprios usuários informam sobre a sua presença (check-in) e a sua saída da fila. |
 | **RI06** | O sistema não deve bloquear o acesso à visualização do cardápio para usuários que optem por não se cadastrar. |
 | **RI07** | O sistema não deve permitir cadastro sem matrícula ou SIAPE em formato válido; terceirizados e demais pessoas sem esses identificadores ficam fora do público de cadastro. |
-| **RI08** | O sistema não deve exibir cardápio, avaliações ou informações de fila do Restaurante Executivo do Campus Darcy Ribeiro, que não faz parte do escopo do projeto. Isso vale mesmo funcionando o Executivo no mesmo prédio do RU, com fila e cardápio próprios: o sistema não trata nenhum dado sobre ele e, quando o campus exibido é o Darcy Ribeiro, a tela do campus informa que os dados são apenas do RU (RF20). |
-| **RI09** | O sistema não deve armazenar as coordenadas de localização do usuário. Na detecção de campus (RF20), as coordenadas não saem do aparelho; no check-in (RF12), são enviadas ao servidor apenas para a conferência e descartadas em seguida. |
+| **RI08** | O sistema não deve exibir cardápio, avaliações ou informações de fila do Restaurante Executivo do Campus Darcy Ribeiro, que não faz parte do escopo do projeto. Isso vale mesmo funcionando o Executivo no mesmo prédio do RU, com fila e cardápio próprios: o sistema não trata nenhum dado sobre ele e, quando o campus exibido é o Darcy Ribeiro, a tela do campus informa que os dados são apenas do RU (RF20.4). |
+| **RI09** | O sistema não deve armazenar as coordenadas de localização do usuário. Na detecção de campus (RF20.1), as coordenadas não saem do aparelho; no check-in (RF12), são enviadas ao servidor apenas para a conferência e descartadas em seguida. |
 | **RI10** | O sistema não deve exibir a matrícula/SIAPE ou o e-mail de um usuário a outros usuários. |
 
 ---
@@ -575,7 +538,7 @@ Requisitos inversos definem explicitamente o que o sistema **não deve** fazer, 
 |---|---|---|
 | **L01** | **Matrícula alheia ou inventada.** O sistema confere só o formato da matrícula/SIAPE. Alguém pode cadastrar a matrícula de outra pessoa, que ficará sem poder se cadastrar, ou uma matrícula inventada de formato válido. | E-mail único e confirmado (RF02), rastreabilidade (RNF08). Matrícula contestada é resolvida manualmente pela equipe. |
 | **L02** | **Contas múltiplas ou falsas.** Uma pessoa pode criar várias contas, inclusive por ter mais de uma vinculação (por exemplo, matrícula de aluno e SIAPE). Isso distorce a nota média das avaliações já no MVP e a previsão de pico na Release 2. | Para as avaliações: e-mail único e confirmado (RF02), rastreabilidade e moderação (RNF08). Para a previsão de pico: confirmação por GPS (RF12), um check-in por refeição (RI03), e-mail único. |
-| **L03** | **Leitura dos ícones de marcadores.** Os ícones são imagens; a associação a pratos pode falhar. | Validação da legenda, refeição marcada como "informação de alérgenos indisponível" e alerta à equipe (RF06). |
+| **L03** | **Leitura dos ícones de marcadores.** Os ícones são imagens; a associação a pratos pode falhar. | Validação da legenda, refeição marcada como "informação de alérgenos indisponível" e alerta à equipe (RF06.3 e RF06.5). |
 | **L04** | **Os filtros são auxiliares.** A ausência de marcador não garante que o prato esteja livre do ingrediente; o cardápio oficial não marca peixe nem frutos do mar e está sujeito a alteração. | Aviso fixo junto ao filtro (RF08); pratos com marcador permanecem visíveis com alerta. |
 | **L05** | **Parâmetros mantidos manualmente.** Horários das refeições, raios de GPS e limites de leitura da localização dependem de definição e atualização pela equipe; os horários podem mudar, e os raios precisam ser validados em campo, porque a precisão do GPS em ambiente fechado varia. | Tabela de configuração (Anexo A) revisada pela equipe; teste em campo antes de fixar os raios. |
 | **L06** | **Avaliação sem prova de presença.** No MVP, qualquer usuário autenticado pode avaliar uma refeição do dia depois que ela começou, sem comprovar que comeu. | O check-in (Release 2) permanece independente da avaliação. |
@@ -583,42 +546,42 @@ Requisitos inversos definem explicitamente o que o sistema **não deve** fazer, 
 | **L08** | **Baixa adesão ao check-in e à pergunta de saída da fila.** A previsão depende de os usuários fazerem check-in, e a espera estimada, de responderem à pergunta de saída da fila, que só aparece com o app aberto e tende a ser menos respondida que o check-in. Com pouca adesão, ambas são pouco representativas. | Exibição de "dados insuficientes" abaixo do mínimo de dados (RF13); espera estimada só com o mínimo de respostas (RF22), senão só o nível; nível "agora" mantido no Backlog (RF14); notificação push no Backlog (RF23). |
 | **L09** | **Avaliações de semanas anteriores.** No MVP, elas não são exibidas na interface, embora permaneçam armazenadas. | Histórico de refeições na Release 2 (RF16). |
 | **L10** | **Matrícula de estudante com menos de 9 dígitos não suportada.** O sistema só aceita matrícula de estudante com exatamente 9 dígitos (padrão em uso desde 2010). Estudantes com matrícula de 8 dígitos (anterior a 2010) não conseguem se cadastrar nesta fase. | Decisão de projeto consciente de adiar o tratamento desse caso; forma de abordá-lo fica para decisão futura da equipe. |
-| **L11** | **Restaurante Executivo no mesmo prédio do RU do Darcy Ribeiro.** O Executivo tem fila e cardápio próprios e está fora do escopo, mas o GPS não o distingue do RU. Quem vai ao Executivo pode fazer check-in no Darcy Ribeiro e entrar na contagem de chegadas do RU. | Aviso discreto e fixo na tela do campus (RF20); o sistema não trata nenhum dado sobre o Executivo (RI08). |
-| **L12** | **Espera estimada tende a ficar abaixo da realidade.** Ela usa só quem responde à pergunta de saída da fila. Quem desiste, quem não responde e quem responde "há mais de 10 min" ficam de fora, e quem diz "Ainda estou na fila" e não volta entra só com um piso. As esperas mais longas são as mais afetadas. | Pisos contados em vez de descartados e uso da mediana (RF22); mínimo de respostas (RF22); texto na tela informando que é uma estimativa (RF22). |
+| **L11** | **Restaurante Executivo no mesmo prédio do RU do Darcy Ribeiro.** O Executivo tem fila e cardápio próprios e está fora do escopo, mas o GPS não o distingue do RU. Quem vai ao Executivo pode fazer check-in no Darcy Ribeiro e entrar na contagem de chegadas do RU. | Aviso discreto e fixo na tela do campus (RF20.4); o sistema não trata nenhum dado sobre o Executivo (RI08). |
+| **L12** | **Espera estimada tende a ficar abaixo da realidade.** Ela usa só quem responde à pergunta de saída da fila. Quem desiste, quem não responde e quem responde "há mais de 10 min" ficam de fora, e quem diz "Ainda estou na fila" e não volta entra só com um piso. As esperas mais longas são as mais afetadas. | Pisos contados em vez de descartados (RN07) e uso da mediana (RN08); mínimo de respostas (RN08); texto na tela informando que é uma estimativa (RF22.2). |
 
 ---
 
 ## 6. Matriz de Rastreabilidade
 
-Necessidades das partes interessadas conforme o Documento de Visão.
+Necessidades das partes interessadas conforme o Documento de Visão. A origem de cada requisito funcional consta aqui, e não nos blocos da Seção 2.
 
-| ID | Épico | Necessidade da Parte Interessada / origem | Release |
-|---|---|---|---|
-| RF01 | Login | Pré-requisito de avaliação — "Saber a qualidade da comida antes de decidir comer no RU"; decisão de projeto | MVP |
-| RF02 | Login | Decisão de projeto (canal de recuperação de senha); pré-requisito de avaliação | MVP |
-| RF03 | Login | Pré-requisito de avaliação e, na Release 2, de check-in; decisão de projeto | MVP; ampliação na Release 2 |
-| RF04 | Login | Decisão de projeto; pré-requisito de avaliação | MVP |
-| RF05 | Login / Transversal | "Planejar a refeição com informação antecipada" | MVP |
-| RF06 | Cardápio | "Planejar a refeição com informação antecipada"; decisão de projeto | MVP |
-| RF07 | Cardápio | "Planejar a refeição com informação antecipada"; decisão de projeto | MVP; ampliação na Release 2 |
-| RF08 | Cardápio | "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro"; decisão de projeto | MVP |
-| RF09 | Cardápio | "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro"; decisão de projeto | MVP |
-| RF10 | Cardápio | "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro" | Backlog |
-| RF19 | Cardápio (jornada) | "Planejar a refeição com informação antecipada"; decisão de projeto (feedback da orientadora) | Release 2 |
-| RF20 | Cardápio (jornada) | "Planejar a refeição com informação antecipada"; "Evitar longas filas no horário de pico"; decisão de projeto (feedback da orientadora) | Release 2 |
-| RF18 | Cardápio | "Planejar a refeição com informação antecipada"; decisão de projeto (correção de escopo) | Release 2 |
-| RF11 | Fila | "Evitar longas filas no horário de pico"; decisão de projeto | Release 2 |
-| RF12 | Fila | "Evitar longas filas no horário de pico" (confiabilidade da previsão); decisão de projeto | Release 2 |
-| RF13 | Fila | "Evitar longas filas no horário de pico"; "Planejar a refeição com informação antecipada"; decisão de projeto | Release 2 |
-| RF14 | Fila | "Evitar longas filas no horário de pico"; decisão de projeto | Backlog |
-| RF21 | Fila | "Evitar longas filas no horário de pico"; decisão de projeto (feedback da orientadora) | Release 2 |
-| RF22 | Fila | "Evitar longas filas no horário de pico"; decisão de projeto (feedback da orientadora) | Release 2 |
-| RF23 | Fila | "Evitar longas filas no horário de pico"; decisão de projeto | Backlog |
-| RF15 | Avaliação | "Saber a qualidade da comida antes de decidir comer no RU"; decisão de projeto | MVP |
-| RF16 | Avaliação | "Saber a qualidade da comida antes de decidir comer no RU" | Release 2 |
-| RF17 | Transversal | Experiência geral do usuário | MVP |
-| RNF01–RNF06 | Transversal | Métrica de eficiência e requisitos de sistema (entrega como PWA) | MVP / Release 2 |
-| RNF07–RNF08 | Transversal | Decisão de projeto | MVP |
+| ID | Subrequisitos | Épico | Necessidade da Parte Interessada / origem | Release |
+|---|---|---|---|---|
+| RF01 | RF01.1 a RF01.5 | Login | Pré-requisito de avaliação — "Saber a qualidade da comida antes de decidir comer no RU"; decisão de projeto | MVP |
+| RF02 | RF02.1 a RF02.3 | Login | Decisão de projeto (se o e-mail estiver errado, a pessoa perde o único canal de recuperação de senha); pré-requisito de avaliação | MVP |
+| RF03 | RF03.1 a RF03.4 | Login | Pré-requisito de avaliação e, na Release 2, de check-in; decisão de projeto. RF03.3: decisão de projeto (sair da conta, sobretudo em aparelho compartilhado). RF03.4: decisão de projeto (consequência do RF20) | MVP; RF03.3 e RF03.4 na Release 2 |
+| RF04 | RF04.1, RF04.2 | Login | Decisão de projeto (canal de recuperação de senha); pré-requisito de avaliação | MVP |
+| RF05 | — | Login / Transversal | "Planejar a refeição com informação antecipada" (perspectiva do produto: sistema como "porta") | MVP |
+| RF06 | RF06.1 a RF06.5 | Cardápio | "Planejar a refeição com informação antecipada"; decisão de projeto (leitura dos marcadores e das dietas) | MVP |
+| RF07 | RF07.1 a RF07.3 | Cardápio | "Planejar a refeição com informação antecipada"; decisão de projeto (visualização refinada já no MVP; ampliação na Release 2 pelas RN04 e RN05, conforme feedback da orientadora) | MVP |
+| RF08 | — | Cardápio | "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro"; decisão de projeto | MVP |
+| RF09 | — | Cardápio | "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro"; decisão de projeto | MVP |
+| RF10 | — | Cardápio | "Saber o que posso comer com minha restrição alimentar ou alergia, sem ler o cardápio inteiro" | Backlog |
+| RF19 | — | Cardápio (jornada) | "Planejar a refeição com informação antecipada"; decisão de projeto (feedback da orientadora: reduzir o número de toques até as informações) | Release 2 |
+| RF20 | RF20.1 a RF20.4 | Cardápio (jornada) | "Planejar a refeição com informação antecipada"; "Evitar longas filas no horário de pico"; decisão de projeto (feedback da orientadora: reduzir o número de toques até as informações) | Release 2 |
+| RF18 | — | Cardápio | "Planejar a refeição com informação antecipada"; decisão de projeto (correção de escopo: no refinamento anterior este item estava erroneamente descrito como parte do MVP) | Release 2 |
+| RF11 | — | Fila | "Evitar longas filas no horário de pico"; decisão de projeto (o check-in passa a ser a única fonte de dados da previsão) | Release 2 |
+| RF12 | — | Fila | "Evitar longas filas no horário de pico" (confiabilidade da previsão); decisão de projeto | Release 2 |
+| RF13 | — | Fila | "Evitar longas filas no horário de pico"; "Planejar a refeição com informação antecipada"; decisão de projeto | Release 2 |
+| RF14 | — | Fila | "Evitar longas filas no horário de pico"; decisão de projeto | Backlog |
+| RF21 | RF21.1, RF21.2 | Fila | "Evitar longas filas no horário de pico"; decisão de projeto (feedback da orientadora: melhorar o cálculo da previsão) | Release 2 |
+| RF22 | RF22.1, RF22.2 | Fila | "Evitar longas filas no horário de pico"; decisão de projeto (feedback da orientadora: melhorar o cálculo da previsão; foco na precisão do tempo de fila) | Release 2 |
+| RF23 | — | Fila | "Evitar longas filas no horário de pico"; decisão de projeto | Backlog |
+| RF15 | RF15.1, RF15.2 | Avaliação | "Saber a qualidade da comida antes de decidir comer no RU"; decisão de projeto | MVP |
+| RF16 | — | Avaliação | "Saber a qualidade da comida antes de decidir comer no RU" | Release 2 |
+| RF17 | — | Transversal | Experiência geral do usuário (item "Design do site" do Documento de Visão) | MVP |
+| RNF01–RNF06 | — | Transversal | Métrica de eficiência e requisitos de sistema (entrega como PWA) | MVP / Release 2 |
+| RNF07–RNF08 | RNF07.1 a RNF07.4 | Transversal | Decisão de projeto | MVP |
 
 ---
 
@@ -626,8 +589,8 @@ Necessidades das partes interessadas conforme o Documento de Visão.
 
 | Release | Requisitos Funcionais |
 |---|---|
-| **MVP** (entregue) | RF01, RF02, RF03, RF04, RF05, RF06, RF07, RF08, RF09, RF15, RF17 |
-| **Release 2** (entrega final) | RF11, RF12, RF13, RF16, RF18, RF19, RF20, RF21, RF22; ampliações em RF03 e RF07 |
+| **MVP** (entregue) | RF01, RF02, RF03 (RF03.1 e RF03.2), RF04, RF05, RF06, RF07, RF08, RF09, RF15, RF17 |
+| **Release 2** (entrega final) | RF11, RF12, RF13, RF16, RF18, RF19, RF20, RF21, RF22; RF03.3 e RF03.4; ampliações de comportamentos do MVP nas RN04 e RN05 (RF07) e no RNF03 |
 | **Backlog** | RF10, RF14, RF23 |
 
 Todos os requisitos não funcionais (RNF01–RNF08) e todos os requisitos inversos (RI01–RI10) aplicam-se transversalmente a partir do MVP, ainda que alguns (ex.: RNF06 quanto a detecção, check-in e previsão; RNF03 e RNF07 quanto às regras de localização e retenção; RI03, RI05, RI09) só se manifestem completamente a partir da entrada em vigor das funcionalidades de fila na Release 2.
@@ -640,28 +603,93 @@ Valores ajustáveis pela equipe sem alterar os requisitos.
 
 | Parâmetro | Valor inicial | Usado em |
 |---|---|---|
-| Horário do café da manhã | 7h00 às 9h30 | RF07, RF11, RF13, RF15, RF20 |
-| Horário do almoço | 11h00 às 14h30 | RF07, RF11, RF13, RF15, RF20 |
-| Horário do jantar | 17h00 às 19h30 | RF07, RF11, RF13, RF15, RF20 |
-| Estrutura dos horários | Campus × refeição × dia da semana. Os dias e as refeições servidos vêm do PDF | RF06, RF07, RF20 |
+| Horário do café da manhã | 7h00 às 9h30 | RF07.3 (RN05), RF11, RF13, RF15.1, RF20.3 |
+| Horário do almoço | 11h00 às 14h30 | RF07.3 (RN05), RF11, RF13, RF15.1, RF20.3 |
+| Horário do jantar | 17h00 às 19h30 | RF07.3 (RN05), RF11, RF13, RF15.1, RF20.3 |
+| Estrutura dos horários | Campus × refeição × dia da semana. Os dias e as refeições servidos vêm do PDF | RF06.2, RF07.1, RF07.3 (RN05) |
 | Coordenadas e raio de confirmação do check-in por RU | A definir pela equipe para cada RU, com validação em campo. No Darcy Ribeiro, o RU e o Restaurante Executivo ficam no mesmo prédio e o GPS não os distingue (L11) | RF12 |
-| Coordenadas e raio de detecção de campus | A definir pela equipe, por campus; raio bem menor que a metade da distância até o campus mais próximo; na Fazenda Água Limpa, ponto próximo às instalações do RU | RF20 |
-| Tempo parado para nova detecção de campus | 30 minutos | RF20 |
-| Tempo limite da leitura de localização | 5 segundos | RF12, RF20 |
-| Precisão mínima da posição | A definir pela equipe | RF12, RF20 |
-| Idade máxima da posição | A definir pela equipe | RF12, RF20 |
-| Faixa de horário da previsão | 15 minutos | RF13 |
-| Janela de histórico da previsão | 4 semanas, mesmo dia da semana | RF13, RF22, RNF07 |
-| Mínimo de dados para exibir a previsão | Check-ins em 3 dias distintos | RF13 |
-| Cortes dos níveis de fila | 25%, 50% e 75% da média da faixa mais cheia | RF13 |
-| Tempo até a primeira pergunta de saída da fila | 15 minutos após o check-in | RF21 |
-| Intervalo da segunda pergunta de saída da fila | 10 minutos | RF21 |
-| Expiração da pergunta de saída da fila | 60 minutos após o check-in | RF21 |
-| Pontos médios das respostas de saída da fila | "até 5 min": 2,5 min; "5 a 10 min": 7,5 min | RF22 |
-| Mínimo de dados para exibir a espera estimada | 3 tempos de espera em 2 dias distintos, na janela de 4 semanas | RF22 |
-| Prazo de manutenção do vínculo com a conta (check-ins, tentativas e respostas) | 4 semanas, a mesma janela da previsão | RNF07 |
-| Validade do link de confirmação de e-mail | 24 horas | RF02 |
-| Validade do link de redefinição de senha | 1 hora | RF04 |
-| Limite de solicitações de redefinição | 3 por hora por matrícula/SIAPE | RF04 |
-| Bloqueio de login | 5 tentativas em 10 minutos, bloqueio de 10 minutos | RF03 |
-| Janela de validação do prefixo da matrícula de estudante | Dinâmica: de `101` (2010, 1º semestre) até o código do semestre corrente do sistema (ex.: `262` no 2º semestre de 2026), recalculada automaticamente a cada semestre | RF01 |
+| Coordenadas e raio de detecção de campus | A definir pela equipe, por campus; raio bem menor que a metade da distância até o campus mais próximo; na Fazenda Água Limpa, ponto próximo às instalações do RU | RF20.1 |
+| Tempo parado para nova detecção de campus | 30 minutos | RF20.1 |
+| Tempo limite da leitura de localização | 5 segundos | RN03 (RF12, RF20.2) |
+| Precisão mínima da posição | A definir pela equipe | RN03 (RF12, RF20.2) |
+| Idade máxima da posição | A definir pela equipe | RN03 (RF12, RF20.2) |
+| Faixa de horário da previsão | 15 minutos | RF13, RN06 |
+| Janela de histórico da previsão | 4 semanas, mesmo dia da semana | RN06, RN08, RNF07.3 |
+| Mínimo de dados para exibir a previsão | Check-ins em 3 dias distintos | RF13, RN06 |
+| Cortes dos níveis de fila | 25%, 50% e 75% da média da faixa mais cheia | RN06 |
+| Tempo até a primeira pergunta de saída da fila | 15 minutos após o check-in | RF21.1 |
+| Intervalo da segunda pergunta de saída da fila | 10 minutos | RF21.2 |
+| Expiração da pergunta de saída da fila | 60 minutos após o check-in | RF21.2 |
+| Pontos médios das respostas de saída da fila | "até 5 min": 2,5 min; "5 a 10 min": 7,5 min | RN07 |
+| Mínimo de dados para exibir a espera estimada | 3 tempos de espera em 2 dias distintos, na janela de 4 semanas | RN08, RF22.2 |
+| Prazo de manutenção do vínculo com a conta (check-ins, tentativas e respostas) | 4 semanas, a mesma janela da previsão | RNF07.3 |
+| Validade do link de confirmação de e-mail | 24 horas | RF02.1 a RF02.3 |
+| Validade do link de redefinição de senha | 1 hora | RF04.2 |
+| Limite de solicitações de redefinição | 3 por hora por matrícula/SIAPE | RF04.1 |
+| Bloqueio de login | 5 tentativas em 10 minutos, bloqueio de 10 minutos | RF03.2 |
+| Janela de validação do prefixo da matrícula de estudante | Dinâmica: de `101` (2010, 1º semestre) até o código do semestre corrente do sistema (ex.: `262` no 2º semestre de 2026), recalculada automaticamente a cada semestre | RN01 (RF01.3) |
+
+---
+
+## Anexo B — Regras de negócio
+
+Regras citadas pelos requisitos funcionais. Onde há uma versão do MVP e outra da Release 2, as duas estão identificadas. Os valores ajustáveis estão no Anexo A.
+
+#### RN01 — Formato da matrícula e do SIAPE
+
+- **Estudante:** matrícula com exatamente 9 dígitos numéricos, extraída do e-mail institucional. Matrícula de 8 dígitos (anterior a 2010) é rejeitada (L10).
+- **Prefixo (3 primeiros dígitos, ano/semestre de ingresso):** os 2 primeiros dígitos correspondem aos 2 últimos de um ano entre 2010 e o ano corrente, e o 3º dígito é `1` ou `2`. O intervalo válido vai de `101` (2010, 1º semestre) até o código do semestre corrente, calculado a partir da data do sistema (ex.: `262` no 2º semestre de 2026). Nenhum código fora do intervalo, inclusive "futuro", é aceito. O ano e o semestre correntes usados no cálculo são parâmetros configuráveis (Anexo A).
+- **Seis dígitos finais:** são rejeitados se formarem uma sequência inteira crescente (`123456`), uma sequência inteira decrescente (`654321`) ou se todos forem iguais (`111111`).
+- **Professor/Servidor:** SIAPE/matrícula funcional com exatamente 7 dígitos numéricos.
+- **Outros formatos**, inclusive com pontuação, são rejeitados com mensagem específica.
+- **No login (RF03.1):** 9 dígitos indicam matrícula e 7 indicam SIAPE. Um identificador com outra quantidade de dígitos é rejeitado antes de consultar a base, com mensagem de formato inválido.
+- O sistema confere apenas o formato (L01).
+
+#### RN02 — Apelido
+
+- Tem de 3 a 20 caracteres, sem espaços, e é único entre os usuários, sem distinção de maiúsculas e minúsculas. É definido apenas no cadastro e não pode ser alterado.
+- **Estudante:** o apelido é digitado.
+- **Professor/Servidor:** o apelido é extraído do texto antes do "@" do e-mail institucional (qualquer texto é aceito), com os caracteres não alfanuméricos removidos (como o "." em nome.sobrenome) antes da checagem.
+- Se, depois da limpeza, o apelido já estiver em uso ou não tiver de 3 a 20 caracteres, o cadastro automático é rejeitado e o sistema pede que a pessoa digite um apelido (ADR 0002).
+
+#### RN03 — Leitura de localização aceita
+
+A posição do dispositivo só é usada se for lida dentro do tempo limite, com a precisão mínima e a idade máxima do Anexo A. Uma leitura fora desses limites equivale a "localização não lida": na detecção de campus (RF20.2), vale o campus lembrado ou o seletor; no check-in (RF12), ele é rejeitado. As coordenadas não são armazenadas (RI09).
+
+#### RN04 — Campus exibido
+
+- **MVP:** o campus exibido é o último escolhido manualmente e lembrado no aparelho; sem ele, o seletor de campus.
+- **Release 2:** a ordem é (1) a escolha manual feita depois da última detecção, que prevalece até a próxima abertura do app, ou volta ao primeiro plano com nova detecção; (2) o campus detectado; (3) o campus lembrado; (4) o seletor de campus, se nenhum dos anteriores existir.
+- O campus lembrado é sempre o último escolhido manualmente: o campus detectado não o substitui.
+
+#### RN05 — Refeição padrão
+
+- **MVP:** é a refeição em andamento ou, se nenhuma estiver em andamento, a próxima do dia, conforme os horários do Anexo A.
+- **Release 2:** a ordem é (1) a refeição em andamento; (2) senão, a próxima refeição ainda por vir no mesmo dia; (3) senão (todas as refeições do dia já terminaram), a última refeição do dia, até as 23h59, com a avaliação aberta (RF15.1) e, no lugar da previsão e do check-in, a indicação "refeição encerrada"; (4) depois da meia-noite volta a valer o item 2, e o café da manhã do novo dia passa a ser o padrão; (5) se o campus não serve refeições no dia (por exemplo, no domingo), a padrão é a primeira refeição do próximo dia com serviço, com o dia indicado na tela.
+- Se o dia a exibir pertencer a uma semana cujo PDF ainda não foi lido com sucesso (RF06, RF18), a tela informa que o cardápio ainda não foi publicado.
+- Os dias e as refeições servidos são os do PDF (RF06.2).
+
+#### RN06 — Nível de fila por faixa
+
+- As faixas são de 15 minutos e cobrem o horário da refeição (Anexo A).
+- Para cada faixa, calcula-se a média de check-ins confirmados nas últimas 4 semanas, no mesmo dia da semana, campus e refeição, considerando apenas os dias com dados.
+- O nível é a razão entre a média da faixa e a média da faixa mais cheia: menos de 25% é **vazia**; de 25% a menos de 50% é **curta**; de 50% a menos de 75% é **moderada**; 75% ou mais é **longa**. A faixa mais cheia é sempre longa e é o pico.
+- A previsão só é exibida com check-ins em ao menos 3 dias distintos na janela; do contrário, mostra "dados insuficientes", sem valor de reserva.
+- As respostas à pergunta de saída da fila não alteram o nível (ADR 0010).
+
+#### RN07 — Tempo de espera
+
+O tempo de espera de um check-in é o intervalo entre o check-in e a saída da fila, obtida da resposta à pergunta de saída da fila (RF21.2):
+
+- "Saí da fila agora há pouco (até 5 min)": a saída é situada 2,5 minutos antes da hora da resposta.
+- "Saí da fila há 5 a 10 min": a saída é situada 7,5 minutos antes da hora da resposta.
+- "Saí da fila há mais de 10 min": não gera tempo de espera, porque a saída não pode ser situada no tempo.
+- "Ainda estou na fila", sem resposta posterior de saída: gera um tempo de espera igual ao intervalo entre o check-in e a última resposta desse tipo. É um piso: a espera real é pelo menos esse valor (L12).
+- "Desisti de comer no RU" e a ausência de resposta não geram tempo de espera.
+
+Cada tempo de espera pertence à faixa de horário em que o check-in foi feito.
+
+#### RN08 — Espera estimada
+
+- A espera estimada de uma faixa é a mediana dos tempos de espera da faixa nas últimas 4 semanas, para o mesmo dia da semana, o mesmo campus e a mesma refeição (a mesma janela da RN06), arredondada para minutos inteiros.
+- Só é exibida quando a faixa tem ao menos 3 tempos de espera em ao menos 2 dias distintos dentro da janela e a previsão do RF13 é exibida. Do contrário, a faixa mostra só o nível.
