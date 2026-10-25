@@ -19,7 +19,7 @@ Este documento especifica, de forma detalhada e verificável, os requisitos func
 
 O documento cobre a totalidade das funcionalidades do produto, independentemente da release em que estão alocadas — MVP, Release 2 ou Backlog do produto —, permitindo o planejamento e a rastreabilidade completa do sistema desde a primeira entrega até a visão de longo prazo do produto.
 
-O MVP (Release 1) já foi entregue. A Release 2 é a entrega final do projeto na disciplina: além das funcionalidades de fila, ela acrescenta ao login o encerramento de sessão e a tela do campus (RF03.3 e RF03.4) e amplia comportamentos já entregues no MVP (a escolha do campus e da refeição padrão, nas RN04 e RN05, e o RNF03). O Backlog reúne o que fica sem release agendada.
+O MVP (Release 1) já foi entregue. A Release 2 é a entrega final do projeto na disciplina: além das funcionalidades de fila e da gamificação (Épico 5, RF24 a RF27 e RF33), ela acrescenta ao login o encerramento de sessão e a tela do campus (RF03.3 e RF03.4) e amplia comportamentos já entregues no MVP (a escolha do campus e da refeição padrão, nas RN04 e RN05, e o RNF03). O Backlog reúne o que fica sem release agendada.
 
 O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O Restaurante Executivo do Campus Darcy Ribeiro não faz parte do escopo (RI08). Ele funciona no mesmo prédio do RU, com fila e cardápio próprios, e o sistema não trata nenhum dado sobre ele (RI08, L11).
 
@@ -38,7 +38,7 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 | Prioridade | Derivada da alocação de release: **Essencial** (MVP), **Importante** (Release 2), **Desejável** (Backlog) |
 | Origem | Épico e necessidade da parte interessada que o requisito atende. Quando o requisito resulta de uma decisão do grupo durante o refinamento do projeto, consta "decisão de projeto". A origem de cada RF está na Matriz de Rastreabilidade (Seção 6), e não nos blocos de requisito |
 | Parâmetros configuráveis | Valores ajustáveis sem alterar o requisito (horários, raios, limiares) estão no Anexo A |
-| Numeração e posição | Os IDs são únicos, seguem a ordem de criação e não mudam. Os requisitos acrescentados na Release 2 (RF18 a RF23) aparecem dentro do épico a que pertencem, e não ao fim do documento |
+| Numeração e posição | Os IDs são únicos, seguem a ordem de criação e não mudam. Os requisitos acrescentados na Release 2 (RF18 a RF32) aparecem dentro do épico a que pertencem, e não ao fim do documento |
 
 ### 1.4 Documentos de referência
 
@@ -46,10 +46,11 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 - FGA-EPS-MDS. *Documento de Visão — Projeto 2018.2-Lino*. Disponível em: https://github.com/fga-eps-mds/2018.2-Lino/blob/master/docs/documento-de-visao.md.
 - Decanato de Assuntos Comunitários/UnB. *Resolução nº 002/2024 — Regimento de funcionamento do Restaurante Universitário da Universidade de Brasília*. Disponível em: https://ru.unb.br/images/Artigos/00DRUResolucao2024/SEI_11843224_Resolucao_002.pdf.
 - Restaurante Universitário da UnB. *Cardápio semanal — Campus Gama, 21/9 a 27/9/2026* (exemplo do arquivo de cardápio lido pelo sistema).
-- ADR 0001 — Escolha da stack de backend (`docs/adr/0001-escolha-stack-backend.md`).
-- ADR 0002 — Matrícula e apelido extraídos do e-mail institucional (`docs/adr/0002-matricula-apelido-extraidos-do-email.md`).
-- ADR 0009 — Detecção de campus feita no aparelho (`docs/adr/0009-deteccao-de-campus-no-aparelho.md`).
-- ADR 0010 — Nível de fila calculado por chegadas, com espera estimada por saída da fila (`docs/adr/0010-nivel-por-chegadas-com-espera-estimada.md`).
+- ADR 0001 — Escolha da stack de backend (`docs/arquitetura/adr/0001-escolha-stack-backend.md`).
+- ADR 0002 — Matrícula e apelido extraídos do e-mail institucional (`docs/arquitetura/adr/0002-matricula-apelido-extraidos-do-email.md`).
+- ADR 0009 — Detecção de campus feita no aparelho (`docs/arquitetura/adr/0009-deteccao-de-campus-no-aparelho.md`).
+- ADR 0010 — Nível de fila calculado por chegadas, com espera estimada por saída da fila (`docs/arquitetura/adr/0010-nivel-por-chegadas-com-espera-estimada.md`).
+- ADR 0011 — Contadores de gamificação mantidos além da janela de retenção (`docs/arquitetura/adr/0011-contadores-de-gamificacao-alem-da-janela-de-retencao.md`).
 
 ### 1.5 Termos
 
@@ -60,7 +61,7 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 | **Tipo de usuário** | Vínculo declarado no cadastro: Estudante (matrícula) ou Professor/Servidor (SIAPE/matrícula funcional). É um único tipo interno: "Professor" e "Servidor" são duas opções na tela de cadastro que levam ao mesmo fluxo |
 | **Matrícula / SIAPE** | Identificador associado à conta. Para Estudante, extraído do e-mail institucional; para Professor/Servidor, informado diretamente no cadastro. O sistema confere apenas o formato; não confere existência, situação ativa nem titularidade. É dado privado |
 | **E-mail institucional** | E-mail da UnB informado no cadastro (`matricula@aluno.unb.br` para estudantes, `@unb.br` para professores/servidores), único canal de confirmação de cadastro e de recuperação de senha; fonte da Matrícula (estudantes) e do Apelido (professores/servidores) |
-| **Apelido** | Nome público, escolhido uma única vez no cadastro e único entre os usuários, sob o qual as avaliações são exibidas. Escolhido manualmente por Estudante; extraído do e-mail institucional para Professor/Servidor |
+| **Apelido** | Nome público, escolhido uma única vez no cadastro e único entre os usuários, sob o qual as avaliações e, para quem optar por aparecer, o Ranking são exibidos. Escolhido manualmente por Estudante; extraído do e-mail institucional para Professor/Servidor |
 | **Refeição** | Cada serviço de café da manhã, almoço ou jantar de um dia em um campus. É a unidade avaliada |
 | **Categoria** | Linha do cardápio de uma refeição (Bebidas, Guarnição, Sopa, Prato principal ovolactovegetariano…) |
 | **Prato** | Cada opção individual dentro de uma categoria. "ou/OU" separa pratos; "/" não separa. Não recebe nota própria |
@@ -78,16 +79,23 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 | **Desistência** | Resposta do usuário à pergunta de saída da fila informando que desistiu de comer no RU depois de ter feito o check-in. Não gera saída da fila nem tempo de espera |
 | **Pergunta de saída da fila** | Pergunta feita ao usuário, algum tempo depois do check-in, sobre se ele já saiu da fila e começou a comer. Sua resposta é a fonte da saída da fila |
 | **Espera estimada** | Estimativa, em minutos, do tempo de espera em uma faixa de horário de uma refeição, calculada a partir do histórico de tempos de espera. Acompanha a previsão de pico quando há dados suficientes; não substitui o nível de fila |
+| **Contribuição** | Ação de um usuário que alimenta os dados do Bandejão: um check-in, uma resposta à pergunta de saída da fila (qualquer uma das respostas, inclusive a desistência) ou uma avaliação. Consultar o cardápio não é contribuição |
+| **Pontos** | Valor numérico que um usuário acumula ao fazer contribuições. É a base da patente e do ranking. Pertencem ao usuário (a conta), não à pessoa: quem tem dois usuários tem duas pontuações separadas |
+| **Patente** | Título que um usuário ganha ao acumular pontos, indicando seu grau de contribuição. Não tem relação com o nível de fila |
+| **Sequência** | Quantidade de semanas consecutivas em que um usuário fez check-ins em dias suficientes para a semana contar. Não conta dias nem refeições consecutivas |
+| **Ranking** | Lista pública, por campus, dos usuários que optaram por aparecer nela, ordenada pelos pontos obtidos naquele campus no semestre letivo corrente da UnB e exibindo o apelido, a patente e, quando houver, o Distintivo de cada um. Quem não optou não aparece |
+| **Distintivo** | Marca pública exibida ao lado do apelido, no ranking e nas avaliações, que reconhece a colocação de um usuário no ranking de um semestre letivo. Hoje existe um único Distintivo: a Bandeja de Ouro. Não se confunde com a patente nem com os selos de conquista (Backlog) |
+| **Bandeja de Ouro** | Distintivo dos 30 primeiros colocados do ranking de um campus ao fim de um semestre letivo. Vale durante o semestre letivo seguinte e precisa ser reconquistado para continuar |
 
 ### 1.6 Stack tecnológica
 
-O backend é em Python, com Django REST Framework (DRF) para construir a API. O banco de dados é SQLite em desenvolvimento e MySQL em produção. A justificativa da escolha está na ADR 0001 (`docs/adr/0001-escolha-stack-backend.md`).
+O backend é em Python, com Django REST Framework (DRF) para construir a API. O banco de dados é SQLite em desenvolvimento e MySQL em produção. A justificativa da escolha está na ADR 0001 (`docs/arquitetura/adr/0001-escolha-stack-backend.md`).
 
 ---
 
 ## 2. Requisitos Funcionais
 
-Cada requisito funcional tem um identificador único, uma descrição curta, a release e a prioridade. Os critérios de aceite são escritos em Dado/Quando/Então. O RF que cobre mais de um comportamento independente é dividido em subrequisitos (`RFxx.y`), cada um com uma frase e um cenário de aceite. Regras detalhadas estão no Anexo B (RN01 a RN08) e valores ajustáveis, no Anexo A. A origem de cada requisito (épico e necessidade da parte interessada, ou decisão de projeto) está na Matriz de Rastreabilidade (Seção 6).
+Cada requisito funcional tem um identificador único, uma descrição curta, a release e a prioridade. Os critérios de aceite são escritos em Dado/Quando/Então. O RF que cobre mais de um comportamento independente é dividido em subrequisitos (`RFxx.y`), cada um com uma frase e um cenário de aceite. Regras detalhadas estão no Anexo B (RN01 a RN13) e valores ajustáveis, no Anexo A. A origem de cada requisito (épico e necessidade da parte interessada, ou decisão de projeto) está na Matriz de Rastreabilidade (Seção 6).
 
 ### Épico 1 — Login
 
@@ -178,7 +186,7 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 
 **Critérios de aceite:**
 - Dado que não estou logado, quando acesso a URL raiz do sistema, então vejo o cardápio sem que seja exigida autenticação.
-- Dado que não estou logado, quando aciono uma função que exige conta (avaliar refeição ou, na Release 2, fazer check-in), então vejo um convite ao cadastro/login, e não um erro genérico.
+- Dado que não estou logado, quando aciono uma função que exige conta (avaliar refeição ou, na Release 2, fazer check-in), então vejo um convite ao cadastro/login, e não um erro genérico; na Release 2, o convite menciona os pontos da gamificação (RF24).
 
 ---
 
@@ -297,7 +305,7 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 - Dado que a detecção aponta um campus diferente do exibido, quando ela termina, então o app troca de campus e exibe um aviso com a opção de voltar ao anterior (ex.: "Você está no Campus Darcy Ribeiro · voltar para Gama").
 - Dado que não há permissão, que o GPS está indisponível, que a leitura não atende à RN03 ou que estou fora do raio de qualquer campus, quando abro o app, então vale o campus lembrado ou, na falta dele, o seletor de campus.
 
-**RF20.3 — Conteúdo da tela e refeição padrão.** O sistema deve mostrar uma refeição por vez (a padrão da RN05), com cardápio, nota média, quantidade de avaliações, comentários (RF15.2) e, quando existirem, previsão de pico e espera estimada (RF13, RF22); as demais refeições do dia ficam no seletor, cada uma com sua nota média.
+**RF20.3 — Conteúdo da tela e refeição padrão.** O sistema deve mostrar uma refeição por vez (a padrão da RN05), com cardápio, nota média, quantidade de avaliações, comentários (RF15.2) e, quando existirem, previsão de pico e espera estimada (RF13, RF22); as demais refeições do dia ficam no seletor, cada uma com sua nota média. Para o usuário logado, a tela traz ainda um indicador discreto de patente e sequência (RF26.3).
 - Dado a tela do campus, quando abre, então ela mostra a refeição padrão (RN05) com cardápio, nota média, avaliações e, quando existirem, previsão de pico e espera estimada.
 - Dado que todas as refeições do dia já terminaram, quando abro a tela até as 23h59, então vejo a última refeição do dia, com a avaliação aberta (RF15.1) e a indicação "refeição encerrada" no lugar da previsão e do check-in.
 
@@ -408,7 +416,7 @@ Todos os requisitos deste épico pertencem à Release 2 ou ao Backlog; o MVP nã
 - Dado que estou logado e a refeição do dia já começou, quando envio nota de 1 a 5 e comentário opcional de até 500 caracteres, então a avaliação é salva ligada à minha conta; sem nota, ou com comentário maior que o limite, é rejeitada.
 - Dado que já avaliei a refeição, quando avalio de novo até as 23h59 do mesmo dia, então a avaliação anterior é editada, não duplicada; dado uma refeição de outro dia ou que ainda não começou, então a avaliação fica indisponível e o sistema informa o motivo.
 
-**RF15.2 — Ver as avaliações da refeição.** O sistema deve exibir, junto ao cardápio de cada refeição da semana vigente, a nota média, a quantidade de avaliações e os comentários com o apelido do autor, para qualquer visitante. Matrícula/SIAPE e e-mail nunca são exibidos (RI10). Avaliações de semanas anteriores deixam de ser exibidas na interface, mas permanecem armazenadas, sem limite de retenção (L09).
+**RF15.2 — Ver as avaliações da refeição.** O sistema deve exibir, junto ao cardápio de cada refeição da semana vigente, a nota média, a quantidade de avaliações e os comentários com o apelido do autor e, quando houver, a Bandeja de Ouro (RF33.2), para qualquer visitante. Matrícula/SIAPE e e-mail nunca são exibidos (RI10). Avaliações de semanas anteriores deixam de ser exibidas na interface, mas permanecem armazenadas, sem limite de retenção (L09).
 - Dado uma refeição da semana vigente, inclusive de dias passados, quando exibida, então vejo a nota média, a quantidade de avaliações e os comentários com apelido, mesmo sem login; sem avaliações, vejo "sem avaliações ainda".
 - Dado qualquer exibição de avaliações, quando a inspeciono, então não aparecem matrícula/SIAPE nem e-mail do autor.
 
@@ -423,6 +431,140 @@ Todos os requisitos deste épico pertencem à Release 2 ou ao Backlog; o MVP nã
 - Dado a tela de histórico, quando navego por campus, data e refeição de semanas anteriores, então vejo cardápio, nota média e comentários, em modo somente leitura (não é possível avaliar refeições passadas).
 - Dado uma refeição sem avaliações, quando exibida, então vejo "sem avaliações ainda".
 - Dado uma data anterior à primeira leitura de cardápio feita pelo sistema, quando a procuro, então ela não está disponível (não há carga de PDFs anteriores).
+
+---
+
+### Épico 5 — Gamificação
+
+Os requisitos RF24 a RF27 e o RF33 pertencem à Release 2; os RF28 a RF32, ao Backlog. A gamificação existe para aumentar o uso diário e a adesão às contribuições (check-in, resposta à pergunta de saída da fila e avaliação), em especial a resposta à pergunta de saída da fila, a menos frequente (L08). Ela recompensa o ato de contribuir, nunca o conteúdo da contribuição, e não altera nenhum cálculo da fila nem nenhuma nota (RI11). Contribuição, pontos, patente, sequência e ranking estão definidos em 1.5; as regras estão nas RN09 a RN13, os valores no Anexo A e a decisão de guardar contadores além da janela de 4 semanas, na ADR 0011. Visitante não pontua (RI01).
+
+#### RF24 — Pontos por contribuição
+
+**Descrição:** O sistema deve conceder pontos ao usuário autenticado por suas contribuições, conforme a RN09, e avisá-lo na hora. Os pontos não dependem do conteúdo da contribuição (RI11).
+**Release:** Release 2 · **Prioridade:** Importante
+
+**RF24.1 — Pontuação das contribuições.** O sistema deve conceder pontos por check-in confirmado, por resposta à pergunta de saída da fila e por avaliação de refeição na qual o usuário tem check-in confirmado, nos valores do Anexo A (RN09).
+- Dado um check-in confirmado (RF12), quando ele é registrado, então recebo 10 pontos; dado uma resposta à pergunta de saída da fila, qualquer que seja a das cinco opções, quando é registrada, então recebo 15 pontos, uma única vez por pergunta, ainda que ela seja repetida depois de "Ainda estou na fila" (RF21.2).
+- Dado que avaliei uma refeição na qual tenho check-in confirmado, quando a refeição passa a ter minha avaliação e meu check-in, então recebo 5 pontos, uma única vez, seja qual for a nota e com ou sem comentário; dado uma refeição que avaliei sem ter feito check-in nela, então a avaliação não gera pontos.
+
+**RF24.2 — Aviso imediato de pontos.** O sistema deve mostrar ao usuário, logo depois de cada contribuição que pontua, os pontos recebidos.
+- Dado que faço um check-in confirmado, quando ele é registrado, então vejo na própria tela o aviso "+10 pontos", sem passo adicional.
+
+---
+
+#### RF25 — Sequência semanal
+
+**Descrição:** O sistema deve contar, para cada usuário, a sequência de semanas consecutivas com check-ins em dias suficientes e dar um bônus de pontos a cada semana completada, conforme a RN10. A sequência é do usuário e soma os check-ins de qualquer campus.
+**Release:** Release 2 · **Prioridade:** Importante
+
+**RF25.1 — Contagem da sequência.** O sistema deve contar uma semana (de segunda a domingo) na sequência quando o usuário tiver check-ins confirmados em pelo menos o número de dias distintos do Anexo A, e zerar a sequência quando uma semana não neutra terminar sem esse mínimo.
+- Dado que fiz check-ins confirmados em 3 dias distintos da mesma semana, inclusive em campi diferentes, quando faço o check-in do 3º dia, então a semana passa a contar e minha sequência aumenta em 1.
+- Dado que uma semana não neutra termina com check-ins em menos de 3 dias, quando ela termina, então minha sequência volta a zero.
+
+**RF25.2 — Bônus e semana neutra.** O sistema deve conceder o bônus do Anexo A uma única vez por semana completada e tratar como neutra, sem somar nem zerar a sequência, a semana em que nenhum campus serviu refeições no mínimo de dias.
+- Dado que completo uma semana, quando faço o check-in do 3º dia, então recebo 20 pontos de bônus, uma única vez nessa semana.
+- Dado uma semana em que nenhum campus serviu refeições em 3 dias ou mais (feriado prolongado, recesso ou greve) e em que não completei a semana, quando ela termina, então minha sequência não aumenta nem volta a zero.
+
+---
+
+#### RF26 — Patente e tela "Meu progresso"
+
+**Descrição:** O sistema deve atribuir ao usuário a patente correspondente aos seus pontos totais (RN11) e exibi-la, com os pontos e a sequência, em uma tela própria, "Meu progresso", além de um indicador discreto na tela do campus.
+**Release:** Release 2 · **Prioridade:** Importante
+
+**RF26.1 — Patente.** O sistema deve atribuir a patente de maior limiar do Anexo A que os pontos totais do usuário alcançam. A patente é acumulativa: não regride.
+- Dado que meus pontos totais chegam a 150, quando a pontuação é atualizada, então minha patente passa a ser "Rato de RU".
+- Dado que passo semanas sem fazer contribuições, quando consulto minha patente, então ela continua a mesma.
+
+**RF26.2 — Tela "Meu progresso".** O sistema deve exibir ao usuário logado sua patente, seus pontos totais, o quanto falta para a próxima patente (ou a indicação de patente máxima), sua sequência, os dias com check-in na semana corrente em relação ao mínimo (ex.: 2 de 3), o interruptor de adesão ao ranking (RF27.1) e, conforme o RF33, sua posição no ranking, a do semestre anterior e a Bandeja de Ouro, quando houver.
+- Dado que estou logado, quando abro "Meu progresso", então vejo patente, pontos totais, pontos que faltam para a próxima patente, sequência, dias da semana corrente (ex.: "2 de 3") e o interruptor do ranking.
+- Dado que sou visitante, quando tento abrir "Meu progresso", então vejo o convite ao cadastro/login (RF05), que menciona os pontos.
+
+**RF26.3 — Indicador na tela do campus.** O sistema deve exibir, na tela do campus (RF20), uma linha discreta com a patente e a sequência do usuário logado, sem acrescentar interações até o cardápio (RNF03). Lembretes de sequência só aparecem dentro do app (RF23 é Backlog).
+- Dado que estou logado, quando abro a tela do campus, então vejo, em uma linha discreta, minha patente e minha sequência, e o cardápio continua abrindo sem interação adicional; dado que sou visitante, então o indicador não aparece.
+
+---
+
+#### RF27 — Ranking semestral opcional por campus
+
+**Descrição:** O sistema deve exibir, por campus, um ranking semestral dos usuários que optaram por aparecer nele, separado por campus e reiniciado a cada semestre letivo da UnB, com posição, apelido, patente e, quando houver, a Bandeja de Ouro (RF33), conforme a RN12. A adesão é desligada por padrão e pode ser desfeita a qualquer momento. O ranking pode ser consultado sem login.
+**Release:** Release 2 · **Prioridade:** Importante
+
+**RF27.1 — Adesão e saída.** O sistema deve manter o usuário fora do ranking até que ele ative o interruptor em "Meu progresso", explicando antes o que ficará público (apelido, patente e, quando houver, a Bandeja de Ouro, que aparece também ao lado do apelido nos comentários das avaliações), e retirá-lo na hora quando ele o desativar, ocultando também a Bandeja de Ouro.
+- Dado que nunca ativei o interruptor, quando o ranking é exibido, então não apareço nele, por mais pontos que eu tenha; dado que vou ativá-lo, então vejo antes o aviso de que meu apelido, minha patente e, se eu a conquistar, a Bandeja de Ouro ficarão visíveis a todos, no ranking e ao lado do meu apelido nos comentários das minhas avaliações.
+- Dado que estou no ranking, quando desativo o interruptor, então deixo de aparecer imediatamente, e minha Bandeja de Ouro, se houver, deixa de ser exibida no ranking e nas avaliações enquanto o interruptor estiver desligado.
+
+**RF27.2 — Exibição do ranking.** O sistema deve exibir, para o campus escolhido, até o número de usuários do Anexo A, ordenados pelos pontos do semestre nesse campus, mostrando posição, apelido, patente e, quando houver, a Bandeja de Ouro, sem os pontos.
+- Dado um campus com usuários que aderiram e têm pontos no semestre, quando abro o ranking, mesmo sem login, então vejo até 10 deles, ordenados pelos pontos do semestre nesse campus, cada um com posição, apelido, patente e, quando houver, a Bandeja de Ouro, sem pontos, matrícula/SIAPE nem e-mail (RI10, RI12).
+- Dado que o semestre letivo terminou, quando abro o ranking no dia seguinte, então a contagem recomeça do zero, sem alterar a patente nem os pontos totais; dado um campus sem usuário elegível, então vejo "ninguém no ranking ainda".
+
+#### RF33 — Bandeja de Ouro
+
+**Descrição:** O sistema deve conceder, ao fim de cada semestre letivo, o Distintivo Bandeja de Ouro aos 30 primeiros colocados do ranking de cada campus que alcançaram o mínimo de pontos do Anexo A, conforme a RN13, e exibi-lo ao lado do apelido durante o semestre letivo seguinte. A Bandeja de Ouro é apenas um reconhecimento: não concede pontos nem altera a patente, a sequência ou o ranking (RI11).
+**Release:** Release 2 · **Prioridade:** Importante
+
+**RF33.1 — Concessão no fechamento do semestre.** O sistema deve, no fechamento de cada semestre letivo, guardar a posição final de cada usuário elegível em cada campus (RN12) e conceder a Bandeja de Ouro a quem terminou entre os 30 primeiros de algum campus com pelo menos o mínimo de pontos do semestre nesse campus (Anexo A).
+- Dado que terminei o semestre em 17º no Gama com 240 pontos nesse campus, quando o semestre letivo é fechado, então recebo a Bandeja de Ouro, válida durante o semestre letivo seguinte.
+- Dado que terminei em 5º na Fazenda Água Limpa com 60 pontos nesse campus, quando o semestre é fechado, então não recebo a Bandeja de Ouro, porque não alcancei o mínimo de 100 pontos; dado que terminei em 31º de qualquer campus, então também não recebo.
+- Dado que tenho a Bandeja de Ouro, quando o semestre seguinte é fechado, então ela é renovada se eu terminar de novo entre os 30 primeiros de algum campus com o mínimo de pontos, e deixa de ser exibida se eu não terminar.
+
+**RF33.2 — Exibição do Distintivo.** O sistema deve exibir a Bandeja de Ouro ao lado do apelido no ranking de qualquer campus, nos comentários das avaliações (RF15.2) e em "Meu progresso", com o texto alternativo "Bandeja de Ouro" e, ao tocá-la, os campi e o semestre em que foi conquistada. O conceito visual é uma bandeja dourada com uma estrela, legível em 16 px e distinta dos ícones dos marcadores; o desenho final é definido com a equipe de frontend (RF17).
+- Dado um usuário com a Bandeja de Ouro válida, adesão ao ranking ativa e conta ativa, quando qualquer pessoa, mesmo sem login, vê o ranking ou os comentários das avaliações, então vê a Bandeja de Ouro ao lado do apelido; ao tocá-la, vê os campi e o semestre (ex.: "Gama e Darcy Ribeiro · 2026.2"), sem posição nem pontos.
+- Dado que desativei a adesão ao ranking (RF27.1) ou que minha conta está suspensa, quando outras pessoas veem o ranking ou minhas avaliações, então a Bandeja de Ouro não aparece; ela volta a aparecer se eu reativar a adesão, ou quando a suspensão terminar, enquanto ainda for válida.
+
+**RF33.3 — Posição em "Meu progresso".** O sistema deve mostrar ao usuário que aderiu ao ranking, apenas a ele, sua posição atual no ranking de cada campus em que é elegível e sua posição final no semestre anterior; a quem não aderiu, deve mostrar um convite para ativar o ranking.
+- Dado que aderi ao ranking e tenho pontos no semestre no Gama, quando abro "Meu progresso", então vejo somente a minha posição (ex.: "17º no Gama"), sem os pontos nem a posição de ninguém; se fui elegível no semestre anterior, vejo também a posição final daquele semestre (ex.: "2026.2: 12º no Gama").
+- Dado que não aderi ao ranking, quando abro "Meu progresso", então, no lugar da posição, vejo junto ao interruptor de adesão o convite "Ative o ranking para concorrer à Bandeja de Ouro".
+
+---
+
+#### RF28 — Meta coletiva de contribuições
+
+**Descrição:** O sistema deve mostrar, nos campi, refeições e dias da semana em que a previsão ainda aparece como "dados insuficientes" (RF13), quantos dias distintos de check-in faltam para liberá-la, ligando a contribuição individual a um benefício coletivo. É o primeiro item da fila do Backlog de gamificação, por atacar diretamente a baixa adesão (L08).
+**Release:** Backlog · **Prioridade:** Desejável
+
+**Critérios de aceite:**
+- Dado um campus, uma refeição e um dia da semana com "dados insuficientes", quando abro a previsão, então vejo quantos dias distintos de check-in faltam para liberá-la (RN06). Os demais detalhes serão definidos quando o item for priorizado.
+
+---
+
+#### RF29 — Bandeja completa
+
+**Descrição:** O sistema deve oferecer ao usuário uma missão por refeição com três compartimentos (check-in, resposta à pergunta de saída da fila e avaliação da mesma refeição), com bônus de pontos ao completar a bandeja.
+**Release:** Backlog · **Prioridade:** Desejável
+
+**Critérios de aceite:**
+- Dado que fiz o check-in, respondi à pergunta de saída da fila e avaliei a mesma refeição, quando completo o terceiro compartimento, então a bandeja é marcada como completa e recebo o bônus. O valor do bônus será definido quando o item for priorizado.
+
+---
+
+#### RF30 — Selos de conquista
+
+**Descrição:** O sistema deve conceder selos por marcos de contribuição (ex.: primeira avaliação, café da manhã, check-in em mais de um campus), exibidos em "Meu progresso". Os selos e os critérios serão definidos quando o item for priorizado; nesse momento o termo entra no glossário.
+**Release:** Backlog · **Prioridade:** Desejável
+
+**Critérios de aceite:**
+- Dado um marco de contribuição cumprido, quando ele é registrado, então o selo correspondente aparece em "Meu progresso".
+
+---
+
+#### RF31 — Disputa semanal entre campi
+
+**Descrição:** O sistema deve comparar, por semana, o avanço de cada campus em relação à sua própria meta de contribuições, e não em números absolutos, para não penalizar os campi menores.
+**Release:** Backlog · **Prioridade:** Desejável
+
+**Critérios de aceite:**
+- Dado o fim de uma semana, quando abro a comparação, então vejo qual campus mais avançou em relação à própria meta. A forma de definir a meta de cada campus será decidida quando o item for priorizado.
+
+---
+
+#### RF32 — Desafios semanais
+
+**Descrição:** O sistema deve propor ao usuário um desafio por semana, escolhido automaticamente entre modelos fixos em configuração (sem tela administrativa, RNF08), com pontos extras ao completá-lo. Os modelos só podem depender de contagens de contribuições, nunca do horário do check-in nem do nível da fila (RI11).
+**Release:** Backlog · **Prioridade:** Desejável
+
+**Critérios de aceite:**
+- Dado um desafio semanal ativo, quando completo o que ele pede, então recebo os pontos extras, e o desafio troca sozinho na semana seguinte.
 
 ---
 
@@ -486,7 +628,7 @@ O sistema, como PWA, deve funcionar corretamente nas **duas versões mais recent
 
 #### RNF06 — Manutenibilidade
 
-O código-fonte deve manter cobertura de testes automatizados de, no mínimo, **60% nos módulos críticos** (leitura de cardápio, incluindo a leitura dos ícones de marcadores; cadastro e autenticação; avaliação de refeições e, na Release 2, detecção de campus, check-in, pergunta de saída da fila e previsão de pico com espera estimada), e a arquitetura deve separar claramente esses módulos, de modo que uma mudança no formato do PDF do cardápio exija alteração apenas no módulo de leitura de cardápio. No backend em Django REST Framework (1.6, ADR 0001), essa separação se reflete em apps Django distintos por recurso (ex.: cadastro/autenticação, cardápio, avaliação, fila), cada um com seu próprio conjunto de models, serializers, views e URLs.
+O código-fonte deve manter cobertura de testes automatizados de, no mínimo, **60% nos módulos críticos** (leitura de cardápio, incluindo a leitura dos ícones de marcadores; cadastro e autenticação; avaliação de refeições e, na Release 2, detecção de campus, check-in, pergunta de saída da fila, previsão de pico com espera estimada, pontuação, sequência, patente, ranking e Bandeja de Ouro), e a arquitetura deve separar claramente esses módulos, de modo que uma mudança no formato do PDF do cardápio exija alteração apenas no módulo de leitura de cardápio. No backend em Django REST Framework (1.6, ADR 0001), essa separação se reflete em apps Django distintos por recurso (ex.: cadastro/autenticação, cardápio, avaliação, fila, gamificação), cada um com seu próprio conjunto de models, serializers, views e URLs.
 
 **Justificativa:** meta de cobertura de testes compatível com uma equipe sem experiência prévia em projetos de grande porte, mas suficiente para reduzir o risco já identificado de dependência do PDF externo e de inexperiência da equipe com as tecnologias escolhidas.
 
@@ -494,12 +636,12 @@ O código-fonte deve manter cobertura de testes automatizados de, no mínimo, **
 
 #### RNF07 — Privacidade e proteção de dados pessoais
 
-O sistema deve tratar como dados pessoais a matrícula/SIAPE, o e-mail, o apelido e, na Release 2, os registros de check-in e de saída da fila ligados à conta, conforme a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). A localização não é armazenada (RI09).
+O sistema deve tratar como dados pessoais a matrícula/SIAPE, o e-mail, o apelido e, na Release 2, os registros de check-in e de saída da fila ligados à conta e os contadores de gamificação (pontos totais, pontos do semestre por campus, posição final do semestre anterior por campus, Bandeja de Ouro, sequência e adesão ao ranking), conforme a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). A localização não é armazenada (RI09).
 
-- **RNF07.1 Finalidade:** os dados são coletados só para as finalidades do aviso de privacidade (login, recuperação de senha, identificação do autor de avaliações e, na Release 2, estimativa da fila e uso da localização). Quem já tinha conta vê o aviso atualizado uma vez, no login seguinte (efeito sobre o check-in no RF11).
+- **RNF07.1 Finalidade:** os dados são coletados só para as finalidades do aviso de privacidade (login, recuperação de senha, identificação do autor de avaliações e, na Release 2, estimativa da fila, uso da localização, gamificação e ranking). Quem já tinha conta vê o aviso atualizado uma vez, no login seguinte (efeito sobre o check-in no RF11).
 - **RNF07.2 Acesso:** a matrícula/SIAPE é armazenada de forma recuperável pela equipe (não como hash), com acesso restrito à equipe.
-- **RNF07.3 Retenção:** o vínculo dos registros de check-in, de tentativas e de respostas com a conta dura a janela de 4 semanas (Anexo A); depois, resta só o registro anônimo (campus, refeição, data, faixa e tempo de espera).
-- **RNF07.4 Exclusão:** a conta é excluída por solicitação à equipe; as avaliações permanecem como "usuário removido" e o vínculo dos registros de fila é removido na hora.
+- **RNF07.3 Retenção:** o vínculo dos registros de check-in, de tentativas e de respostas com a conta dura a janela de 4 semanas (Anexo A); depois, resta só o registro anônimo (campus, refeição, data, faixa e tempo de espera). Os contadores de gamificação são a exceção: permanecem ligados à conta, sem o histórico individual de check-ins, respostas e avaliações (ADR 0011).
+- **RNF07.4 Exclusão:** a conta é excluída por solicitação à equipe; as avaliações permanecem como "usuário removido" e o vínculo dos registros de fila é removido na hora. Os contadores de gamificação são excluídos junto com a conta, que sai na hora do ranking.
 
 **Justificativa:** o cadastro por matrícula/SIAPE cria um vínculo entre identidade e comportamento no sistema; o tratamento precisa ser transparente e minimizado.
 
@@ -510,6 +652,14 @@ O sistema deve tratar como dados pessoais a matrícula/SIAPE, o e-mail, o apelid
 Toda avaliação deve manter vínculo permanente com a conta, o apelido e a matrícula/SIAPE de quem a escreveu, de modo que a equipe possa identificar o autor de uma avaliação problemática por consulta administrativa manual. A moderação (ocultar avaliações, suspender contas, tratar matrículas contestadas) é executada diretamente pela equipe; não há tela administrativa no escopo. O site deve divulgar um canal de contato para reclamações.
 
 **Justificativa:** como a matrícula/SIAPE não é validada (L01), a rastreabilidade posterior é o principal instrumento de responsabilização por uso indevido.
+
+---
+
+#### RNF09 — Acompanhamento da adesão
+
+*(Release 2)* A equipe deve conseguir calcular, por consulta manual ao banco (sem ferramenta de análise de uso e sem tela administrativa), quatro indicadores descritivos de adesão: (1) a porcentagem de check-ins que tiveram a pergunta de saída da fila respondida; (2) o número médio de check-ins por usuário ativo por semana (usuário ativo: com ao menos um check-in na janela); (3) a porcentagem de usuários com sequência de 2 semanas ou mais; (4) a porcentagem de usuários que aderiram ao ranking. Os indicadores usam os dados disponíveis no momento da consulta: os registros da janela de 4 semanas (RNF07.3) e os contadores de gamificação atuais. Não há metas numéricas nem comparação com período anterior, porque o check-in só existe a partir da Release 2.
+
+**Justificativa:** permite à equipe observar se a gamificação e as funcionalidades de fila aumentam a contribuição (L08), sem criar análise de uso individual nem novos dados pessoais.
 
 ---
 
@@ -529,6 +679,8 @@ Requisitos inversos definem explicitamente o que o sistema **não deve** fazer, 
 | **RI08** | O sistema não deve exibir cardápio, avaliações ou informações de fila do Restaurante Executivo do Campus Darcy Ribeiro, que não faz parte do escopo do projeto. Isso vale mesmo funcionando o Executivo no mesmo prédio do RU, com fila e cardápio próprios: o sistema não trata nenhum dado sobre ele e, quando o campus exibido é o Darcy Ribeiro, a tela do campus informa que os dados são apenas do RU (RF20.4). |
 | **RI09** | O sistema não deve armazenar as coordenadas de localização do usuário. Na detecção de campus (RF20.1), as coordenadas não saem do aparelho; no check-in (RF12), são enviadas ao servidor apenas para a conferência e descartadas em seguida. |
 | **RI10** | O sistema não deve exibir a matrícula/SIAPE ou o e-mail de um usuário a outros usuários. |
+| **RI11** | O sistema não deve conceder pontos por check-in rejeitado nem variar os pontos conforme a resposta escolhida à pergunta de saída da fila, a nota ou o texto da avaliação, o horário do check-in ou o nível da fila, nem conceder pontos pela Bandeja de Ouro. Recompensar a chegada em faixas vazias distorceria a curva de chegadas que a previsão aprende (ADR 0010). |
+| **RI12** | O sistema não deve incluir no ranking quem não optou por aparecer, nem exibir os pontos de um usuário a outros usuários: o ranking mostra só posição, apelido, patente e, quando houver, a Bandeja de Ouro. A posição de um usuário fora dos exibidos no ranking e a posição do semestre anterior só são mostradas a ele mesmo (RF33.3). |
 
 ---
 
@@ -537,17 +689,19 @@ Requisitos inversos definem explicitamente o que o sistema **não deve** fazer, 
 | ID | Limitação ou risco | Mitigação |
 |---|---|---|
 | **L01** | **Matrícula alheia ou inventada.** O sistema confere só o formato da matrícula/SIAPE. Alguém pode cadastrar a matrícula de outra pessoa, que ficará sem poder se cadastrar, ou uma matrícula inventada de formato válido. | E-mail único e confirmado (RF02), rastreabilidade (RNF08). Matrícula contestada é resolvida manualmente pela equipe. |
-| **L02** | **Contas múltiplas ou falsas.** Uma pessoa pode criar várias contas, inclusive por ter mais de uma vinculação (por exemplo, matrícula de aluno e SIAPE). Isso distorce a nota média das avaliações já no MVP e a previsão de pico na Release 2. | Para as avaliações: e-mail único e confirmado (RF02), rastreabilidade e moderação (RNF08). Para a previsão de pico: confirmação por GPS (RF12), um check-in por refeição (RI03), e-mail único. |
+| **L02** | **Contas múltiplas ou falsas.** Uma pessoa pode criar várias contas, inclusive por ter mais de uma vinculação (por exemplo, matrícula de aluno e SIAPE). Isso distorce a nota média das avaliações já no MVP e a previsão de pico na Release 2. | Para as avaliações: e-mail único e confirmado (RF02), rastreabilidade e moderação (RNF08). Para a previsão de pico: confirmação por GPS (RF12), um check-in por refeição (RI03), e-mail único. Para a gamificação: pontos só com check-in confirmado (RN09) e ranking opcional que mostra a patente, não os pontos (RI12). |
 | **L03** | **Leitura dos ícones de marcadores.** Os ícones são imagens; a associação a pratos pode falhar. | Validação da legenda, refeição marcada como "informação de alérgenos indisponível" e alerta à equipe (RF06.3 e RF06.5). |
 | **L04** | **Os filtros são auxiliares.** A ausência de marcador não garante que o prato esteja livre do ingrediente; o cardápio oficial não marca peixe nem frutos do mar e está sujeito a alteração. | Aviso fixo junto ao filtro (RF08); pratos com marcador permanecem visíveis com alerta. |
 | **L05** | **Parâmetros mantidos manualmente.** Horários das refeições, raios de GPS e limites de leitura da localização dependem de definição e atualização pela equipe; os horários podem mudar, e os raios precisam ser validados em campo, porque a precisão do GPS em ambiente fechado varia. | Tabela de configuração (Anexo A) revisada pela equipe; teste em campo antes de fixar os raios. |
-| **L06** | **Avaliação sem prova de presença.** No MVP, qualquer usuário autenticado pode avaliar uma refeição do dia depois que ela começou, sem comprovar que comeu. | O check-in (Release 2) permanece independente da avaliação. |
+| **L06** | **Avaliação sem prova de presença.** No MVP, qualquer usuário autenticado pode avaliar uma refeição do dia depois que ela começou, sem comprovar que comeu. | O check-in (Release 2) permanece independente da avaliação; na Release 2, só a avaliação de uma refeição com check-in do mesmo usuário rende pontos (RN09). |
 | **L07** | **Recuperação de senha depende do e-mail.** Sem acesso ao e-mail cadastrado, o usuário não recupera a conta no MVP. | Confirmação do e-mail no cadastro (RF02). |
-| **L08** | **Baixa adesão ao check-in e à pergunta de saída da fila.** A previsão depende de os usuários fazerem check-in, e a espera estimada, de responderem à pergunta de saída da fila, que só aparece com o app aberto e tende a ser menos respondida que o check-in. Com pouca adesão, ambas são pouco representativas. | Exibição de "dados insuficientes" abaixo do mínimo de dados (RF13); espera estimada só com o mínimo de respostas (RF22), senão só o nível; nível "agora" mantido no Backlog (RF14); notificação push no Backlog (RF23). |
+| **L08** | **Baixa adesão ao check-in e à pergunta de saída da fila.** A previsão depende de os usuários fazerem check-in, e a espera estimada, de responderem à pergunta de saída da fila, que só aparece com o app aberto e tende a ser menos respondida que o check-in. Com pouca adesão, ambas são pouco representativas. | Exibição de "dados insuficientes" abaixo do mínimo de dados (RF13); espera estimada só com o mínimo de respostas (RF22), senão só o nível; nível "agora" mantido no Backlog (RF14); notificação push no Backlog (RF23); pontos, sequência, patente, ranking e Bandeja de Ouro para estimular a adesão (RF24 a RF27 e RF33); meta coletiva no Backlog (RF28). |
 | **L09** | **Avaliações de semanas anteriores.** No MVP, elas não são exibidas na interface, embora permaneçam armazenadas. | Histórico de refeições na Release 2 (RF16). |
 | **L10** | **Matrícula de estudante com menos de 9 dígitos não suportada.** O sistema só aceita matrícula de estudante com exatamente 9 dígitos (padrão em uso desde 2010). Estudantes com matrícula de 8 dígitos (anterior a 2010) não conseguem se cadastrar nesta fase. | Decisão de projeto consciente de adiar o tratamento desse caso; forma de abordá-lo fica para decisão futura da equipe. |
 | **L11** | **Restaurante Executivo no mesmo prédio do RU do Darcy Ribeiro.** O Executivo tem fila e cardápio próprios e está fora do escopo, mas o GPS não o distingue do RU. Quem vai ao Executivo pode fazer check-in no Darcy Ribeiro e entrar na contagem de chegadas do RU. | Aviso discreto e fixo na tela do campus (RF20.4); o sistema não trata nenhum dado sobre o Executivo (RI08). |
 | **L12** | **Espera estimada tende a ficar abaixo da realidade.** Ela usa só quem responde à pergunta de saída da fila. Quem desiste, quem não responde e quem responde "há mais de 10 min" ficam de fora, e quem diz "Ainda estou na fila" e não volta entra só com um piso. As esperas mais longas são as mais afetadas. | Pisos contados em vez de descartados (RN07) e uso da mediana (RN08); mínimo de respostas (RN08); texto na tela informando que é uma estimativa (RF22.2). |
+| **L13** | **Uso indevido e distorção causados pela gamificação.** Pontos, ranking e Bandeja de Ouro podem estimular quem tem várias contas (L02), quem vai ao Restaurante Executivo (L11), quem faz check-in sem comer no RU e quem responde à pergunta de saída da fila ao acaso só para pontuar, o que piora a previsão e a espera estimada (L12). | Pontos só com check-in confirmado por GPS, um por refeição (RF12, RI03); pontos que não dependem do conteúdo, do horário nem do nível da fila (RI11); mediana na espera estimada (RN08); ranking opcional, semestral e limitado a 10 usuários por campus; moderação manual (RNF08). Como os pontos revelam, de forma aproximada, a frequência de uso do RU, o ranking mostra a patente, não os pontos (RI12). |
+| **L14** | **Contadores de gamificação não são recalculáveis.** Pela ADR 0011, o sistema guarda só totais ligados à conta, não o histórico de check-ins. Um erro de pontuação só se corrige por ajuste manual da equipe, e uma mudança nos valores do Anexo A vale só daí em diante. Quem já tinha conta antes da Release 2 começa do zero. | Valores do Anexo A revisados antes da liberação; ajuste manual pela equipe, como na moderação (RNF08). |
 
 ---
 
@@ -579,9 +733,16 @@ Necessidades das partes interessadas conforme o Documento de Visão. A origem de
 | RF23 | — | Fila | "Evitar longas filas no horário de pico"; decisão de projeto | Backlog |
 | RF15 | RF15.1, RF15.2 | Avaliação | "Saber a qualidade da comida antes de decidir comer no RU"; decisão de projeto | MVP |
 | RF16 | — | Avaliação | "Saber a qualidade da comida antes de decidir comer no RU" | Release 2 |
+| RF24 | RF24.1, RF24.2 | Gamificação | "Evitar longas filas no horário de pico" (mais check-ins e respostas melhoram a previsão e a espera estimada); "Saber a qualidade da comida antes de decidir comer no RU" (mais avaliações); decisão de projeto (feedback da orientadora: gamificação para engajar o uso diário) | Release 2 |
+| RF25 | RF25.1, RF25.2 | Gamificação | "Evitar longas filas no horário de pico"; decisão de projeto (feedback da orientadora: gamificação para engajar o uso diário) | Release 2 |
+| RF26 | RF26.1 a RF26.3 | Gamificação | "Evitar longas filas no horário de pico"; decisão de projeto (feedback da orientadora: gamificação para engajar o uso diário) | Release 2 |
+| RF27 | RF27.1, RF27.2 | Gamificação | "Evitar longas filas no horário de pico"; decisão de projeto (feedback da orientadora: gamificação para engajar o uso diário) | Release 2 |
+| RF33 | RF33.1 a RF33.3 | Gamificação | "Evitar longas filas no horário de pico"; decisão de projeto (reconhecimento semestral dos 30 primeiros de cada campus, para manter a disputa ao longo do semestre) | Release 2 |
+| RF28 a RF32 | — | Gamificação | "Evitar longas filas no horário de pico" (RF28 atua diretamente na L08); decisão de projeto (ideias de gamificação adiadas para priorizar o núcleo) | Backlog |
 | RF17 | — | Transversal | Experiência geral do usuário (item "Design do site" do Documento de Visão) | MVP |
 | RNF01–RNF06 | — | Transversal | Métrica de eficiência e requisitos de sistema (entrega como PWA) | MVP / Release 2 |
 | RNF07–RNF08 | RNF07.1 a RNF07.4 | Transversal | Decisão de projeto | MVP |
+| RNF09 | — | Transversal | Decisão de projeto (acompanhar a adesão à gamificação e às funcionalidades de fila) | Release 2 |
 
 ---
 
@@ -590,10 +751,10 @@ Necessidades das partes interessadas conforme o Documento de Visão. A origem de
 | Release | Requisitos Funcionais |
 |---|---|
 | **MVP** (entregue) | RF01, RF02, RF03 (RF03.1 e RF03.2), RF04, RF05, RF06, RF07, RF08, RF09, RF15, RF17 |
-| **Release 2** (entrega final) | RF11, RF12, RF13, RF16, RF18, RF19, RF20, RF21, RF22; RF03.3 e RF03.4; ampliações de comportamentos do MVP nas RN04 e RN05 (RF07) e no RNF03 |
-| **Backlog** | RF10, RF14, RF23 |
+| **Release 2** (entrega final) | RF11, RF12, RF13, RF16, RF18, RF19, RF20, RF21, RF22, RF24, RF25, RF26, RF27, RF33; RF03.3 e RF03.4; ampliações de comportamentos do MVP nas RN04 e RN05 (RF07) e no RNF03 |
+| **Backlog** | RF10, RF14, RF23, RF28, RF29, RF30, RF31, RF32 |
 
-Todos os requisitos não funcionais (RNF01–RNF08) e todos os requisitos inversos (RI01–RI10) aplicam-se transversalmente a partir do MVP, ainda que alguns (ex.: RNF06 quanto a detecção, check-in e previsão; RNF03 e RNF07 quanto às regras de localização e retenção; RI03, RI05, RI09) só se manifestem completamente a partir da entrada em vigor das funcionalidades de fila na Release 2.
+Todos os requisitos não funcionais (RNF01–RNF09) e todos os requisitos inversos (RI01–RI12) aplicam-se transversalmente a partir do MVP, ainda que alguns (ex.: RNF06 quanto a detecção, check-in e previsão; RNF03 e RNF07 quanto às regras de localização e retenção; RI03, RI05, RI09, RI11, RI12 e o RNF09) só se manifestem completamente a partir da entrada em vigor das funcionalidades de fila na Release 2.
 
 ---
 
@@ -628,6 +789,17 @@ Valores ajustáveis pela equipe sem alterar os requisitos.
 | Limite de solicitações de redefinição | 3 por hora por matrícula/SIAPE | RF04.1 |
 | Bloqueio de login | 5 tentativas em 10 minutos, bloqueio de 10 minutos | RF03.2 |
 | Janela de validação do prefixo da matrícula de estudante | Dinâmica: de `101` (2010, 1º semestre) até o código do semestre corrente do sistema (ex.: `262` no 2º semestre de 2026), recalculada automaticamente a cada semestre | RN01 (RF01.3) |
+| Pontos por check-in confirmado | 10 pontos | RN09 (RF24.1) |
+| Pontos por resposta à pergunta de saída da fila | 15 pontos, uma vez por pergunta | RN09 (RF24.1) |
+| Pontos por avaliação (com check-in na mesma refeição) | 5 pontos, uma vez por refeição | RN09 (RF24.1) |
+| Mínimo de dias com check-in para a semana contar na sequência | 3 dias distintos | RN10 (RF25.1, RF25.2) |
+| Bônus por semana completada na sequência | 20 pontos | RN10 (RF25.2) |
+| Patentes e limiares de pontos totais | Calouro de Bandeja: 0; Rato de RU: 150; Veterano: 450; Mestre da Fila: 900; Lenda do RU: 1.500 | RN11 (RF26.1) |
+| Tamanho do ranking | 10 usuários por campus | RN12 (RF27.2) |
+| Período do ranking | Semestre letivo corrente da UnB, reiniciado no dia seguinte ao término de cada semestre letivo | RN12 (RF27.2) |
+| Datas de término dos semestres letivos | Conforme o calendário acadêmico da UnB; atualizadas pela equipe na configuração a cada semestre, sem tela administrativa | RN12 (RF27.2), RN13 (RF33.1) |
+| Colocações que recebem a Bandeja de Ouro | 30 primeiros do ranking de cada campus | RN13 (RF33.1) |
+| Mínimo de pontos no semestre para a Bandeja de Ouro | 100 pontos no campus | RN13 (RF33.1) |
 
 ---
 
@@ -693,3 +865,50 @@ Cada tempo de espera pertence à faixa de horário em que o check-in foi feito.
 
 - A espera estimada de uma faixa é a mediana dos tempos de espera da faixa nas últimas 4 semanas, para o mesmo dia da semana, o mesmo campus e a mesma refeição (a mesma janela da RN06), arredondada para minutos inteiros.
 - Só é exibida quando a faixa tem ao menos 3 tempos de espera em ao menos 2 dias distintos dentro da janela e a previsão do RF13 é exibida. Do contrário, a faixa mostra só o nível.
+
+
+#### RN09 — Pontuação das contribuições
+
+- Só o usuário autenticado pontua (RI01). Check-in rejeitado (RF12) não pontua.
+- **Check-in:** vale os pontos do Anexo A quando é confirmado.
+- **Resposta à pergunta de saída da fila:** vale os pontos do Anexo A, uma única vez por pergunta, com qualquer uma das cinco respostas (inclusive a desistência). A repetição da pergunta depois de "Ainda estou na fila" não pontua de novo.
+- **Avaliação:** vale os pontos do Anexo A, uma única vez por refeição, quando a refeição passa a ter, para o usuário, uma avaliação e um check-in confirmado (o que acontecer por último). Editar a avaliação não pontua de novo.
+- Os pontos não dependem da resposta escolhida, da nota, do texto do comentário (que não rende pontos extras), do horário do check-in nem do nível da fila (RI11).
+- Cada contribuição pontua no campus da refeição a que se refere. O teto diário decorre das regras: um check-in por refeição (RI03), uma resposta pontuada por pergunta e uma avaliação por refeição.
+
+#### RN10 — Sequência semanal
+
+- **Semana:** de segunda a domingo, no horário de Brasília, a mesma semana do cardápio (RF07.1).
+- **Dia com check-in:** dia em que o usuário tem ao menos um check-in confirmado, em qualquer campus. Vários check-ins no mesmo dia contam como um dia.
+- **Semana completada:** semana com dias com check-in em número igual ou maior que o mínimo do Anexo A. Ao fazer o check-in do último dia necessário, a semana passa a contar na sequência (+1) e o usuário recebe o bônus do Anexo A, uma única vez na semana. O bônus soma-se aos pontos totais, mas não entra no ranking, porque não pertence a um campus.
+- **Quebra:** a sequência volta a zero quando uma semana não neutra termina sem ser completada.
+- **Semana neutra:** semana em que nenhum campus serviu refeições em um número de dias igual ou maior que o mínimo do Anexo A (feriado prolongado, recesso, greve), conforme os PDFs (RF06.2), ou semana cujo PDF ainda não foi lido com sucesso em nenhum campus (RF06). Não soma nem zera a sequência. Uma semana neutra que o usuário completou conta normalmente.
+- A sequência é do usuário: soma os check-ins de qualquer campus e de qualquer refeição.
+
+#### RN11 — Patente
+
+- A patente é a de maior limiar do Anexo A que os pontos totais do usuário alcançam. Os pontos totais são a soma de todos os pontos recebidos (RN09 e bônus da RN10).
+- A patente não regride: os pontos totais só aumentam, salvo ajuste manual da equipe (L14), e uma mudança nos limiares não tira de ninguém a patente já alcançada.
+- Mudanças nos valores de pontos do Anexo A valem daí em diante e não recalculam pontos já concedidos (ADR 0011).
+- Quem tem dois usuários tem pontuações e patentes separadas. Quem já tinha conta antes da Release 2 começa com zero ponto.
+
+#### RN12 — Ranking semestral
+
+- **Período:** o semestre letivo corrente da UnB, no horário de Brasília. Cada período vai do dia seguinte ao término do semestre letivo anterior até o dia do término do semestre letivo corrente, conforme as datas do Anexo A; assim, os pontos obtidos nas férias contam para o semestre seguinte. Se a data de término do semestre corrente ainda não estiver configurada, o período continua aberto e o ranking não reinicia. Há um ranking por campus, com os pontos do semestre obtidos nesse campus (RN09). O bônus da sequência não entra.
+- **Elegibilidade:** só o usuário que ativou a adesão (RF27.1), com conta ativa (não suspensa nem excluída) e com pelo menos 1 ponto no semestre no campus.
+- **Ordenação:** pontos do semestre, do maior para o menor; em caso de empate, fica à frente quem alcançou a pontuação primeiro. A posição é calculada para todos os elegíveis, mas a lista pública exibe até o tamanho do Anexo A.
+- **Exibição:** posição, apelido, patente e, quando houver, a Bandeja de Ouro (RN13); nunca os pontos, a matrícula/SIAPE nem o e-mail (RI10, RI12). Visível a qualquer visitante.
+- **Adesão:** desligada por padrão e reversível a qualquer momento, com saída imediata. Quem não aderiu continua acumulando pontos.
+- Por usuário, guardam-se apenas os pontos do semestre por campus e, a cada fechamento, a posição final do semestre em cada campus (RN13, ADR 0011).
+
+#### RN13 — Bandeja de Ouro
+
+- **Fechamento:** ocorre automaticamente no dia seguinte ao término de cada semestre letivo (datas do calendário acadêmico no Anexo A, horário de Brasília), sobre o ranking final de cada campus (RN12), sem ação manual da equipe. Se a data de término não estiver configurada, o semestre não é fechado e as Bandejas de Ouro vigentes continuam valendo.
+- **Concessão:** recebe a Bandeja de Ouro quem, no fechamento, está entre as primeiras posições do ranking de um campus, até o tamanho do Anexo A (30), e tem pelo menos o mínimo de pontos do semestre nesse campus (Anexo A). Só concorre quem é elegível ao ranking (RN12: adesão ativa, conta ativa e pelo menos 1 ponto no semestre no campus). O desempate é o da RN12, de modo que há no máximo 30 por campus; em campus com menos elegíveis, menos usuários a recebem.
+- **Vários campi:** quem termina no top 30 de mais de um campus recebe uma única Bandeja de Ouro, que indica todos esses campi.
+- **Validade:** do dia seguinte ao fechamento até o fechamento do semestre letivo seguinte. Nesse fechamento, é renovada para quem entra de novo no top 30 de algum campus e retirada dos demais. Não é permanente.
+- **Exibição:** ao lado do apelido no ranking, nos comentários das avaliações e em "Meu progresso" (RF33.2). Fica oculta enquanto a adesão ao ranking estiver desligada ou a conta estiver suspensa e nunca mostra a posição nem os pontos (RI12).
+- **Posição guardada:** por usuário, guarda-se apenas a posição final do semestre anterior em cada campus em que foi elegível, substituída a cada fechamento (ADR 0011). A posição atual e a do semestre anterior só são mostradas ao próprio usuário (RF33.3).
+- **Conta removida:** a posição e a Bandeja de Ouro são excluídas junto com os demais contadores de gamificação (RNF07.4).
+- **Sem efeito na pontuação:** a Bandeja de Ouro não concede pontos nem altera a patente, a sequência ou o ranking (RI11).
+- **Primeiro semestre:** o semestre letivo em que a Release 2 entra em operação (2026.2) já concede a Bandeja de Ouro, ainda que mais curto, porque todos começam do zero (RN11).

@@ -28,7 +28,7 @@ Identificador institucional associado à conta. Para Estudante, é extraído do 
 E-mail da UnB informado no cadastro, único canal de confirmação de cadastro e de recuperação de senha. Para Estudante, segue o formato `matricula@aluno.unb.br`, do qual o sistema extrai a Matrícula. Para Professor/Servidor, é um e-mail `@unb.br`, geralmente no formato nome.sobrenome, do qual o sistema extrai o Apelido.
 
 **Apelido**
-Nome público do usuário, escolhido uma única vez no cadastro e único entre os usuários. É sob ele que as avaliações aparecem. Para Estudante, é escolhido manualmente no cadastro; para Professor/Servidor, é extraído automaticamente do E-mail institucional (o texto antes do "@").
+Nome público do usuário, escolhido uma única vez no cadastro e único entre os usuários. É sob ele que as avaliações e, para quem optar por aparecer, o Ranking são exibidos. Para Estudante, é escolhido manualmente no cadastro; para Professor/Servidor, é extraído automaticamente do E-mail institucional (o texto antes do "@").
 _Evitar:_ "nome do usuário".
 
 ## Lugares
@@ -98,3 +98,32 @@ Pergunta feita ao usuário, algum tempo depois do Check-in, sobre se ele já sai
 
 **Espera estimada**
 Estimativa, em minutos, do Tempo de espera em uma faixa de horário de uma refeição, calculada a partir do histórico de Tempos de espera. Acompanha a Previsão de pico quando há dados suficientes; não substitui o Nível de fila.
+
+## Gamificação
+
+**Contribuição**
+Ação de um Usuário que alimenta os dados do Bandejão: um Check-in, uma resposta à Pergunta de saída da fila (qualquer uma das respostas, inclusive a Desistência) ou uma Avaliação.
+_Evitar:_ "participação" ou "engajamento" para este conceito. Consultar o cardápio não é Contribuição.
+
+**Pontos**
+Valor numérico que um Usuário acumula ao fazer Contribuições. É a base da Patente e do Ranking. Pertencem ao Usuário (a conta), não à pessoa: quem tem dois Usuários tem duas pontuações separadas.
+
+**Patente**
+Título que um Usuário ganha ao acumular Pontos, indicando seu grau de Contribuição.
+_Evitar:_ "nível", que no Bandejão já significa Nível de fila.
+
+**Sequência**
+Quantidade de semanas consecutivas em que um Usuário fez Check-ins em dias suficientes para a semana contar. Não conta dias nem Refeições consecutivas.
+_Evitar:_ "streak" e "dias seguidos".
+
+**Ranking**
+Lista pública, por Campus, dos Usuários que optaram por aparecer nela, ordenada pelos Pontos obtidos naquele Campus no semestre letivo corrente da UnB e exibindo o Apelido, a Patente e, quando houver, o Distintivo de cada um. Recomeça do zero a cada semestre letivo. Quem não optou não aparece.
+_Evitar:_ confundir com a Patente: a Patente é pessoal e acumulada, o Ranking compara Usuários.
+
+**Distintivo**
+Marca pública exibida ao lado do Apelido, no Ranking e nas Avaliações, que reconhece a colocação de um Usuário no Ranking de um semestre letivo. Hoje existe um único Distintivo: a Bandeja de Ouro.
+_Evitar:_ "ícone", "selo" (os Selos de conquista são outro conceito, do Backlog) e "perfil" (o Bandejão não tem perfil público; o Apelido só aparece no Ranking e nas Avaliações).
+
+**Bandeja de Ouro**
+Distintivo dos 30 primeiros colocados do Ranking de um Campus ao fim de um semestre letivo. Vale durante o semestre letivo seguinte e precisa ser reconquistado para continuar.
+_Evitar:_ "sommelier" ou "avaliador": a colocação vem de todas as Contribuições, não só das Avaliações.
