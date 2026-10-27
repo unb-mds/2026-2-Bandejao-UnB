@@ -17,6 +17,8 @@
 > - ✅ `c4-nivel-4-avaliacao.md` — Épico Avaliação → componente Avaliação
 > - ✅ `c4-nivel-4-fila.md` — Épico Fila e Previsão de Pico → componente
 >   Fila
+> - ✅ `c4-nivel-4-gamificacao.md` — Épico Gamificação → componente
+>   Gamificação
 >
 > Referências: ADR 0003 — *Leitor de PDF como módulo do backend*
 > (`docs/adr/0003-leitor-pdf-como-modulo-do-backend.md`) e ADR 0004 —
@@ -61,7 +63,8 @@ e opera/modera o sistema."])
   db[("🗄️ Banco de Dados
 Container — SQLite (dev) / MySQL (prod)
 Contas, cardápio estruturado,
-avaliações e check-ins.")]
+avaliações, check-ins e
+contadores de gamificação.")]
 
   subgraph backend["⚙️ Backend API — Python, Django REST Framework"]
     direction TB
@@ -72,7 +75,8 @@ Model, Serializer, View, URL
 Cadastro em duas etapas, confirmação de
 e-mail, login, recuperação de senha
 (RF01–RF04). Extrai matrícula/apelido
-do e-mail institucional (ADR 0002)."]
+do e-mail institucional (ADR 0002).
+Ciência do aviso de privacidade (RF11)."]
 
     subgraph cardapio_boundary["📋 App Cardápio"]
       direction TB
@@ -80,7 +84,9 @@ do e-mail institucional (ADR 0002)."]
 Componente — Django app
 Model, Serializer, View, URL
 Endpoints de consulta, filtros de
-marcador e dieta (RF07–RF09, RF18)."]
+marcador e dieta (RF07–RF09, RF18).
+Lista de campi com centro e raio
+de detecção (RF20, ADR 0009)."]
       leitor["📖 Leitor de Cardápio
 Componente — módulo do app Cardápio (ADR 0003)
 Baixa e interpreta o PDF semanal, associa
@@ -95,24 +101,36 @@ da aplicação (ver Nível 2)."]
 Componente — Django app
 Model, Serializer, View, URL
 Avaliação por estrelas e comentário,
-histórico de refeições (RF15, RF16)."]
+resumo das notas do dia, histórico
+de refeições (RF15, RF16, RF20.3)."]
 
     fila["🚶 App Fila
 Componente — Django app
 Model, Serializer, View, URL
-Check-in, confirmação por GPS, previsão
-de pico, nível agora (RF11–RF14,
+Check-in, confirmação por GPS, pergunta
+de saída da fila, previsão de pico,
+nível agora (RF11–RF14, RF21,
 Release 2 / Backlog)."]
+
+    gamificacao["🏅 App Gamificação
+Componente — Django app
+Model, Serializer, View, URL
+Pontos, sequência, patente, ranking
+semestral por campus e Bandeja de Ouro
+(RF24–RF27, RF33, Release 2). Fechamento
+do semestre disparado por cron do SO."]
   end
 
-  pwa -->|"Cadastro, login, confirmação
-e recuperação de senha [HTTPS/JSON]"| cadastro
-  pwa -->|"Consulta cardápio e filtros
-[HTTPS/JSON]"| cardapio
-  pwa -->|"Envia avaliações e consulta
-histórico [HTTPS/JSON]"| avaliacao
-  pwa -->|"Envia check-in e consulta
-previsão de pico [HTTPS/JSON]"| fila
+  pwa -->|"Cadastro, login, confirmação,
+recuperação de senha e ciência do
+aviso de privacidade [HTTPS/JSON]"| cadastro
+  pwa -->|"Consulta cardápio, filtros
+e campi [HTTPS/JSON]"| cardapio
+  pwa -->|"Envia avaliações, consulta
+resumo do dia e histórico [HTTPS/JSON]"| avaliacao
+  pwa -->|"Envia check-in, consulta e responde
+a pergunta de saída, consulta previsão
+de pico [HTTPS/JSON]"| fila
 
   cadastro -->|"Lê e grava contas
 [Django ORM]"| db
@@ -136,6 +154,16 @@ calcula previsão de pico [Django ORM]"| db
   equipe -.->|"Modera e rastreia manualmente
 — caminho paralelo, fora da API
 (ADR 0004) [SQL/DB direto]"| db
+  pwa -->|"Consulta progresso e ranking,
+ativa ou desativa a adesão
+[HTTPS/JSON]"| gamificacao
+  gamificacao -->|"Lê e grava contadores
+de gamificação [Django ORM]"| db
+  fila -->|"Registra contribuição (check-in)
+na mesma transação [chamada Python]"| gamificacao
+  avaliacao -->|"Registra contribuição (avaliação)
+na mesma transação e consulta a
+Bandeja de Ouro do autor [chamada Python]"| gamificacao
 
   classDef person fill:#08427b,stroke:#052e56,color:#fff,font-size:12px
   classDef container fill:#438dd5,stroke:#2e6295,color:#fff,font-size:12px
@@ -148,27 +176,89 @@ calcula previsão de pico [Django ORM]"| db
   class equipe person
   class pwa,db container
   class site_ru,email_svc external
-  class cadastro,cardapio,leitor,avaliacao,fila component
+  class cadastro,cardapio,leitor,avaliacao,fila,gamificacao component
   class backend boundary
   class cardapio_boundary innerboundary
 
   linkStyle 12 stroke:#b33636,stroke-width:2px
+  linkStyle 15,16 stroke:#1168bd,stroke-width:2px
 ```
 
 ### Notas do diagrama
 
 - **Um componente por app Django, seguindo a RNF06.** A separação
-  Cadastro/Autenticação, Cardápio, Avaliação e Fila não é só uma
+  Cadastro/Autenticação, Cardápio, Avaliação, Fila e Gamificação não é só uma
   conveniência de desenho: é a própria exigência de manutenibilidade do
   Documento de Requisitos ("a arquitetura deve separar claramente esses
   módulos, de modo que uma mudança no formato do PDF do cardápio exija
   alteração apenas no módulo de leitura de cardápio").
-- **Nenhuma seta entre componentes.** Os apps Django deste backend não se
-  chamam uns aos outros via HTTP interno nem import direto de lógica de
-  negócio: é um monólito que compartilha um único banco, e a relação entre,
-  por exemplo, uma Avaliação e a Conta que a escreveu é uma *foreign key* no
-  banco, não uma chamada entre componentes. Por isso todo componente se
-  relaciona com o Banco de Dados, e não uns com os outros.
+- **As únicas setas entre componentes vão para a Gamificação.** Os apps
+  Django deste backend não se chamam via HTTP interno: é um monólito que
+  compartilha um único banco, e a relação entre, por exemplo, uma Avaliação
+  e a Conta que a escreveu é uma *foreign key* no banco. Ler um model de
+  outro app (Avaliação lê `Conta` e `Refeicao`) também não vira seta. A
+  exceção são as setas **Fila → Gamificação** e **Avaliação → Gamificação**,
+  que levam dois tipos de chamada:
+  - **pontuação:** ao gravar um check-in confirmado, uma resposta à pergunta
+    de saída ou uma avaliação, Fila e Avaliação chamam
+    `PontuacaoService.registrarContribuicao`, **dentro da
+    mesma transação** (`transaction.atomic()`). Ou tudo é gravado, ou nada
+    é;
+  - **consulta da Bandeja de Ouro:** para exibir o distintivo ao lado do
+    apelido nos comentários (RF15.2, RF33.2), o `AvaliacaoPublicaMapper`
+    pergunta ao `BandejaOuroResolver` quais autores têm a Bandeja exibível.
+    É só leitura: não grava nada e não participa de transação. Fica na
+    Gamificação porque a regra de exibição (válida, adesão ativa e conta
+    ativa) é dela.
+
+  A chamada direta para pontuar foi escolhida porque:
+  - os pontos precisam voltar na própria resposta, para o aviso "+10
+    pontos" (RF24.2);
+  - cada contribuição pontua uma vez só, sem histórico de pontos (ADR
+    0011), o que pede a mesma transação e o marcador de "pontos já
+    concedidos" no registro de origem;
+  - os pontos não podem ser recalculados depois, porque os registros de
+    fila perdem o vínculo com a conta em 4 semanas (RNF07.3).
+- **A dependência tem um sentido só.** A Gamificação nunca chama a Fila nem
+  a Avaliação: ela só lê os models delas (`Checkin`, `PerguntaSaida`,
+  `Avaliacao`) e o `Refeicao` do Cardápio, e grava neles apenas o marcador
+  de "pontos já concedidos". Do mesmo jeito, a Fila lê
+  `Conta.avisoPrivacidadePendente()`, do Cadastro/Autenticação, antes do
+  check-in (RF11), sem seta: é leitura de model, não chamada. A regra da avaliação (pontua quando a refeição tem avaliação
+  e check-in confirmado, o que vier por último, RN09) fica só dentro do
+  `PontuacaoService`, chamado pelos dois lados. O campus enviado é sempre o
+  **da refeição**, tirado do registro já gravado no servidor, nunca um campo
+  vindo do PWA nem o campus detectado no aparelho (RN09, ADR 0009, L13).
+  Detalhes em `c4-nivel-4-gamificacao.md`.
+- **Contratos com o PWA (decisões 6, 7 e 12 da lista de ajustes).** Cada
+  componente lista seus endpoints no próprio Nível 4. Em resumo:
+  - Exposição do Cardápio: `GET /api/campi/` (centro e raio de detecção de
+    cada campus, público, com cache);
+  - Avaliação: `GET /api/avaliacoes/resumo/` (notas de todas as refeições
+    do dia numa chamada) e o campo `distintivo` nos comentários;
+  - Fila: `GET /api/fila/pergunta-pendente/` (204 sem pergunta vencida),
+    `POST /api/fila/respostas-saida/`,
+    `POST /api/fila/perguntas-saida/{id}/dispensa/` e `perguntaDevidaEm`
+    na resposta do check-in;
+  - Gamificação: progresso, adesão e ranking, mais o bloco `pontos` igual
+    nas respostas de check-in, resposta de saída e avaliação;
+  - Cadastro/Autenticação: `POST /api/privacidade/aceite/` e
+    `avisoPrivacidadePendente` na sessão.
+
+  A tela do campus não tem um endpoint que junte tudo: o PWA chama em
+  paralelo os endpoints de cada componente, e uma parte que falhe (por
+  exemplo, a previsão sem dados) não derruba as outras.
+- **Alternativas descartadas para acionar a pontuação:** signals do Django
+  (escondem o fluxo e disparam de novo a cada `save`), `transaction.on_commit`
+  (o check-in ficaria gravado sem pontos se a pontuação falhasse),
+  processamento assíncrono por cron ou Celery (atrasa o "+10 pontos" e, com
+  Celery, cria um container novo) e pontos calculados na consulta
+  (impossível depois que os registros perdem o vínculo com a conta, ADR
+  0011).
+- **As duas setas para a Gamificação são azuis e foram desenhadas depois da
+  seta tracejada**, para destacar a exceção acima e para que o
+  `linkStyle 12` continue marcando a relação Equipe → Banco de Dados. Ao
+  acrescentar setas, desenhe-as no fim da lista ou recalcule os índices.
 - **Leitor de Cardápio aparece dentro da fronteira do App Cardápio**, e não
   como um componente irmão solto, porque a ADR 0003 o define como módulo
   desse app, não como app à parte. Ainda assim ele está desenhado como caixa
