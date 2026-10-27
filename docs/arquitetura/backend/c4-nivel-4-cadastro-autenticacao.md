@@ -3,7 +3,14 @@
 > Detalha, em diagrama de classes, o componente **Cadastro/Autenticação**,
 > desenhado no Nível 3 do backend (ver `c4-nivel-3-backend.md`). Cobre o
 > Épico Login por inteiro: cadastro em duas etapas (RF01), confirmação de
-> e-mail (RF02), login (RF03) e recuperação de senha (RF04).
+> e-mail (RF02), login (RF03) e recuperação de senha (RF04). Na Release 2,
+> também registra a ciência do aviso de privacidade atualizado, exigida
+> antes do primeiro check-in de quem já tinha conta (RF11, RNF07.1).
+>
+> **Ainda pendente neste arquivo:** a troca de `Sessao` pela sessão do
+> Django em cookie `HttpOnly` (ADR 0007), com logout e "quem sou eu", e a
+> troca de `identificadorCifrado` por `matriculaSiape` (ADR 0008). Ver o
+> item 1.3 da lista de ajustes.
 >
 > Referência: ADR 0002 — *Matrícula e apelido extraídos do e-mail
 > institucional* (`docs/adr/0002-matricula-apelido-extraidos-do-email.md`).
@@ -108,6 +115,19 @@ classDiagram
     +senhaHash: str
     +confirmada: bool
     +criadaEm: datetime
+    +versaoAvisoAceita: str
+    +avisoAceitoEm: datetime
+    +avisoPrivacidadePendente() bool
+  }
+
+  class AceiteAvisoPrivacidadeView {
+    +post(request) Response
+  }
+  class AvisoPrivacidadeService {
+    +registrarCiencia(conta: Conta, agora: datetime) void
+  }
+  class AvisoPrivacidadeConfig {
+    +versaoAtual: str
   }
 
   class ConfirmacaoEmailService {
@@ -211,6 +231,12 @@ classDiagram
 
   ContaRepository ..> Conta : grava/lê
   Conta --> TipoUsuario : tem
+
+  AceiteAvisoPrivacidadeView --> AvisoPrivacidadeService : registrarCiencia()
+  AvisoPrivacidadeService --> AvisoPrivacidadeConfig : lê versão atual
+  AvisoPrivacidadeService --> ContaRepository : grava versão aceita
+  CadastroService --> AvisoPrivacidadeConfig : grava versão aceita no cadastro
+  Conta ..> AvisoPrivacidadeConfig : compara versão (pendente?)
 ```
 
 ### Notas do diagrama
@@ -269,3 +295,27 @@ classDiagram
   confirmar o e-mail; a outra é genérica de propósito, para não permitir
   enumeração de contas, RF03) — mas nenhuma das duas revela existência da
   conta a quem não sabe a senha correta.
+- **Ciência do aviso de privacidade (RF11, RNF07.1; contrato combinado com o frontend).** A conta
+  guarda qual versão do aviso foi aceita (`versaoAvisoAceita`) e quando
+  (`avisoAceitoEm`). `AvisoPrivacidadeConfig.versaoAtual` é a versão em
+  vigor (a da Release 2, que cita fila, localização, gamificação e
+  ranking). Fluxo:
+  - no cadastro, o aceite já é obrigatório (RF01), então o `CadastroService`
+    grava a versão atual e a conta nasce sem pendência;
+  - quem tinha conta antes da Release 2 fica com a versão antiga, e
+    `Conta.avisoPrivacidadePendente()` passa a ser verdadeiro;
+  - o endpoint "quem sou eu" da sessão (a criar junto com a ADR 0007, item
+    1.3 da lista de ajustes) devolve `avisoPrivacidadePendente` ao lado de
+    apelido e tipo, para o PWA mostrar o aviso **antes** de pedir a
+    localização no primeiro check-in;
+  - `POST /api/privacidade/aceite/` (`AceiteAvisoPrivacidadeView`, só
+    logado, sem corpo) registra a ciência com a hora do servidor e devolve
+    `204`;
+  - se mesmo assim chegar um check-in sem a ciência, a Fila recusa com `403`
+    e `"codigo": "aviso_privacidade_pendente"` (passo 0 do `CheckinService`,
+    `c4-nivel-4-fila.md`).
+
+  `avisoPrivacidadePendente()` é um método do model, para que a Fila o leia
+  como lê os outros dados da `Conta`, sem chamar este componente. Uma versão
+  nova do aviso, no futuro, volta a gerar pendência para todos, sem mudança
+  de código.

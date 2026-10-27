@@ -7,7 +7,9 @@
 > Django (`Refeicao`, `Categoria`, `Prato`, `Marcador`), mas um escreve e o
 > outro só lê. Cobre a parte de exibição do Épico Cardápio: exibição por
 > campus/refeição/dia (RF07), filtro de marcadores (RF08), filtro de dieta
-> (RF09) e exibição da semana seguinte (RF18).
+> (RF09) e exibição da semana seguinte (RF18). Na Release 2, também publica
+> a lista de campi com o centro e o raio de detecção de cada um, usada pelo
+> PWA para detectar o campus no aparelho (RF20.1, ADR 0009).
 >
 > **Decisão tomada neste refinamento:** os filtros de marcador (RF08) e de
 > dieta (RF09) são aplicados **no backend** — o endpoint recebe os
@@ -114,7 +116,30 @@ classDiagram
     +nome: str
   }
 
+  class CampiView {
+    +get(request) Response
+  }
+  class CampusPublico {
+    +id: int
+    +nome: str
+    +centro: PontoGeografico
+    +raioDeteccaoMetros: int
+  }
+  class PontoGeografico {
+    +latitude: float
+    +longitude: float
+  }
+  class LocalizacaoCampusConfig {
+    <<Anexo A>>
+    +campi() list~Campus~
+    +centro(campus: Campus) PontoGeografico
+    +raioDeteccaoMetros(campus: Campus) int
+  }
+
   CardapioView --> CardapioQueryService : obterCardapio()
+  CampiView --> LocalizacaoCampusConfig : lê centro e raio de detecção
+  CampiView --> CampusPublico : produz lista
+  CampusPublico --> PontoGeografico : tem
 
   CardapioQueryService --> RefeicaoRepository : busca refeição(ões)
   CardapioQueryService --> HorarioRefeicaoResolver : resolve refeição padrão quando não informada (RF07)
@@ -184,6 +209,33 @@ classDiagram
   em relação ao que fazer com eles. Por isso não há, neste diagrama, nenhuma
   classe de preferência de usuário persistida — não é responsabilidade
   deste componente.
+- **`GET /api/campi/` publica o que o PWA precisa para detectar o campus no
+  aparelho (RF20.1, ADR 0009, decisão 6).** É público, não depende de login
+  e devolve, para cada campus, id, nome, centro e raio de detecção:
+
+  ```json
+  [
+    {"id": 1, "nome": "Gama", "centro": {"latitude": -15.989, "longitude": -48.044}, "raioDeteccaoMetros": 800}
+  ]
+  ```
+
+  (Valores ilustrativos; os reais vêm do Anexo A.) Fica numa view própria,
+  separada do `CardapioView`, porque campi e cardápio mudam em ritmos
+  diferentes: o PWA não precisa baixar um cardápio só para descobrir os
+  raios. A resposta vai com cabeçalhos de cache (`Cache-Control` e `ETag`),
+  e o PWA guarda a última versão no `localStorage`, para a detecção caber no
+  limite de 5 s mesmo com rede lenta (RN03).
+- **O raio de detecção não é o raio de confirmação do check-in.** O raio de
+  detecção (campus inteiro) fica em `LocalizacaoCampusConfig`; o raio de
+  confirmação (só o prédio do RU) fica em `LocalizacaoRUConfig`, no Nível 4
+  da Fila, e **não é publicado**, porque quem confirma o check-in é o
+  backend (RF12). As coordenadas do usuário nunca chegam a este endpoint: a
+  comparação é feita no aparelho, e o servidor recebe só o identificador do
+  campus (RI09).
+- **A conta de distância existe nos dois lados**, no PWA (detecção) e na
+  `DistanciaGeografica` da Fila (confirmação do check-in). Os dois devem usar
+  a mesma fórmula e os mesmos casos de teste, com as coordenadas reais dos
+  RUs e dos campi, para não darem resultados diferentes.
 - **RF10 (ícones de marcador sempre visíveis, Backlog) não exige nenhuma
   classe nova**: `PratoFiltrado.marcadores` já carrega essa informação
   independentemente do filtro estar ativo ou não; falta só a interface
