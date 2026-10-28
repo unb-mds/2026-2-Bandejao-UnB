@@ -5,39 +5,34 @@
 > `c4-nivel-3-backend.md`). Cobre a parte de leitura do Épico Cardápio
 > (RF06).
 >
-> Referência: ADR 0003 — *Leitor de PDF como módulo do backend*
-> (`docs/adr/0003-leitor-pdf-como-modulo-do-backend.md`), citada em
-> `c4-niveis-1-2.md` mas não incluída no material enviado para este
-> documento. O desenho abaixo segue o que já está descrito sobre o módulo
-> no Nível 2/3 e no RF06 do Documento de Requisitos; qualquer detalhe de
-> implementação que a ADR 0003 trouxer além disso (ex.: biblioteca de
-> leitura de PDF escolhida) deve ser conferido contra ela depois.
+> Referências: ADR 0003 — *Leitor de PDF como módulo do backend*
+> (`docs/arquitetura/adr/0003-leitor-pdf-como-modulo-do-backend.md`), que
+> define o módulo dentro do backend e o disparo por cron do SO, e ADR 0006 —
+> *Alerta de falha do leitor por e-mail*
+> (`docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md`). A
+> biblioteca de leitura de PDF ainda não foi escolhida (a ADR 0003 deixa
+> isso para o teste com o PDF real do Gama); por isso `CardapioPDFParser`
+> aparece sem biblioteca.
 
-## Nível 4 — Diagrama de Classes do Leitor de Cardápio
+Há dois diagramas: **4a** leitura do PDF e **4b** gravação e alertas. Cada diagrama tem no máximo 20 elementos e um título próprio, seguindo a skill c4-architecture usada pelo grupo; classes compartilhadas (como `Conta` ou as configurações) aparecem em mais de um diagrama.
 
-Nível 4 do C4 Model é deliberadamente granular e vale só para a parte mais
-complexa/crítica de um componente — aqui, o Leitor de Cardápio, por lidar
-com um PDF externo cujo formato pode mudar (L05) e cuja leitura de ícones é
-o ponto de falha mais citado no Documento de Requisitos (RF06, L03, RNF02).
-As classes abaixo são uma proposta inicial de desenho, não um recorte de
-código já existente — sirvam de ponto de partida para a dupla responsável
-por essa frente.
+## Nível 4a — Leitura do PDF
 
 ```mermaid
+---
+title: "Nível 4a — Leitor de Cardápio: leitura, validação e estruturação do PDF"
+---
 classDiagram
   class LerCardapioCommand {
     +handle() void
   }
-
   class LeitorCardapioService {
     +processar(campus: Campus) void
   }
-
   class CardapioDownloader {
     +baixar(campus: Campus) ArquivoPDF
   }
   class DownloadError
-
   class CardapioPDFParser {
     +extrair(pdf: ArquivoPDF) list~PaginaExtraida~
   }
@@ -46,18 +41,15 @@ classDiagram
     +blocosTexto: list
     +iconesComPosicao: list
   }
-
   class LegendaValidator {
     +validar(legenda: list~str~) bool
     -MARCADORES_CONHECIDOS: set~str~
   }
   class LegendaInvalidaError
-
   class MarcadorIconMatcher {
     +associar(pratos: list~Prato~, icones: list) dict
   }
   class AssociacaoFalhouError
-
   class CardapioEstruturador {
     +estruturar(pagina: PaginaExtraida, marcadoresPorPrato: dict) RefeicaoEstruturada
     -separarPratos(textoCategoria: str) list~str~
@@ -78,52 +70,16 @@ classDiagram
     +descricao: str
     +marcadores: list~str~
   }
-
-  class AlertaEquipeService {
-    +registrarAlerta(tipo: TipoAlerta, campus: Campus, detalhe: str) void
-    -deveEnviar(tipo: TipoAlerta, campus: Campus) bool
-    -MAX_AVISOS_POR_DIA: int = 3
-    -INTERVALO_MINIMO: timedelta = 6h
-  }
-  class TipoAlerta {
-    <<enumeration>>
-    LEGENDA_INVALIDA
-    ASSOCIACAO_FALHOU
-    FALHA_LEITURA_PDF
-  }
-  class ContadorAlerta {
-    +campus: Campus
-    +tipo: TipoAlerta
-    +data: date
-    +quantidadeEnviada: int
-    +ultimoEnvioEm: datetime
-  }
-
   class CardapioRepository {
     +salvar(refeicao: RefeicaoEstruturada) void
     +manterUltimoValido(campus: Campus, refeicao: str, data: date) void
     +marcarAlergenosIndisponivel(campus: Campus, refeicao: str, data: date) void
   }
-
-  class EmailSvc["Serviço de E-mail (externo)"] {
-    <<external>>
-  }
-
-  class Refeicao {
-    +campus: Campus
-    +tipo: str
-    +data: date
-    +alergenosIndisponivel: bool
-  }
-  class Categoria {
-    +nome: str
-    +dieta: str
-  }
-  class Prato {
-    +descricao: str
-  }
-  class Marcador {
-    +nome: str
+  class AlertaEquipeService {
+    +registrarAlerta(tipo: TipoAlerta, campus: Campus, detalhe: str) void
+    -deveEnviar(tipo: TipoAlerta, campus: Campus) bool
+    -MAX_AVISOS_POR_DIA: int = 3
+    -INTERVALO_MINIMO: timedelta = 6h
   }
 
   LerCardapioCommand --> LeitorCardapioService : dispara, por campus (cron do SO)
@@ -134,30 +90,16 @@ classDiagram
   LeitorCardapioService --> CardapioEstruturador : 5. monta estrutura
   LeitorCardapioService --> CardapioRepository : 6. persiste / mantém último válido
   LeitorCardapioService --> AlertaEquipeService : em qualquer falha acima
-
   CardapioDownloader ..> DownloadError : lança em falha de rede/HTTP
   LegendaValidator ..> LegendaInvalidaError : lança se legenda ≠ 10 marcadores
   MarcadorIconMatcher ..> AssociacaoFalhouError : lança se ícone não associável
-
   CardapioPDFParser --> PaginaExtraida : produz, uma por refeição
   CardapioEstruturador --> RefeicaoEstruturada : produz
   RefeicaoEstruturada *-- CategoriaEstruturada
   CategoriaEstruturada *-- PratoEstruturado
-
-  AlertaEquipeService --> TipoAlerta : usa
-  AlertaEquipeService --> ContadorAlerta : lê/incrementa por (campus, tipo, dia)
-  AlertaEquipeService ..> EmailSvc : envia aviso [SMTP], se deveEnviar() = true
-
-  CardapioRepository ..> Refeicao : grava/lê
-  CardapioRepository ..> Categoria : grava/lê
-  CardapioRepository ..> Prato : grava/lê
-  CardapioRepository ..> Marcador : grava/lê
-  Refeicao *-- Categoria
-  Categoria *-- Prato
-  Prato --> Marcador : associado a 0..*
 ```
 
-### Notas do diagrama
+### Notas do diagrama (4a)
 
 - **`LeitorCardapioService` é o orquestrador único**, chamado pelo comando
   de management do Django (`LerCardapioCommand`) que o cron do SO dispara —
@@ -177,6 +119,84 @@ classDiagram
   a regra "ou/OU separa pratos; / não separa" (glossário, Termo Prato) é uma
   regra de negócio testável isoladamente, sem precisar de um PDF real —
   boa candidata a teste unitário dedicado.
+- **`MarcadorIconMatcher` funciona por posição**, não por texto, porque o
+  RF06 é explícito: os ícones dos marcadores são imagens sobrepostas ao
+  texto do PDF, fora da camada de texto extraível. Essa é provavelmente a
+  classe de maior risco técnico do módulo (L03) e a que mais provavelmente
+  muda de implementação dependendo da biblioteca de leitura de PDF adotada
+  (ADR 0003, ainda não avaliada com o PDF real do campus do Gama segundo a
+  nota do Nível 2).
+
+## Nível 4b — Gravação e alertas
+
+```mermaid
+---
+title: "Nível 4b — Leitor de Cardápio: gravação do cardápio e alertas à equipe"
+---
+classDiagram
+  class LeitorCardapioService {
+    +processar(campus: Campus) void
+  }
+  class CardapioRepository {
+    +salvar(refeicao: RefeicaoEstruturada) void
+    +manterUltimoValido(campus: Campus, refeicao: str, data: date) void
+    +marcarAlergenosIndisponivel(campus: Campus, refeicao: str, data: date) void
+  }
+  class Refeicao {
+    +campus: Campus
+    +tipo: str
+    +data: date
+    +alergenosIndisponivel: bool
+  }
+  class Categoria {
+    +nome: str
+    +dieta: str
+  }
+  class Prato {
+    +descricao: str
+  }
+  class Marcador {
+    +nome: str
+  }
+  class AlertaEquipeService {
+    +registrarAlerta(tipo: TipoAlerta, campus: Campus, detalhe: str) void
+    -deveEnviar(tipo: TipoAlerta, campus: Campus) bool
+    -MAX_AVISOS_POR_DIA: int = 3
+    -INTERVALO_MINIMO: timedelta = 6h
+  }
+  class TipoAlerta {
+    <<enumeration>>
+    LEGENDA_INVALIDA
+    ASSOCIACAO_FALHOU
+    FALHA_LEITURA_PDF
+  }
+  class ContadorAlerta {
+    +campus: Campus
+    +tipo: TipoAlerta
+    +data: date
+    +quantidadeEnviada: int
+    +ultimoEnvioEm: datetime
+  }
+  class EmailSvc["Serviço de E-mail (externo)"] {
+    <<external>>
+  }
+
+  LeitorCardapioService --> CardapioRepository : 6. persiste / mantém último válido
+  LeitorCardapioService --> AlertaEquipeService : em qualquer falha acima
+  AlertaEquipeService --> TipoAlerta : usa
+  AlertaEquipeService --> ContadorAlerta : lê/incrementa por (campus, tipo, dia)
+  AlertaEquipeService ..> EmailSvc : envia aviso [SMTP], se deveEnviar() = true
+  CardapioRepository ..> Refeicao : grava/lê
+  CardapioRepository ..> Categoria : grava/lê
+  CardapioRepository ..> Prato : grava/lê
+  CardapioRepository ..> Marcador : grava/lê
+  Refeicao *-- Categoria
+  Categoria *-- Prato
+  Prato --> Marcador : associado a 0..*
+```
+
+### Notas do diagrama (4b)
+
 - **`AlertaEquipeService` limita a no máximo 3 avisos por dia, por
   combinação de campus + tipo de falha**, controlado por `ContadorAlerta`
   (campus, tipo, dia, quantidade já enviada, horário do último envio).
@@ -187,21 +207,17 @@ classDiagram
   mais tardar, no dia seguinte) — assim, uma falha de vários dias seguidos
   continua gerando pelo menos 1 aviso por dia, em vez de ficar em silêncio
   total depois do 3º e-mail. Decisão registrada na ADR 0006
-  (`docs/adr/0006-alerta-de-falha-do-leitor-por-email.md`), que compara o
+  (`docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md`), que compara o
   e-mail com log passivo e consulta manual ao banco. O e-mail de destino
   desses avisos ainda não foi definido — fica pendente, como registrado na
   própria ADR.
-- **`MarcadorIconMatcher` funciona por posição**, não por texto, porque o
-  RF06 é explícito: os ícones dos marcadores são imagens sobrepostas ao
-  texto do PDF, fora da camada de texto extraível. Essa é provavelmente a
-  classe de maior risco técnico do módulo (L03) e a que mais provavelmente
-  muda de implementação dependendo da biblioteca de leitura de PDF adotada
-  (ADR 0003, ainda não avaliada com o PDF real do campus do Gama segundo a
-  nota do Nível 2).
 - **`Refeicao`, `Categoria`, `Prato` e `Marcador` são os models Django do
   app Cardápio** (não deste módulo) — aparecem aqui só como o destino da
   persistência do `CardapioRepository`, para deixar explícito o que o Leitor
   de Cardápio grava, sem redefinir o schema completo do app.
+
+## Notas gerais
+
 - Este diagrama é uma **proposta de decomposição interna**, não uma
   decisão de arquitetura registrada — se a dupla responsável pela leitura do
   PDF adotar um desenho de classes diferente ao implementar, vale atualizar
