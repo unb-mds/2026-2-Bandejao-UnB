@@ -29,23 +29,18 @@
 > | `GET /api/refeicoes/{refeicaoId}/avaliacoes/` | Público | `RefeicaoAvaliacoesView` |
 > | `GET /api/historico/?campus=&data=&refeicao=` | Público | `HistoricoRefeicoesView` |
 
-## Nível 4 — Diagrama de Classes da Avaliação
+Há dois diagramas: **4a** avaliar uma refeição (com a pontuação) e **4b** consultas públicas (resumo do dia, comentários e histórico). Cada diagrama tem no máximo 20 elementos e um título próprio, seguindo a skill c4-architecture usada pelo grupo; classes compartilhadas (como `Conta` ou as configurações) aparecem em mais de um diagrama.
+
+## Nível 4a — Avaliar uma refeição
 
 ```mermaid
+---
+title: "Nível 4a — Avaliação: avaliar e pontuar"
+---
 classDiagram
   class AvaliacaoView {
     +post(request) Response
   }
-  class RefeicaoAvaliacoesView {
-    +get(refeicaoId: UUID) Response
-  }
-  class ResumoDoDiaView {
-    +get(campus: Campus, data: date) Response
-  }
-  class HistoricoRefeicoesView {
-    +get(campus: Campus, data: date, refeicao: str) Response
-  }
-
   class AvaliacaoService {
     +avaliar(conta: Conta, refeicao: Refeicao, nota: int, comentario: str) AvaliacaoRegistrada
   }
@@ -53,23 +48,19 @@ classDiagram
     +avaliacao: Avaliacao
     +pontos: ResultadoPontuacao
   }
-
   class JanelaAvaliacaoValidator {
     +podeAvaliar(refeicao: Refeicao, agora: datetime) bool
   }
   class AvaliacaoIndisponivelError
-
   class NotaValidator {
     +validar(nota: int) bool
   }
   class NotaInvalidaError
-
   class ComentarioValidator {
     +validar(comentario: str) bool
     -MAX_CARACTERES: int = 500
   }
   class ComentarioMuitoLongoError
-
   class AvaliacaoRepository {
     +buscarPorContaERefeicao(conta: Conta, refeicao: Refeicao) Avaliacao
     +salvar(avaliacao: Avaliacao) Avaliacao
@@ -77,92 +68,36 @@ classDiagram
     +mediaEQuantidade(refeicao: Refeicao) ResumoAvaliacoes
     +resumosDoDia(campus: Campus, data: date) list~ResumoRefeicao~
   }
-
   class Avaliacao {
-    +id: UUID
-    +contaId: UUID
-    +refeicaoId: UUID
+    +id: int
+    +contaId: int
+    +refeicaoId: int
     +nota: int
     +comentario: str
     +criadaEm: datetime
     +editadaEm: datetime
     +pontosConcedidosEm: datetime
   }
-  class ResumoAvaliacoes {
-    +media: float
-    +quantidade: int
-  }
-  class ResumoRefeicao {
-    +refeicaoId: UUID
-    +tipo: str
-    +media: float
-    +quantidade: int
-  }
-
-  class AvaliacaoPublicaMapper {
-    +paraPublico(avaliacoes: list~Avaliacao~) list~AvaliacaoPublica~
-  }
-  class AvaliacaoPublica {
-    +apelido: str
-    +distintivo: DistintivoPublico
-    +nota: int
-    +comentario: str
-    +criadaEm: datetime
-  }
-
-  class HistoricoService {
-    +refeicoesDisponiveis(campus: Campus, dataInicio: date, dataFim: date) list~Refeicao~
-    +detalhar(refeicao: Refeicao) HistoricoRefeicao
-  }
-  class HistoricoRefeicao {
-    +campus: Campus
-    +data: date
-    +tipo: str
-    +categorias: list~Categoria~
-    +resumoAvaliacoes: ResumoAvaliacoes
-    +comentarios: list~AvaliacaoPublica~
-  }
-
   class Conta {
-    +id: UUID
+    +id: int
     +apelido: str
-    +removida: bool
+    +status: StatusConta
   }
   class Refeicao {
     +campus: Campus
     +tipo: str
     +data: date
   }
-  class Categoria {
-    +nome: str
-  }
-
   class PontuacaoService {
     <<App Gamificação>>
-    +registrarContribuicao(conta: Conta, tipo: TipoContribuicao, origemId: UUID, refeicao: RefeicaoRef) ResultadoPontuacao
+    +registrarContribuicao(conta: Conta, tipo: TipoContribuicao, origemId: int, refeicao: RefeicaoRef) ResultadoPontuacao
   }
   class ResultadoPontuacao {
     <<App Gamificação>>
     +total: int
   }
-  class BandejaOuroResolver {
-    <<App Gamificação>>
-    +distintivosExibiveis(contas: list~Conta~, hoje: date) dict
-  }
-  class DistintivoPublico {
-    <<App Gamificação>>
-    +tipo: str
-    +campi: list~CampusRef~
-    +semestre: str
-  }
 
   AvaliacaoView --> AvaliacaoService : avaliar()
-  RefeicaoAvaliacoesView --> AvaliacaoRepository : mediaEQuantidade() / listarPorRefeicao()
-  RefeicaoAvaliacoesView --> AvaliacaoPublicaMapper : converte comentários
-  ResumoDoDiaView --> AvaliacaoRepository : resumosDoDia()
-  AvaliacaoRepository --> ResumoRefeicao : calcula em lote
-  HistoricoRefeicoesView --> HistoricoService : refeicoesDisponiveis() / detalhar()
-
   AvaliacaoService --> JanelaAvaliacaoValidator : valida se refeição pode ser avaliada
   JanelaAvaliacaoValidator ..> AvaliacaoIndisponivelError : lança se fora da janela
   AvaliacaoService --> NotaValidator : valida nota
@@ -174,27 +109,12 @@ classDiagram
   AvaliacaoService --> PontuacaoService : registra contribuição (mesma transação)
   AvaliacaoService --> AvaliacaoRegistrada : devolve
   AvaliacaoRegistrada --> ResultadoPontuacao : tem
-
   AvaliacaoRepository ..> Avaliacao : grava/lê
-  AvaliacaoRepository --> ResumoAvaliacoes : calcula
-
-  AvaliacaoPublicaMapper --> AvaliacaoPublica : produz
-  AvaliacaoPublicaMapper ..> Conta : lê apelido (ou "usuário removido")
-  AvaliacaoPublicaMapper ..> BandejaOuroResolver : distintivos dos autores, em lote
-  AvaliacaoPublica --> DistintivoPublico : tem (opcional)
-
-  HistoricoService --> AvaliacaoRepository : lê avaliações da refeição
-  HistoricoService --> AvaliacaoPublicaMapper : converte comentários
-  HistoricoService --> HistoricoRefeicao : monta
-  HistoricoService ..> Refeicao : lê (Épico Cardápio)
-  HistoricoService ..> Categoria : lê (Épico Cardápio)
-
   Avaliacao --> Conta : pertence a (FK)
   Avaliacao --> Refeicao : refere-se a (FK)
-  HistoricoRefeicao *-- AvaliacaoPublica
 ```
 
-### Notas do diagrama
+### Notas do diagrama (4a)
 
 - **`AvaliacaoService.avaliar` é sempre um upsert**, nunca um "criar" e um
   "editar" separados: o RF15 define que a segunda tentativa de avaliar a
@@ -225,9 +145,8 @@ classDiagram
   upsert, a segunda chamada chega à Gamificação com a mesma avaliação; o
   marcador `Avaliacao.pontosConcedidosEm`, preenchido pelo `PontuacaoService`
   na primeira vez, impede pontos em dobro (ADR 0011). É o único campo da
-  Avaliação que a Gamificação escreve. Segue a recomendação da decisão 4 da
-  lista de ajustes (marcador nos registros de origem), ainda a confirmar
-  pelas duplas.
+  Avaliação que a Gamificação escreve. É a decisão 4, tomada com o time de
+  banco de dados (marcador nos registros de origem).
 - **A `refeicao` enviada é a refeição avaliada** (campus, tipo e data da
   `Refeicao` já gravada no servidor), nunca um campo vindo do PWA nem o
   campus detectado no aparelho (RN09, L13). Se a pessoa avaliar por engano a
@@ -239,10 +158,137 @@ classDiagram
   das outras contribuições:
   `"pontos": {"total": 5, "contribuicao": 5, "avaliacaoLiberada": 0, "bonusSemana": 0}`.
   Sem check-in na refeição, `total` vem 0 e o PWA não mostra aviso.
+- **`JanelaAvaliacaoValidator` reaproveita o mesmo tipo de parâmetro do
+  Anexo A** (horários de café/almoço/jantar) já usado por
+  `HorarioRefeicaoResolver` no componente Exposição do Cardápio — é a
+  mesma fonte de configuração, lida por dois componentes diferentes, não
+  uma cópia dela.
+- **Nota e comentário têm validadores próprios**, separados do
+  `AvaliacaoService`, pelo mesmo motivo dos validadores dos outros
+  componentes (Matrícula, no Cadastro/Autenticação): são regras
+  isoladas — nota obrigatória de 1 a 5, comentário opcional até 500
+  caracteres — testáveis sem precisar simular uma refeição completa.
+- **IDs inteiros (decisão 3).** `id`, `contaId` e `refeicaoId` são inteiros
+  autoincrementais, como no banco. `RefeicaoAvaliacoesView` recebe o id da
+  refeição, que é público de propósito; nenhum endpoint deste componente
+  autoriza o acesso só porque recebeu um id.
+
+## Nível 4b — Consultas públicas de avaliações
+
+```mermaid
+---
+title: "Nível 4b — Avaliação: resumo do dia, comentários e histórico"
+---
+classDiagram
+  class RefeicaoAvaliacoesView {
+    +get(refeicaoId: int) Response
+  }
+  class ResumoDoDiaView {
+    +get(campus: Campus, data: date) Response
+  }
+  class HistoricoRefeicoesView {
+    +get(campus: Campus, data: date, refeicao: str) Response
+  }
+  class AvaliacaoRepository {
+    +buscarPorContaERefeicao(conta: Conta, refeicao: Refeicao) Avaliacao
+    +salvar(avaliacao: Avaliacao) Avaliacao
+    +listarPorRefeicao(refeicao: Refeicao) list~Avaliacao~
+    +mediaEQuantidade(refeicao: Refeicao) ResumoAvaliacoes
+    +resumosDoDia(campus: Campus, data: date) list~ResumoRefeicao~
+  }
+  class Avaliacao {
+    +id: int
+    +contaId: int
+    +refeicaoId: int
+    +nota: int
+    +comentario: str
+    +criadaEm: datetime
+    +editadaEm: datetime
+    +pontosConcedidosEm: datetime
+  }
+  class ResumoAvaliacoes {
+    +media: float
+    +quantidade: int
+  }
+  class ResumoRefeicao {
+    +refeicaoId: int
+    +tipo: str
+    +media: float
+    +quantidade: int
+  }
+  class AvaliacaoPublicaMapper {
+    +paraPublico(avaliacoes: list~Avaliacao~) list~AvaliacaoPublica~
+  }
+  class AvaliacaoPublica {
+    +apelido: str
+    +distintivo: DistintivoPublico
+    +nota: int
+    +comentario: str
+    +criadaEm: datetime
+  }
+  class HistoricoService {
+    +refeicoesDisponiveis(campus: Campus, dataInicio: date, dataFim: date) list~Refeicao~
+    +detalhar(refeicao: Refeicao) HistoricoRefeicao
+  }
+  class HistoricoRefeicao {
+    +campus: Campus
+    +data: date
+    +tipo: str
+    +categorias: list~Categoria~
+    +resumoAvaliacoes: ResumoAvaliacoes
+    +comentarios: list~AvaliacaoPublica~
+  }
+  class Conta {
+    +id: int
+    +apelido: str
+    +status: StatusConta
+  }
+  class Refeicao {
+    +campus: Campus
+    +tipo: str
+    +data: date
+  }
+  class Categoria {
+    +nome: str
+  }
+  class BandejaOuroResolver {
+    <<App Gamificação>>
+    +distintivosExibiveis(contas: list~Conta~, hoje: date) dict
+  }
+  class DistintivoPublico {
+    <<App Gamificação>>
+    +tipo: str
+    +campi: list~CampusRef~
+    +semestre: str
+  }
+
+  RefeicaoAvaliacoesView --> AvaliacaoRepository : mediaEQuantidade() / listarPorRefeicao()
+  RefeicaoAvaliacoesView --> AvaliacaoPublicaMapper : converte comentários
+  ResumoDoDiaView --> AvaliacaoRepository : resumosDoDia()
+  AvaliacaoRepository --> ResumoRefeicao : calcula em lote
+  HistoricoRefeicoesView --> HistoricoService : refeicoesDisponiveis() / detalhar()
+  AvaliacaoRepository ..> Avaliacao : grava/lê
+  AvaliacaoRepository --> ResumoAvaliacoes : calcula
+  AvaliacaoPublicaMapper --> AvaliacaoPublica : produz
+  AvaliacaoPublicaMapper ..> Conta : lê apelido (ou "usuário removido")
+  AvaliacaoPublicaMapper ..> BandejaOuroResolver : distintivos dos autores, em lote
+  AvaliacaoPublica --> DistintivoPublico : tem (opcional)
+  HistoricoService --> AvaliacaoRepository : lê avaliações da refeição
+  HistoricoService --> AvaliacaoPublicaMapper : converte comentários
+  HistoricoService --> HistoricoRefeicao : monta
+  HistoricoService ..> Refeicao : lê (Épico Cardápio)
+  HistoricoService ..> Categoria : lê (Épico Cardápio)
+  Avaliacao --> Conta : pertence a (FK)
+  Avaliacao --> Refeicao : refere-se a (FK)
+  HistoricoRefeicao *-- AvaliacaoPublica
+```
+
+### Notas do diagrama (4b)
+
 - **`GET /api/avaliacoes/resumo/?campus=&data=` devolve, numa chamada só, a
   nota média e a quantidade de avaliações de cada refeição do dia** (RF20.3),
   para o seletor de refeições da tela do campus:
-  `[{"refeicaoId": "…", "tipo": "almoco", "media": 4.2, "quantidade": 37}]`.
+  `[{"refeicaoId": 42, "tipo": "almoco", "media": 4.2, "quantidade": 37}]`.
   `resumosDoDia` faz uma única consulta agrupada por refeição. Os comentários
   continuam vindo só da refeição selecionada, por
   `GET /api/refeicoes/{refeicaoId}/avaliacoes/`. Assim, abrir a tela do
@@ -259,30 +305,23 @@ classDiagram
   mapper também é usado pelo `HistoricoService`, os comentários do
   histórico (RF16) mostram a Bandeja que o autor tem **hoje**, não a que
   tinha na data da refeição.
-- **`JanelaAvaliacaoValidator` reaproveita o mesmo tipo de parâmetro do
-  Anexo A** (horários de café/almoço/jantar) já usado por
-  `HorarioRefeicaoResolver` no componente Exposição do Cardápio — é a
-  mesma fonte de configuração, lida por dois componentes diferentes, não
-  uma cópia dela.
-- **Nota e comentário têm validadores próprios**, separados do
-  `AvaliacaoService`, pelo mesmo motivo dos validadores dos outros
-  componentes (Matrícula, no Cadastro/Autenticação): são regras
-  isoladas — nota obrigatória de 1 a 5, comentário opcional até 500
-  caracteres — testáveis sem precisar simular uma refeição completa.
 - **`AvaliacaoPublicaMapper` é o único lugar por onde uma `Conta` vira
   visível para terceiros**, e ele deliberadamente só extrai o apelido e o
   distintivo — nunca a matrícula/SIAPE ou o e-mail (RI10, RNF04). Também é aqui que a
-  exclusão de conta (RNF07) se reflete: se `Conta.removida` for
-  verdadeiro, o mapper devolve "usuário removido" no lugar do apelido, em
-  vez de a avaliação sumir — a RNF07 exige que a avaliação em si
-  permaneça, só o autor fica anônimo.
+  exclusão de conta (RNF07) se reflete: se `Conta.status` for `REMOVIDO`,
+  o mapper devolve "usuário removido" no lugar do apelido, sem distintivo,
+  em vez de a avaliação sumir — a RNF07 exige que a avaliação em si
+  permaneça, só o autor fica anônimo. `status` é o mesmo campo do banco
+  (`USUARIO.status`) e substitui o antigo `Conta.removida`.
 - **`Avaliacao.contaId` nunca é apagado, mesmo com a conta removida** —
   é o vínculo permanente exigido pela RNF08 (rastreabilidade e moderação:
   a equipe precisa conseguir identificar o autor de uma avaliação
   problemática por consulta administrativa manual, o mesmo acesso direto
   ao banco já desenhado no Nível 3, ADR 0004). O `AvaliacaoPublicaMapper`
   só controla o que é exibido publicamente; o dado de rastreabilidade
-  continua inteiro no banco.
+  continua inteiro no banco. Por isso a exclusão de conta
+  (`RemoverContaCommand`, no Cadastro/Autenticação) só marca a conta como
+  `REMOVIDO`, sem apagá-la.
 - **`HistoricoService` não tem nenhuma lógica de escrita nem de filtro**
   (RF08/RF09 não se aplicam ao histórico) — é deliberadamente mais simples
   que `CardapioQueryService` (Exposição do Cardápio): RF16 pede consulta
@@ -294,6 +333,9 @@ classDiagram
   semana vigente) e `HistoricoRefeicoesView` (RF16) serem endpoints
   diferentes: o dado nunca é apagado, só para de aparecer pela primeira
   via depois que a semana passa.
+
+## Notas gerais
+
 - Este diagrama é uma **proposta de decomposição inicial**, não uma
   decisão de arquitetura registrada — ajuste-o se a dupla responsável por
   esta frente encontrar um desenho de classes diferente ao implementar.
