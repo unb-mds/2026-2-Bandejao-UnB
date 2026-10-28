@@ -145,7 +145,7 @@ classDiagram
   upsert, a segunda chamada chega à Gamificação com a mesma avaliação; o
   marcador `Avaliacao.pontosConcedidosEm`, preenchido pelo `PontuacaoService`
   na primeira vez, impede pontos em dobro (ADR 0011). É o único campo da
-  Avaliação que a Gamificação escreve. É a decisão 4, tomada com o time de
+  Avaliação que a Gamificação escreve. É uma decisão tomada com o time de
   banco de dados (marcador nos registros de origem).
 - **A `refeicao` enviada é a refeição avaliada** (campus, tipo e data da
   `Refeicao` já gravada no servidor), nunca um campo vindo do PWA nem o
@@ -168,7 +168,7 @@ classDiagram
   componentes (Matrícula, no Cadastro/Autenticação): são regras
   isoladas — nota obrigatória de 1 a 5, comentário opcional até 500
   caracteres — testáveis sem precisar simular uma refeição completa.
-- **IDs inteiros (decisão 3).** `id`, `contaId` e `refeicaoId` são inteiros
+- **IDs inteiros (decidido com o time de banco de dados).** `id`, `contaId` e `refeicaoId` são inteiros
   autoincrementais, como no banco. `RefeicaoAvaliacoesView` recebe o id da
   refeição, que é público de propósito; nenhum endpoint deste componente
   autoriza o acesso só porque recebeu um id.
@@ -293,7 +293,7 @@ classDiagram
   continuam vindo só da refeição selecionada, por
   `GET /api/refeicoes/{refeicaoId}/avaliacoes/`. Assim, abrir a tela do
   campus custa uma chamada de resumo em vez de uma por refeição.
-- **Bandeja de Ouro nos comentários (RF15.2, RF33.2, decisão 12).** Cada
+- **Bandeja de Ouro nos comentários (RF15.2, RF33.2; formato combinado entre backend e frontend).** Cada
   `AvaliacaoPublica` traz o campo `distintivo`, que é `null` ou
   `{"tipo": "BANDEJA_DE_OURO", "campi": [{"id": 1, "nome": "Gama"}], "semestre": "2026.2"}`.
   O `AvaliacaoPublicaMapper` converte a lista de avaliações de uma vez e pede

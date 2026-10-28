@@ -191,7 +191,7 @@ classDiagram
   já existiam ganham a linha por uma *data migration*. Assim, a trava da
   pontuação (`select_for_update`) sempre encontra a linha (ver
   `c4-nivel-4-gamificacao.md`).
-- **IDs inteiros (decisão 3).** `id` e `contaId` são inteiros
+- **IDs inteiros (decidido com o time de banco de dados).** `id` e `contaId` são inteiros
   autoincrementais, como no banco.
 
 ## Nível 4b — Confirmação de e-mail
@@ -512,8 +512,8 @@ classDiagram
     grava a versão atual e a conta nasce sem pendência;
   - quem tinha conta antes da Release 2 fica com a versão antiga, e
     `Conta.avisoPrivacidadePendente()` passa a ser verdadeiro;
-  - o endpoint "quem sou eu" da sessão (a criar junto com a ADR 0007, item
-    1.3 da lista de ajustes) devolve `avisoPrivacidadePendente` ao lado de
+  - o endpoint "quem sou eu" da sessão (`GET /api/sessao/`, ADR 0007,
+    diagrama 4c) devolve `avisoPrivacidadePendente` ao lado de
     apelido e tipo, para o PWA mostrar o aviso **antes** de pedir a
     localização no primeiro check-in;
   - `POST /api/privacidade/aceite/` (`AceiteAvisoPrivacidadeView`, só

@@ -45,8 +45,7 @@ pontos voltam na resposta do check-in, da resposta de saída e da avaliação):
 | `DELETE /api/gamificacao/adesao/` | Logado | `RankingAdesaoView` (desativa) |
 | `GET /api/ranking/{campusId}/` | Público | `RankingView` |
 
-**Formatos compartilhados com o PWA** (decisões 7 e 12 da lista de
-ajustes):
+**Formatos compartilhados com o PWA** (combinados entre backend e frontend):
 
 ```json
 "pontos": {"total": 35, "contribuicao": 10, "avaliacaoLiberada": 5, "bonusSemana": 20}
@@ -229,7 +228,7 @@ classDiagram
 - **Marcador de "pontos já concedidos"** (`pontosConcedidosEm`) em `Checkin`,
   na pergunta de saída e em `Avaliacao`: é o único campo de outros
   componentes que a Gamificação escreve, sempre dentro da transação de quem
-  chamou. É a decisão 4, tomada com o time de banco de dados: a transação
+  chamou. É uma decisão tomada com o time de banco de dados: a transação
   garante que contribuição e pontos são gravados juntos, e o marcador impede
   que duas requisições diferentes pontuem a mesma contribuição. Na resposta
   de saída, o marcador fica na `PerguntaSaida`
@@ -237,12 +236,12 @@ classDiagram
   resposta.
 - **`SemestreResolver` usa só as datas de término**, guardadas na
   configuração junto com os demais valores do Anexo A
-  (`ParametrosGamificacaoConfig.datasTerminoSemestre`, decisão 11). Cada
+  (`ParametrosGamificacaoConfig.datasTerminoSemestre`; decidido com o time de banco de dados). Cada
   semestre vai do dia seguinte ao término do anterior até o seu próprio
   término, então os pontos das férias contam para o semestre seguinte. Sem
   data de término configurada para o semestre corrente, ele continua aberto
   (RN12).
-- **Nada é zerado na virada do semestre (decisão 5).** Cada semestre tem a
+- **Nada é zerado na virada do semestre (decidido com o time de banco de dados).** Cada semestre tem a
   sua linha em `PontosSemestreCampus` (uma por conta, campus e semestre),
   criada na primeira contribuição daquele semestre naquele campus; o
   fechamento apaga as linhas mais antigas que o semestre fechado.
@@ -259,7 +258,7 @@ classDiagram
   Cadastro/Autenticação na exclusão de conta (RNF07.4) e apaga a
   `PontuacaoUsuario` e todas as `PontosSemestreCampus` da conta, o que
   elimina também a posição final e a Bandeja de Ouro.
-- **IDs inteiros (decisão 3).** `contaId`, `origemId` e os demais ids são
+- **IDs inteiros (decidido com o time de banco de dados).** `contaId`, `origemId` e os demais ids são
   inteiros autoincrementais, como no banco. Nomes dos models e das tabelas
   se correspondem: `PontuacaoUsuario` ↔ `PONTUACAO_USUARIO` e
   `PontosSemestreCampus` ↔ `PONTOS_SEMESTRE_CAMPUS`.
@@ -357,7 +356,7 @@ classDiagram
   completada no check-in do 3º dia, antes de qualquer verificação de
   neutralidade.
 - **Patente (RN11):** derivada dos pontos totais, nunca gravada (decisão
-  8, tomada com o time de banco de dados). Como os pontos totais só sobem
+  tomada com o time de banco de dados). Como os pontos totais só sobem
   (salvo ajuste manual da equipe, ADR 0004, L14), a patente não regride.
   **Regra combinada:** os limiares do Anexo A só podem subir junto com uma
   migration que grave a patente já alcançada por cada usuário, porque a
@@ -624,7 +623,7 @@ classDiagram
   depois. Para cada campus, o serviço grava a `posicaoFinal` de
   cada elegível (os demais ficam sem posição) e, no fim, apaga as linhas de
   semestres mais antigos que o que acabou de fechar, para guardar só o
-  corrente e o anterior (decisões 9 e 10). Cuidados:
+  corrente e o anterior (decidido com o time de banco de dados). Cuidados:
   - **idempotente:** se o semestre já tem alguma `posicaoFinal` gravada, o
     comando não fecha de novo;
   - **sem data de término configurada,** nada é fechado e as Bandejas

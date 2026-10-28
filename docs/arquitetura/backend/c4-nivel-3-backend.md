@@ -265,7 +265,7 @@ na exclusão de conta [chamada Python]"| fila
   **da refeição**, tirado do registro já gravado no servidor, nunca um campo
   vindo do PWA nem o campus detectado no aparelho (RN09, ADR 0009, L13).
   Detalhes em `c4-nivel-4-gamificacao.md`.
-- **Contratos com o PWA (decisões 6, 7 e 12 da lista de ajustes).** Cada
+- **Contratos com o PWA (combinados entre backend e frontend).** Cada
   componente lista seus endpoints no próprio Nível 4. Em resumo:
   - Exposição do Cardápio: `GET /api/campi/` (centro e raio de detecção de
     cada campus, público, com cache);

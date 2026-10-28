@@ -13,9 +13,8 @@
 > seguindo a skill c4-architecture usada pelo grupo;
 > classes compartilhadas (como `Conta` ou as configurações) aparecem em mais de um diagrama.
 >
-> Todo o épico é **Release 2 / Backlog**: nada aqui faz parte do MVP. O
-> diagrama existe para que a decomposição já esteja pensada quando a
-> Release 2 começar.
+> Todo o épico é da **Release 2**, a entrega final do projeto (o MVP já
+> foi entregue). Só o nível de fila "agora" (RF14) continua no Backlog.
 >
 > Como nos outros Níveis 4, este componente só **lê** models de outros
 > componentes (`Conta`, do Cadastro/Autenticação) por chave estrangeira. A
@@ -194,7 +193,7 @@ classDiagram
   do mais barato ao mais caro, e de
   modo que uma tentativa que já seria rejeitada por outro motivo não
   dependa do GPS.
-- **Toda tentativa gera uma `TentativaCheckin`** (decisão 2, tomada com o
+- **Toda tentativa gera uma `TentativaCheckin`** (decisão tomada com o
   time de banco de dados): confirmada ou rejeitada por horário, por
   duplicidade ou por localização, com o `motivo` da rejeição. O pedido
   recusado no passo 0 (aviso de privacidade pendente) não é uma tentativa e
@@ -223,7 +222,7 @@ classDiagram
   da semana; o detalhamento está em `c4-nivel-4-gamificacao.md`.
 - **`Checkin.pontosConcedidosEm` é o marcador de "pontos já concedidos"**
   (ADR 0011). Quem o preenche é o `PontuacaoService`, no mesmo passo 5; é o
-  único campo da Fila que a Gamificação escreve. É a decisão 4, tomada com
+  único campo da Fila que a Gamificação escreve. É uma decisão tomada com
   o time de banco de dados: a transação garante que contribuição e pontos
   são gravados juntos, e o marcador impede que duas requisições diferentes
   pontuem a mesma contribuição. O marcador não é dado pessoal e continua no
@@ -242,7 +241,7 @@ classDiagram
   RU. O Anexo A exige que o raio do Darcy Ribeiro exclua o Restaurante
   Executivo (RI08); isso só pode ser validado com as coordenadas reais dos
   dois locais, e vale registrar o valor escolhido junto com essa justificativa.
-- **IDs inteiros (decisão 3).** `id`, `contaId` e as demais referências são
+- **IDs inteiros (decidido com o time de banco de dados).** `id`, `contaId` e as demais referências são
   inteiros autoincrementais, como no banco.
 
 ## Nível 4b — Pergunta de saída da fila
@@ -376,7 +375,7 @@ classDiagram
   PWA não compara o próprio relógio com o do servidor: basta exibir o pop-up
   quando vier 200. A expiração é avaliada na consulta, sem cron: pergunta
   vencida há mais de 60 min do check-in simplesmente deixa de ser devolvida.
-- **Quando o PWA consulta (decisão 7):** ao abrir o app, ao voltar ao
+- **Quando o PWA consulta (combinado entre backend e frontend):** ao abrir o app, ao voltar ao
   primeiro plano, no horário de `perguntaDevidaEm` (aviso agendado no
   aparelho) e, enquanto houver pergunta não expirada, a cada 2 ou 3 minutos
   com o app aberto. A consulta é invisível; o pop-up só aparece quando a

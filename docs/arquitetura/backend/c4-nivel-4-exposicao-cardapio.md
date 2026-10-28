@@ -241,7 +241,7 @@ classDiagram
 ### Notas do diagrama (4b)
 
 - **`GET /api/campi/` publica o que o PWA precisa para detectar o campus no
-  aparelho (RF20.1, ADR 0009, decisão 6).** É público, não depende de login
+  aparelho (RF20.1, ADR 0009; combinado entre backend e frontend).** É público, não depende de login
   e devolve, para cada campus, id, nome, centro e raio de detecção:
 
   ```json
