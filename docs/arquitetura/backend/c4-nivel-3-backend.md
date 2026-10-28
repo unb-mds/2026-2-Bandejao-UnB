@@ -20,11 +20,11 @@
 > - ✅ `c4-nivel-4-gamificacao.md` — Épico Gamificação → componente
 >   Gamificação
 >
-> Referências: ADR 0003 — *Leitor de PDF como módulo do backend*
-> (`docs/adr/0003-leitor-pdf-como-modulo-do-backend.md`) e ADR 0004 —
-> *Acesso direto da equipe ao banco* (`docs/adr/0004-acesso-direto-da-equipe-ao-banco.md`),
-> ambas citadas em `c4-niveis-1-2.md` mas não incluídas no material enviado
-> para este documento.
+> Referências: ADRs 0001 a 0011, em `docs/arquitetura/adr/`. As que mais
+> pesam neste nível são a 0003 (Leitor de PDF como módulo do backend), a
+> 0004 (acesso direto da equipe ao banco), a 0007 (sessão por cookie
+> `HttpOnly`), a 0009 (detecção de campus no aparelho), a 0010 (nível por
+> chegadas com espera estimada) e a 0011 (contadores de gamificação).
 
 ### Legenda de formas (Nível 3)
 
@@ -43,6 +43,9 @@ Mesma legenda do Nível 1/2, com um acréscimo:
 ## Nível 3 — Diagrama de Componentes do Backend API
 
 ```mermaid
+---
+title: Nível 3 — Componentes do Backend API do Bandejão
+---
 flowchart TB
   pwa[["📱 PWA (Frontend)
 Container — Vue 3
@@ -76,6 +79,7 @@ Cadastro em duas etapas, confirmação de
 e-mail, login, recuperação de senha
 (RF01–RF04). Extrai matrícula/apelido
 do e-mail institucional (ADR 0002).
+Sessão por cookie e logout (ADR 0007).
 Ciência do aviso de privacidade (RF11)."]
 
     subgraph cardapio_boundary["📋 App Cardápio"]
@@ -108,8 +112,10 @@ de refeições (RF15, RF16, RF20.3)."]
 Componente — Django app
 Model, Serializer, View, URL
 Check-in, confirmação por GPS, pergunta
-de saída da fila, previsão de pico,
-nível agora (RF11–RF14, RF21,
+de saída da fila, tempo de espera,
+previsão de pico com espera estimada,
+nível agora e retenção
+de 4 semanas (RF11–RF14, RF21, RNF07.3,
 Release 2 / Backlog)."]
 
     gamificacao["🏅 App Gamificação
@@ -121,7 +127,7 @@ semestral por campus e Bandeja de Ouro
 do semestre disparado por cron do SO."]
   end
 
-  pwa -->|"Cadastro, login, confirmação,
+  pwa -->|"Cadastro, login e logout, confirmação,
 recuperação de senha e ciência do
 aviso de privacidade [HTTPS/JSON]"| cadastro
   pwa -->|"Consulta cardápio, filtros
@@ -164,6 +170,10 @@ na mesma transação [chamada Python]"| gamificacao
   avaliacao -->|"Registra contribuição (avaliação)
 na mesma transação e consulta a
 Bandeja de Ouro do autor [chamada Python]"| gamificacao
+  cadastro -->|"Cria os contadores no cadastro e
+apaga na exclusão de conta [chamada Python]"| gamificacao
+  cadastro -->|"Desvincula registros de fila
+na exclusão de conta [chamada Python]"| fila
 
   classDef person fill:#08427b,stroke:#052e56,color:#fff,font-size:12px
   classDef container fill:#438dd5,stroke:#2e6295,color:#fff,font-size:12px
@@ -181,24 +191,33 @@ Bandeja de Ouro do autor [chamada Python]"| gamificacao
   class cardapio_boundary innerboundary
 
   linkStyle 12 stroke:#b33636,stroke-width:2px
-  linkStyle 15,16 stroke:#1168bd,stroke-width:2px
+  linkStyle 15,16,17,18 stroke:#1168bd,stroke-width:2px
 ```
 
 ### Notas do diagrama
 
+- **Padrão de desenho (skill c4-architecture).** Este diagrama e os Níveis 4
+  seguem as boas práticas da skill c4-architecture usada pelo grupo: título
+  em cada diagrama, no máximo 20 elementos por diagrama, setas num só
+  sentido com verbo de ação e tecnologia nos rótulos, e cada elemento com
+  nome, tipo e descrição. A sintaxe continua `flowchart` (Nível 3) e
+  `classDiagram` (Nível 4), e não os tipos `C4Component` da skill, para
+  manter a mesma forma dos Níveis 1 e 2 e do frontend.
 - **Um componente por app Django, seguindo a RNF06.** A separação
   Cadastro/Autenticação, Cardápio, Avaliação, Fila e Gamificação não é só uma
   conveniência de desenho: é a própria exigência de manutenibilidade do
   Documento de Requisitos ("a arquitetura deve separar claramente esses
   módulos, de modo que uma mudança no formato do PDF do cardápio exija
   alteração apenas no módulo de leitura de cardápio").
-- **As únicas setas entre componentes vão para a Gamificação.** Os apps
-  Django deste backend não se chamam via HTTP interno: é um monólito que
-  compartilha um único banco, e a relação entre, por exemplo, uma Avaliação
-  e a Conta que a escreveu é uma *foreign key* no banco. Ler um model de
-  outro app (Avaliação lê `Conta` e `Refeicao`) também não vira seta. A
-  exceção são as setas **Fila → Gamificação** e **Avaliação → Gamificação**,
-  que levam dois tipos de chamada:
+- **Só quatro setas entre componentes, todas azuis.** Os apps Django deste
+  backend não se chamam via HTTP interno: é um monólito que compartilha um
+  único banco, e a relação entre, por exemplo, uma Avaliação e a Conta que a
+  escreveu é uma *foreign key* no banco. Ler um model de outro app
+  (Avaliação lê `Conta` e `Refeicao`) também não vira seta. As exceções são
+  chamadas diretas a funções públicas de outro app (`[chamada Python]`):
+  **Fila → Gamificação**, **Avaliação → Gamificação**, **Cadastro →
+  Gamificação** e **Cadastro → Fila**. As duas primeiras levam dois tipos de
+  chamada:
   - **pontuação:** ao gravar um check-in confirmado, uma resposta à pergunta
     de saída ou uma avaliação, Fila e Avaliação chamam
     `PontuacaoService.registrarContribuicao`, **dentro da
@@ -219,12 +238,28 @@ Bandeja de Ouro do autor [chamada Python]"| gamificacao
     concedidos" no registro de origem;
   - os pontos não podem ser recalculados depois, porque os registros de
     fila perdem o vínculo com a conta em 4 semanas (RNF07.3).
+
+  As duas setas que saem do Cadastro/Autenticação vêm das decisões tomadas
+  com o time de banco de dados:
+  - **Cadastro → Gamificação:** no cadastro, o `CadastroService` cria a
+    pontuação da conta com zero ponto (`inicializarConta`), na mesma
+    transação, para a trava da pontuação sempre encontrar a linha; na
+    exclusão de conta, o `RemoverContaCommand` apaga os contadores
+    (`apagarContadores`, RNF07.4);
+  - **Cadastro → Fila:** na exclusão de conta, o mesmo comando pede à Fila
+    que retire o vínculo dos registros de fila da conta
+    (`RetencaoFilaService.desvincularConta`).
+
+  O comando chama os outros apps, em vez de apagar as tabelas deles direto,
+  para que cada app continue sendo o único dono dos próprios dados. Detalhes
+  em `c4-nivel-4-cadastro-autenticacao.md`.
 - **A dependência tem um sentido só.** A Gamificação nunca chama a Fila nem
   a Avaliação: ela só lê os models delas (`Checkin`, `PerguntaSaida`,
   `Avaliacao`) e o `Refeicao` do Cardápio, e grava neles apenas o marcador
   de "pontos já concedidos". Do mesmo jeito, a Fila lê
   `Conta.avisoPrivacidadePendente()`, do Cadastro/Autenticação, antes do
-  check-in (RF11), sem seta: é leitura de model, não chamada. A regra da avaliação (pontua quando a refeição tem avaliação
+  check-in (RF11), sem seta: é leitura de model, não chamada. A regra da
+  avaliação (pontua quando a refeição tem avaliação
   e check-in confirmado, o que vier por último, RN09) fica só dentro do
   `PontuacaoService`, chamado pelos dois lados. O campus enviado é sempre o
   **da refeição**, tirado do registro já gravado no servidor, nunca um campo
@@ -255,10 +290,26 @@ Bandeja de Ouro do autor [chamada Python]"| gamificacao
   Celery, cria um container novo) e pontos calculados na consulta
   (impossível depois que os registros perdem o vínculo com a conta, ADR
   0011).
-- **As duas setas para a Gamificação são azuis e foram desenhadas depois da
-  seta tracejada**, para destacar a exceção acima e para que o
-  `linkStyle 12` continue marcando a relação Equipe → Banco de Dados. Ao
-  acrescentar setas, desenhe-as no fim da lista ou recalcule os índices.
+- **As quatro setas entre componentes são azuis e foram desenhadas depois da
+  seta tracejada** (`linkStyle 15,16,17,18`), para destacar as exceções acima
+  e para que o `linkStyle 12` continue marcando a relação Equipe → Banco de
+  Dados. Ao acrescentar setas, desenhe-as no fim da lista ou recalcule os
+  índices.
+- **Decisões tomadas com o time de banco de dados que valem para todo o
+  backend:**
+  - IDs inteiros autoincrementais, o padrão do Django (`BigAutoField`), nos
+    Níveis 4 e no banco; nenhum endpoint autoriza o acesso só porque recebeu
+    um id;
+  - check-ins confirmados e tentativas em tabelas separadas, e o check-in
+    ligado à refeição por campus + tipo + data, sem FK para `Refeicao`;
+  - o MySQL fica no nível de isolamento READ COMMITTED (padrão do Django),
+    do qual depende a trava da pontuação;
+  - `USE_TZ = True` e `TIME_ZONE = "America/Sao_Paulo"`: semana, semestre,
+    faixa de 15 minutos e fechamento do semestre são calculados no horário
+    de Brasília, nos dois bancos;
+  - o cron do SO roda também a retenção de 4 semanas da Fila
+    (`DesvincularRegistrosFilaJob`), o fechamento do semestre da Gamificação
+    e o `clearsessions` do Django (ADR 0007).
 - **Leitor de Cardápio aparece dentro da fronteira do App Cardápio**, e não
   como um componente irmão solto, porque a ADR 0003 o define como módulo
   desse app, não como app à parte. Ainda assim ele está desenhado como caixa
@@ -274,10 +325,11 @@ Bandeja de Ouro do autor [chamada Python]"| gamificacao
   persistente, o envio é limitado a **no máximo 3 avisos por dia, por
   campus + tipo de falha** (detalhado no `AlertaEquipeService` em
   `c4-nivel-4-leitor-cardapio.md`) — decisão registrada na ADR 0006
-  (`docs/adr/0006-alerta-de-falha-do-leitor-por-email.md`).
+  (`docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md`).
 - **A relação Equipe → Banco de Dados continua tracejada e vermelha**
   (herdada do Nível 2, ADR 0004): é acesso administrativo direto e
   deliberado, de natureza diferente do alerta automático acima — por isso
   as duas exceções ao fluxo normal permanecem visualmente distintas.
-- **App Fila é mostrado por completude**, mas pertence à Release 2/Backlog
-  (RF11–RF14); não faz parte do MVP.
+- **App Fila e App Gamificação são da Release 2**, que é a entrega final do
+  projeto (o MVP já foi entregue). Dentro da Fila, só o nível de fila
+  "agora" (RF14) continua no Backlog.

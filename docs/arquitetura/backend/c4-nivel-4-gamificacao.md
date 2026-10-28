@@ -8,28 +8,32 @@
 > RN09 a RN13 e os valores, no Anexo A do Documento de Requisitos. Os itens
 > de Backlog do épico (RF28 a RF32) não estão desenhados.
 >
-> É o único componente **chamado** por outros (ver nota do Nível 3), de
-> duas formas:
+> É o componente mais **chamado** por outros (ver nota do Nível 3), de três
+> formas:
 >
 > - **para pontuar:** a Fila (check-in confirmado e resposta à pergunta de
 >   saída) e a Avaliação chamam o `PontuacaoService`
 >   na mesma transação em que gravam a contribuição (diagrama 4a);
 > - **para exibir a Bandeja de Ouro:** o `AvaliacaoPublicaMapper`, da
 >   Avaliação, consulta o `BandejaOuroResolver`, só para leitura (diagrama
->   4b).
+>   4d);
+> - **para criar e apagar os contadores de uma conta:** o
+>   Cadastro/Autenticação chama `PontuacaoService.inicializarConta` no
+>   cadastro e `PontuacaoService.apagarContadores` na exclusão de conta
+>   (diagrama 4a).
 >
 > A Gamificação nunca chama outros componentes: só lê os models deles
-> (`Conta`, `Checkin`, `Avaliacao`, `Refeicao`) e grava neles apenas o
-> marcador de "pontos já concedidos".
+> (`Conta`, `Checkin`, `PerguntaSaida`, `Avaliacao`, `Refeicao`) e grava
+> neles apenas o marcador de "pontos já concedidos".
 >
 > Referências: ADR 0011 (`docs/arquitetura/adr/0011-contadores-de-gamificacao-alem-da-janela-de-retencao.md`),
 > ADR 0004 (ajuste manual de pontuação pela equipe), ADR 0008 (nenhuma
 > resposta pública traz matrícula ou e-mail) e ADR 0010 (por que os pontos
 > não podem depender do horário do check-in).
 
-O componente tem duas partes com perfis diferentes, por isso há dois
-diagramas: **4a** escreve (pontua, a cada contribuição) e **4b** lê e fecha
-(progresso, ranking e, uma vez por semestre, a Bandeja de Ouro).
+O componente tem quatro diagramas: **4a** pontuação das contribuições,
+**4b** sequência e patente, **4c** "Meu progresso" e ranking, e **4d** Bandeja
+de Ouro e fechamento do semestre. Cada diagrama tem no máximo 20 elementos e um título próprio, seguindo a skill c4-architecture usada pelo grupo; classes compartilhadas (como `Conta` ou as configurações) aparecem em mais de um diagrama.
 
 **Endpoints deste componente** (a pontuação não tem endpoint próprio: os
 pontos voltam na resposta do check-in, da resposta de saída e da avaliação):
@@ -58,12 +62,17 @@ e de avaliação. O campo `distintivo` é o mesmo nas linhas do ranking, nos
 comentários das avaliações e em "Meu progresso", e nunca traz posição nem
 pontos (RI12).
 
-## Nível 4a — Pontuação, sequência e patente
+## Nível 4a — Pontuação
 
 ```mermaid
+---
+title: "Nível 4a — Gamificação: pontuação das contribuições"
+---
 classDiagram
   class PontuacaoService {
-    +registrarContribuicao(conta: Conta, tipo: TipoContribuicao, origemId: UUID, refeicao: RefeicaoRef) ResultadoPontuacao
+    +registrarContribuicao(conta: Conta, tipo: TipoContribuicao, origemId: int, refeicao: RefeicaoRef) ResultadoPontuacao
+    +inicializarConta(conta: Conta) void
+    +apagarContadores(conta: Conta) void
   }
   class TipoContribuicao {
     <<enumeration>>
@@ -85,10 +94,9 @@ classDiagram
   class PontuacaoPolicy {
     +pontosPor(tipo: TipoContribuicao) int
   }
-
   class OrigemContribuicaoRepository {
-    +jaPontuada(tipo: TipoContribuicao, origemId: UUID) bool
-    +marcarPontuada(tipo: TipoContribuicao, origemId: UUID, agora: datetime) void
+    +jaPontuada(tipo: TipoContribuicao, origemId: int) bool
+    +marcarPontuada(tipo: TipoContribuicao, origemId: int, agora: datetime) void
     +temCheckinConfirmado(conta: Conta, refeicao: RefeicaoRef) bool
     +avaliacaoNaoPontuada(conta: Conta, refeicao: RefeicaoRef) Avaliacao
     +diasComCheckin(conta: Conta, segunda: date) int
@@ -98,35 +106,15 @@ classDiagram
     +somarPontosSemestre(conta: Conta, campus: Campus, semestre: str, pontos: int, agora: datetime) void
     +salvar(pontuacao: PontuacaoUsuario) void
   }
-
+  class SemestreResolver {
+    +semestreDe(data: date) str
+  }
   class SequenciaService {
     +aoConfirmarCheckin(pontuacao: PontuacaoUsuario, conta: Conta, data: date) int
     +sequenciaAtual(pontuacao: PontuacaoUsuario, hoje: date) int
   }
-  class SemanaResolver {
-    +segundaDaSemana(data: date) date
-  }
-  class SemanaNeutraResolver {
-    +ehNeutra(segunda: date) bool
-  }
-  class SemestreResolver {
-    +semestreDe(data: date) str
-  }
-  class PatenteResolver {
-    +patente(pontosTotais: int) Patente
-    +faltaParaProxima(pontosTotais: int) int
-  }
-  class Patente {
-    <<enumeration>>
-    CALOURO_DE_BANDEJA
-    RATO_DE_RU
-    VETERANO
-    MESTRE_DA_FILA
-    LENDA_DO_RU
-  }
-
   class PontuacaoUsuario {
-    +contaId: UUID
+    +contaId: int
     +pontosTotais: int
     +sequenciaAtual: int
     +ultimaSemanaCompletada: date
@@ -134,14 +122,13 @@ classDiagram
     +atualizadoEm: datetime
   }
   class PontosSemestreCampus {
-    +contaId: UUID
+    +contaId: int
     +campus: Campus
     +semestreReferencia: str
     +pontos: int
     +posicaoFinal: int
     +atualizadoEm: datetime
   }
-
   class ParametrosGamificacaoConfig {
     <<Anexo A>>
     +pontosCheckin: int = 10
@@ -152,10 +139,9 @@ classDiagram
     +limiaresPatente: tuple = 0, 150, 450, 900, 1500
     +datasTerminoSemestre: dict
   }
-
   class Conta {
     <<Cadastro/Autenticação>>
-    +id: UUID
+    +id: int
   }
   class Checkin {
     <<App Fila>>
@@ -169,12 +155,6 @@ classDiagram
     <<App Avaliação>>
     +pontosConcedidosEm: datetime
   }
-  class Refeicao {
-    <<App Cardápio>>
-    +campus: Campus
-    +tipo: str
-    +data: date
-  }
 
   PontuacaoService --> PontuacaoRepository : 1. trava a pontuação da conta
   PontuacaoService --> OrigemContribuicaoRepository : 2. já pontuou? / 4. marca
@@ -184,23 +164,15 @@ classDiagram
   PontuacaoService --> ResultadoPontuacao : devolve
   PontuacaoService ..> TipoContribuicao : usa
   PontuacaoService ..> RefeicaoRef : usa
-
   PontuacaoPolicy --> ParametrosGamificacaoConfig : lê
-  SequenciaService --> SemanaResolver : semana de segunda a domingo
-  SequenciaService --> SemanaNeutraResolver : semana neutra?
   SequenciaService --> OrigemContribuicaoRepository : dias com check-in
   SequenciaService --> ParametrosGamificacaoConfig : lê mínimo e bônus
-  SemanaNeutraResolver ..> Refeicao : lê dias servidos por campus
   SemestreResolver --> ParametrosGamificacaoConfig : lê datas de término
-  PatenteResolver --> ParametrosGamificacaoConfig : lê limiares
-  PatenteResolver --> Patente : produz
-
   OrigemContribuicaoRepository ..> Checkin : lê / marca
   OrigemContribuicaoRepository ..> Avaliacao : lê / marca
   OrigemContribuicaoRepository ..> PerguntaSaida : lê / marca
   PontuacaoRepository ..> PontuacaoUsuario : grava/lê
   PontuacaoRepository ..> PontosSemestreCampus : grava/lê
-
   PontuacaoUsuario --> Conta : pertence a (uma por conta)
   PontosSemestreCampus --> Conta : pertence a (FK)
 ```
@@ -215,8 +187,11 @@ classDiagram
   `Checkin`, da pergunta de saída ou da `Avaliacao`) e a `RefeicaoRef`
   tirada do registro já gravado no servidor.
 - **Os passos, na ordem:**
-  1. `travarPorConta` lê a `PontuacaoUsuario` com `select_for_update` (e a
-     cria, com zero ponto, se ainda não existir; RN11). A trava serializa as
+  1. `travarPorConta` lê a `PontuacaoUsuario` com `select_for_update`. A
+     linha já existe, porque nasce com a conta (ver "Contadores nascem com a
+     conta", abaixo); se mesmo assim faltar, ela é criada com zero ponto
+     (RN11) e, se outra requisição a criar ao mesmo tempo, o erro de
+     UNIQUE (`IntegrityError`) é tratado com uma nova leitura. A trava serializa as
      contribuições da mesma conta: dois toques quase simultâneos não pontuam
      em dobro. A trava depende do nível de isolamento READ COMMITTED (o
      padrão do Django no MySQL): depois de esperar a trava, a transação
@@ -243,10 +218,9 @@ classDiagram
   avaliação feita por engano na refeição de outro campus não pontua.
 - **`RefeicaoRef` existe porque Fila e Avaliação identificam a refeição de
   jeitos diferentes:** o `Checkin` guarda campus + tipo + data, sem FK para
-  `Refeicao`, e a `Avaliacao` aponta para `Refeicao`. **Ponto para
-  alinhar:** é a inconsistência [INC] do item 1.2 da lista de ajustes. Se as
-  duplas adotarem `refeicao_id` também no check-in, `RefeicaoRef` pode virar
-  uma FK.
+  `Refeicao` (para a fila funcionar mesmo se o PDF do cardápio falhar), e a
+  `Avaliacao` aponta para `Refeicao`. Isso foi decidido com o time de banco
+  de dados, então a `RefeicaoRef` fica como está.
 - **Os pontos nunca dependem do conteúdo** (RI11): `PontuacaoPolicy` recebe
   só o tipo da contribuição. A resposta escolhida na pergunta de saída, a
   nota, o comentário, o horário do check-in e o nível da fila não chegam a
@@ -255,10 +229,118 @@ classDiagram
 - **Marcador de "pontos já concedidos"** (`pontosConcedidosEm`) em `Checkin`,
   na pergunta de saída e em `Avaliacao`: é o único campo de outros
   componentes que a Gamificação escreve, sempre dentro da transação de quem
-  chamou. Segue a recomendação da decisão 4 da lista de ajustes, ainda a
-  confirmar. Na resposta de saída, o marcador fica na `PerguntaSaida`
+  chamou. É a decisão 4, tomada com o time de banco de dados: a transação
+  garante que contribuição e pontos são gravados juntos, e o marcador impede
+  que duas requisições diferentes pontuem a mesma contribuição. Na resposta
+  de saída, o marcador fica na `PerguntaSaida`
   (diagrama 4b da Fila), porque os pontos são uma vez por pergunta, não por
   resposta.
+- **`SemestreResolver` usa só as datas de término**, guardadas na
+  configuração junto com os demais valores do Anexo A
+  (`ParametrosGamificacaoConfig.datasTerminoSemestre`, decisão 11). Cada
+  semestre vai do dia seguinte ao término do anterior até o seu próprio
+  término, então os pontos das férias contam para o semestre seguinte. Sem
+  data de término configurada para o semestre corrente, ele continua aberto
+  (RN12).
+- **Nada é zerado na virada do semestre (decisão 5).** Cada semestre tem a
+  sua linha em `PontosSemestreCampus` (uma por conta, campus e semestre),
+  criada na primeira contribuição daquele semestre naquele campus; o
+  fechamento apaga as linhas mais antigas que o semestre fechado.
+  `atualizadoEm` muda a cada ponto ganho e serve de desempate no ranking
+  ("quem chegou primeiro à pontuação", RN12).
+- **Contadores nascem com a conta (decisão tomada com o time de banco de
+  dados).** `inicializarConta` é chamado pelo `CadastroService`, na mesma
+  transação do cadastro, e cria a `PontuacaoUsuario` com zero ponto; as
+  contas anteriores à Release 2 ganham a linha por uma *data migration*.
+  Assim, o `select_for_update` do passo 1 sempre encontra a linha que vai
+  travar. Se um cadastro pendente expirar e for apagado, a linha vai junto
+  (`ON DELETE CASCADE`).
+- **`apagarContadores`** é chamado pelo `RemoverContaCommand` do
+  Cadastro/Autenticação na exclusão de conta (RNF07.4) e apaga a
+  `PontuacaoUsuario` e todas as `PontosSemestreCampus` da conta, o que
+  elimina também a posição final e a Bandeja de Ouro.
+- **IDs inteiros (decisão 3).** `contaId`, `origemId` e os demais ids são
+  inteiros autoincrementais, como no banco. Nomes dos models e das tabelas
+  se correspondem: `PontuacaoUsuario` ↔ `PONTUACAO_USUARIO` e
+  `PontosSemestreCampus` ↔ `PONTOS_SEMESTRE_CAMPUS`.
+
+## Nível 4b — Sequência e patente
+
+```mermaid
+---
+title: "Nível 4b — Gamificação: sequência semanal e patente"
+---
+classDiagram
+  class SequenciaService {
+    +aoConfirmarCheckin(pontuacao: PontuacaoUsuario, conta: Conta, data: date) int
+    +sequenciaAtual(pontuacao: PontuacaoUsuario, hoje: date) int
+  }
+  class SemanaResolver {
+    +segundaDaSemana(data: date) date
+  }
+  class SemanaNeutraResolver {
+    +ehNeutra(segunda: date) bool
+  }
+  class OrigemContribuicaoRepository {
+    +jaPontuada(tipo: TipoContribuicao, origemId: int) bool
+    +marcarPontuada(tipo: TipoContribuicao, origemId: int, agora: datetime) void
+    +temCheckinConfirmado(conta: Conta, refeicao: RefeicaoRef) bool
+    +avaliacaoNaoPontuada(conta: Conta, refeicao: RefeicaoRef) Avaliacao
+    +diasComCheckin(conta: Conta, segunda: date) int
+  }
+  class PatenteResolver {
+    +patente(pontosTotais: int) Patente
+    +faltaParaProxima(pontosTotais: int) int
+  }
+  class Patente {
+    <<enumeration>>
+    CALOURO_DE_BANDEJA
+    RATO_DE_RU
+    VETERANO
+    MESTRE_DA_FILA
+    LENDA_DO_RU
+  }
+  class PontuacaoUsuario {
+    +contaId: int
+    +pontosTotais: int
+    +sequenciaAtual: int
+    +ultimaSemanaCompletada: date
+    +participaRanking: bool
+    +atualizadoEm: datetime
+  }
+  class ParametrosGamificacaoConfig {
+    <<Anexo A>>
+    +pontosCheckin: int = 10
+    +pontosRespostaSaida: int = 15
+    +pontosAvaliacao: int = 5
+    +minDiasSemana: int = 3
+    +bonusSemana: int = 20
+    +limiaresPatente: tuple = 0, 150, 450, 900, 1500
+    +datasTerminoSemestre: dict
+  }
+  class Refeicao {
+    <<App Cardápio>>
+    +campus: Campus
+    +tipo: str
+    +data: date
+  }
+  class Checkin {
+    <<App Fila>>
+    +pontosConcedidosEm: datetime
+  }
+
+  SequenciaService --> SemanaResolver : semana de segunda a domingo
+  SequenciaService --> SemanaNeutraResolver : semana neutra?
+  SequenciaService --> OrigemContribuicaoRepository : dias com check-in
+  SequenciaService --> ParametrosGamificacaoConfig : lê mínimo e bônus
+  SemanaNeutraResolver ..> Refeicao : lê dias servidos por campus
+  PatenteResolver --> ParametrosGamificacaoConfig : lê limiares
+  PatenteResolver --> Patente : produz
+  OrigemContribuicaoRepository ..> Checkin : lê / marca
+```
+
+### Notas do diagrama (4b)
+
 - **Sequência (RN10):** a semana vai de segunda a domingo, no horário de
   Brasília. Ao confirmar um check-in, o `SequenciaService` conta os dias
   distintos com check-in confirmado na semana, em qualquer campus; quando
@@ -274,26 +356,19 @@ classDiagram
   soma 1, com bônus (RN10). O desenho já faz isso, porque a semana é
   completada no check-in do 3º dia, antes de qualquer verificação de
   neutralidade.
-- **Patente (RN11):** derivada dos pontos totais, nunca gravada
-  (recomendação da decisão 8). Como os pontos totais só sobem (salvo ajuste
-  manual da equipe, ADR 0004, L14), a patente não regride. **Ponto para
-  alinhar:** se os limiares do Anexo A mudarem para cima, a RN11 diz que
-  ninguém perde a patente já alcançada; derivar a patente não garante isso,
-  então uma mudança de limiar exigiria gravar a patente máxima atingida.
-- **`SemestreResolver` usa só as datas de término** (Anexo A). Cada semestre
-  vai do dia seguinte ao término do anterior até o seu próprio término,
-  então os pontos das férias contam para o semestre seguinte. Sem data de
-  término configurada para o semestre corrente, ele continua aberto (RN12).
-  Como cada semestre tem a sua linha em `PontosSemestreCampus`, nada é
-  zerado na virada.
-- **Uma `PontosSemestreCampus` por conta, campus e semestre**, criada na
-  primeira contribuição daquele semestre naquele campus. `atualizadoEm` muda
-  a cada ponto ganho e serve de desempate no ranking ("quem chegou primeiro à
-  pontuação", RN12).
+- **Patente (RN11):** derivada dos pontos totais, nunca gravada (decisão
+  8, tomada com o time de banco de dados). Como os pontos totais só sobem
+  (salvo ajuste manual da equipe, ADR 0004, L14), a patente não regride.
+  **Regra combinada:** os limiares do Anexo A só podem subir junto com uma
+  migration que grave a patente já alcançada por cada usuário, porque a
+  RN11 diz que ninguém perde a patente já conquistada.
 
-## Nível 4b — Progresso, ranking e Bandeja de Ouro
+## Nível 4c — Progresso e ranking
 
 ```mermaid
+---
+title: "Nível 4c — Gamificação: Meu progresso e ranking semestral"
+---
 classDiagram
   class ProgressoView {
     +get(request) Response
@@ -305,11 +380,6 @@ classDiagram
   class RankingView {
     +get(campus: Campus) Response
   }
-  class FechamentoSemestreCommand {
-    <<management command, disparado por cron>>
-    +handle() void
-  }
-
   class ProgressoService {
     +montar(conta: Conta, hoje: date) Progresso
   }
@@ -330,7 +400,6 @@ classDiagram
     +semestre: str
     +posicao: int
   }
-
   class RankingService {
     +classificacao(campus: Campus, semestre: str) list~LinhaRanking~
     +topPublico(campus: Campus) list~LinhaRanking~
@@ -360,19 +429,10 @@ classDiagram
     +campi: list~CampusRef~
     +semestre: str
   }
-  class CampusRef {
-    +id: int
-    +nome: str
-  }
-
   class BandejaOuroResolver {
     +distintivoExibivel(conta: Conta, hoje: date) DistintivoPublico
     +distintivosExibiveis(contas: list~Conta~, hoje: date) dict
   }
-  class FechamentoSemestreService {
-    +fechar(semestre: str) void
-  }
-
   class SemestreResolver {
     +semestreDe(data: date) str
     +ultimoSemestreTerminado(hoje: date) str
@@ -395,33 +455,26 @@ classDiagram
     +minPontosBandeja: int = 100
     +datasTerminoSemestre: dict
   }
-
   class Conta {
     <<Cadastro/Autenticação>>
     +apelido: str
-    +status: str
-  }
-  class AvaliacaoPublicaMapper {
-    <<App Avaliação>>
+    +status: StatusConta
   }
 
+  SemestreResolver --> ParametrosGamificacaoConfig : lê datas de término
+  PatenteResolver --> ParametrosGamificacaoConfig : lê limiares
   ProgressoView --> ProgressoService : montar()
   RankingAdesaoView --> PontuacaoRepository : ativa / desativa adesão
   RankingView --> RankingService : topPublico()
   RankingView --> RankingPublicoMapper : converte linhas
   RankingView --> RankingPublico : devolve
   RankingPublico *-- LinhaRankingPublica
-  FechamentoSemestreCommand --> SemestreResolver : último semestre terminado
-  FechamentoSemestreCommand --> PontuacaoRepository : já fechado?
-  FechamentoSemestreCommand --> FechamentoSemestreService : fechar(), se não fechado
-
   ProgressoService --> PatenteResolver : patente e falta
   ProgressoService --> RankingService : posição atual por campus
   ProgressoService --> PontuacaoRepository : posições do último semestre fechado
   ProgressoService --> BandejaOuroResolver : distintivo próprio
   ProgressoService --> Progresso : monta
   Progresso *-- PosicaoCampus
-
   RankingService --> PontuacaoRepository : elegíveis do semestre
   RankingService --> SemestreResolver : semestre corrente
   RankingService --> ParametrosGamificacaoConfig : tamanho do ranking
@@ -431,20 +484,13 @@ classDiagram
   RankingPublicoMapper ..> Conta : lê apelido
   RankingPublicoMapper --> LinhaRankingPublica : produz
   LinhaRankingPublica --> DistintivoPublico : tem (opcional)
-  DistintivoPublico *-- CampusRef
-
   BandejaOuroResolver --> PontuacaoRepository : linhas do último semestre fechado
   BandejaOuroResolver --> ParametrosGamificacaoConfig : 30 e 100
   BandejaOuroResolver ..> Conta : status ativo?
   BandejaOuroResolver --> DistintivoPublico : produz
-
-  FechamentoSemestreService --> RankingService : 1. classificação final por campus
-  FechamentoSemestreService --> PontuacaoRepository : 2. grava posição final / 3. apaga semestres antigos
-
-  AvaliacaoPublicaMapper ..> BandejaOuroResolver : distintivo do autor (RF15.2)
 ```
 
-### Notas do diagrama (4b)
+### Notas do diagrama (4c)
 
 - **O ranking (RN12) é calculado na consulta, não gravado.** Entram só
   as contas que aderiram (`participaRanking`), com conta ativa (nem suspensa
@@ -472,12 +518,104 @@ classDiagram
   tira a conta do ranking e esconde a Bandeja de Ouro **na hora**, porque os
   dois são calculados na consulta; por isso o PWA deve buscar de novo o
   progresso e o ranking e descartar os comentários guardados. Quem não
-  aderiu continua acumulando pontos. Quem ativa a adesão antes da primeira
-  contribuição ainda não tem `PontuacaoUsuario`: `alterarAdesao` a cria,
-  com zero ponto, do mesmo jeito que o `travarPorConta` do diagrama 4a.
+  aderiu continua acumulando pontos. Como a `PontuacaoUsuario` nasce com a
+  conta, `alterarAdesao` normalmente só atualiza a linha; se ela faltar,
+  `alterarAdesao` a cria com zero ponto, do mesmo jeito que o
+  `travarPorConta` do diagrama 4a.
 - **`GET /api/gamificacao/progresso/` (logado)** devolve o `Progresso`. O
   visitante não chama este endpoint: o PWA mostra direto o convite ao
   cadastro.
+- **"Meu progresso" (RF26.2, RF33.3) só é visto pelo próprio usuário.** O
+  `Progresso` traz a posição atual em cada campus em que ele é elegível e a
+  posição final do semestre anterior (ex.: "2026.2: 12º no Gama"); a quem
+  não aderiu, as listas de posição vêm vazias e o PWA mostra o convite
+  "Ative o ranking para concorrer à Bandeja de Ouro". A posição nunca sai
+  por outro endpoint (RI12).
+
+## Nível 4d — Bandeja de Ouro e fechamento do semestre
+
+```mermaid
+---
+title: "Nível 4d — Gamificação: Bandeja de Ouro e fechamento do semestre"
+---
+classDiagram
+  class FechamentoSemestreCommand {
+    <<management command, disparado por cron>>
+    +handle() void
+  }
+  class FechamentoSemestreService {
+    +fechar(semestre: str) void
+  }
+  class SemestreResolver {
+    +semestreDe(data: date) str
+    +ultimoSemestreTerminado(hoje: date) str
+  }
+  class RankingService {
+    +classificacao(campus: Campus, semestre: str) list~LinhaRanking~
+    +topPublico(campus: Campus) list~LinhaRanking~
+    +posicaoDe(conta: Conta, campus: Campus) int
+  }
+  class PontuacaoRepository {
+    +elegiveis(campus: Campus, semestre: str) list~PontosSemestreCampus~
+    +semestreFechado(semestre: str) bool
+    +ultimoSemestreFechado() str
+    +gravarPosicaoFinal(linha: PontosSemestreCampus, posicao: int) void
+    +apagarSemestresAntesDe(semestre: str) void
+    +alterarAdesao(conta: Conta, participa: bool) void
+  }
+  class BandejaOuroResolver {
+    +distintivoExibivel(conta: Conta, hoje: date) DistintivoPublico
+    +distintivosExibiveis(contas: list~Conta~, hoje: date) dict
+  }
+  class DistintivoPublico {
+    +tipo: str = BANDEJA_DE_OURO
+    +campi: list~CampusRef~
+    +semestre: str
+  }
+  class CampusRef {
+    +id: int
+    +nome: str
+  }
+  class ParametrosGamificacaoConfig {
+    <<Anexo A>>
+    +tamanhoRanking: int = 10
+    +colocacoesBandeja: int = 30
+    +minPontosBandeja: int = 100
+    +datasTerminoSemestre: dict
+  }
+  class Conta {
+    <<Cadastro/Autenticação>>
+    +apelido: str
+    +status: StatusConta
+  }
+  class AvaliacaoPublicaMapper {
+    <<App Avaliação>>
+  }
+  class RankingPublicoMapper {
+    +paraPublico(linha: LinhaRanking) LinhaRankingPublica
+  }
+
+  SemestreResolver --> ParametrosGamificacaoConfig : lê datas de término
+  FechamentoSemestreCommand --> SemestreResolver : último semestre terminado
+  FechamentoSemestreCommand --> PontuacaoRepository : já fechado?
+  FechamentoSemestreCommand --> FechamentoSemestreService : fechar(), se não fechado
+  RankingService --> PontuacaoRepository : elegíveis do semestre
+  RankingService --> SemestreResolver : semestre corrente
+  RankingService --> ParametrosGamificacaoConfig : tamanho do ranking
+  RankingPublicoMapper --> BandejaOuroResolver : distintivo
+  RankingPublicoMapper ..> Conta : lê apelido
+  DistintivoPublico *-- CampusRef
+  BandejaOuroResolver --> PontuacaoRepository : linhas do último semestre fechado
+  BandejaOuroResolver --> ParametrosGamificacaoConfig : 30 e 100
+  BandejaOuroResolver ..> Conta : status ativo?
+  BandejaOuroResolver --> DistintivoPublico : produz
+  FechamentoSemestreService --> RankingService : 1. classificação final por campus
+  FechamentoSemestreService --> PontuacaoRepository : 2. grava posição final / 3. apaga semestres antigos
+  AvaliacaoPublicaMapper ..> BandejaOuroResolver : distintivo do autor (RF15.2)
+```
+
+### Notas do diagrama (4d)
+
 - **Fechamento do semestre (RF33.1, RN13).** O cron do SO roda
   `FechamentoSemestreCommand` todo dia; o comando pede ao `SemestreResolver`
   o último semestre já terminado e, se ele ainda não foi fechado
@@ -512,17 +650,14 @@ classDiagram
   Avaliação para o `BandejaOuroResolver` é uma leitura, não uma chamada de
   pontuação: no Nível 3 ela segue pela mesma seta Avaliação → Gamificação,
   e está desenhada no Nível 4 da Avaliação.
-- **"Meu progresso" (RF26.2, RF33.3) só é visto pelo próprio usuário.** O
-  `Progresso` traz a posição atual em cada campus em que ele é elegível e a
-  posição final do semestre anterior (ex.: "2026.2: 12º no Gama"); a quem
-  não aderiu, as listas de posição vêm vazias e o PWA mostra o convite
-  "Ative o ranking para concorrer à Bandeja de Ouro". A posição nunca sai
-  por outro endpoint (RI12).
 - **Conta removida (RNF07.4):** os contadores, os pontos do semestre, a
   posição final e, com ela, a Bandeja são apagados, e a conta sai do ranking
   na hora. **Conta suspensa:** fica fora do ranking e do fechamento e não
-  exibe a Bandeja, mas nada é apagado. O procedimento de remoção é do
-  Cadastro/Autenticação (item 1.3 da lista de ajustes).
+  exibe a Bandeja, mas nada é apagado. Quem apaga é o `RemoverContaCommand`
+  do Cadastro/Autenticação, chamando `PontuacaoService.apagarContadores`.
+
+## Notas gerais
+
 - **Módulo crítico de testes (RNF06):** pontuação, sequência, patente,
   ranking e Bandeja de Ouro. Casos mínimos: contribuição pontuada uma vez só
   (inclusive com duas requisições simultâneas), avaliação antes e depois do
