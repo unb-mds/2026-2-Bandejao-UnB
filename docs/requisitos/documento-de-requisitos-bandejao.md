@@ -38,7 +38,7 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 | Prioridade | Derivada da alocação de release: **Essencial** (MVP), **Importante** (Release 2), **Desejável** (Backlog) |
 | Origem | Épico e necessidade da parte interessada que o requisito atende. Quando o requisito resulta de uma decisão do grupo durante o refinamento do projeto, consta "decisão de projeto". A origem de cada RF está na Matriz de Rastreabilidade (Seção 6), e não nos blocos de requisito |
 | Parâmetros configuráveis | Valores ajustáveis sem alterar o requisito (horários, raios, limiares) estão no Anexo A |
-| Numeração e posição | Os IDs são únicos, seguem a ordem de criação e não mudam. Os requisitos acrescentados na Release 2 (RF18 a RF32) aparecem dentro do épico a que pertencem, e não ao fim do documento |
+| Numeração e posição | Os IDs são únicos, seguem a ordem de criação e não mudam. Os requisitos acrescentados depois do MVP (RF18 a RF33) aparecem dentro do épico a que pertencem, e não ao fim do documento |
 
 ### 1.4 Documentos de referência
 
@@ -348,7 +348,7 @@ Todos os requisitos deste épico pertencem à Release 2 ou ao Backlog; o MVP nã
 **Release:** Release 2 · **Prioridade:** Importante
 
 **Critérios de aceite:**
-- Dado campus, refeição e dia escolhidos, quando abro a previsão, sem login, então vejo as faixas de 15 minutos cobrindo o horário da refeição (Anexo A), cada uma com seu nível (RN06), e a faixa de maior movimento destacada como pico.
+- Dado campus, refeição e dia escolhidos, quando abro a previsão, sem login, então vejo as faixas de 15 minutos cobrindo o horário da refeição (Anexo A), cada uma com seu nível (RN06), e a faixa de maior movimento destacada como pico (ou todas as que empatarem na maior média, RN06).
 - Dado check-ins em pelo menos 3 dias distintos dentro da janela de 4 semanas (Anexo A), quando abro a previsão, então ela é exibida; com menos dados, vejo "dados insuficientes", sem valor de reserva.
 - Dado que há respostas à pergunta de saída da fila, quando o nível é calculado, então ele não muda: só os check-ins o determinam, e as respostas apenas alimentam a espera estimada (RF22).
 
@@ -844,8 +844,8 @@ A posição do dispositivo só é usada se for lida dentro do tempo limite, com 
 #### RN06 — Nível de fila por faixa
 
 - As faixas são de 15 minutos e cobrem o horário da refeição (Anexo A).
-- Para cada faixa, calcula-se a média de check-ins confirmados nas últimas 4 semanas, no mesmo dia da semana, campus e refeição, considerando apenas os dias com dados.
-- O nível é a razão entre a média da faixa e a média da faixa mais cheia: menos de 25% é **vazia**; de 25% a menos de 50% é **curta**; de 50% a menos de 75% é **moderada**; 75% ou mais é **longa**. A faixa mais cheia é sempre longa e é o pico.
+- Para cada faixa, calcula-se a média de check-ins confirmados nas últimas 4 semanas, no mesmo dia da semana, campus e refeição, considerando apenas os dias com dados. Dia com dados é o dia da janela com ao menos um check-in confirmado naquela refeição e campus; nesses dias, a faixa sem check-in conta como zero.
+- O nível é a razão entre a média da faixa e a média da faixa mais cheia: menos de 25% é **vazia**; de 25% a menos de 50% é **curta**; de 50% a menos de 75% é **moderada**; 75% ou mais é **longa**. A faixa mais cheia é sempre longa e é o pico. Se mais de uma faixa tiver a maior média, todas são longas e todas são destacadas como pico.
 - A previsão só é exibida com check-ins em ao menos 3 dias distintos na janela; do contrário, mostra "dados insuficientes", sem valor de reserva.
 - As respostas à pergunta de saída da fila não alteram o nível (ADR 0010).
 
