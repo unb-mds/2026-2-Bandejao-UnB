@@ -40,84 +40,316 @@ cima para baixo.
 
 ---
 
-## Nível 3a — Telas, navegação e componentes reutilizáveis
+## Nível 3a — Telas, navegação e componentes
+
+### 3a.1 — Telas e navegação
 
 ```mermaid
 flowchart TB
   visitante(["👤 Visitante"])
-  comunidade(["👤 Comunidade"])
+  usuario(["👤 Usuário (logado)"])
 
   subgraph frontend["📱 PWA (Frontend) — Vue 3 + Vite"]
+    app["🖼️ App (raiz)
+Casca do app: monta os avisos
+globais e a navegação inferior."]
     router["🧭 Router
 Vue Router — rotas nomeadas e
 lazy-loaded (ver Estratégia de roteamento)."]
 
-    cardapioView["🖼️ CardapioView
-Cardápio, filtros e avaliação
-da refeição (RF06–RF09, RF15)."]
-    filaView["🖼️ FilaView
-Previsão de pico e
-check-in (RF11–RF13)."]
+    campusView["🖼️ CampusView
+Tela do campus: cardápio, avaliações,
+previsão e check-in (RF20)."]
     avaliacoesView["🖼️ AvaliacoesView
 Histórico de refeições
-avaliadas (RF16)."]
+anteriores (RF16)."]
+    progressoView["🖼️ ProgressoView
+Meu progresso (RF26.2, RF33.3)."]
+    rankingView["🖼️ RankingView
+Ranking do semestre por
+campus, público (RF27.2)."]
     authViews["🖼️ Views de Autenticação
 Login, Cadastro, Confirmar e-mail,
 Recuperar/Redefinir senha (RF01–RF04)."]
 
-    filtroCardapio["🧩 FiltroCardapio
-Filtro de marcadores e
-dieta (RF08, RF09)."]
-    avaliacaoWidget["🧩 AvaliacaoWidget
-Nota, comentário e lista
-de avaliações (RF15)."]
-    filaPrevisao["🧩 FilaPrevisao
-Níveis de fila por faixa
-de horário (RF13)."]
-    checkinBotao["🧩 CheckinBotao
-Confirmação de check-in
-por GPS (RF11)."]
+    avisoLocalizacao["🧩 AvisoLocalizacao
+Aviso em duas etapas e
+'Usar minha localização' (RF19)."]
+    perguntaSaida["🧩 PerguntaSaidaPopup
+Pergunta de saída da fila,
+cinco respostas (RF21)."]
+    pontosAviso["🧩 PontosAviso
+Aviso '+10 pontos' (RF24.2)."]
   end
 
-  visitante --> router
-  comunidade --> router
-  router --> cardapioView
-  router --> filaView
+  visitante --> app
+  usuario --> app
+  app --> router
+  app --> avisoLocalizacao
+  app --> perguntaSaida
+  app --> pontosAviso
+  router --> campusView
   router --> avaliacoesView
+  router --> progressoView
+  router --> rankingView
   router --> authViews
-
-  cardapioView --> filtroCardapio
-  cardapioView --> avaliacaoWidget
-  filaView --> filaPrevisao
-  filaView --> checkinBotao
 
   classDef person fill:#08427b,stroke:#052e56,color:#fff,font-size:12px
   classDef view fill:#85bbf0,stroke:#5d82a8,color:#082542,font-size:12px
   classDef component fill:#c8e6c9,stroke:#6b9b6e,color:#0d2b0e,font-size:12px
   classDef boundary fill:#ffffff,stroke:#1168bd,stroke-width:2px,color:#1168bd
 
-  class visitante,comunidade person
-  class router,cardapioView,filaView,avaliacoesView,authViews view
-  class filtroCardapio,avaliacaoWidget,filaPrevisao,checkinBotao component
+  class visitante,usuario person
+  class app,router,campusView,avaliacoesView,progressoView,rankingView,authViews view
+  class avisoLocalizacao,perguntaSaida,pontosAviso component
   class frontend boundary
 ```
 
-### Notas
+#### Notas
 
-- **`AvaliacaoWidget` fica dentro de `CardapioView`, não em rota própria**,
-  porque o RF15 exige que a avaliação apareça junto ao cardápio da refeição.
-  A rota `/avaliacoes` (já existente no código) é reservada para o histórico
-  de semanas anteriores (RF16, Release 2).
-- **`HomeView` e `NotFoundView`** existem no código, mas ficam de fora do
-  diagrama por não agregarem componentes próprios — são apenas destino de
-  rota (ver nota do C4 skill: "só criar o que agrega valor").
-- **`authViews` agrupa quatro telas com pesos bem diferentes**: `LoginView` e
-  `RecuperarSenhaView`/`RedefinirSenhaView` são relativamente lineares;
-  `CadastroView` e `ConfirmarEmailView` concentram a maior parte da
-  complexidade do épico Login (RF01/RF02) — por isso são elas que ganham
-  detalhamento em Nível 4, e não o grupo inteiro.
-- Continua em **Nível 3b** o que acontece quando esses componentes precisam
-  de dado: quem chama qual store, e como a store fala com o backend.
+- **Três componentes são globais e ficam na raiz (`App.vue`), não numa
+  tela.** `PerguntaSaidaPopup` precisa aparecer em qualquer tela em que o
+  usuário esteja quando a pergunta vence (RF21.1); `AvisoLocalizacao`
+  aparece no primeiro acesso, antes de qualquer tela (RF19); e
+  `PontosAviso` é disparado por três contribuições diferentes (check-in,
+  resposta de saída e avaliação), em telas diferentes (RF24.2). Deixá-los na
+  raiz evita repetir o mesmo componente em várias views.
+- **`CampusView` substitui `CardapioView` e `FilaView`** (Release 2, RF20):
+  as duas telas do MVP viram **seções** de uma única tela do campus,
+  detalhada em 3a.2. O login leva a ela (RF03.4) e a raiz `/` também
+  (RN04).
+- **O seletor de campus do MVP (hoje `views/CampusView.vue`, rota
+  `/campus`) passa a ser o componente `SeletorCampus`**, usado dentro da
+  tela do campus (botão "trocar") e sozinho quando nenhum campus foi
+  resolvido pela RN04. O nome `CampusView` fica com a tela do campus.
+- **`HomeView`, `BoasVindasView` e `NotFoundView`** existem no código, mas
+  ficam de fora do diagrama por não agregarem componentes próprios — são
+  apenas destino de rota.
+- **`authViews` agrupa cinco telas com pesos bem diferentes**: `CadastroView`
+  e `ConfirmarEmailView` concentram a maior parte da complexidade do épico
+  Login (RF01/RF02) — por isso são elas que ganham detalhamento em Nível 4
+  (4b), e não o grupo inteiro.
+
+### 3a.2 — Tela do campus (Release 2)
+
+```mermaid
+flowchart TB
+  campusView["🖼️ CampusView
+Uma refeição por vez, a padrão
+da RN05 (RF20.3)."]
+
+  subgraph topo["Cabeçalho da tela"]
+    direction LR
+    seletorCampus["🧩 SeletorCampus
+Nome do campus e 'trocar' (RF20.2)."]
+    campusDetectado["🧩 CampusDetectadoAviso
+'Você está no Darcy Ribeiro ·
+voltar para Gama' (RF20.2)."]
+    avisoExecutivo["🧩 AvisoExecutivo
+Linha fixa só no Darcy
+Ribeiro (RF20.4)."]
+    patente["🧩 PatenteIndicador
+Patente e sequência, só
+logado (RF26.3)."]
+  end
+
+  subgraph secaoCardapio["Seção Cardápio (antiga CardapioView)"]
+    direction LR
+    abasSemana["🧩 AbasSemana
+Semana vigente e seguinte (RF07.1, RF18)."]
+    seletorRefeicao["🧩 SeletorRefeicao
+Refeições do dia com nota
+média de cada uma (RF20.3)."]
+    filtro["🧩 FiltroCardapio
+Marcadores e dieta (RF08, RF09)."]
+    avaliacao["🧩 AvaliacaoWidget
+Nota média, avaliar e
+comentários (RF15)."]
+    distintivo["🧩 DistintivoIndicador
+Bandeja de Ouro ao lado
+do apelido (RF33.2)."]
+  end
+
+  subgraph secaoFila["Seção Fila (antiga FilaView)"]
+    direction LR
+    filaPrevisao["🧩 FilaPrevisao
+Nível por faixa e pico (RF13)."]
+    espera["🧩 EsperaEstimada
+Minutos em destaque, nível
+e texto de apoio (RF22)."]
+    encerrada["🧩 RefeicaoEncerrada
+No lugar da previsão e do
+check-in (RN05)."]
+    checkin["🧩 CheckinBotao
+Check-in por GPS (RF11, RF12)."]
+    avisoPrivacidade["🧩 AvisoPrivacidade
+Aviso atualizado antes do
+1º check-in (RF11)."]
+    convite["🧩 ConviteLogin
+Convite ao cadastro, citando
+os pontos (RF05)."]
+  end
+
+  campusView --> topo
+  campusView --> secaoCardapio
+  campusView --> secaoFila
+  avaliacao --> distintivo
+  avaliacao --> convite
+  filaPrevisao --> espera
+  checkin --> avisoPrivacidade
+  checkin --> convite
+
+  classDef view fill:#85bbf0,stroke:#5d82a8,color:#082542,font-size:12px
+  classDef component fill:#c8e6c9,stroke:#6b9b6e,color:#0d2b0e,font-size:12px
+  classDef group fill:#f7fbff,stroke:#1168bd,stroke-dasharray:4 3,color:#1168bd
+
+  class campusView view
+  class seletorCampus,campusDetectado,avisoExecutivo,patente,abasSemana,seletorRefeicao,filtro,avaliacao,distintivo,filaPrevisao,espera,encerrada,checkin,avisoPrivacidade,convite component
+  class topo,secaoCardapio,secaoFila group
+```
+
+#### Notas
+
+- **A tela abre na hora, sem esperar o GPS** (RF20.2, RNF03): o campus
+  inicial vem da RN04 (`preferenciasStore`) e a detecção corre em paralelo
+  (fluxo 4d). Se a detecção trocar o campus, `CampusDetectadoAviso` aparece
+  com a opção de voltar ao anterior.
+- **Cada seção carrega por conta própria.** O backend não tem um endpoint
+  que junte tudo: a `CampusView` pede em paralelo o cardápio, o resumo de
+  notas do dia (`GET /api/avaliacoes/resumo/`, uma chamada para todas as
+  refeições) e a previsão. Uma parte que falhe (ex.: previsão com "dados
+  insuficientes") não derruba as outras.
+- **"Refeição encerrada"** vem do próprio cardápio (`refeicaoEncerrada`,
+  calculado com `ultimaRefeicaoDoDia` no backend, RN05): quando verdadeiro,
+  `RefeicaoEncerrada` ocupa o lugar de `FilaPrevisao` e de `CheckinBotao`,
+  e a avaliação continua aberta até 23h59 (RF15.1).
+- **`EsperaEstimada` fica dentro de `FilaPrevisao`**: mostra os minutos em
+  destaque só nas faixas com `esperaEstimadaMin` diferente de `null`; nas
+  demais, só o nível. O texto de apoio (L12) explica que o nível é relativo
+  ao pico do dia e que os minutos são uma estimativa.
+- **`AvisoExecutivo` é uma linha fixa de texto**, sem pop-up nem botão de
+  fechar, exibida sempre que o campus é o Darcy Ribeiro (RF20.4).
+- **`AvaliacaoWidget` usa o `DistintivoIndicador` ao lado do apelido de
+  cada comentário** (RF15.2), lendo o campo opcional `distintivo` de cada
+  avaliação.
+- **`ConviteLogin` aparece no lugar das ações que exigem conta** (avaliar e
+  fazer check-in), sem redirecionar; na Release 2 o texto menciona os pontos
+  da gamificação (RF05).
+- **`AvisoPrivacidade` é mostrado antes de pedir a localização no primeiro
+  check-in** de quem tinha conta antes da Release 2
+  (`avisoPrivacidadePendente` da sessão, RF11, RNF07.1). O aviso cita fila,
+  localização, gamificação, ranking e Bandeja de Ouro.
+- **A estrutura exata da tela (componentes filhos e layout) fica a
+  critério da dupla de frontend**; o diagrama fixa só quais peças existem e
+  onde cada requisito aparece.
+
+### 3a.3 — Gamificação
+
+```mermaid
+flowchart TB
+  visitante(["👤 Visitante"])
+  usuario(["👤 Usuário (logado)"])
+
+  progressoView["🖼️ ProgressoView
+Meu progresso: patente, pontos,
+falta para a próxima (RF26.2)."]
+  rankingView["🖼️ RankingView
+Ranking DO SEMESTRE por
+campus, sem login (RF27.2)."]
+
+  subgraph progresso["Componentes de Meu progresso"]
+    direction LR
+    sequencia["🧩 SequenciaSemana
+Sequência e dias da semana,
+ex.: '2 de 3' (RF25, RF26.2)."]
+    adesao["🧩 RankingAdesaoToggle
+Interruptor de participar do
+ranking e aviso (RF27.1)."]
+    posicao["🧩 PosicaoRanking
+Posição própria por campus e
+a do semestre anterior (RF33.3)."]
+    sair["🧩 BotaoSair
+Encerra a sessão (RF03.3)."]
+  end
+
+  subgraph ranking["Componentes do ranking"]
+    direction LR
+    seletorCampus["🧩 SeletorCampus
+Troca o campus do ranking."]
+    linha["🧩 LinhaRanking
+Posição, apelido e patente,
+sem pontos (RN12)."]
+    vazio["🧩 RankingVazio
+'Ninguém no ranking ainda'."]
+  end
+
+  distintivo["🧩 DistintivoIndicador
+Bandeja de Ouro (RF33.2)."]
+  convite["🧩 ConviteLogin
+Convite ao cadastro (RF05)."]
+
+  usuario --> progressoView
+  visitante --> progressoView
+  visitante --> rankingView
+  usuario --> rankingView
+
+  progressoView --> progresso
+  progressoView --> distintivo
+  progressoView -.->|"visitante"| convite
+  rankingView --> ranking
+  linha --> distintivo
+
+  classDef person fill:#08427b,stroke:#052e56,color:#fff,font-size:12px
+  classDef view fill:#85bbf0,stroke:#5d82a8,color:#082542,font-size:12px
+  classDef component fill:#c8e6c9,stroke:#6b9b6e,color:#0d2b0e,font-size:12px
+  classDef group fill:#f7fbff,stroke:#1168bd,stroke-dasharray:4 3,color:#1168bd
+
+  class visitante,usuario person
+  class progressoView,rankingView view
+  class sequencia,adesao,posicao,sair,seletorCampus,linha,vazio,distintivo,convite component
+  class progresso,ranking group
+```
+
+#### Notas
+
+- **`ProgressoView` ("Meu progresso", rota `/progresso`)** mostra ao
+  usuário logado a patente, os pontos totais, quanto falta para a próxima
+  patente (ou "patente máxima"), a `SequenciaSemana`, o
+  `RankingAdesaoToggle`, a `PosicaoRanking` e a própria Bandeja de Ouro. Para
+  o **visitante**, a rota abre normalmente e mostra o `ConviteLogin` (seta
+  tracejada), sem redirecionar.
+- **`RankingView` (rota `/ranking/:campusId`) é pública** e mostra o ranking
+  **do semestre** do campus escolhido no `SeletorCampus`: até 10 linhas
+  (Anexo A) com posição, apelido, patente e, quando houver, a Bandeja de
+  Ouro — **nunca os pontos** (RN12, RI12). Com a lista vazia, mostra
+  `RankingVazio` ("ninguém no ranking ainda").
+- **`PosicaoRanking` só existe dentro de `ProgressoView`**, porque a
+  posição é vista apenas pelo próprio usuário (RF33.3): a posição atual em
+  cada campus em que é elegível (ex.: "17º no Gama") e a final do semestre
+  anterior (ex.: "2026.2: 12º no Gama"). Para quem não aderiu, mostra o
+  convite "Ative o ranking para concorrer à Bandeja de Ouro" junto ao
+  interruptor.
+- **O aviso do `RankingAdesaoToggle`** explica, antes de ligar, que o
+  apelido, a patente e, se conquistada, a Bandeja de Ouro ficam visíveis a
+  todos, **no ranking e nos comentários das avaliações**. Desligar o
+  interruptor esconde a Bandeja na hora (ver `gamificacaoStore` em 3b).
+- **`DistintivoIndicador` é um único componente usado em três lugares**:
+  `RankingView` (cada `LinhaRanking`), comentários das avaliações
+  (`AvaliacaoWidget`, 3a.2) e `ProgressoView`. Recebe o campo `distintivo`
+  (`null` ou `{tipo, campi, semestre}`) e:
+  - desenha a bandeja dourada com estrela, legível em 16 px e diferente dos
+    ícones dos marcadores do cardápio, com texto alternativo
+    "Bandeja de Ouro";
+  - ao tocar, mostra os campi e o semestre (ex.: "Gama e Darcy Ribeiro ·
+    2026.2"), **sem posição nem pontos**;
+  - o desenho final é da equipe de frontend, seguindo o guia de estilo
+    (RF17).
+- **`PatenteIndicador`** (linha discreta de patente e sequência) fica na
+  tela do campus (3a.2), não aqui, porque o RF26.3 o põe junto do cardápio
+  sem acrescentar interações (RNF03).
+- **`BotaoSair` fica em "Meu progresso"**, que é a área da conta do
+  usuário logado (RF03.3). A dupla pode movê-lo para um menu de conta sem
+  mudar a arquitetura: ele só chama `authStore.sair()`.
 
 ---
 
@@ -223,31 +455,40 @@ token, trata erros (RNF04)."]
 
 ## Estratégia de roteamento
 
-O roteamento já está parcialmente implementado em `src/router/index.js` e
-este documento formaliza os padrões nele observados, estendendo-os para o
-que falta:
+O roteamento está implementado em `src/router/index.js`. Este documento
+formaliza os padrões nele observados e os estende para a Release 2:
 
 - **Rotas nomeadas e com lazy-loading**, via `component: () => import(...)`
   — cada rota carrega sua View sob demanda, e não no bundle inicial.
 - **`meta.title` por rota**, lido em `router.afterEach` para atualizar
   `document.title` (`"<título> · Bandejão"`), já implementado.
-- **Campus como parâmetro de rota, não só de estado**: `/cardapio/:campusId`
-  permite compartilhar/favoritar o link de um campus específico, enquanto a
-  preferência "último campus visto" (RF07) fica em `preferenciasStore` para
-  quando não há parâmetro na URL (rota raiz `/`).
-- **Guarda de navegação para rotas autenticadas (a implementar):** nenhuma
-  rota da Release atual precisa bloquear a *navegação* em si — RF05 pede
-  convite ao cadastro/login, não erro genérico, mesmo para ações que exigem
-  login (avaliar, check-in). Por isso os componentes de ação leem
-  `authStore.estaAutenticado` e, se falso, exibem um convite inline, em vez
-  de a rota redirecionar sozinha — isso mantém a tela acessível ao visitante
-  (RI06) e cumpre o RF05 literalmente.
-- **Rota `/confirmar-email` lê o token pela query string** (ex.
-  `?token=...`), não por parâmetro de rota — o link enviado por e-mail
-  (RF02) aponta direto para essa URL; nenhuma navegação interna do app
-  precisa gerar esse link, só o backend.
-- **Rota coringa `/:pathMatch(.*)*`** para 404 (`NotFoundView`), já
-  implementada.
+- **Campus como parâmetro de rota, não só de estado**: `/campus/:campusId`
+  permite compartilhar/favoritar o link de um campus. A raiz `/` resolve o
+  campus pela RN04 (escolha manual depois da última detecção → campus
+  detectado → campus lembrado → seletor) e leva à tela do campus.
+
+| Rota | View | Observação |
+|---|---|---|
+| `/` | — (redireciona) | Resolve o campus pela RN04 e vai para `/campus/:campusId`, ou para o seletor |
+| `/campus` | `SeletorCampus` | Quando a RN04 não resolve nenhum campus |
+| `/campus/:campusId` | `CampusView` | Tela do campus (RF20). Destino do login (RF03.4) |
+| `/cardapio/:campusId`, `/fila` | — (redireciona) | Rotas do MVP mantidas só para links antigos |
+| `/avaliacoes` | `AvaliacoesView` | Histórico (RF16) |
+| `/progresso` | `ProgressoView` | **Nova.** Meu progresso (RF26.2) |
+| `/ranking/:campusId` | `RankingView` | **Nova.** Pública (RF27.2) |
+| `/login`, `/cadastro`, `/confirmar-email`, `/recuperar-senha`, `/redefinir-senha` | Views de Autenticação | Inalteradas |
+| `/:pathMatch(.*)*` | `NotFoundView` | 404, já implementada |
+
+- **Guarda de navegação: nenhuma rota exige login.** RF05 pede convite ao
+  cadastro/login, não erro nem redirecionamento, mesmo para ações que
+  exigem conta. Os componentes de ação leem `authStore.estaAutenticado` e,
+  se falso, exibem o `ConviteLogin` inline. Isso vale também para
+  **"Meu progresso": para o visitante, `/progresso` mostra o convite ao
+  cadastro, sem redirecionar**. O ranking é público.
+- **Rota `/confirmar-email` lê o token de confirmação pela query string**
+  (ex. `?token=...`), não por parâmetro de rota — o link enviado por e-mail
+  (RF02) aponta direto para essa URL. É o token do link de uso único, não
+  de sessão.
 
 ---
 
