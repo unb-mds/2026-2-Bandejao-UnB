@@ -101,6 +101,7 @@ erDiagram
         datetime criada_em
         datetime editada_em "nullable; editavel ate 23h59 do mesmo dia (RF15)"
         datetime pontos_concedidos_em "nullable; marcador de pontos (ADR 0011)"
+        boolean oculta "default false; moderacao manual (ADR 0004, RNF08)"
     }
 
     CHECKIN {
@@ -168,11 +169,20 @@ erDiagram
         int id PK
         int campus_id FK
         int refeicao_id FK "nullable: alerta pode preceder criacao da refeicao"
-        string tipo "icone_desconhecido | leitura_falhou | alergenos_indisponiveis"
+        string tipo "legenda_invalida | associacao_falhou | falha_leitura_pdf (ADR 0006)"
         string mensagem
         datetime ocorrido_em
         boolean resolvido "default false"
         datetime resolvido_em "nullable"
+    }
+
+    CONTADOR_ALERTA {
+        int id PK
+        int campus_id FK
+        string tipo "legenda_invalida | associacao_falhou | falha_leitura_pdf (ADR 0006)"
+        date data "dia da contagem"
+        smallint quantidade_enviada "max 3 por dia (ADR 0006)"
+        datetime ultimo_envio_em "intervalo minimo de 6 h (ADR 0006)"
     }
 
     TOKEN {
@@ -196,6 +206,7 @@ erDiagram
     CAMPUS ||--o{ TENTATIVA_CHECKIN : recebe
     CAMPUS ||--o{ PONTOS_SEMESTRE_CAMPUS : classifica
     CAMPUS ||--o{ ALERTA_LEITURA_CARDAPIO : gera
+    CAMPUS ||--o{ CONTADOR_ALERTA : limita_avisos
     REFEICAO ||--o{ CATEGORIA : contem
     REFEICAO ||--o{ AVALIACAO : recebe
     REFEICAO |o--o{ ALERTA_LEITURA_CARDAPIO : relaciona-se_a
@@ -263,7 +274,7 @@ Refeição de um tipo, em um campus e um dia, lida do PDF do cardápio (RF06, RF
 | `data` | DateField | NOT NULL | Dia do serviço, conforme datas do PDF (RF07). |
 | `tipo` | CharField(10) | NOT NULL, choices | `cafe` \| `almoco` \| `jantar`. |
 | `horario_inicio` / `horario_fim` | TimeField | NOT NULL | Copiados do parâmetro configurável (Anexo A) no momento da leitura do PDF; usados para liberar a avaliação (RF15) apenas durante a janela. O check-in (RF11) usa o mesmo horário do Anexo A, sem depender desta linha. |
-| `status_leitura` | CharField(30) | NOT NULL, choices, default `ok` | `ok` \| `alergenos_indisponiveis` (RF06: ícone desconhecido ou associação falhou) \| `leitura_falhou` (RF06: se já existe cardápio lido com sucesso, ele é mantido e a linha não é sobrescrita — a falha fica só em `ALERTA_LEITURA_CARDAPIO`; este status só aparece numa linha criada quando não havia cardápio anterior). |
+| `status_leitura` | CharField(30) | NOT NULL, choices, default `ok` | `ok` \| `alergenos_indisponiveis` (RF06: ícone desconhecido ou associação falhou) \| `leitura_falhou` (RF06: se já existe cardápio lido com sucesso, ele é mantido e a linha não é sobrescrita — a falha fica só em `ALERTA_LEITURA_CARDAPIO`; este status só aparece numa linha criada quando não havia cardápio anterior). O model `Refeicao` expõe a propriedade derivada `alergenosIndisponivel` (verdadeira quando `status_leitura = alergenos_indisponiveis`), usada pelos Níveis 4 do Leitor e da Exposição do Cardápio; ela não é coluna. |
 | `fonte_pdf_url` | URLField | NOT NULL | PDF de origem, para rastreabilidade da leitura (RF06). |
 | `lida_em` | DateTimeField | NOT NULL, auto | Quando a leitura automatizada gravou/atualizou esta refeição. |
 | — | — | **UNIQUE** (`campus_id`, `data`, `tipo`) | Não existem duas refeições do mesmo tipo, no mesmo campus, no mesmo dia. |
@@ -323,6 +334,7 @@ Nota e comentário de uma conta sobre uma refeição inteira (RF15).
 | `criada_em` | DateTimeField | NOT NULL, auto | Data e hora em que a avaliação foi criada. |
 | `editada_em` | DateTimeField | nullable | Preenchido a cada edição; a janela de edição (até 23h59 do mesmo dia) é validada na aplicação, não no banco. |
 | `pontos_concedidos_em` | DateTimeField | nullable | Marcador de "pontos já concedidos", preenchido pela Gamificação na primeira vez que a avaliação pontua (ADR 0011, decisão 4). |
+| `oculta` | BooleanField | NOT NULL, default `false` | Moderação manual da equipe por acesso direto ao banco (ADR 0004, RNF08). Avaliação oculta não aparece nos comentários nem entra na nota média e na quantidade; continua armazenada, com o vínculo com a conta. |
 | — | — | **UNIQUE** (`usuario_id`, `refeicao_id`) | No máximo uma avaliação por usuário por refeição (RF15); uma segunda tentativa é tratada como `UPDATE`, não `INSERT`. |
 
 ### `CHECKIN` (Release 2)
@@ -436,11 +448,25 @@ Alerta da leitura do PDF do cardápio, tratado pela equipe (RF06, ADR 0003).
 | `id` | BigAutoField | PK | Identificador interno do registro. |
 | `campus_id` | ForeignKey → `CAMPUS` | NOT NULL, `ON DELETE CASCADE` | Campus a que o alerta se refere. |
 | `refeicao_id` | ForeignKey → `REFEICAO` | nullable, `ON DELETE SET NULL` | Nulo quando o alerta é sobre a leitura do PDF como um todo, antes de qualquer refeição ser criada/atualizada (RF06). |
-| `tipo` | CharField(30) | NOT NULL, choices | `icone_desconhecido` \| `leitura_falhou` \| `alergenos_indisponiveis`. |
+| `tipo` | CharField(30) | NOT NULL, choices | Os três tipos de falha da ADR 0006 e do Nível 4 do Leitor (`TipoAlerta`): `legenda_invalida` (ícone desconhecido ou legenda diferente dos 10 marcadores), `associacao_falhou` (ícone que não pode ser associado a um prato) e `falha_leitura_pdf` (download ou leitura do arquivo). Os dois primeiros deixam a refeição com `status_leitura = alergenos_indisponiveis`. |
 | `mensagem` | TextField | NOT NULL | Detalhe técnico do alerta, para a equipe (RF06, módulo Leitor de Cardápio — ADR 0003). |
 | `ocorrido_em` | DateTimeField | NOT NULL, auto | Data e hora em que o alerta ocorreu. |
 | `resolvido` | BooleanField | NOT NULL, default `false` | Marcado manualmente pela equipe (RNF08: sem tela administrativa no escopo — atualização provavelmente via acesso direto ao banco, ADR 0004). |
 | `resolvido_em` | DateTimeField | nullable | Data e hora em que a equipe marcou o alerta como resolvido. |
+
+### `CONTADOR_ALERTA`
+
+Controle do limite de avisos por e-mail do Leitor de Cardápio (ADR 0006): uma linha por campus, tipo de falha e dia. Corresponde ao `ContadorAlerta` do Nível 4 do Leitor de Cardápio.
+
+| Campo | Tipo | Constraints | Descrição |
+|---|---|---|---|
+| `id` | BigAutoField | PK | Identificador interno do registro. |
+| `campus_id` | ForeignKey → `CAMPUS` | NOT NULL, `ON DELETE CASCADE` | Campus da falha. |
+| `tipo` | CharField(30) | NOT NULL, choices | Mesmos valores de `ALERTA_LEITURA_CARDAPIO.tipo`: `legenda_invalida` \| `associacao_falhou` \| `falha_leitura_pdf`. |
+| `data` | DateField | NOT NULL | Dia da contagem, no horário de Brasília. A contagem de outro dia não vale: a cada dia começa uma linha nova. |
+| `quantidade_enviada` | SmallIntegerField | NOT NULL, default `0`, **CHECK** `0 <= quantidade_enviada <= 3` | Avisos já enviados no dia para essa combinação; no máximo 3 (ADR 0006). |
+| `ultimo_envio_em` | DateTimeField | nullable | Hora do último aviso enviado; um novo aviso da mesma combinação só sai 6 horas depois (ADR 0006). |
+| — | — | **UNIQUE** (`campus_id`, `tipo`, `data`) | Uma contagem por campus, tipo e dia. Quando a leitura do campus volta a funcionar, o `AlertaEquipeService` apaga as linhas do dia desse campus, zerando a contagem (ADR 0006). |
 
 ### `TOKEN`
 
@@ -479,7 +505,9 @@ duas categorias.
 | Check-in só entre início e fim da refeição | RF11 | **Aplicação**: idem — depende de `now()` comparado ao horário de início e fim do `tipo_refeicao` no Anexo A (configuração). O check-in não consulta `REFEICAO`, para funcionar mesmo se a leitura do PDF falhar. |
 | Confirmação de check-in por GPS dentro do raio do **RU** | RF12 | **Aplicação**: cálculo de distância acontece na view, com `CAMPUS.ru_latitude`/`ru_longitude` e `CAMPUS.raio_confirmacao_metros` (diferente do raio de detecção do campus, `raio_deteccao_metros`); coordenadas do dispositivo **não são persistidas** (RI09) — não há coluna para elas em nenhuma tabela. |
 | Uma refeição por campus/dia/tipo | Decorre de RF06/RF07 | **Banco**: `UNIQUE (campus_id, data, tipo)` em `REFEICAO`. |
-| Exatamente 10 marcadores conhecidos | RF06 | **Banco**: `MARCADOR` populada por fixture com exatamente 10 linhas; a leitura do PDF só referencia marcadores já existentes na tabela, nunca cria um novo marcador dinamicamente — um ícone fora desses 10 vira `ALERTA_LEITURA_CARDAPIO` (`icone_desconhecido`), não uma nova linha em `MARCADOR`. |
+| Exatamente 10 marcadores conhecidos | RF06 | **Banco**: `MARCADOR` populada por fixture com exatamente 10 linhas; a leitura do PDF só referencia marcadores já existentes na tabela, nunca cria um novo marcador dinamicamente — um ícone fora desses 10 vira `ALERTA_LEITURA_CARDAPIO` (`legenda_invalida`), não uma nova linha em `MARCADOR`. |
+| No máximo 3 avisos por dia por campus e tipo de falha, com 6 horas de intervalo | ADR 0006 | **Banco**: `UNIQUE (campus_id, tipo, data)` e `CHECK` em `CONTADOR_ALERTA.quantidade_enviada`. **Aplicação**: `AlertaEquipeService.deveEnviar` compara `ultimo_envio_em` com o intervalo de 6 horas. |
+| Avaliação oculta pela moderação não é exibida nem entra na nota média | RNF08, ADR 0004 | **Aplicação**: consultas públicas de avaliação (comentários, resumo do dia e histórico) filtram `AVALIACAO.oculta = false`. **Banco**: só a coluna com default `false`; quem a altera é a equipe, por acesso direto ao banco. |
 | Senha nunca em texto plano | RI04, RNF04 | **Aplicação**: Django `AbstractBaseUser`/hashers cuidam do hash antes de qualquer `INSERT`/`UPDATE`; o banco só enxerga o hash. |
 | Matrícula/SIAPE e e-mail nunca expostos a outros usuários | RI10 | **Aplicação**: Serializers de leitura pública de `USUARIO` (ex.: autor de uma avaliação) nunca incluem `matricula_siape` nem `email_institucional` — não é uma constraint de banco, é uma escolha de quais colunas cada Serializer expõe. |
 | Limite de 3 solicitações de redefinição de senha por hora por matrícula/SIAPE | RF04, Anexo A | **Aplicação**: `COUNT` de linhas em `TOKEN` (`tipo = redefinicao_senha`, `usuario_id`, `criado_em` na última hora) antes de criar uma nova. |
@@ -658,8 +686,10 @@ SQLite a ser migrado: o MVP nasce direto em MySQL quando for para produção).
 - `docs/arquitetura/adr/0003-leitor-pdf-como-modulo-do-backend.md` — origem de
   `ALERTA_LEITURA_CARDAPIO` como parte do módulo Leitor de Cardápio.
 - `docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md` — por que
-  não há tela administrativa e a moderação (`AVALIACAO`, `USUARIO.status`,
+  não há tela administrativa e a moderação (`AVALIACAO.oculta`, `USUARIO.status`,
   `ALERTA_LEITURA_CARDAPIO.resolvido`) é operada via acesso direto ao banco.
+- `docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md` — origem
+  de `CONTADOR_ALERTA` e dos tipos de falha de `ALERTA_LEITURA_CARDAPIO`.
 - ADR 0007 (sessão por cookie), ADR 0009 (detecção de campus no aparelho),
   ADR 0010 (nível por chegadas com espera estimada) e ADR 0011 (contadores de
   gamificação), em `docs/arquitetura/adr/`.
