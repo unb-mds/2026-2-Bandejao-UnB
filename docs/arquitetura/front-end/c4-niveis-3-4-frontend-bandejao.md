@@ -1,42 +1,53 @@
 # Arquitetura C4 — Nível 3 (e Nível 4) — Frontend — Bandejão
 
-> Complementa `arquitetura-c4-niveis-1-2-bandejao.md` (comum às três frentes) com o
-> detalhamento interno do container **PWA (Frontend)** — Vue 3 + Vite —, conforme
-> pedido na issue #31 (Sprint 4). Segue a mesma técnica de desenho adotada no
-> Nível 1/2: `flowchart` do Mermaid em vez do tipo `C4Component` nativo, para dar
-> uma forma geométrica diferente a cada tipo de elemento. Os fluxos
-> dinâmicos (comunicação com a API, check-in por GPS e cadastro/confirmação de
-> e-mail) usam `sequenceDiagram`, que é o tipo do Mermaid feito para isso e não
+> Complementa `c4-niveis-1-2.md` (comum às três frentes) com o detalhamento
+> interno do container **PWA (Frontend)** — Vue 3 + Vite + Pinia —,
+> conforme pedido na issue #31 (Sprint 4) e atualizado na Sprint 8 (issues
+> #77, #78 e #79) para a **Release 2**: gamificação, Bandeja de Ouro, tela do
+> campus, detecção de campus no aparelho, pergunta de saída da fila e sessão
+> por cookie. Segue a mesma técnica de desenho adotada no Nível 1/2:
+> `flowchart` do Mermaid em vez do tipo `C4Component` nativo, para dar uma
+> forma geométrica diferente a cada tipo de elemento. Os fluxos dinâmicos
+> usam `sequenceDiagram`, que é o tipo do Mermaid feito para isso e não
 > cruza linhas por design.
 >
-> **Estado atual do código (`frontend/src`, branch `develop`):** existem apenas
-> as *Views* e o *Router* (cada view é um placeholder com `TODO: implementar`).
-> Não há ainda pasta `components/`, `stores/` nem `services/`, e o Pinia não está
-> no `package.json`. Este documento formaliza a decisão de arquitetura interna
-> — componentes, roteamento, estado e comunicação com a API — para orientar a
-> implementação das próximas sprints; não é uma engenharia reversa de código já
-> escrito. Onde uma decisão ainda depende de confirmação da dupla de frontend,
-> isso é sinalizado explicitamente.
+> **Estado atual do código (`frontend/src`, branch `main`):** a Release 1
+> (MVP) está implementada com Pinia (`authStore`, `preferenciasStore`,
+> `cardapioStore`, `avaliacoesStore`), `apiClient` e um servidor simulado
+> (`services/mock`). Os elementos da Release 2 descritos aqui (tela do
+> campus, gamificação, detecção de campus, pergunta de saída) ainda **não
+> estão no código**: este documento formaliza a arquitetura para orientar a
+> implementação. Onde uma decisão depende de confirmação da dupla de
+> frontend, isso é sinalizado explicitamente.
+>
+> **Contrato com o backend.** Endpoints, códigos de resposta e formatos de
+> campo seguem as decisões da issue #66 e os Níveis 4 do backend
+> (`backend/c4-nivel-4-*.md`). A conferência entre as duas frentes é a
+> issue #69; os nomes finais ficam no contrato OpenAPI.
+>
+> **Vocabulário (glossário).** "Distintivo" e "Bandeja de Ouro" (nunca
+> "ícone" nem "selo"); ranking "do semestre" (nunca "do mês").
 >
 > **Nível 4 é seletivo, por design.** Só entram aqui os fluxos complexos o
-> bastante para justificar o detalhamento de código (ver critério no início da
-> seção "Nível 4"). Hoje são dois: **check-in por GPS** (RF11/RF12) e
-> **cadastro + confirmação de e-mail** (RF01/RF02).
+> bastante para justificar o detalhamento (ver critério no início da seção
+> "Nível 4"). São quatro: **check-in por GPS** (4a), **cadastro +
+> confirmação de e-mail** (4b), **pergunta de saída da fila** (4c) e
+> **detecção de campus no aparelho** (4d).
 
 ### Legenda de formas
 
 | Forma | Tipo de elemento | Exemplo |
 |---|---|---|
-| ⬭ Oval (estádio) | Pessoa | Visitante, Comunidade |
+| ⬭ Oval (estádio) | Pessoa | Visitante, Usuário |
 | ▤ Retângulo de barras duplas | Container já detalhado no Nível 2 (fora de foco aqui) | Backend API |
 | ⬡ Hexágono | Capacidade externa ao app (API do navegador) | Geolocation API |
 | ⛁ Cilindro | Armazenamento | localStorage do navegador |
 | ▭ Retângulo simples | Componente interno do Frontend (o foco deste diagrama) — cor indica a camada (view, componente, store, serviço) | View, componente Vue, store, serviço |
 
-Para reduzir cruzamento de setas, o Nível 3 foi dividido em dois diagramas:
-**(a)** estrutura de telas e componentes (navegação), e **(b)** estado e
-comunicação com a API. Cada um sozinho tem poucas arestas e um fluxo único de
-cima para baixo.
+Para reduzir cruzamento de setas e manter cada diagrama abaixo de 20
+elementos, o Nível 3 foi dividido em quatro diagramas: **(3a.1)** telas e
+navegação, **(3a.2)** tela do campus, **(3a.3)** gamificação e **(3b)**
+estado e comunicação com a API.
 
 ---
 
@@ -361,49 +372,78 @@ flowchart TB
     direction TB
     subgraph origem["Views e componentes (Nível 3a)"]
       direction LR
-      filtroCardapio["🧩 FiltroCardapio"]
-      avaliacaoWidget["🧩 AvaliacaoWidget"]
-      filaPrevisao["🧩 FilaPrevisao"]
+      app["🖼️ App (raiz) +
+AvisoLocalizacao"]
+      campusView["🖼️ CampusView
+e seus componentes"]
       checkinBotao["🧩 CheckinBotao"]
-      cardapioView["🖼️ CardapioView"]
-      avaliacoesView["🖼️ AvaliacoesView"]
-      authViews["🖼️ Views de Autenticação"]
+      perguntaSaida["🧩 PerguntaSaidaPopup"]
+      gamificacaoViews["🖼️ ProgressoView /
+RankingView / RankingAdesaoToggle"]
+      authViews["🖼️ Views de Autenticação
+e BotaoSair"]
     end
 
-    subgraph stores["Estado — Pinia (proposto)"]
+    subgraph stores["Estado — Pinia"]
       direction LR
       authStore["📦 authStore
-Sessão em memória."]
+Apelido, tipo e aviso pendente.
+Sem token."]
       preferenciasStore["📦 preferenciasStore
-Campus, dia, refeição, filtros."]
-      dadosStore["📦 cardapioStore /
-avaliacoesStore / filaStore
-Cache dos dados da API."]
+Campus, escolha manual, filtros,
+'Agora não'."]
+      cardapioStore["📦 cardapioStore
+Cache do cardápio."]
+      avaliacoesStore["📦 avaliacoesStore
+Resumo do dia e comentários."]
+      filaStore["📦 filaStore
+Previsão e pergunta
+de saída pendente."]
+      gamificacaoStore["📦 gamificacaoStore
+Progresso, adesão, posições,
+Bandeja e ranking."]
     end
 
+    deteccao["🛰️ DeteccaoCampusService
+Compara a posição com os
+raios de cada campus (ADR 0009)."]
     apiClient["🔌 apiClient
-Monta requisições HTTPS, injeta
-token, trata erros (RNF04)."]
+Envia o cookie e o cabeçalho CSRF,
+trata erros (RNF04, ADR 0007)."]
   end
 
   geo{{"🌐 Geolocation API"}}
   localstorage[("🗄️ localStorage")]
   backend[["⚙️ Backend API"]]
 
-  filtroCardapio --> preferenciasStore
+  app --> deteccao
+  app --> authStore
+  app --> filaStore
+  campusView --> preferenciasStore
+  campusView --> cardapioStore
+  campusView --> avaliacoesStore
+  campusView --> filaStore
+  checkinBotao --> filaStore
+  perguntaSaida --> filaStore
+  gamificacaoViews --> gamificacaoStore
   authViews --> authStore
-  cardapioView --> dadosStore
-  avaliacaoWidget --> dadosStore
-  filaPrevisao --> dadosStore
-  avaliacoesView --> dadosStore
-  checkinBotao --> dadosStore
-  checkinBotao -.->|"lê coordenadas"| geo
 
+  checkinBotao -.->|"lê coordenadas"| geo
+  deteccao -.->|"lê posição"| geo
+  deteccao --> preferenciasStore
   preferenciasStore -.->|"persiste"| localstorage
+  deteccao -.->|"cache dos raios"| localstorage
+
+  filaStore -->|"pontos recebidos"| gamificacaoStore
+  avaliacoesStore -->|"pontos recebidos"| gamificacaoStore
 
   authStore --> apiClient
-  dadosStore --> apiClient
-  apiClient -->|"HTTPS/JSON"| backend
+  cardapioStore --> apiClient
+  avaliacoesStore --> apiClient
+  filaStore --> apiClient
+  gamificacaoStore --> apiClient
+  deteccao --> apiClient
+  apiClient -->|"HTTPS/JSON + cookie"| backend
 
   classDef view fill:#85bbf0,stroke:#5d82a8,color:#082542,font-size:12px
   classDef component fill:#c8e6c9,stroke:#6b9b6e,color:#0d2b0e,font-size:12px
@@ -413,10 +453,10 @@ token, trata erros (RNF04)."]
   classDef container fill:#438dd5,stroke:#2e6295,color:#fff,font-size:12px
   classDef boundary fill:#ffffff,stroke:#1168bd,stroke-width:2px,color:#1168bd
 
-  class cardapioView,avaliacoesView,authViews view
-  class filtroCardapio,avaliacaoWidget,filaPrevisao,checkinBotao component
-  class authStore,preferenciasStore,dadosStore store
-  class apiClient service
+  class app,campusView,gamificacaoViews,authViews view
+  class checkinBotao,perguntaSaida component
+  class authStore,preferenciasStore,cardapioStore,avaliacoesStore,filaStore,gamificacaoStore store
+  class deteccao,apiClient service
   class geo,localstorage external
   class backend container
   class frontend boundary
@@ -425,31 +465,90 @@ token, trata erros (RNF04)."]
 ### Notas
 
 - **Nenhuma View ou componente chama a API diretamente.** Toda comunicação
-  passa por uma *store* e, dali, pela camada única `apiClient` — reflexo, no
-  frontend, da separação por módulo já exigida pelo RNF06 no backend.
-- **`dadosStore` é um "hub" de propósito**: várias telas e componentes leem
-  ou escrevem nele porque ele representa o cache compartilhado de
-  cardápio/avaliações/fila — não é bagunça, é o ponto único de verdade dos
-  dados vindos da API.
-- **`CheckinBotao` é o único componente que fala com a Geolocation API.** As
-  coordenadas nascem no navegador, passam para `dadosStore` (linha
-  pontilhada, por ser um uso pontual e não uma leitura/escrita de estado
-  contínua) e seguem para o `apiClient` só dentro do corpo da requisição —
-  nunca ficam gravadas em nenhuma propriedade reativa (RI09).
-- **`preferenciasStore → localStorage` também é linha pontilhada**: é
-  persistência local do aparelho, não uma chamada de rede, por isso é
-  visualmente distinta das setas cheias que representam o fluxo principal
-  até o backend.
-- **`authStore` não persiste em `localStorage`.** O token de sessão fica em
-  memória; ao recarregar a página, o usuário perde a sessão até
-  implementarmos um mecanismo de renovação — decisão deliberadamente simples
-  para o MVP, a revisitar se a equipe priorizar "lembrar login".
+  passa por uma *store* (ou pelo `DeteccaoCampusService`) e, dali, pela
+  camada única `apiClient` — reflexo, no frontend, da separação por módulo
+  já exigida pelo RNF06 no backend.
+- **Sessão por cookie (ADR 0007).** O `authStore` **não guarda token**. Ao
+  abrir o app, a raiz chama `authStore.carregarSessao()`, que consulta
+  `GET /api/sessao/` ("quem sou eu") e guarda só `apelido`, `tipo` e
+  `avisoPrivacidadePendente` — nunca matrícula/SIAPE ou e-mail (RI10). O
+  login é `POST /api/sessao/` e o `BotaoSair` chama
+  `DELETE /api/sessao/` (RF03.3). Como a sessão vive no cookie `HttpOnly`,
+  ela sobrevive a recargas e à reabertura do PWA, sem nada legível por
+  JavaScript.
+- **O `apiClient` não injeta token.** Ele envia o cookie de sessão
+  (`credentials: 'same-origin'`, já que PWA e API ficam no mesmo domínio) e,
+  nas requisições de escrita (POST, PUT, PATCH, DELETE), o cabeçalho CSRF do
+  Django (`X-CSRFToken`, lido do cookie `csrftoken`). É o único ponto do
+  PWA que faz isso. Um `401` limpa o `authStore` (sessão expirada ou
+  encerrada em outro aparelho).
+- **Dois componentes falam com a Geolocation API, com fins diferentes**
+  (substitui a nota do MVP de que só o `CheckinBotao` falava com ela):
+  - **`DeteccaoCampusService` (RF20.1, ADR 0009)** lê a posição para
+    **detectar o campus no aparelho**. Compara a posição com o centro e o
+    raio de detecção de cada campus publicados pelo backend
+    (`GET /api/campi/`, guardados também no `localStorage` para caber no
+    limite de 5 s com rede lenta) e grava **só o identificador** do campus
+    detectado no `preferenciasStore`. As coordenadas **nunca saem do
+    aparelho** nem ficam em estado reativo. Regras: tempo limite de 5
+    segundos, precisão mínima e idade máxima da posição (RN03, Anexo A) —
+    leitura fora disso vale como "campus não detectado" —, e nova detecção
+    ao voltar ao primeiro plano depois de 30 minutos parado.
+  - **`CheckinBotao` (RF12)** lê as coordenadas só no momento do check-in e
+    as envia no corpo do `POST /api/checkins/`. Elas passam pela `filaStore`
+    só como argumento e são descartadas no fim da chamada, em qualquer
+    desfecho (RI09).
+- **A conta de distância existe em dois lugares**: no PWA
+  (`DeteccaoCampusService`, raio de detecção do campus) e no backend
+  (confirmação do check-in, raio do RU). As duas precisam concordar e **cada
+  lado precisa de testes próprios** (ADR 0009, RNF06). O raio de
+  confirmação do check-in não é publicado: quem decide o check-in é sempre
+  o servidor.
+- **`preferenciasStore` guarda no `localStorage`**: campus lembrado (último
+  escolhido manualmente, RF07.2), filtros (RF08, RF09), a **escolha manual
+  de campus feita depois da última detecção** (RN04, item 1) e o **"Agora
+  não" do aviso de localização** (RF19), para o aviso não reaparecer a cada
+  abertura. O campus detectado fica só em memória, junto com a hora da
+  última detecção, porque vale até a próxima.
+- **`filaStore`** guarda a previsão (com `esperaEstimadaMin` por faixa,
+  RF22) e a **pergunta de saída pendente** (`perguntaId`, `tentativa`,
+  `expiraEm`) e o próximo `perguntaDevidaEm`. Seguindo a decisão 7 da #66,
+  a raiz consulta `GET /api/fila/pergunta-pendente/` **ao abrir o app, ao
+  voltar ao primeiro plano, no horário de `perguntaDevidaEm`** e, enquanto
+  houver pergunta não expirada, **a cada 2 ou 3 minutos** com o app aberto
+  (fluxo 4c). Nunca guarda coordenadas (RI09).
+- **`gamificacaoStore` (nova)** guarda, em memória e ligada ao `apiClient`:
+  - o progresso (`GET /api/gamificacao/progresso/`): patente, pontos totais,
+    quanto falta, sequência, dias na semana e mínimo, adesão ao ranking,
+    posição própria por campus, posição do semestre anterior e a própria
+    Bandeja de Ouro;
+  - o ranking por campus (`GET /api/ranking/{campusId}/`);
+  - o último bloco `pontos` recebido, que dispara o `PontosAviso`.
+
+  **Ao mudar a adesão** (`POST`/`DELETE /api/gamificacao/adesao/`), a store
+  recarrega o progresso e o ranking e pede ao `avaliacoesStore` que descarte
+  os comentários guardados, porque a Bandeja de Ouro de quem desligou some
+  na hora (RF27.1).
+- **Pontos recebidos (decisão 7 da #66, RF24.2).** Não há endpoint de
+  pontos: as respostas de check-in, de resposta de saída e de avaliação
+  trazem o mesmo bloco
+  `"pontos": {"total", "contribuicao", "avaliacaoLiberada", "bonusSemana"}`.
+  `filaStore` e `avaliacoesStore` repassam esse bloco à `gamificacaoStore`
+  (setas "pontos recebidos"), que mostra o `PontosAviso` quando `total > 0`
+  e marca o progresso como desatualizado.
+- **Bandeja de Ouro nas respostas públicas (decisão 12 da #66).** Cada linha
+  do ranking e cada autor de comentário traz o campo opcional
+  `distintivo`: `null` ou
+  `{"tipo": "BANDEJA_DE_OURO", "campi": [{id, nome}], "semestre": "2026.2"}`.
+  **Nunca a posição nem os pontos.** O nome e o formato do campo são os
+  mesmos do Nível 4 da Gamificação no backend (conferência na #69).
+- **`preferenciasStore → localStorage` e as leituras da Geolocation API
+  são linhas pontilhadas**: são uso local do aparelho, não chamadas de
+  rede, por isso ficam visualmente distintas das setas cheias que levam ao
+  backend.
 - **Backend API aparece em retângulo de barras duplas, sem decompor** — já
-  foi decomposto no Nível 2; aqui é só o destino das chamadas do
-  `apiClient`.
-- **Pinia ainda não está no `package.json`.** É a biblioteca de estado
-  proposta neste documento (ver seção seguinte); a dupla de frontend precisa
-  confirmar a adoção antes de criar as stores.
+  foi decomposto no Nível 2 e nos Níveis 3/4 do backend; aqui é só o
+  destino das chamadas do `apiClient`.
 
 ---
 
@@ -494,23 +593,24 @@ formaliza os padrões nele observados e os estende para a Release 2:
 
 ## Estratégia de gerenciamento de estado
 
-**Proposta: Pinia**, a biblioteca de estado oficial do ecossistema Vue 3
-(ainda não adicionada ao projeto). Divisão em stores por responsabilidade,
-espelhando a separação por app do backend (RNF06):
+**Pinia**, a biblioteca de estado oficial do ecossistema Vue 3 (já no
+`package.json`). Divisão em stores por responsabilidade, espelhando a
+separação por app do backend (RNF06):
 
 | Store | Responsabilidade | Persistência |
 |---|---|---|
-| `authStore` | Sessão do usuário autenticado (token, apelido, tipo de usuário) | Em memória; perdida ao recarregar (ver nota acima) |
-| `preferenciasStore` | Campus, dia e refeição selecionados; filtros de marcador e dieta ativos | `localStorage` (RF07, RF08, RF09) |
-| `cardapioStore` | Cache do cardápio já lido da API, por campus/semana | Em memória, por sessão de navegação |
-| `avaliacoesStore` | Avaliações da refeição em exibição; envio/edição da avaliação do usuário | Em memória |
-| `filaStore` | Previsão de pico e resultado do check-in mais recente | Em memória; nunca guarda coordenadas (RI09) |
+| `authStore` | Sessão do usuário: apelido, tipo de usuário e `avisoPrivacidadePendente`, lidos de `GET /api/sessao/`. Login, logout, cadastro e reenvio de confirmação. **Sem token** (ADR 0007) | Nenhuma no PWA: a sessão está no cookie `HttpOnly`; a store é recarregada ao abrir o app |
+| `preferenciasStore` | Campus lembrado, escolha manual depois da última detecção, campus detectado, refeição selecionada, filtros de marcador e dieta, "Agora não" do aviso de localização | `localStorage` (RF07, RF08, RF09, RF19, RN04), exceto o campus detectado (memória) |
+| `cardapioStore` | Cache do cardápio já lido da API, por campus/semana (inclui `refeicaoEncerrada`) | Em memória |
+| `avaliacoesStore` | Resumo do dia (notas de todas as refeições, `GET /api/avaliacoes/resumo/`), comentários com `distintivo` e envio/edição da avaliação do usuário | Em memória |
+| `filaStore` | Previsão (com espera estimada), check-in e pergunta de saída pendente | Em memória; nunca guarda coordenadas (RI09) |
+| `gamificacaoStore` | Progresso, adesão ao ranking, posição própria por campus, posição do semestre anterior, Bandeja de Ouro própria, ranking por campus e último bloco `pontos` | Em memória |
 
 Critério de decisão: **o que precisa sobreviver a um recarregamento de
-página vira `localStorage`; o resto fica em memória.** Isso restringe a
-persistência ao mínimo pedido pelos requisitos (RF07–RF09) e evita guardar,
-mesmo sem querer, dado sensível (sessão, coordenadas) fora do que a LGPD e o
-RNF07/RI09 permitem.
+página e é preferência do aparelho vira `localStorage`; o resto fica em
+memória ou no servidor.** Isso restringe a persistência ao mínimo pedido
+pelos requisitos e evita guardar, mesmo sem querer, dado sensível (sessão,
+coordenadas) fora do que a LGPD e o RNF07/RI09 permitem.
 
 ---
 
@@ -521,13 +621,13 @@ Padrão único para toda chamada, ilustrado aqui com a consulta de cardápio
 
 ```mermaid
 sequenceDiagram
-  actor V as Visitante/Comunidade
-  participant CV as CardapioView
+  actor V as Visitante/Usuário
+  participant CV as CampusView
   participant CS as cardapioStore
   participant AC as apiClient
   participant BE as Backend API
 
-  V->>CV: Abre a tela
+  V->>CV: Abre a tela do campus
   CV->>CS: carregarCardapio(campus, semana)
   alt cache válido
     CS-->>CV: retorna dados em cache
@@ -542,82 +642,133 @@ sequenceDiagram
   CV-->>V: renderiza o cardápio
 ```
 
-O `apiClient` é o único ponto que conhece a URL base da API, injeta o
-cabeçalho de autenticação quando há sessão (`authStore`), e trata erros de
-forma centralizada (rede indisponível, 401 → sessão expirada, 4xx →
-mensagem específica do backend) — nunca a View trata `fetch` diretamente.
-Esse mesmo padrão vale para escrita (avaliação, check-in, cadastro),
-variando apenas o verbo HTTP e a store de origem.
+O `apiClient` é o único ponto que conhece a URL base da API, envia o
+cookie de sessão e o cabeçalho CSRF nas escritas, e trata erros de forma
+centralizada (rede indisponível, 401 → sessão expirada, 4xx → mensagem
+específica do backend) — nunca a View trata `fetch` diretamente. Esse
+mesmo padrão vale para escrita (avaliação, check-in, cadastro), variando
+apenas o verbo HTTP e a store de origem.
+
+A abertura do app segue o mesmo padrão, com as chamadas iniciais disparadas
+pela raiz, em paralelo e sem bloquear a tela do campus:
+
+```mermaid
+sequenceDiagram
+  participant APP as App (raiz)
+  participant AS as authStore
+  participant FS as filaStore
+  participant AC as apiClient
+  participant BE as Backend API
+
+  APP->>AS: carregarSessao()
+  AS->>AC: GET /api/sessao/
+  AC->>BE: HTTPS (cookie de sessão, se houver)
+  alt há sessão
+    BE-->>AC: 200 {apelido, tipo, avisoPrivacidadePendente}
+    AC-->>AS: guarda só esses três campos
+    APP->>FS: consultarPerguntaPendente() (fluxo 4c)
+  else sem sessão
+    BE-->>AC: 401
+    AC-->>AS: estaAutenticado = false
+  end
+  Note over APP: Em paralelo, a detecção de campus (fluxo 4d)
+```
 
 ---
 
 ## Nível 4 — Fluxos detalhados
 
 O C4 Model recomenda Nível 4 só onde o código concentra complexidade real —
-não para todo componente. Aqui, dois fluxos passam nesse critério: cada um
-envolve (a) uma restrição externa ao controle da equipe (hardware do
-usuário ou tempo de expiração de um link), (b) uma regra de negócio de
-tratamento de dado sensível (RI09 no check-in; formato-apenas de
-matrícula/SIAPE, sem verificação de identidade, no cadastro — ver L01) e
-(c) mais de um desfecho possível que a interface precisa tratar de forma
-diferente. Os demais fluxos (login, recuperação de senha, filtros,
-avaliação) são majoritariamente request/response linear e já estão bem
-representados pelo padrão genérico da seção anterior.
+não para todo componente. Aqui, quatro fluxos passam nesse critério: cada
+um envolve ao menos dois de (a) uma restrição externa ao controle da equipe
+(hardware do usuário, permissão do navegador ou tempo), (b) uma regra de
+negócio de tratamento de dado sensível (RI09 nas coordenadas;
+formato-apenas de matrícula/SIAPE no cadastro — ver L01) e (c) mais de um
+desfecho possível que a interface precisa tratar de forma diferente. Os
+demais fluxos (login, recuperação de senha, filtros, avaliação, ranking)
+são majoritariamente request/response linear e já estão bem representados
+pelo padrão genérico da seção anterior.
 
 ### 4a — Check-in com confirmação por GPS
 
 Dos componentes do sistema, o check-in (RF11 + RF12) é o que mais justifica
-um detalhamento de Nível 4: envolve permissão do navegador, uma API externa
-ao controle da equipe (Geolocation), uma regra de negócio de descarte
-imediato do dado sensível (RI09) e duas condições de rejeição (fora do raio
-ou fora do horário, além de check-in já feito no dia).
+um detalhamento de Nível 4: envolve o aviso de privacidade, permissão do
+navegador, uma API externa ao controle da equipe (Geolocation), uma regra
+de negócio de descarte imediato do dado sensível (RI09), várias condições
+de rejeição e, na Release 2, os pontos recebidos e a pergunta de saída
+pendente.
 
 ```mermaid
 sequenceDiagram
-  actor U as Comunidade
+  actor U as Usuário
   participant CB as CheckinBotao
   participant GEO as Geolocation API
   participant FS as filaStore
   participant AC as apiClient
   participant BE as Backend API
+  participant GS as gamificacaoStore
 
   U->>CB: Toca em "Fazer check-in"
-  CB->>GEO: getCurrentPosition()
-  alt permissão negada
-    GEO-->>CB: erro de permissão
-    CB-->>U: "check-in não é possível sem permissão" (RF12)
-  else permissão concedida
+  opt avisoPrivacidadePendente (authStore)
+    CB-->>U: AvisoPrivacidade atualizado (RF11)
+    U->>CB: Dá ciência
+    CB->>AC: POST /api/privacidade/aceite/
+    AC->>BE: HTTPS + CSRF
+    BE-->>AC: 204
+  end
+  CB->>GEO: getCurrentPosition(timeout 5 s, idade máxima)
+  alt permissão negada ou leitura fora da RN03
+    GEO-->>CB: erro, tempo esgotado ou precisão baixa
+    CB-->>U: AvisoLocalizacao ou passo a passo para liberar (RF19)
+  else posição aceita
     GEO-->>CB: coordenadas
     CB->>FS: confirmar(campus, refeição, coords)
     FS->>AC: POST /api/checkins/ (coords só no corpo)
-    AC->>BE: HTTPS/JSON
-    alt dentro do raio e do horário, sem check-in hoje
-      BE-->>AC: 201 confirmado
+    AC->>BE: HTTPS/JSON + CSRF
+    alt dentro do raio e do horário, sem check-in nessa refeição
+      BE-->>AC: 201 {checkin, pontos, perguntaDevidaEm}
       AC-->>FS: repassa resultado
-      FS-->>CB: descarta coordenadas da memória (RI09)
+      FS-->>FS: descarta coordenadas (RI09)
+      FS-->>FS: agenda a pergunta de saída pendente para perguntaDevidaEm
+      FS->>GS: registrarPontos(pontos)
+      GS-->>U: PontosAviso "+10 pontos" (RF24.2)
       CB-->>U: exibe confirmação
-    else fora do raio, fora do horário ou já fez check-in hoje
-      BE-->>AC: 422 rejeitado + motivo
+    else fora do raio, fora do horário ou check-in repetido
+      BE-->>AC: 422 + codigo do motivo
       AC-->>FS: repassa resultado
-      FS-->>CB: descarta coordenadas da memória (RI09)
-      CB-->>U: exibe o motivo da rejeição
+      FS-->>FS: descarta coordenadas (RI09)
+      CB-->>U: exibe o motivo (com o horário, se fora do horário)
+    else aviso de privacidade ainda pendente
+      BE-->>AC: 403 aviso_privacidade_pendente
+      AC-->>FS: repassa resultado
+      FS-->>FS: descarta coordenadas (RI09)
+      CB-->>U: mostra o AvisoPrivacidade de novo
     end
   end
 ```
 
 #### Notas do fluxo
 
-- **O descarte das coordenadas (RI09) acontece nos dois desfechos**, sucesso
-  ou rejeição — não é um efeito colateral do caminho feliz, é uma regra que
-  vale sempre, por isso aparece nas duas metades do `alt`.
+- **O aviso de privacidade vem antes do pedido de localização.** O
+  `authStore` já sabe, pela sessão, se há `avisoPrivacidadePendente`; por
+  isso o `CheckinBotao` mostra o aviso antes de acionar o GPS, e não depois
+  de um `403`. O `403` do backend é só a garantia no servidor.
+- **O descarte das coordenadas (RI09) acontece em todos os desfechos**,
+  sucesso ou rejeição — não é um efeito colateral do caminho feliz.
 - **A validação de raio e de horário é feita no backend, não no frontend.**
-  `CheckinBotao` só encaminha as coordenadas; ele não decide se o usuário
-  está dentro do raio, evitando duplicar no cliente uma regra que pertence
-  à API (RNF06) e que depende de parâmetro configurável por campus (Anexo A
-  do Documento de Requisitos).
-- **Um usuário sem permissão de localização nunca chega a enviar a
-  requisição.** O fluxo para no primeiro `alt` com uma mensagem que orienta
-  a conceder permissão, sem contar como tentativa de check-in.
+  `CheckinBotao` só encaminha as coordenadas; o raio de confirmação do RU
+  nem é publicado (ver nota da conta de distância em 3b).
+- **Um usuário sem permissão de localização, ou com leitura fora da RN03,
+  nunca chega a enviar a requisição.** O fluxo para no primeiro `alt` com o
+  `AvisoLocalizacao` (se o navegador ainda pode perguntar) ou com um passo a
+  passo para liberar a localização (se já bloqueou), sem contar como
+  tentativa de check-in (RF19).
+- **Depois do `201`, duas coisas acontecem além da confirmação**: a
+  `gamificacaoStore` recebe o bloco `pontos` e mostra o `PontosAviso`; e a
+  `filaStore` registra que a pergunta de saída ficou pendente, agendando a
+  consulta para `perguntaDevidaEm` (o pop-up em si é o fluxo 4c). O PWA não
+  cria a pergunta: ela já foi registrada no servidor, na mesma transação do
+  check-in, e por isso aparece em qualquer aparelho logado.
 
 ### 4b — Cadastro e confirmação de e-mail
 
@@ -722,9 +873,198 @@ sequenceDiagram
 - **Nenhum dado do formulário é persistido em `localStorage` durante o
   fluxo.** Diferente de `preferenciasStore`, os campos de cadastro (que
   incluem senha) ficam apenas em estado de componente, descartados ao sair
-  da tela — mesmo raciocínio de minimização de dado sensível do RI09,
-  aplicado aqui por analogia, ainda que não exista um RI dedicado à senha
-  digitada em formulário.
+  da tela — mesmo raciocínio de minimização de dado sensível do RI09.
+- **Depois do login (`POST /api/sessao/`), o usuário vai direto para a
+  tela do campus** (`/campus/:campusId`, campus resolvido pela RN04,
+  RF03.4), sem passo adicional.
+
+### 4c — Pergunta de saída da fila
+
+A pergunta de saída (RF21) é o único fluxo em que **o servidor decide
+quando a interface deve falar com o usuário**: a pergunta nasce no
+check-in, vence 15 minutos depois, pode ser repetida uma vez e expira 60
+minutos depois do check-in (Anexo A), valendo para todos os aparelhos em
+que o usuário está logado. O PWA não tem push (RF23 é Backlog), então
+precisa consultar o servidor nos momentos certos e tratar cinco respostas,
+a repetição, o fechamento sem resposta e a expiração.
+
+```mermaid
+sequenceDiagram
+  actor U as Usuário
+  participant APP as App (raiz)
+  participant FS as filaStore
+  participant PS as PerguntaSaidaPopup
+  participant AC as apiClient
+  participant BE as Backend API
+  participant GS as gamificacaoStore
+
+  Note over APP,FS: Gatilhos da consulta: abrir o app, voltar ao primeiro plano, horário de perguntaDevidaEm e, com pergunta não expirada, a cada 2 ou 3 min
+  APP->>FS: consultarPerguntaPendente()
+  FS->>AC: GET /api/fila/pergunta-pendente/
+  AC->>BE: HTTPS (cookie)
+  alt nenhuma pergunta vencida
+    BE-->>AC: 204
+    AC-->>FS: nada a exibir
+  else pergunta vencida
+    BE-->>AC: 200 {perguntaId, tentativa, expiraEm}
+    AC-->>FS: guarda a pergunta pendente
+    FS-->>PS: exibe o pop-up (em qualquer tela)
+    alt escolhe uma das cinco respostas
+      U->>PS: Toca na resposta
+      PS->>FS: responder(perguntaId, resposta)
+      FS->>AC: POST /api/fila/respostas-saida/
+      AC->>BE: HTTPS/JSON + CSRF
+      alt resposta aceita
+        BE-->>AC: 200 {pontos, perguntaDevidaEm}
+        AC-->>FS: repassa resultado
+        FS->>GS: registrarPontos(pontos)
+        GS-->>U: PontosAviso "+15 pontos" (só se total maior que 0)
+        alt "Ainda estou na fila" na 1ª tentativa
+          FS-->>FS: agenda a repetição para o novo perguntaDevidaEm (+10 min)
+        else qualquer outra resposta ou 2ª tentativa
+          FS-->>FS: perguntaDevidaEm nulo, limpa a pergunta
+        end
+        PS-->>U: fecha o pop-up
+      else pergunta expirada ou já encerrada em outro aparelho
+        BE-->>AC: 410
+        AC-->>FS: limpa a pergunta
+        PS-->>U: fecha o pop-up, sem erro
+      end
+    else fecha o pop-up sem responder
+      U->>PS: Fecha
+      PS->>FS: dispensar(perguntaId)
+      FS->>AC: POST /api/fila/perguntas-saida/{id}/dispensa/
+      AC->>BE: HTTPS + CSRF
+      BE-->>AC: 204 (ou 410, se já expirou)
+      AC-->>FS: limpa a pergunta
+    end
+  end
+```
+
+#### Notas do fluxo
+
+- **As cinco respostas (RN07)** são, no contrato,
+  `SAI_ATE_5_MIN`, `SAI_5_A_10_MIN`, `SAI_MAIS_DE_10_MIN`, `AINDA_NA_FILA`
+  e `DESISTI`, com textos na interface como "Saí da fila agora há pouco (até
+  5 min)" e "Desisti de comer no RU". Uma resposta, um toque (RF21).
+- **O PWA nunca compara o próprio relógio com o do servidor.** O pop-up só
+  aparece quando `GET /api/fila/pergunta-pendente/` devolve `200`, e o
+  servidor só devolve pergunta já vencida e ainda não expirada. O
+  `perguntaDevidaEm` serve apenas para o PWA agendar uma consulta no
+  momento certo; a consulta periódica de 2 ou 3 minutos cobre o caso de o
+  agendamento falhar (aba em segundo plano, aparelho dormindo).
+- **A repetição acontece uma única vez**, só depois de "Ainda estou na
+  fila" na primeira tentativa: o `200` traz o novo `perguntaDevidaEm` (+10
+  min, Anexo A) e a `filaStore` agenda a próxima consulta. Na segunda
+  tentativa, qualquer resposta encerra a pergunta e volta com
+  `perguntaDevidaEm: null`.
+- **Pontos só na primeira resposta.** A primeira resposta, qualquer que
+  seja (inclusive a desistência), devolve `pontos.total = 15`; a resposta à
+  repetição volta com `0`, e o `PontosAviso` não aparece (RN09).
+- **Fechar o pop-up sem responder encerra a pergunta no servidor**
+  (`dispensa`), e não só no aparelho, porque a pergunta vale para todos os
+  aparelhos logados (RF21.2). Fechar o pop-up da repetição também encerra.
+- **Expiração é silenciosa.** Depois de 60 minutos do check-in o servidor
+  deixa de devolver a pergunta; um `410` numa resposta ou dispensa
+  (expirada ou já respondida em outro aparelho) só fecha o pop-up, sem
+  mensagem de erro.
+- **Visitante nunca consulta.** A consulta só é feita com
+  `authStore.estaAutenticado`; sem sessão, não há pergunta (RI01).
+
+### 4d — Detecção de campus no aparelho
+
+A detecção de campus (RF19, RF20, ADR 0009) é o fluxo mais frequente que
+usa a localização: roda a cada abertura do app, para visitante e logado.
+Ela combina uma permissão em duas etapas (aviso do Bandejão e pedido do
+navegador), uma leitura de GPS com tempo limite e critérios de qualidade
+(RN03), a comparação com raios publicados pelo backend e a hierarquia da
+RN04 entre escolha manual, campus detectado e campus lembrado — tudo sem
+atrasar a abertura do cardápio (RNF03) e sem que as coordenadas saiam do
+aparelho (RI09).
+
+```mermaid
+sequenceDiagram
+  actor U as Visitante/Usuário
+  participant APP as App (raiz)
+  participant AL as AvisoLocalizacao
+  participant DC as DeteccaoCampusService
+  participant GEO as Geolocation API
+  participant PS as preferenciasStore
+  participant AC as apiClient
+  participant BE as Backend API
+  participant CV as CampusView
+
+  U->>APP: Abre o app (ou volta ao 1º plano após 30 min parado)
+  APP->>PS: campusExibido() pela RN04
+  PS-->>CV: abre já com a escolha manual, o lembrado ou o seletor
+  alt 1º acesso, sem permissão decidida e sem "Agora não"
+    APP->>AL: exibe o aviso do Bandejão (RF19)
+    alt "Agora não"
+      U->>AL: Agora não
+      AL->>PS: guarda "Agora não" (não reaparece a cada abertura)
+    else "Permitir"
+      U->>AL: Permitir
+      AL->>DC: detectar()
+    end
+  else permissão já concedida
+    APP->>DC: detectar()
+  end
+  opt detecção iniciada
+    DC->>AC: GET /api/campi/ (ETag, com cópia no localStorage)
+    AC->>BE: HTTPS
+    BE-->>AC: 200 ou 304 [{id, nome, centro, raioDeteccaoMetros}]
+    AC-->>DC: centros e raios
+    DC->>GEO: getCurrentPosition(timeout 5 s, idade máxima)
+    alt erro, tempo esgotado, precisão ou idade fora da RN03
+      GEO-->>DC: leitura não aceita
+      DC-->>PS: campus não detectado (vale o lembrado ou o seletor)
+    else posição aceita
+      GEO-->>DC: coordenadas
+      DC-->>DC: calcula a distância a cada centro e descarta as coordenadas
+      alt dentro do raio de um campus
+        DC->>PS: campusDetectado = id e limpa a escolha manual anterior
+        alt campus detectado diferente do exibido
+          PS-->>CV: troca de campus
+          CV-->>U: CampusDetectadoAviso "Você está no Darcy Ribeiro · voltar para Gama"
+          opt toca em "voltar" ou "trocar"
+            U->>CV: escolhe outro campus
+            CV->>PS: escolhaManual = id e atualiza o campus lembrado
+          end
+        end
+      else fora do raio de qualquer campus
+        DC-->>PS: campus não detectado (vale o lembrado ou o seletor)
+      end
+    end
+  end
+```
+
+#### Notas do fluxo
+
+- **A tela abre antes da detecção terminar** (RF20.2, RNF03): a
+  `CampusView` aparece com o campus da RN04 e só troca se a detecção apontar
+  outro campus. O usuário nunca espera o GPS para ver o cardápio.
+- **Hierarquia da RN04 no `preferenciasStore`**: (1) a escolha manual feita
+  depois da última detecção, (2) o campus detectado, (3) o campus lembrado,
+  (4) o seletor. Uma nova detecção (abertura do app ou volta ao primeiro
+  plano depois de 30 minutos) limpa a escolha manual anterior. O **campus
+  lembrado é sempre o último escolhido manualmente**: a detecção nunca o
+  substitui.
+- **As coordenadas nunca saem do aparelho.** O backend só fornece centros e
+  raios (`GET /api/campi/`, público e com cache) e depois recebe apenas o
+  identificador do campus nas chamadas de cardápio, avaliações e previsão
+  (ADR 0009, RI09). A distância é calculada no `DeteccaoCampusService`, que
+  precisa de testes próprios (a mesma conta existe no backend, para o
+  check-in).
+- **Leitura ruim equivale a "não detectado"** (RN03): erro de permissão,
+  tempo esgotado (5 s), precisão abaixo da mínima ou posição velha demais
+  levam ao campus lembrado ou ao seletor, sem mensagem de erro.
+- **O "Agora não" não aciona o navegador** e fica guardado no
+  `localStorage`, para o aviso não reaparecer a cada abertura (RF19). O
+  aviso continua acessível em "Usar minha localização", e reaparece no
+  check-in se a permissão for necessária (fluxo 4a).
+- **Os raios ficam em cópia no `localStorage`**, para que a detecção caiba
+  nos 5 segundos mesmo com rede lenta; o `ETag` evita baixar de novo quando
+  nada mudou.
 
 ---
 
@@ -732,15 +1072,37 @@ sequenceDiagram
 
 | Componente | Requisitos atendidos | Nível 4? |
 |---|---|---|
-| `CardapioView` | RF05, RF06, RF07 | — |
+| `CampusView` | RF20, RF03.4, RN04, RN05 | ✅ 4d |
+| `CardapioView` (seção cardápio da `CampusView`) | RF05, RF06, RF07 | — |
+| `FilaView` (seção fila da `CampusView`) / `FilaPrevisao` | RF13, RF21, RF22, L08 | — |
+| `EsperaEstimada` | RF22 | — |
+| `RefeicaoEncerrada` | RN05, RF20.3 | — |
+| `SeletorCampus` / `CampusDetectadoAviso` | RF07.2, RF20.2, RN04 | ✅ 4d |
+| `AvisoExecutivo` | RF20.4, RI08, L11 | — |
+| `AbasSemana` | RF07.1, RF18 | — |
 | `FiltroCardapio` | RF08, RF09 | — |
-| `AvaliacaoWidget` | RF15, RI01, RI10 | — |
+| `AvaliacaoWidget` | RF15, RF15.2, RI01, RI10 | — |
 | `AvaliacoesView` | RF16 | — |
-| `FilaView` / `FilaPrevisao` | RF13, L08 | — |
 | `CheckinBotao` | RF11, RF12, RI03, RI09 | ✅ 4a |
+| `AvisoPrivacidade` | RF11, RNF07.1 | ✅ 4a |
+| `AvisoLocalizacao` | RF19 | ✅ 4d |
+| `DeteccaoCampusService` | RF20, RI09 | ✅ 4d |
+| `PerguntaSaidaPopup` | RF21 | ✅ 4c |
+| `PontosAviso` | RF24.2 | ✅ 4a, 4c |
+| `PatenteIndicador` | RF26.3 | — |
+| `ProgressoView` | RF26, RF27, RF33 | — |
+| `SequenciaSemana` | RF25, RF26.2 | — |
+| `RankingView` | RF27, RF33 | — |
+| `RankingAdesaoToggle` | RF27, RF33 | — |
+| `DistintivoIndicador` | RF33.2, RF15.2 | — |
+| `PosicaoRanking` | RF33.3 | — |
+| `ConviteLogin` | RF05 | — |
+| `BotaoSair` | RF03.3 | — |
 | `CadastroView` | RF01, RI01, RI07, L01 | ✅ 4b |
 | `ConfirmarEmailView` | RF02 | ✅ 4b |
 | Demais Views de Autenticação (Login, Recuperar/Redefinir senha) | RF03, RF04 | — |
-| `authStore` | RF01, RF02, RF03, RNF04 | — |
-| `preferenciasStore` | RF07, RF08, RF09, RNF03 | — |
-| `apiClient` | RNF01, RNF04 | — |
+| `authStore` | RF01, RF02, RF03, RNF04, ADR 0007 | — |
+| `preferenciasStore` | RF07, RF08, RF09, RF19, RN04, RNF03 | ✅ 4d |
+| `filaStore` | RF11, RF13, RF21, RF22, RI09 | ✅ 4a, 4c |
+| `gamificacaoStore` | RF24 a RF27, RF33 | — |
+| `apiClient` | RNF01, RNF04, ADR 0007 | — |
