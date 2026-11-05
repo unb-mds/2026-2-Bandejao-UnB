@@ -19,6 +19,19 @@
 > como serviços de backend testáveis à parte, e não apenas como lógica no
 > Vue. Decisão registrada na ADR 0005
 > (`docs/arquitetura/adr/0005-filtros-de-marcador-e-dieta-no-backend.md`).
+>
+> **Endpoints deste componente** (combinados entre backend e frontend):
+>
+> | Endpoint | Acesso | View |
+> |---|---|---|
+> | `GET /api/cardapio/?campus=&semana=&dia=&refeicao=&marcadores=&dieta=` | Público | `CardapioView` |
+> | `GET /api/campi/` | Público | `CampiView` |
+>
+> No cardápio, `campus` é obrigatório; `semana` e `dia` vêm da semana
+> vigente e do dia corrente quando omitidos; `refeicao` é opcional (sem ela,
+> vale a refeição padrão da RN05); `marcadores` é a lista dos marcadores
+> selecionados, separados por vírgula, e `dieta` é um dos valores de
+> `DietaSelecionada`. Os parâmetros seguem a ADR 0005.
 
 Há dois diagramas: **4a** cardápio filtrado e **4b** lista de campi para a detecção. Cada diagrama tem no máximo 20 elementos e um título próprio, seguindo a skill c4-architecture usada pelo grupo; classes compartilhadas (como `Conta` ou as configurações) aparecem em mais de um diagrama.
 
@@ -103,7 +116,8 @@ classDiagram
     +campus: Campus
     +tipo: str
     +data: date
-    +alergenosIndisponivel: bool
+    +statusLeitura: str
+    +alergenosIndisponivel() bool
   }
   class Categoria {
     +nome: str
@@ -149,7 +163,9 @@ classDiagram
   esconder categorias/linhas inteiras (RF09) e o filtro de marcador só
   precisa então avaliar o que sobrou.
 - **`FiltroMarcadorService.aplicar` recebe `alergenosIndisponivel` como
-  parâmetro** para respeitar o RF08: se a refeição está marcada como
+  parâmetro** (a propriedade derivada de `Refeicao.statusLeitura`, coluna
+  `REFEICAO.status_leitura` do banco, igual à do Nível 4 do Leitor de
+  Cardápio) para respeitar o RF08: se a refeição está marcada como
   "informação de alérgenos indisponível" (RF06/L03), o filtro fica
   desativado para ela — o serviço não aplica sinalização nenhuma e
   `CardapioFiltrado.filtroMarcadorDesativado` fica `true`, para a interface

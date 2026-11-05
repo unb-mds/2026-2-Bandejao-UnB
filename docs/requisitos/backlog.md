@@ -53,18 +53,18 @@ Itens extras têm o sufixo `E` (`BE-E1`, `FE-E1`…). O número do extra segue a
 
 ---
 
-## 2. Antes de começar: divergências entre os documentos
+## 2. Divergências entre os documentos (resolvidas em 05/11)
 
-A conferência encontrou pontos em que **dois documentos dizem coisas diferentes**. Se ninguém decidir, cada agente vai seguir o documento que recebeu e o código sai incoerente. Todos precisam de decisão **até sexta, 06/11**, porque travam o BD-01 e o BE-03.
+A conferência encontrou pontos em que **dois documentos diziam coisas diferentes**. Todos foram resolvidos seguindo as recomendações abaixo, e os documentos dos dois lados foram atualizados (DOC-01). A tabela fica como registro de onde estava cada contradição.
 
-| # | Divergência | Documentos | Recomendação | Item |
-|---|---|---|---|---|
-| **X1** | **Tabela `ContadorAlerta`** (limite de 3 alertas por dia e intervalo de 6 h) existe no Leitor e na ADR 0006, mas **não existe no C4 do banco**. Os **tipos de alerta** também diferem: `LEGENDA_INVALIDA`, `ASSOCIACAO_FALHOU`, `FALHA_LEITURA_PDF` (Leitor, ADR 0006) contra `icone_desconhecido`, `leitura_falhou`, `alergenos_indisponiveis` (banco) | `backend/c4-nivel-4-leitor-cardapio.md`, ADR 0006, `banco-de-dados/C4-nivel-4-…` | Acrescentar `CONTADOR_ALERTA` ao C4 do banco e usar os três tipos da ADR 0006 nos dois lugares | DOC-01 |
-| **X2** | **Refeição sem informação de marcadores**: o Leitor e a Exposição usam o campo `alergenosIndisponivel` em `Refeicao`; o banco usa `REFEICAO.status_leitura` (`ok`, `alergenos_indisponiveis`, `leitura_falhou`) | Leitor, Exposição, banco | Manter `status_leitura` no banco e expor `alergenosIndisponivel` como propriedade derivada no model. Registrar nos dois Níveis 4 | DOC-01 |
-| **X3** | **Ocultar avaliação** é uma operação de moderação na ADR 0004 e no RNF08, mas **não há coluna para isso** no C4 do banco nem regra no Nível 4 da Avaliação | ADR 0004, RNF08, banco, `c4-nivel-4-avaliacao.md` | Acrescentar `AVALIACAO.oculta` (Boolean, default falso). O `AvaliacaoPublicaMapper` e o resumo do dia ignoram avaliações ocultas | DOC-01 |
-| **X4** | **Rota do cardápio**: a ADR 0005 define `GET /api/cardapio/` com campus, semana, dia, refeição, marcadores e dieta como parâmetros; o C4 do front desenha `GET /api/cardapio/{campus}/{semana}/` | ADR 0005, C4 do front (fluxo de comunicação) | Seguir a ADR: `GET /api/cardapio/?campus=&semana=&dia=&refeicao=&marcadores=&dieta=`. Corrigir o diagrama do front | DOC-01, BE-03 |
-| **X5** | **"Quem sou eu"**: a ADR 0007 diz que `GET /api/sessao/` devolve só apelido e tipo; o Nível 4 do Cadastro e o C4 do front incluem `avisoPrivacidadePendente`. A ADR 0007 também diz que a **duração da sessão (14 dias)** vai para o Anexo A, mas ela não está lá | ADR 0007, `c4-nivel-4-cadastro-autenticacao.md`, Anexo A | Seguir o Nível 4 (três campos). Atualizar a ADR 0007 e acrescentar a duração da sessão ao Anexo A | DOC-01 |
-| **X6** | **Pontos do semestre**: o C4 Níveis 1 e 2 diz que a zeragem semestral "ainda está em decisão"; o Nível 4 da Gamificação e o banco já decidiram (uma linha por conta, campus e semestre, sem rotina) | `c4-niveis-1-2.md`, `c4-nivel-4-gamificacao.md`, banco | Seguir o Nível 4. Atualizar a nota dos Níveis 1 e 2 | DOC-01 |
+| # | Divergência | Decisão aplicada | Documentos atualizados |
+|---|---|---|---|
+| **X1** | Tabela `ContadorAlerta` (limite de 3 alertas por dia e intervalo de 6 h) existia no Leitor e na ADR 0006, mas não no C4 do banco. Os tipos de alerta tinham nomes diferentes | Nova tabela `CONTADOR_ALERTA` (campus, tipo, data, quantidade enviada, último envio; UNIQUE por campus, tipo e data). Os tipos são os da ADR 0006 em todo o sistema: `LEGENDA_INVALIDA`, `ASSOCIACAO_FALHOU`, `FALHA_LEITURA_PDF` no `TipoAlerta` e `legenda_invalida`, `associacao_falhou`, `falha_leitura_pdf` no banco. Cada falha também fica em `ALERTA_LEITURA_CARDAPIO` | C4 Nível 3 e Nível 4 do banco, Nível 4 do Leitor, ADR 0006 |
+| **X2** | O Leitor e a Exposição usavam o campo `alergenosIndisponivel` em `Refeicao`; o banco usava `REFEICAO.status_leitura` | A coluna é `status_leitura` (`ok`, `alergenos_indisponiveis`, `leitura_falhou`). `alergenosIndisponivel()` é uma propriedade derivada do model, não coluna | Nível 4 do banco, Níveis 4 do Leitor e da Exposição |
+| **X3** | Ocultar avaliação era operação de moderação (ADR 0004, RNF08), sem coluna no banco nem regra na Avaliação | Nova coluna `AVALIACAO.oculta` (Boolean, default falso). Avaliação oculta não aparece nos comentários nem entra na nota média, na quantidade e no histórico; continua gravada, com o vínculo com a conta | Nível 4 do banco, Nível 4 da Avaliação, ADR 0004 |
+| **X4** | A ADR 0005 definia `GET /api/cardapio/` com parâmetros; o C4 do front desenhava `GET /api/cardapio/{campus}/{semana}/` | `GET /api/cardapio/?campus=&semana=&dia=&refeicao=&marcadores=&dieta=`, conforme a ADR 0005. O cache do `cardapioStore` é por campus, semana, dia, refeição e filtros | C4 do front, Nível 4 da Exposição (tabela de endpoints) |
+| **X5** | A ADR 0007 dizia que `GET /api/sessao/` devolve só apelido e tipo; o Nível 4 do Cadastro e o C4 do front incluíam `avisoPrivacidadePendente`. A duração da sessão não estava no Anexo A | `GET /api/sessao/` devolve `{apelido, tipo, avisoPrivacidadePendente}`. Novo parâmetro "Duração da sessão" (14 dias, renovada a cada uso) no Anexo A | ADR 0007, Documento de Requisitos (Anexo A e referências) |
+| **X6** | O C4 Níveis 1 e 2 dizia que a zeragem dos pontos do semestre "ainda está em decisão" | Sem rotina de zeragem: uma linha de `PONTOS_SEMESTRE_CAMPUS` por conta, campus e semestre, como no Nível 4 da Gamificação e no banco | C4 Níveis 1 e 2 |
 
 Também ficam para o kickoff: o **destinatário dos alertas do leitor** (ponto em aberto da ADR 0006) e as decisões D1 a D5 do documento de prioridades.
 
@@ -234,7 +234,7 @@ Também ficam para o kickoff: o **destinatário dos alertas do leitor** (ponto e
 
 | ID | Item | Prazo |
 |---|---|---|
-| **DOC-01** | **Decidir e registrar as divergências X1 a X6** (seção 2) e atualizar os documentos afetados: C4 do banco (X1, X2, X3), Níveis 4 do Leitor, da Exposição e da Avaliação (X1, X2, X3), C4 do front (X4), ADR 0007 e Anexo A (X5), C4 Níveis 1 e 2 (X6) | **Sex 06/11** |
+| **DOC-01** | ~~Decidir e registrar as divergências X1 a X6 (seção 2) e atualizar os documentos afetados~~ **Concluído em 05/11**: C4 do banco (X1, X2, X3), Níveis 4 do Leitor, da Exposição e da Avaliação (X1, X2, X3), ADRs 0004 e 0006 (X1, X3), C4 do front (X4), ADR 0007 e Anexo A (X5), C4 Níveis 1 e 2 (X6) | Qui 05/11 |
 | **DOC-02** | Registrar as decisões do kickoff: mínimo de dias da previsão, seção de trabalhos futuros, regras de pontos sem a pergunta de saída, datas do semestre 2026.2, hospedagem, provedor de SMTP e **destinatário dos alertas do leitor** (ADR 0006) | Sex 06/11 |
 | **DOC-03** | **Texto do aviso de privacidade da R2** (LGPD): dados coletados e finalidades, citando fila, localização, gamificação e ranking (sem a Bandeja). Define a `versaoAtual` | Sáb 07/11 |
 | **DOC-04** | Corrigir os links do banco (menu, README, Nível 3 fora da pasta `banco-de-dados/`), apagar ou substituir o `CONTEXT.md` antigo da raiz, substituir o `docs/requisitos/backlog.md` por este backlog e criar as issues no GitHub | Sáb 07/11 |
@@ -250,8 +250,8 @@ Também ficam para o kickoff: o **destinatário dos alertas do leitor** (ponto e
 
 | Dia | BD | BE | FE | QA / DOC |
 |---|---|---|---|---|
-| Qui 05/11 | Kickoff, BD-01 | Kickoff, BE-01, BE-02, BE-04 | Kickoff, FE-01 | Kickoff, DOC-01, DOC-02 |
-| Sex 06/11 | BD-01, BD-02, BD-05 | BE-03, BE-05, BE-04 | FE-01, FE-02 | **DOC-01 decidido**, QA-01, QA-02 |
+| Qui 05/11 | Kickoff, BD-01 | Kickoff, BE-01, BE-02, BE-04 | Kickoff, FE-01 | Kickoff, DOC-01 (concluído), DOC-02 |
+| Sex 06/11 | BD-01, BD-02, BD-05 | BE-03, BE-05, BE-04 | FE-01, FE-02 | DOC-02, QA-01, QA-02 |
 | Sáb 07/11 | BD-03, BD-04, BD-05 (**M1**) | BE-06, BE-03 (**M1**) | FE-03 | DOC-03, DOC-04 |
 | Dom 08/11 | BD-05 | BE-07, BE-08, **decisão BE-04** | FE-03, FE-04 | QA-03 |
 | Seg 09/11 | BD-06, BD-05 | BE-09 | FE-05 | QA-02, DOC-05 |

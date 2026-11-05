@@ -77,6 +77,7 @@ classDiagram
     +criadaEm: datetime
     +editadaEm: datetime
     +pontosConcedidosEm: datetime
+    +oculta: bool
   }
   class Conta {
     +id: int
@@ -205,6 +206,7 @@ classDiagram
     +criadaEm: datetime
     +editadaEm: datetime
     +pontosConcedidosEm: datetime
+    +oculta: bool
   }
   class ResumoAvaliacoes {
     +media: float
@@ -322,6 +324,16 @@ classDiagram
   continua inteiro no banco. Por isso a exclusão de conta
   (`RemoverContaCommand`, no Cadastro/Autenticação) só marca a conta como
   `REMOVIDO`, sem apagá-la.
+- **Avaliação oculta pela moderação (RNF08, ADR 0004).** A equipe oculta
+  uma avaliação por acesso direto ao banco, marcando `Avaliacao.oculta`
+  (coluna `AVALIACAO.oculta`, default falso; decisão tomada com o time de
+  banco de dados). As três consultas públicas do `AvaliacaoRepository`
+  (`listarPorRefeicao`, `mediaEQuantidade` e `resumosDoDia`) e o histórico
+  ignoram as avaliações ocultas: elas não aparecem nos comentários nem
+  entram na nota média e na quantidade. A avaliação continua gravada, com o
+  vínculo com a conta, para a rastreabilidade (RNF08). Se o autor tentar
+  avaliar de novo a mesma refeição, o upsert edita a avaliação oculta, que
+  continua oculta: só a equipe desfaz a ocultação.
 - **`HistoricoService` não tem nenhuma lógica de escrita nem de filtro**
   (RF08/RF09 não se aplicam ao histórico) — é deliberadamente mais simples
   que `CardapioQueryService` (Exposição do Cardápio): RF16 pede consulta

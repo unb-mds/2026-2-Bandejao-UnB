@@ -295,10 +295,13 @@ com limite de avisos (ADR 0006) [E-mail]"| equipe
   a exclusão de cadastro pendente expirado (RF02.3) e a remoção do vínculo
   com a conta dos registros de fila após 4 semanas (RNF07.3). Na
   gamificação, a quebra da sequência é avaliada na consulta, sem tarefa
-  agendada. O ranking é semestral e separado por campus (RN12): se os
-  pontos do semestre serão zerados por rotina ou na primeira gravação do
-  semestre letivo ainda está em decisão entre as duplas (recomendação: sem
-  rotina). O fechamento do semestre, que grava a posição final e concede a
+  agendada. O ranking é semestral e separado por campus (RN12), e os
+  pontos do semestre **não são zerados por rotina**: cada conta tem uma linha
+  de pontos por campus e semestre (`PONTOS_SEMESTRE_CAMPUS`), criada na
+  primeira contribuição do semestre letivo naquele campus, e o semestre de
+  cada ponto vem das datas de término do Anexo A (decisão das duplas de
+  backend e de banco de dados; ver o Nível 4 da Gamificação e o Nível 4 do
+  banco de dados). O fechamento do semestre, que grava a posição final e concede a
   Bandeja de Ouro (RN13), é uma tarefa desse mesmo agendador: roda no dia
   seguinte à data de término do semestre letivo configurada a partir do
   calendário acadêmico (Anexo A).

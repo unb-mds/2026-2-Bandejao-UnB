@@ -48,6 +48,7 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 - Restaurante Universitário da UnB. *Cardápio semanal — Campus Gama, 21/9 a 27/9/2026* (exemplo do arquivo de cardápio lido pelo sistema).
 - ADR 0001 — Escolha da stack de backend (`docs/arquitetura/adr/0001-escolha-stack-backend.md`).
 - ADR 0002 — Matrícula e apelido extraídos do e-mail institucional (`docs/arquitetura/adr/0002-matricula-apelido-extraidos-do-email.md`).
+- ADR 0007 — Sessão autenticada por cookie HttpOnly (`docs/arquitetura/adr/0007-sessao-autenticada-por-cookie-httponly.md`).
 - ADR 0009 — Detecção de campus feita no aparelho (`docs/arquitetura/adr/0009-deteccao-de-campus-no-aparelho.md`).
 - ADR 0010 — Nível de fila calculado por chegadas, com espera estimada por saída da fila (`docs/arquitetura/adr/0010-nivel-por-chegadas-com-espera-estimada.md`).
 - ADR 0011 — Contadores de gamificação mantidos além da janela de retenção (`docs/arquitetura/adr/0011-contadores-de-gamificacao-alem-da-janela-de-retencao.md`).
@@ -788,6 +789,7 @@ Valores ajustáveis pela equipe sem alterar os requisitos.
 | Validade do link de redefinição de senha | 1 hora | RF04.2 |
 | Limite de solicitações de redefinição | 3 por hora por matrícula/SIAPE | RF04.1 |
 | Bloqueio de login | 5 tentativas em 10 minutos, bloqueio de 10 minutos | RF03.2 |
+| Duração da sessão | 14 dias, renovada a cada uso; encerrada antes pelo "Sair" (RF03.3) ou pela redefinição de senha (RF04.2) | RF03.1, RF03.3 (ADR 0007) |
 | Janela de validação do prefixo da matrícula de estudante | Dinâmica: de `101` (2010, 1º semestre) até o código do semestre corrente do sistema (ex.: `262` no 2º semestre de 2026), recalculada automaticamente a cada semestre | RN01 (RF01.3) |
 | Pontos por check-in confirmado | 10 pontos | RN09 (RF24.1) |
 | Pontos por resposta à pergunta de saída da fila | 15 pontos, uma vez por pergunta | RN09 (RF24.1) |

@@ -69,9 +69,11 @@ caminho principal.
   automação da moderação é a oportunidade natural de introduzir um registro.
 - Para que a moderação por banco tenha efeito, a API precisa **respeitar o
   estado alterado**: por exemplo, uma avaliação oculta não pode ser devolvida
-  pelo endpoint público, e uma conta suspensa não pode autenticar. Os models
-  precisam de campos que representem esses estados, e a equipe deve defini-los
-  ao implementar os apps de avaliação e de cadastro.
+  pelo endpoint público, e uma conta suspensa não pode autenticar. Os campos
+  que representam esses estados estão no Nível 4 do banco de dados:
+  `AVALIACAO.oculta` (avaliação oculta não aparece nos comentários nem entra
+  na nota média e na quantidade; ver o Nível 4 da Avaliação) e
+  `USUARIO.status` (`suspenso` e `removido` não autenticam; ver a ADR 0007).
 - SQLite em desenvolvimento e MySQL em produção (ADR 0001) significam que os
   procedimentos manuais precisam ser testados no banco de produção, não só no
   local.

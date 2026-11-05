@@ -146,7 +146,8 @@ classDiagram
     +campus: Campus
     +tipo: str
     +data: date
-    +alergenosIndisponivel: bool
+    +statusLeitura: str
+    +alergenosIndisponivel() bool
   }
   class Categoria {
     +nome: str
@@ -171,6 +172,7 @@ classDiagram
     FALHA_LEITURA_PDF
   }
   class ContadorAlerta {
+    <<tabela CONTADOR_ALERTA>>
     +campus: Campus
     +tipo: TipoAlerta
     +data: date
@@ -215,6 +217,20 @@ classDiagram
   app Cardápio** (não deste módulo) — aparecem aqui só como o destino da
   persistência do `CardapioRepository`, para deixar explícito o que o Leitor
   de Cardápio grava, sem redefinir o schema completo do app.
+- **`Refeicao.statusLeitura` é a coluna `REFEICAO.status_leitura` do banco**
+  (`ok`, `alergenos_indisponiveis` ou `leitura_falhou`).
+  `CardapioRepository.marcarAlergenosIndisponivel` grava
+  `alergenos_indisponiveis`, e `alergenosIndisponivel()` é uma propriedade
+  derivada do model, verdadeira nesse caso; ela não é coluna. É a mesma
+  propriedade lida pela Exposição do Cardápio para desativar o filtro de
+  marcadores (RF08). Decisão tomada com o time de banco de dados.
+- **Cada alerta é gravado em `ALERTA_LEITURA_CARDAPIO`** por
+  `registrarAlerta`, para a equipe tratar (campo `resolvido`, ADR 0004), e o
+  limite de e-mails é controlado pela tabela `CONTADOR_ALERTA`, que é o
+  `ContadorAlerta` deste diagrama (uma linha por campus, tipo e dia). No
+  banco, os valores de `TipoAlerta` ficam em minúsculas:
+  `legenda_invalida`, `associacao_falhou` e `falha_leitura_pdf`. Ver o Nível 4
+  do banco de dados.
 
 ## Notas gerais
 
