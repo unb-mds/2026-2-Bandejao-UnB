@@ -38,6 +38,7 @@ erDiagram
     CAMPUS ||--o{ TENTATIVA_CHECKIN : recebe
     CAMPUS ||--o{ PONTOS_SEMESTRE_CAMPUS : classifica
     CAMPUS ||--o{ ALERTA_LEITURA_CARDAPIO : gera
+    CAMPUS ||--o{ CONTADOR_ALERTA : limita_avisos
 
     REFEICAO ||--o{ CATEGORIA : contem
     REFEICAO ||--o{ AVALIACAO : recebe
@@ -65,7 +66,7 @@ erDiagram
   `PRATO`. `PRATO` só existe para exibição e para os filtros (RF08, RF09).
 - **`CHECKIN`, `TENTATIVA_CHECKIN`, `PERGUNTA_SAIDA`, `RESPOSTA_SAIDA`,
   `PONTUACAO_USUARIO` e `PONTOS_SEMESTRE_CAMPUS` são Release 2, e
-  `ALERTA_LEITURA_CARDAPIO` é do módulo Leitor de Cardápio (ADR 0003)** —
+  `ALERTA_LEITURA_CARDAPIO` e `CONTADOR_ALERTA` são do módulo Leitor de Cardápio (ADR 0003)** —
   incluídos aqui porque já fazem parte do modelo de dados em construção; a
   Release 2 é a entrega final.
 - **`CHECKIN` e `TENTATIVA_CHECKIN` são tabelas separadas** (decisão 2): a
@@ -80,6 +81,12 @@ erDiagram
 - **Gamificação (ADR 0011):** só contadores agregados ficam ligados à conta:
   `PONTUACAO_USUARIO` (um por conta) e `PONTOS_SEMESTRE_CAMPUS` (um por conta,
   campus e semestre). Não há histórico de pontos.
+- **Alertas do Leitor de Cardápio (ADR 0006):** `ALERTA_LEITURA_CARDAPIO`
+  registra cada falha de leitura, para a equipe tratar; `CONTADOR_ALERTA`
+  guarda, por campus, tipo de falha e dia, quantos avisos por e-mail já saíram,
+  para respeitar o limite de 3 por dia com 6 horas de intervalo. Os dois usam
+  os mesmos tipos de falha do `TipoAlerta` do Leitor: `legenda_invalida`,
+  `associacao_falhou` e `falha_leitura_pdf`.
 - **`TOKEN` generaliza os links de uso único** de confirmação de e-mail (RF02)
   e de redefinição de senha (RF04): mesma estrutura, campo `tipo` diferencia o
   uso. Ver o [Nível 4](C4-nivel-4-banco-de-dados-bandejao.md) para os campos.
