@@ -29,6 +29,7 @@
   - [0006 — Alerta de falha do leitor por e-mail](arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md)
   - [0007 — Sessão autenticada por cookie HttpOnly](arquitetura/adr/0007-sessao-autenticada-por-cookie-httponly.md)
   - [0008 — Matrícula/SIAPE em texto claro](arquitetura/adr/0008-matricula-siape-em-texto-claro.md)
+  - [0012 — Hospedagem e serviço de e-mail](arquitetura/adr/0012-hospedagem-e-servico-de-email.md)
 
 - **Gestão do projeto**
   - [Atas de reunião](atas-reunioes/README.md)
