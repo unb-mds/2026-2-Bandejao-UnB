@@ -650,7 +650,7 @@ O sistema deve tratar como dados pessoais a matrícula/SIAPE, o e-mail, o apelid
 
 #### RNF08 — Rastreabilidade e moderação
 
-Toda avaliação deve manter vínculo permanente com a conta, o apelido e a matrícula/SIAPE de quem a escreveu, de modo que a equipe possa identificar o autor de uma avaliação problemática por consulta administrativa manual. A moderação (ocultar avaliações, suspender contas, tratar matrículas contestadas) é executada diretamente pela equipe; não há tela administrativa no escopo. O site deve divulgar um canal de contato para reclamações.
+Toda avaliação deve manter vínculo permanente com a conta, o apelido e a matrícula/SIAPE de quem a escreveu, de modo que a equipe possa identificar o autor de uma avaliação problemática por consulta administrativa manual. A moderação (ocultar avaliações, suspender contas, tratar matrículas contestadas) é executada diretamente pela equipe; não há tela administrativa no escopo. O site deve divulgar um canal de contato para reclamações, que é o endereço `equipe@bandejaounb.com.br` (ADR 0012).
 
 **Justificativa:** como a matrícula/SIAPE não é validada (L01), a rastreabilidade posterior é o principal instrumento de responsabilização por uso indevido.
 

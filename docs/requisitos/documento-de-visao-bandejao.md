@@ -193,7 +193,7 @@ A descrição de cada parte interessada está na Seção 3.2.
 - **Critérios de sucesso:** entregar um MVP funcional e bem documentado, com os filtros de marcadores e de dieta e a apresentação refinada do cardápio operando nele, e manter o sistema no ar após o fim da disciplina.
 - **Envolvimento:** execução direta do projeto.
 - **Entregas:** Documento de Requisitos de Software, Documento de Visão, MVP funcional (entregue) e Release 2 (entrega final).
-- **Problemas/comentários:** desenvolver o software no tempo estabelecido; inexperiência da equipe com algumas das linguagens de programação escolhidas; a intenção de manter o sistema no ar após a disciplina ainda não tem responsáveis, custo e hospedagem definidos (4.3 e 4.4).
+- **Problemas/comentários:** desenvolver o software no tempo estabelecido; inexperiência da equipe com algumas das linguagens de programação escolhidas; manter o sistema no ar após a disciplina, com a própria equipe responsável pela manutenção e pela correção de falhas, na hospedagem e com o serviço de e-mail já definidos (4.3 e 4.4).
 
 **Orientadora**
 - **Representante:** Profa. Carla Silva Rocha Aguiar.
@@ -284,11 +284,11 @@ O sistema se comporta "como uma espécie de porta": o visitante pode consultar o
 - **Regra de negócio (Release 2):** a gamificação recompensa o ato de contribuir, não o conteúdo: os pontos não dependem da resposta à pergunta de saída da fila, da nota, do comentário, do horário do check-in nem do nível da fila, e só o check-in confirmado por GPS pontua. Os contadores de gamificação ficam ligados à conta por mais tempo que a janela de 4 semanas dos registros de fila (ADR 0011).
 - **Dependência (Release 2):** permissão de localização concedida pelo usuário ao navegador. Sem ela, o campus não é detectado (valem o campus lembrado ou a escolha manual) e o check-in não é possível.
 - **Suposição (operação):** a moderação de avaliações e de contas é manual no início, feita diretamente pela equipe, sem tela administrativa. Há a intenção de automatizá-la após o fim da disciplina.
-- **Suposição (continuidade):** há a intenção de manter o sistema no ar após o fim da disciplina. Responsáveis, custo e hospedagem ainda não foram definidos (4.4).
+- **Suposição (continuidade):** há a intenção de manter o sistema no ar após o fim da disciplina, para ver se a comunidade acadêmica o adota no dia a dia, com correções eventuais de falhas. A própria equipe continua responsável pela manutenção, na hospedagem e com o serviço de e-mail definidos em 4.4.
 
 ### 4.4 Custo e precificação
 
-O Bandejão é um projeto acadêmico da disciplina de MDS, sem indicação de fins comerciais. Há a intenção de manter o sistema no ar após o fim da disciplina, mas custo, hospedagem e responsáveis pela manutenção ainda não foram definidos (a definir).
+O Bandejão é um projeto acadêmico da disciplina de MDS, sem indicação de fins comerciais. Há a intenção de manter o sistema no ar após o fim da disciplina. O sistema fica hospedado em uma VPS da Hostinger, no domínio `bandejaounb.com.br`, e os e-mails automáticos são enviados pelo Brevo, inicialmente no plano gratuito (ADR 0012, `docs/arquitetura/adr/0012-hospedagem-e-servico-de-email.md`). O custo recorrente se limita à VPS e ao domínio. Após a disciplina, a própria equipe continua responsável pela manutenção e pela correção de falhas; quem tem acesso a cada conta (Hostinger, Brevo e a conta da equipe, `equipe.bandejao@gmail.com`) fica registrado nas instruções de deploy.
 
 ### 4.5 Licenciamento e instalação
 
@@ -435,11 +435,11 @@ Dois recursos da versão anterior deste documento foram retirados: o "login vali
 
 ### 9.1 Padrões aplicáveis
 
-O tratamento dos dados pessoais (matrícula/SIAPE, e-mail e apelido e, na Release 2, os registros de check-in e de saída da fila ligados à conta e os contadores de gamificação) deve observar a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), com aviso de privacidade no cadastro, atualizado na Release 2 para cobrir a estimativa da fila, o uso da localização, a gamificação e o ranking (RNF07). O site deve divulgar um canal de contato para reclamações (RNF08). A Resolução nº 002/2024, que regula o funcionamento do RU, é referência do domínio (1.4). Demais padrões não foram decididos nesta fase.
+O tratamento dos dados pessoais (matrícula/SIAPE, e-mail e apelido e, na Release 2, os registros de check-in e de saída da fila ligados à conta e os contadores de gamificação) deve observar a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), com aviso de privacidade no cadastro, atualizado na Release 2 para cobrir a estimativa da fila, o uso da localização, a gamificação e o ranking (RNF07). O site deve divulgar um canal de contato para reclamações (RNF08), que é o endereço `equipe@bandejaounb.com.br` (ADR 0012). O site também informa que não é um site oficial da UnB nem do RU: é feito pela comunidade acadêmica para a própria comunidade e usa dados públicos e oficiais, como o PDF do cardápio publicado pelo RU. A Resolução nº 002/2024, que regula o funcionamento do RU, é referência do domínio (1.4). Demais padrões não foram decididos nesta fase.
 
 ### 9.2 Requisitos de sistema
 
-O requisito de sistema definido é a entrega como PWA, que exige navegador compatível (instalação na tela inicial, service workers), em desktop e dispositivos móveis (RNF05). Na Release 2, o navegador deve oferecer geolocalização, com permissão do usuário. O backend é em Python, com Django REST Framework para construir a API; o banco de dados é SQLite em desenvolvimento e MySQL em produção (ver ADR 0001, `docs/arquitetura/adr/0001-escolha-stack-backend.md`). Hospedagem ainda a definir.
+O requisito de sistema definido é a entrega como PWA, que exige navegador compatível (instalação na tela inicial, service workers), em desktop e dispositivos móveis (RNF05). Na Release 2, o navegador deve oferecer geolocalização, com permissão do usuário. O backend é em Python, com Django REST Framework para construir a API; o banco de dados é SQLite em desenvolvimento e MySQL em produção (ver ADR 0001, `docs/arquitetura/adr/0001-escolha-stack-backend.md`). A hospedagem é uma VPS da Hostinger com Docker Compose, em que o Caddy serve o PWA e a API sob o mesmo domínio, com HTTPS, e o cron do sistema operacional roda as tarefas periódicas; o envio de e-mails é feito pelo Brevo, via SMTP (ADR 0012).
 
 ### 9.3 Requisitos de desempenho
 
