@@ -29,7 +29,7 @@ A matrícula/SIAPE é armazenada **em texto claro**, na coluna `USUARIO.matricul
 - **API:** nenhum serializer público inclui `matricula_siape` ou `email_institucional` (RI10). Há teste automatizado que verifica isso nas respostas de avaliação, histórico e sessão.
 - **Logs:** matrícula/SIAPE e senha não são gravadas em log de aplicação nem de acesso. As rotas de cadastro, login, recuperação e reenvio não registram o corpo da requisição.
 - **Backups:** mesmo nível de acesso restrito do banco de produção.
-- **Transporte:** HTTPS em toda comunicação (RNF04), e conexão da aplicação com o banco criptografada quando a hospedagem oferecer.
+- **Transporte:** HTTPS em toda comunicação (RNF04). Na VPS da Hostinger (ADR 0012), a conexão da aplicação com o banco não sai do servidor, e a porta do banco não é exposta à internet; o acesso da equipe é feito por túnel SSH, que já é criptografado.
 
 O campo `identificadorCifrado` do Nível 4 de Cadastro/Autenticação passa a se chamar `matriculaSiape`, igual ao dicionário de dados.
 
@@ -45,7 +45,7 @@ O campo `identificadorCifrado` do Nível 4 de Cadastro/Autenticação passa a se
 
 - **Criptografia simétrica com índice cego (HMAC):** protege contra vazamento do banco sem as chaves e mantém unicidade e busca. Descartada por ora pelo custo de implementar e operar duas chaves. É o caminho natural de evolução.
 - **Hash irreversível (como a senha):** mantém unicidade e busca, mas impede recuperar a matrícula a partir do apelido. Descartada por violar o RNF07 e a ADR 0004.
-- **Criptografia de disco ou de banco pela hospedagem:** complementar, não substitui o controle de acesso. Pode ser adotada se a hospedagem oferecer sem custo (SP-02).
+- **Criptografia de disco ou de banco pela hospedagem:** complementar, não substitui o controle de acesso. Pode ser adotada se a hospedagem oferecer sem custo (SP-02). Não foi adotada na VPS da Hostinger (ADR 0012) por ora.
 
 ## Relacionadas
 

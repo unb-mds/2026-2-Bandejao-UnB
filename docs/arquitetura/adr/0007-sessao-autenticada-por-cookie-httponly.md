@@ -27,14 +27,14 @@ A autenticação da API usa a **sessão do Django em cookie**, e não token.
 - **`authStore`** não guarda token. Ao abrir o app, ele chama `GET /api/sessao/` para saber se há sessão e guarda só o apelido, o tipo de usuário e `avisoPrivacidadePendente`.
 - **Redefinição de senha encerra todas as sessões** da conta (RF04). O Django já faz isso ao trocar a senha, porque cada sessão guarda um hash derivado da senha e deixa de valer quando ela muda.
 - **Conta suspensa ou removida** (ADR 0004) é mapeada para `is_active = False`. Com isso, o login é recusado e as sessões já abertas deixam de autenticar na próxima requisição.
-- **PWA e API no mesmo domínio** (por exemplo, `bandejao.exemplo/` e `bandejao.exemplo/api/`), para o cookie `SameSite` funcionar sem CORS com credenciais. É requisito para a escolha de hospedagem (SP-02).
+- **PWA e API no mesmo domínio** (`bandejaounb.com.br/` e `bandejaounb.com.br/api/`), para o cookie `SameSite` funcionar sem CORS com credenciais. Era requisito para a escolha de hospedagem (SP-02) e é atendido pela VPS da Hostinger, em que o Caddy serve o PWA e encaminha `/api/` ao backend (ADR 0012).
 
 ## Consequências
 
 - A sessão sobrevive a recargas e à reabertura do PWA, sem expor credencial a JavaScript.
 - Não é preciso implementar emissão, renovação nem revogação de token: o Django já cobre isso, o que é importante para uma equipe iniciante com prazo curto.
 - Surge a necessidade de tratar CSRF no frontend, concentrada no `apiClient`.
-- A hospedagem precisa servir o PWA e a API sob o mesmo domínio. Se não der, será preciso configurar CORS com `credentials` e `SameSite=None`, o que é mais frágil, e esta ADR deve ser revista.
+- A hospedagem precisa servir o PWA e a API sob o mesmo domínio, o que a VPS da Hostinger atende (ADR 0012). Se em uma futura troca de hospedagem isso não for possível, será preciso configurar CORS com `credentials` e `SameSite=None`, o que é mais frágil, e esta ADR deve ser revista.
 - Sessões ficam no banco e aumentam uma tabela. É preciso rodar `clearsessions` periodicamente, no mesmo agendador do leitor de cardápio (ADR 0003).
 - O C4 do frontend (nota sobre `authStore` e tabela de stores) e o Nível 4 de Cadastro/Autenticação (`SessaoView`, `LoginService`) foram atualizados para esta decisão.
 - Fica criada a história de **logout** (US-03.3), que os requisitos não previam.

@@ -211,8 +211,8 @@ classDiagram
   total depois do 3º e-mail. Decisão registrada na ADR 0006
   (`docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md`), que compara o
   e-mail com log passivo e consulta manual ao banco. O e-mail de destino
-  desses avisos ainda não foi definido — fica pendente, como registrado na
-  própria ADR.
+  desses avisos é `equipe@bandejaounb.com.br`, configurável por variável de
+  ambiente (ADR 0012).
 - **`Refeicao`, `Categoria`, `Prato` e `Marcador` são os models Django do
   app Cardápio** (não deste módulo) — aparecem aqui só como o destino da
   persistência do `CardapioRepository`, para deixar explícito o que o Leitor

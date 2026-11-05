@@ -55,8 +55,9 @@ caminho principal.
 - O acesso ao banco dá visibilidade a dados pessoais, incluindo a matrícula ou
   o SIAPE de todos os usuários. Ele deve ficar restrito a membros nomeados da
   equipe (RNF07), e as credenciais de acesso não podem ser compartilhadas
-  informalmente. A forma de conexão dependerá da hospedagem, ainda não
-  definida (4.4 do Documento de Visão).
+  informalmente. A conexão é feita por túnel SSH até a VPS da Hostinger
+  (ADR 0012), com chave SSH individual por membro; a porta do banco não é
+  exposta à internet.
 - Operações manuais **contornam as validações da API** (formato, unicidade,
   regras de negócio) e podem deixar dados inconsistentes. A equipe deve
   combinar quais operações são permitidas e como executá-las.

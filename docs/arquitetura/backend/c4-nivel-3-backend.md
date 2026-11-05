@@ -57,7 +57,7 @@ Publica o PDF semanal de
 cardápio de cada campus."}}
   email_svc{{"🌐 Serviço de E-mail
 Sistema Externo
-SMTP — provedor a definir."}}
+Brevo, via SMTP."}}
   equipe(["👤 Equipe de Desenvolvimento
 Pessoa
 Recebe alertas do Leitor de Cardápio
@@ -159,7 +159,7 @@ vinculadas à conta autora [Django ORM]"| db
 calcula previsão de pico [Django ORM]"| db
   equipe -.->|"Modera e rastreia manualmente
 — caminho paralelo, fora da API
-(ADR 0004) [SQL/DB direto]"| db
+(ADR 0004) [SQL via túnel SSH]"| db
   pwa -->|"Consulta progresso e ranking,
 ativa ou desativa a adesão
 [HTTPS/JSON]"| gamificacao

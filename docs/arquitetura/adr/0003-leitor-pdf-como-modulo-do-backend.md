@@ -64,8 +64,8 @@ O detalhamento do módulo está em `c4-nivel-4-leitor-cardapio.md`.
   linguagem é claramente superior, esta ADR precisa ser revisada, e o custo
   de extrair o módulo depende de a fronteira ter sido respeitada.
 - O disparo por cron exige que a hospedagem escolhida permita agendar tarefas
-  no servidor. A hospedagem ainda não foi definida (4.4 do Documento de
-  Visão), então isso deve ser conferido quando ela for escolhida.
+  no servidor. A hospedagem escolhida, uma VPS da Hostinger (ADR 0012),
+  permite usar o cron do sistema operacional.
 - A frequência do cron precisa garantir a meta de atualização em até 24 horas
   do RF06, com margem. O valor exato ainda não foi decidido.
 - O cron é configuração de implantação e não está no código. Vale

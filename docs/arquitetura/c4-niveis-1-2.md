@@ -82,7 +82,7 @@ de cada campus."}}
 Sistema Externo
 Envia links de confirmação de cadastro e
 de redefinição de senha e alertas de falha
-do leitor à Equipe (protocolo/provedor a definir)."}}
+do leitor à Equipe (Brevo, via SMTP)."}}
 
   visitante -->|"Consulta cardápio, previsão de pico,
 espera estimada e ranking [HTTPS]"| bandejao
@@ -166,7 +166,7 @@ Publica o PDF semanal de
 cardápio de cada campus."}}
   email_svc{{"🌐 Serviço de E-mail
 Sistema Externo
-SMTP — provedor a definir. Entrega
+Brevo, via SMTP. Entrega
 e-mails aos usuários e alertas à Equipe."}}
 
   subgraph bandejao["🖥️ Bandejão"]
@@ -222,7 +222,7 @@ do Leitor de Cardápio [SMTP]"| email_svc
   equipe -.->|"Modera, rastreia por matrícula/SIAPE,
 ajusta pontuação e calcula os indicadores
 de adesão — caminho paralelo, fora da API
-(ADR 0004) [SQL/DB direto]"| db
+(ADR 0004) [SQL via túnel SSH]"| db
   email_svc -->|"Entrega alertas de falha do Leitor,
 com limite de avisos (ADR 0006) [E-mail]"| equipe
 
@@ -314,7 +314,13 @@ com limite de avisos (ADR 0006) [E-mail]"| equipe
   `linkStyle 6` continue marcando a relação Equipe → Banco de Dados. Uma
   falha no envio do alerta não interrompe a leitura nem o uso do último
   cardápio válido.
-- **Serviço de E-mail com tecnologia em aberto.** O protocolo (SMTP) é uma
-  suposição de trabalho; o provedor concreto ainda não foi escolhido pela
-  equipe. Atualizar este diagrama e a ADR correspondente quando essa decisão
-  for tomada.
+- **Serviço de E-mail: Brevo, via SMTP (ADR 0012).** Os e-mails saem com o
+  remetente `nao-responda@bandejaounb.com.br`, e os alertas à Equipe vão para
+  `equipe@bandejaounb.com.br`, que também é o canal de contato do site
+  (RNF08). Como o envio é por SMTP comum, trocar de provedor exige só mudar a
+  configuração, sem alterar este diagrama.
+- **Hospedagem: VPS da Hostinger (ADR 0012).** O PWA, o Backend e o Banco de
+  Dados rodam na mesma VPS, com Docker Compose. O servidor web (Caddy), que
+  serve o PWA e encaminha `/api/` ao Backend sob o mesmo domínio, é
+  infraestrutura de deploy, assim como o agendador, e por isso também não
+  aparece como container.
