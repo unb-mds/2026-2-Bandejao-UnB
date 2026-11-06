@@ -77,5 +77,5 @@ centralizadas e testáveis.
 ## Relacionadas
 
 - Requisitos: RF06, RF07, RF08, RF09, RNF06.
-- `docs/adr/0001-escolha-stack-backend.md` (padrão Model → Serializer → View
+- `docs/arquitetura/adr/0001-escolha-stack-backend.md` (padrão Model → Serializer → View
   → URL, no qual os serviços de filtro se apoiam).

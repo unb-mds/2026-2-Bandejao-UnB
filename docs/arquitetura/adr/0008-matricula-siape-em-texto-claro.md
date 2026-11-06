@@ -50,7 +50,7 @@ O campo `identificadorCifrado` do Nível 4 de Cadastro/Autenticação passa a se
 ## Relacionadas
 
 - Requisitos: RF01, RF03, RF04, RNF04, RNF07, RNF08, RI10, L01.
-- `docs/adr/0002-matricula-apelido-extraidos-do-email.md`.
-- `docs/adr/0004-acesso-direto-da-equipe-ao-banco.md`.
+- `docs/arquitetura/adr/0002-matricula-apelido-extraidos-do-email.md`.
+- `docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md`.
 - `C4-niveis-3-4-banco-de-dados-bandejao.md` (`USUARIO.matricula_siape`).
 - `c4-nivel-4-cadastro-autenticacao.md` (`Conta.identificadorCifrado`).

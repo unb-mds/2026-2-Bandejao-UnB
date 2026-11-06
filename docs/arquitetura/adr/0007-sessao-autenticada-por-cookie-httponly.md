@@ -48,7 +48,7 @@ A autenticação da API usa a **sessão do Django em cookie**, e não token.
 ## Relacionadas
 
 - Requisitos: RF03, RF04, RF05, RNF03, RNF04, RNF05, RI10.
-- `docs/adr/0001-escolha-stack-backend.md` (DRF, autenticação integrada).
-- `docs/adr/0004-acesso-direto-da-equipe-ao-banco.md` (conta suspensa ou removida).
+- `docs/arquitetura/adr/0001-escolha-stack-backend.md` (DRF, autenticação integrada).
+- `docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md` (conta suspensa ou removida).
 - `c4-niveis-3-4-frontend-bandejao.md` (`authStore`, `apiClient`).
 - `c4-nivel-4-cadastro-autenticacao.md` (`LoginService`, `Sessao`).

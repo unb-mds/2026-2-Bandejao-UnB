@@ -111,5 +111,5 @@ saber qual foi escolhido.
 ## Relacionadas
 
 - Requisitos: RF07, RF12, RF19, RF20, RI09, RNF01, RNF03, RNF06, RNF07, L05.
-- `docs/adr/0005-filtros-de-marcador-e-dieta-no-backend.md` (decisão
+- `docs/arquitetura/adr/0005-filtros-de-marcador-e-dieta-no-backend.md` (decisão
   oposta quanto ao local da lógica, mantendo a preferência no aparelho).

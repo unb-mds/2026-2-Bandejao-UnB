@@ -50,7 +50,7 @@ caminho principal.
 
 ## Consequências
 
-- Nenhuma tela ou endpoint administrativo precisa ser construído no MVP, o que
+- Nenhuma tela ou endpoint administrativo precisa ser construído no produto (Release 2), o que
   libera tempo para as funcionalidades principais.
 - O acesso ao banco dá visibilidade a dados pessoais, incluindo a matrícula ou
   o SIAPE de todos os usuários. Ele deve ficar restrito a membros nomeados da
@@ -92,7 +92,7 @@ futura da moderação de rotina.
 ## Relacionadas
 
 - Requisitos: RNF07, RNF08, L01, L02.
-- `docs/adr/0001-escolha-stack-backend.md` (bancos de dados usados em
+- `docs/arquitetura/adr/0001-escolha-stack-backend.md` (bancos de dados usados em
   desenvolvimento e produção).
-- `docs/adr/0002-matricula-apelido-extraidos-do-email.md` (origem da matrícula
+- `docs/arquitetura/adr/0002-matricula-apelido-extraidos-do-email.md` (origem da matrícula
   e do apelido rastreados).

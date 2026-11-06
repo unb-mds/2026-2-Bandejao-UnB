@@ -86,6 +86,6 @@ de evolução se o teste com o PDF do Gama indicar o contrário.
 ## Relacionadas
 
 - Requisitos: RF06, RNF02, RNF06, L03, L05.
-- `docs/adr/0001-escolha-stack-backend.md` (linguagem e framework do backend).
-- `docs/adr/0006-alerta-de-falha-do-leitor-por-email.md` (aviso à equipe em
+- `docs/arquitetura/adr/0001-escolha-stack-backend.md` (linguagem e framework do backend).
+- `docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md` (aviso à equipe em
   caso de falha de leitura).

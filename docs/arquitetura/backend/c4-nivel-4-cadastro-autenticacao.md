@@ -16,6 +16,9 @@
 > login, logout (RF03.3) e "quem sou eu" na mesma rota, e a matrícula/SIAPE
 > fica em texto claro, em `matriculaSiape` (ADR 0008).
 >
+> A classe `Conta` destes diagramas é o model `Usuario` do app `usuarios`
+> (tabela `USUARIO` no Nível 4 do banco de dados; glossário: "Usuário").
+>
 > **Endpoints de sessão e privacidade:**
 >
 > | Endpoint | Acesso | View |

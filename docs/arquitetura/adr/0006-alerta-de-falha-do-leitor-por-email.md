@@ -101,9 +101,9 @@ complemento.
 ## Relacionadas
 
 - Requisitos: RF06, RF02, RF04, RNF08, L03, L05.
-- `docs/adr/0003-leitor-pdf-como-modulo-do-backend.md` (módulo do Leitor de
+- `docs/arquitetura/adr/0003-leitor-pdf-como-modulo-do-backend.md` (módulo do Leitor de
   Cardápio e disparo por cron).
-- `docs/adr/0004-acesso-direto-da-equipe-ao-banco.md` (canal passivo de
+- `docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md` (canal passivo de
   consulta que esta decisão complementa).
 - `docs/arquitetura/adr/0012-hospedagem-e-servico-de-email.md` (provedor do
   Serviço de E-mail e destinatário dos alertas).
