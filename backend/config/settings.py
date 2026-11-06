@@ -149,6 +149,42 @@ STATIC_URL = 'static/'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
+# Django REST Framework
+# API só em JSON, autenticada pela sessão do Django (ADR 0007).
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+    ],
+}
+
+
+# Sessão e CSRF (ADR 0007)
+# Cookie de sessão HttpOnly, Secure e SameSite=Lax, com 14 dias renovados a
+# cada uso. O PWA lê o cookie csrftoken e manda o valor no cabeçalho
+# X-CSRFToken nas escritas.
+
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=True, cast=bool)
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = config('SESSION_COOKIE_AGE', default=14 * 24 * 60 * 60, cast=int)
+SESSION_SAVE_EVERY_REQUEST = True
+
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=True, cast=bool)
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_HEADER_NAME = 'HTTP_X_CSRFTOKEN'
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
+
 MAILERS = {
     'default': {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
