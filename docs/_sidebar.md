@@ -18,8 +18,10 @@
     - [Nível 4 — Leitor do cardápio](arquitetura/backend/c4-nivel-4-leitor-cardapio.md)
     - [Nível 4 — Avaliação](arquitetura/backend/c4-nivel-4-avaliacao.md)
     - [Nível 4 — Fila](arquitetura/backend/c4-nivel-4-fila.md)
+    - [Nível 4 — Gamificação](arquitetura/backend/c4-nivel-4-gamificacao.md)
   - Banco de dados
-    - [Níveis 3 e 4](arquitetura/banco-de-dados/C4-niveis-3-4-banco-de-dados-bandejao.md)
+    - [Nível 3](arquitetura/banco-de-dados/C4-nivel-3-banco-de-dados-bandejao.md)
+    - [Nível 4](arquitetura/banco-de-dados/C4-nivel-4-banco-de-dados-bandejao.md)
   - Front-end
     - [Níveis 3 e 4](arquitetura/front-end/c4-niveis-3-4-frontend-bandejao.md)
 
@@ -32,6 +34,9 @@
   - [0006 — Alerta de falha do leitor por e-mail](arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md)
   - [0007 — Sessão autenticada por cookie HttpOnly](arquitetura/adr/0007-sessao-autenticada-por-cookie-httponly.md)
   - [0008 — Matrícula/SIAPE em texto claro](arquitetura/adr/0008-matricula-siape-em-texto-claro.md)
+  - [0009 — Detecção de campus no aparelho](arquitetura/adr/0009-deteccao-de-campus-no-aparelho.md)
+  - [0010 — Nível por chegadas com espera estimada](arquitetura/adr/0010-nivel-por-chegadas-com-espera-estimada.md)
+  - [0011 — Contadores de gamificação além da janela de retenção](arquitetura/adr/0011-contadores-de-gamificacao-alem-da-janela-de-retencao.md)
   - [0012 — Hospedagem e serviço de e-mail](arquitetura/adr/0012-hospedagem-e-servico-de-email.md)
   - [0013 — Estratégia de testes e portas de qualidade](arquitetura/adr/0013-estrategia-de-testes-e-portas-de-qualidade.md)
 
