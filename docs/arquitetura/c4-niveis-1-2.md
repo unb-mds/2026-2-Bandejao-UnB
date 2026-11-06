@@ -317,10 +317,14 @@ com limite de avisos (ADR 0006) [E-mail]"| equipe
 - **Serviço de E-mail: Brevo, via SMTP (ADR 0012).** Os e-mails saem com o
   remetente `nao-responda@bandejaounb.com.br`, e os alertas à Equipe vão para
   `equipe@bandejaounb.com.br`, que também é o canal de contato do site
-  (RNF08). Como o envio é por SMTP comum, trocar de provedor exige só mudar a
-  configuração, sem alterar este diagrama.
-- **Hospedagem: VPS da Hostinger (ADR 0012).** O PWA, o Backend e o Banco de
-  Dados rodam na mesma VPS, com Docker Compose. O servidor web (Caddy), que
+  (RNF08). O envio usa SMTP autenticado na porta 587, porque a Azure bloqueia
+  a porta 25. Como o envio é por SMTP comum, trocar de provedor (ou passar
+  para a API HTTP do Brevo, prevista como plano B na ADR 0012) exige só mudar
+  a configuração, sem alterar este diagrama.
+- **Hospedagem: máquina virtual Linux da Azure, paga com o crédito da Azure
+  for Students (ADR 0012).** A hospedagem atende a entrega da disciplina e
+  será reavaliada se o sistema continuar no ar depois. O PWA, o Backend e o
+  Banco de Dados rodam na mesma VM, com Docker Compose. O servidor web (Caddy), que
   serve o PWA e encaminha `/api/` ao Backend sob o mesmo domínio, é
   infraestrutura de deploy, assim como o agendador, e por isso também não
   aparece como container.
