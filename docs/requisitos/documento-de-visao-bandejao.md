@@ -193,7 +193,7 @@ A descrição de cada parte interessada está na Seção 3.2.
 - **Critérios de sucesso:** entregar um MVP funcional e bem documentado, com os filtros de marcadores e de dieta e a apresentação refinada do cardápio operando nele, e manter o sistema no ar após o fim da disciplina.
 - **Envolvimento:** execução direta do projeto.
 - **Entregas:** Documento de Requisitos de Software, Documento de Visão, MVP funcional (entregue) e Release 2 (entrega final).
-- **Problemas/comentários:** desenvolver o software no tempo estabelecido; inexperiência da equipe com algumas das linguagens de programação escolhidas; manter o sistema no ar após a disciplina, com a própria equipe responsável pela manutenção e pela correção de falhas, na hospedagem e com o serviço de e-mail já definidos (4.3 e 4.4).
+- **Problemas/comentários:** desenvolver o software no tempo estabelecido; inexperiência da equipe com algumas das linguagens de programação escolhidas; manter o sistema no ar após a disciplina, com a própria equipe responsável pela manutenção e pela correção de falhas; a hospedagem atual atende a entrega da disciplina e será reavaliada nesse caso (4.3 e 4.4).
 
 **Orientadora**
 - **Representante:** Profa. Carla Silva Rocha Aguiar.
@@ -284,11 +284,20 @@ O sistema se comporta "como uma espécie de porta": o visitante pode consultar o
 - **Regra de negócio (Release 2):** a gamificação recompensa o ato de contribuir, não o conteúdo: os pontos não dependem da resposta à pergunta de saída da fila, da nota, do comentário, do horário do check-in nem do nível da fila, e só o check-in confirmado por GPS pontua. Os contadores de gamificação ficam ligados à conta por mais tempo que a janela de 4 semanas dos registros de fila (ADR 0011).
 - **Dependência (Release 2):** permissão de localização concedida pelo usuário ao navegador. Sem ela, o campus não é detectado (valem o campus lembrado ou a escolha manual) e o check-in não é possível.
 - **Suposição (operação):** a moderação de avaliações e de contas é manual no início, feita diretamente pela equipe, sem tela administrativa. Há a intenção de automatizá-la após o fim da disciplina.
-- **Suposição (continuidade):** há a intenção de manter o sistema no ar após o fim da disciplina, para ver se a comunidade acadêmica o adota no dia a dia, com correções eventuais de falhas. A própria equipe continua responsável pela manutenção, na hospedagem e com o serviço de e-mail definidos em 4.4.
+- **Suposição (continuidade):** há a intenção de manter o sistema no ar após o fim da disciplina, para ver se a comunidade acadêmica o adota no dia a dia, com correções eventuais de falhas. A própria equipe continua responsável pela manutenção. A hospedagem definida em 4.4 atende a entrega da disciplina; para continuar no ar, a equipe decide se a mantém ou se troca por uma opção que suporte mais tráfego.
 
 ### 4.4 Custo e precificação
 
-O Bandejão é um projeto acadêmico da disciplina de MDS, sem indicação de fins comerciais. Há a intenção de manter o sistema no ar após o fim da disciplina. O sistema fica hospedado em uma VPS da Hostinger, no domínio `bandejaounb.com.br`, e os e-mails automáticos são enviados pelo Brevo, inicialmente no plano gratuito (ADR 0012, `docs/arquitetura/adr/0012-hospedagem-e-servico-de-email.md`). O custo recorrente se limita à VPS e ao domínio. Após a disciplina, a própria equipe continua responsável pela manutenção e pela correção de falhas; quem tem acesso a cada conta (Hostinger, Brevo e a conta da equipe, `equipe.bandejao@gmail.com`) fica registrado nas instruções de deploy.
+O Bandejão é um projeto acadêmico da disciplina de MDS, sem indicação de fins comerciais. Há a intenção de manter o sistema no ar após o fim da disciplina. Para a entrega da disciplina, o sistema fica hospedado em uma máquina virtual Linux da Azure, paga com o crédito da assinatura **Azure for Students** (US$ 100, sem cartão de crédito, válido por 12 meses), no domínio `bandejaounb.com.br`. Os e-mails automáticos são enviados pelo Brevo, inicialmente no plano gratuito (ADR 0012, `docs/arquitetura/adr/0012-hospedagem-e-servico-de-email.md`). Com isso, o custo para a equipe se limita ao domínio, enquanto o consumo ficar dentro do crédito. Se a equipe mantiver o sistema no ar após a disciplina, ela decide se continua na Azure ou se troca por uma hospedagem que suporte mais tráfego; a VPS da Hostinger, escolhida antes da recomendação da monitoria, continua como candidata. Quem tem acesso a cada conta (assinatura Azure, Brevo, registro do domínio e a conta da equipe, `equipe.bandejao@gmail.com`) fica registrado nas instruções de deploy.
+
+**Cuidados com a hospedagem na Azure for Students:**
+
+- **Usar a VM, não os serviços gerenciados.** Uma VM Linux pequena, com 2 GB de RAM ou mais, e o MySQL num container dentro dela. O banco gerenciado da Azure (Azure Database for MySQL) e o App Service gastariam o crédito rápido, e o App Service não tem o cron de que o Leitor de Cardápio depende.
+- **Escolher bem a região.** A Brazil South tem menos latência para os usuários, mas costuma ser mais cara que as regiões dos EUA, e algumas regiões têm restrições em assinaturas de estudante. O preço da VM, do disco e do IP é conferido na calculadora da Azure antes de criar os recursos.
+- **Acompanhar o crédito.** Recursos esquecidos ligados (VMs de teste, discos, IPs) consomem o crédito. Quando ele acaba, a Azure desliga os recursos, e o sistema sai do ar. A equipe configura um alerta de orçamento no portal e confere o consumo a cada semana.
+- **A assinatura depende de uma pessoa.** Ela é criada com o e-mail institucional de um membro e fica presa ao vínculo estudantil dele. Esse membro dá acesso aos demais pelo controle de acesso (IAM) da assinatura, e o nome do dono fica registrado nas instruções de deploy, junto com as outras contas da conta-mestra `equipe.bandejao@gmail.com`.
+- **O domínio não muda.** O `bandejaounb.com.br` continua no registrador onde foi contratado; basta apontar o DNS para o IP estático da VM.
+- **E-mail pela porta 587.** A Azure bloqueia o envio pela porta 25. O Brevo é usado por SMTP autenticado na porta 587 (ou 2525). Se as duas falharem, o envio passa para a API HTTP do Brevo, mudando só a configuração. A chegada dos e-mails em `@aluno.unb.br` e `@unb.br`, incluindo a caixa de spam, é testada a partir da VM antes da entrega (QA-01).
 
 ### 4.5 Licenciamento e instalação
 
@@ -368,6 +377,7 @@ Os recursos 5.21 a 5.24 e o 5.30 pertencem à Release 2, e os 5.25 a 5.29, ao Ba
 - **Escopo:** restrito às informações dos RUs dos campi da UnB, sem abranger outros restaurantes ou cantinas. O Restaurante Executivo do Campus Darcy Ribeiro está excluído do escopo. Ele funciona no mesmo prédio do RU, com fila e cardápio próprios; o GPS não distingue os dois (L11), e a tela do campus exibe um aviso discreto de que as informações são apenas do RU.
 - **Gamificação e dados pessoais:** os contadores de gamificação (pontos, sequência, patente e adesão ao ranking) ficam ligados à conta por mais tempo que a janela de 4 semanas dos registros de fila (ADR 0011), e os pontos revelam, de forma aproximada, a frequência de uso do RU. Por isso o ranking é opcional, separado por campus, semestral e exibe a patente, não os pontos. Pelo mesmo motivo, só a posição final do semestre anterior fica guardada, e ela é mostrada apenas ao próprio usuário; em público aparece somente a Bandeja de Ouro, e só para quem aderiu ao ranking.
 - **Gamificação herda as limitações de identidade e de localização:** sem validação de identidade, uma pessoa com várias contas acumula pontos em cada uma, e o GPS não distingue o RU do Restaurante Executivo (L02, L11 e L13 no Documento de Requisitos).
+- **Hospedagem com crédito de estudante:** o sistema roda com o crédito limitado da Azure for Students, preso ao vínculo estudantil de um membro. Se o crédito acabar ou a assinatura não for renovada, o sistema sai do ar até a equipe migrar a hospedagem (4.4, ADR 0012).
 
 ---
 
@@ -439,7 +449,7 @@ O tratamento dos dados pessoais (matrícula/SIAPE, e-mail e apelido e, na Releas
 
 ### 9.2 Requisitos de sistema
 
-O requisito de sistema definido é a entrega como PWA, que exige navegador compatível (instalação na tela inicial, service workers), em desktop e dispositivos móveis (RNF05). Na Release 2, o navegador deve oferecer geolocalização, com permissão do usuário. O backend é em Python, com Django REST Framework para construir a API; o banco de dados é SQLite em desenvolvimento e MySQL em produção (ver ADR 0001, `docs/arquitetura/adr/0001-escolha-stack-backend.md`). A hospedagem é uma VPS da Hostinger com Docker Compose, em que o Caddy serve o PWA e a API sob o mesmo domínio, com HTTPS, e o cron do sistema operacional roda as tarefas periódicas; o envio de e-mails é feito pelo Brevo, via SMTP (ADR 0012).
+O requisito de sistema definido é a entrega como PWA, que exige navegador compatível (instalação na tela inicial, service workers), em desktop e dispositivos móveis (RNF05). Na Release 2, o navegador deve oferecer geolocalização, com permissão do usuário. O backend é em Python, com Django REST Framework para construir a API; o banco de dados é SQLite em desenvolvimento e MySQL em produção (ver ADR 0001, `docs/arquitetura/adr/0001-escolha-stack-backend.md`). A hospedagem é uma máquina virtual Linux da Azure (Azure for Students) com Docker Compose, em que o Caddy serve o PWA e a API sob o mesmo domínio, com HTTPS, e o cron do sistema operacional roda as tarefas periódicas; o envio de e-mails é feito pelo Brevo, via SMTP autenticado na porta 587 (ADR 0012).
 
 ### 9.3 Requisitos de desempenho
 
