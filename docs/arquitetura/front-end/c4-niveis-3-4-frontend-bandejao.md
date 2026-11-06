@@ -601,7 +601,7 @@ separação por app do backend (RNF06):
 |---|---|---|
 | `authStore` | Sessão do usuário: apelido, tipo de usuário e `avisoPrivacidadePendente`, lidos de `GET /api/sessao/`. Login, logout, cadastro e reenvio de confirmação. **Sem token** (ADR 0007) | Nenhuma no PWA: a sessão está no cookie `HttpOnly`; a store é recarregada ao abrir o app |
 | `preferenciasStore` | Campus lembrado, escolha manual depois da última detecção, campus detectado, refeição selecionada, filtros de marcador e dieta, "Agora não" do aviso de localização | `localStorage` (RF07, RF08, RF09, RF19, RN04), exceto o campus detectado (memória) |
-| `cardapioStore` | Cache do cardápio já lido da API, por campus/semana (inclui `refeicaoEncerrada`) | Em memória |
+| `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, semana, dia, refeição e filtros (inclui `refeicaoEncerrada`) | Em memória |
 | `avaliacoesStore` | Resumo do dia (notas de todas as refeições, `GET /api/avaliacoes/resumo/`), comentários com `distintivo` e envio/edição da avaliação do usuário | Em memória |
 | `filaStore` | Previsão (com espera estimada), check-in e pergunta de saída pendente | Em memória; nunca guarda coordenadas (RI09) |
 | `gamificacaoStore` | Progresso, adesão ao ranking, posição própria por campus, posição do semestre anterior, Bandeja de Ouro própria, ranking por campus e último bloco `pontos` | Em memória |
@@ -628,12 +628,12 @@ sequenceDiagram
   participant BE as Backend API
 
   V->>CV: Abre a tela do campus
-  CV->>CS: carregarCardapio(campus, semana)
+  CV->>CS: carregarCardapio(campus, semana, dia, refeição, filtros)
   alt cache válido
     CS-->>CV: retorna dados em cache
   else sem cache
     CS->>AC: solicita dados
-    AC->>BE: GET /api/cardapio/{campus}/{semana}/ [HTTPS]
+    AC->>BE: GET /api/cardapio/?campus=&semana=&dia=&refeicao=&marcadores=&dieta= [HTTPS]
     BE-->>AC: 200 OK (JSON do cardápio)
     AC-->>CS: repassa resposta
     CS-->>CS: atualiza cache
@@ -641,6 +641,13 @@ sequenceDiagram
   end
   CV-->>V: renderiza o cardápio
 ```
+
+A rota e os parâmetros do cardápio seguem a ADR 0005 e o Nível 4 da
+Exposição do Cardápio: campus, semana, dia e refeição (opcional, com a
+padrão da RN05) e, como parâmetros de consulta, os marcadores selecionados e
+a dieta, lidos da `preferenciasStore`. O backend devolve o cardápio já
+filtrado; por isso o cache do `cardapioStore` é por combinação de campus,
+semana, dia, refeição e filtros.
 
 O `apiClient` é o único ponto que conhece a URL base da API, envia o
 cookie de sessão e o cabeçalho CSRF nas escritas, e trata erros de forma
