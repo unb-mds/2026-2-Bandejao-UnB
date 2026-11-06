@@ -22,7 +22,8 @@ ficar:
 
 - **RNF06:** a arquitetura deve separar claramente os módulos críticos, de
   modo que uma mudança no formato do PDF exija alteração apenas no módulo de
-  leitura de cardápio, com cobertura mínima de 60% de testes.
+  leitura de cardápio, com as metas de teste dos módulos críticos (cobertura
+  de linhas ≥ 70% e escore de mutação ≥ 50%, ADR 0013).
 - **RNF02:** se a leitura falhar, o sistema continua exibindo o último
   cardápio lido com sucesso.
 - **Contexto da equipe:** primeiro projeto de maior porte na disciplina, com

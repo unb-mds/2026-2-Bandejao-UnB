@@ -35,8 +35,10 @@ Itens extras têm o sufixo `E` (`BE-E1`, `FE-E1`…). O número do extra segue a
 ### 1.4 Definition of Done (todo item)
 
 - [ ] PR pequeno para a `develop`, revisado por alguém de **outra frente** ou sem assinatura, com o CI verde.
-- [ ] **Testes no mesmo PR**: unitários para regras de negócio, de API para endpoints (cliente de teste do DRF), vitest para stores e componentes com lógica.
-- [ ] Cobertura dos módulos críticos ≥ 60% (RNF06). O relatório sai no CI.
+- [ ] **TDD**: o teste entra num commit antes do código (vermelho → verde → refatorar), a partir do critério Dado/Quando/Então ou da regra de negócio.
+- [ ] **Testes no mesmo PR, no back e no front**, conforme o Plano de Testes (`docs/qualidade/plano-de-testes.md`): unitários para regras de negócio; de integração (cliente de teste do DRF no back, store + `apiClient` + servidor simulado no front); de interface (contrato OpenAPI no back, componentes com `@vue/test-utils` no front); de segurança; de propriedades quando a regra vale para qualquer entrada; e os específicos do tema que o item tocar (horário simulado, localização, concorrência, privacidade, PDF real).
+- [ ] **Portas de qualidade do RNF06 verdes no CI**, no back e no front: cobertura de linhas ≥ 70% e escore de mutação ≥ 50% nos módulos críticos, 0 achados críticos ou altos em SAST e nas dependências (ADR 0013).
+- [ ] Testes gerados por IA passaram pelo checklist do Plano de Testes (3.10) na revisão, e o uso está registrado no `AI-USAGE.md`. Dependência nova tem o link do pacote oficial na descrição do PR.
 - [ ] Contrato OpenAPI atualizado se algum endpoint mudou.
 - [ ] Nada de matrícula/SIAPE ou e-mail em resposta pública ou log, com o teste automatizado da ADR 0008. Nenhuma coordenada gravada nem em log (RI09). As rotas de cadastro, login, recuperação, reenvio e check-in não registram o corpo da requisição.
 - [ ] Valores do Anexo A lidos da configuração, nunca fixos no código.
@@ -50,6 +52,7 @@ Itens extras têm o sufixo `E` (`BE-E1`, `FE-E1`…). O número do extra segue a
 | BD | `docs/arquitetura/banco-de-dados/C4-nivel-4-banco-de-dados-bandejao.md`, `docs/arquitetura/C4-nivel-3-banco-de-dados-bandejao.md`, ADRs 0004, 0007, 0008, 0011 |
 | BE | `docs/arquitetura/backend/c4-nivel-3-backend.md` e o Nível 4 do componente da tarefa (`c4-nivel-4-*.md`), o Nível 4 do banco, as ADRs citadas no item |
 | FE | `docs/arquitetura/front-end/c4-niveis-3-4-frontend-bandejao.md`, o contrato OpenAPI, ADRs 0005, 0007, 0009 |
+| Todas | `docs/qualidade/plano-de-testes.md` e ADR 0013 (tipos de teste, metas e TDD) |
 
 ---
 
@@ -141,8 +144,8 @@ Também ficam para o kickoff as decisões D1 a D5 do documento de prioridades. O
 
 | ID | Item | Req. / Arquitetura | Pronto quando (inclui testes) | Tam. | Prazo | Depende de |
 |---|---|---|---|---|---|---|
-| **BE-01** | Recriar a estrutura conforme o **C4 Nível 3 do backend**: apps `cadastro`, `cardapio` (com o módulo `leitor`), `avaliacao`, `fila`, `gamificacao`. Retirar os apps antigos (`core`, `status`, `avaliacoes`). `settings` com DRF, sessão do Django em cookie `HttpOnly`/`Secure`/`SameSite=Lax`, CSRF por cabeçalho, `python-decouple` | RNF06, ADR 0001, 0003, 0007, TT-01 | `manage.py check` sem erro. Um teste por app no CI | P | Qui 05/11 | — |
-| **BE-02** | **CI do backend** no GitHub Actions: lint, testes, relatório de cobertura | TT-02 | CI roda em todo PR para a `develop` | P | Qui 05/11 | BE-01 |
+| **BE-01** | Recriar a estrutura conforme o **C4 Nível 3 do backend**: apps `cadastro`, `cardapio` (com o módulo `leitor`), `avaliacao`, `fila`, `gamificacao`. Retirar os apps antigos (`core`, `status`, `avaliacoes`). `settings` com DRF, sessão do Django em cookie `HttpOnly`/`Secure`/`SameSite=Lax`, CSRF por cabeçalho, `python-decouple`. `pytest` + `pytest-django` configurados, com as ferramentas de teste num `requirements-dev.txt` | RNF06, ADR 0001, 0003, 0007, 0013, TT-01 | `manage.py check` sem erro. Um teste por app, escrito antes do app (TDD), passando com `pytest` na máquina (o CI vem no BE-02). Teste das flags do cookie de sessão e do CSRF | P | Qui 05/11 | — |
+| **BE-02** | **CI do backend** no GitHub Actions (`backend-ci.yml`, Plano de Testes 5.1), feito em TDD: jobs `lint` (`ruff`), `testes` (`pytest` com cobertura e `--fail-under=70` nos módulos críticos), `contrato` (OpenAPI gerado igual ao do repositório, quando o BE-03 existir) e `seguranca` (`bandit`, Semgrep, `pip-audit`). Proteção da `develop` exigindo os jobs verdes | RNF04, RNF06, ADR 0013, TT-02 | CI roda em todo PR para a `develop` e para a `main`. Cada porta foi vista barrando um PR de prova (link na descrição) | M | Sáb 07/11 | BE-01 |
 | **BE-03** | **Contrato OpenAPI v1**, junto com o FE (por exemplo, com `drf-spectacular`), com os endpoints e formatos dos Níveis 4 e a decisão X4. Formato de erro com `codigo`. **Sem** o campo `distintivo` e sem os campos de extras ainda não feitos | Todos os Níveis 4, TT-04 | Arquivo do contrato no repo, revisado pelo FE (**M1**) | M | Sáb 07/11 | DOC-01 |
 | **BE-04** | **Teste do leitor do PDF** com o PDF real do Gama: escolher a biblioteca, extrair texto e categorias e obter a **posição dos ícones** (`MarcadorIconMatcher`). Lista de casos difíceis | SP-01, RF06, ADR 0003, Leitor N4 | Script extrai uma refeição com pratos e marcadores corretos. **Decisão em 08/11**: leitor ou plano B (Admin). Biblioteca registrada na ADR 0003 (DOC-05) | M | **Dom 08/11** | — |
 | **BE-05** | **Cadastro** `POST /api/cadastro/`: `CadastroService`, `IdentificadorExtractor` (estratégia por `TipoUsuario`), `MatriculaValidator` (formato, prefixo dinâmico, sequência, em métodos separados), `SiapeValidator`, `EmailInstitucionalValidator`, `ApelidoResolver` (409 recuperável na colisão do apelido extraído), `SenhaValidator`, aceite do aviso gravando `versao_aviso_aceita`. Na mesma transação, `PontuacaoService.inicializarConta` | RF01, RN01, RN02, ADR 0002, Cadastro N4 (4a) | Testes de cada regra da RN01 e RN02, dos cenários Gherkin do RF01 e de que a mensagem não revela qual campo já existe | M | Sex 06/11 | BD-01 |
@@ -158,7 +161,8 @@ Também ficam para o kickoff as decisões D1 a D5 do documento de prioridades. O
 | **BE-15** | **Previsão** `GET /api/fila/previsao/?campus=&refeicao=&data=` (`PrevisaoView`, os seis passos do Nível 4 da Fila com `ParametrosFilaConfig`): janela de 4 semanas no mesmo dia da semana, faixas de 15 min no horário local, suficiência de dias, média só nos **dias com dados** (faixa vazia nesses dias conta como zero), cortes 25/50/75%, **empate: todas as faixas são pico**, "dados insuficientes". Público, só agregados | RF13, RN06, ADR 0010, Fila N4 (4c) | Testes com dados montados: abaixo e no mínimo de dias, empate, faixa zerada, outro dia da semana não conta, fuso horário | M | Seg 16/11 | BE-09, BD-10 |
 | **BE-16** | **Progresso** `GET /api/gamificacao/progresso/` (patente derivada dos pontos, pontos totais, quanto falta, adesão) e **adesão** `POST`/`DELETE /api/gamificacao/adesao/` (204) | RF26.1, RF26.2, RN11, RF27.1, Gamificação N4 (4b, 4c) | Testes de cada limiar de patente, de que a patente não regride e da adesão | P | Seg 16/11 | BE-14 |
 | **BE-17** | **Ranking** `GET /api/ranking/{campusId}/`: calculado na consulta, só quem aderiu, conta ativa e ≥ 1 ponto no semestre, ordem pelos pontos e desempate por `atualizado_em`, até 10 linhas. `RankingPublicoMapper` com `{campusId, semestre, linhas: [{posicao, apelido, patente}]}`, **sem pontos e sem `distintivo`** | RF27.2, RN12, RI12, Gamificação N4 (4c) | Testes: quem não aderiu não aparece, suspenso e removido não aparecem, empate, nenhum ponto na resposta (teste da ADR 0008) | M | Ter 17/11 | BE-16 |
-| **BE-18** | Cobertura ≥ 60% nos módulos críticos e contrato OpenAPI final | RNF06, TT-04 | Relatório do CI acima de 60% em cadastro, leitor, avaliação, fila e gamificação | M | Qui 19/11 | — |
+| **BE-18** | **Portas finais do backend** e contrato OpenAPI final: cobertura de linhas ≥ 70% e escore de mutação ≥ 50% em cadastro, leitor, cardápio, avaliação, fila e gamificação; 0 achados críticos ou altos em SAST e nas dependências | RNF06, ADR 0013, TT-04 | Relatórios do CI (cobertura, mutação na base inteira e SAST) dentro das metas, anexados à issue | M | Qui 19/11 | BE-19 |
+| **BE-19** | **Mutação no CI do backend**: `mutmut` configurado nos módulos críticos, job `mutacao` incremental nos PRs que mexem neles (falha abaixo de 50%) e rodada semanal na base inteira | RNF06, ADR 0013 | Job vermelho num PR de prova com teste sem asserção, verde depois da correção | P | Qua 11/11 | BE-02 |
 
 ### 6.2 Extras (em ordem)
 
@@ -180,7 +184,7 @@ Também ficam para o kickoff as decisões D1 a D5 do documento de prioridades. O
 | ID | Item | Req. / Arquitetura | Pronto quando (inclui testes) | Tam. | Prazo | Depende de |
 |---|---|---|---|---|---|---|
 | **FE-01** | Trazer o código do MVP da `main` para a `develop`. `apiClient` com cookie (`credentials: 'same-origin'`), cabeçalho `X-CSRFToken` nas escritas, 401 que limpa o `authStore`, erro com `codigo`. Servidor simulado só em desenvolvimento e testes | ADR 0007, RNF04, front 3b | Testes do `apiClient`: CSRF nas escritas, 401, erro com `codigo` | M | Sex 06/11 | BE-03 |
-| **FE-02** | **CI do front**: lint (ESLint e Oxlint), vitest, build | TT-02 | CI roda em todo PR | P | Sex 06/11 | — |
+| **FE-02** | **CI do front** no GitHub Actions (`frontend-ci.yml`, Plano de Testes 5.2), feito em TDD: `lint` (ESLint e Oxlint sem `--fix`, num script `lint:ci`, com a regra `vitest/expect-expect`), `testes` (`vitest run --coverage` com `@vitest/coverage-v8` e limite de 70% de linhas nos arquivos críticos), `build` e `seguranca` (Semgrep, `npm audit --audit-level=high`). Proteção da `develop` exigindo os jobs verdes | RNF04, RNF06, ADR 0013, TT-02 | CI roda em todo PR. Cada porta foi vista barrando um PR de prova (link na descrição) | M | Sáb 07/11 | — |
 | **FE-03** | `authStore` sem token (`carregarSessao`, `GET`/`POST`/`DELETE /api/sessao/`, guarda só apelido, tipo e `avisoPrivacidadePendente`). `CadastroView` (409 de apelido com campo extra mantendo os outros campos, mensagem que não revela qual campo existe), `ConfirmarEmailView` (token na query string), `LoginView` com reenvio para conta pendente, login leva a `/campus/:campusId`. Nada do formulário salvo no aparelho | RF01, RF02, RF03.1, RF03.2, RF03.4, front 4b | Vitest do `authStore` e dos desfechos do fluxo 4b | M | Dom 08/11 | FE-01, BE-07 |
 | **FE-04** | `AvisoLocalizacao` no `App` raiz: duas etapas, "Agora não" guardado no `localStorage`, "Usar minha localização", passo a passo quando o navegador bloqueou | RF19, front 3a.1 | Vitest das três situações | P | Dom 08/11 | — |
 | **FE-05** | `CheckinBotao` + `AvisoPrivacidade` + `filaStore` (fluxo 4a): aviso antes do GPS (`POST /api/privacidade/aceite/`), `getCurrentPosition` com tempo limite de 5 s, **precisão mínima e idade máxima (RN03)**, coordenadas só no corpo do `POST /api/checkins/` e descartadas em todos os desfechos, mensagem por `codigo` (com o horário quando fora do horário) | RF11, RF12, RN03, RNF07.1, RI09, front 4a | Vitest de cada desfecho do 4a e de que a store não guarda coordenadas | M | Seg 09/11 | FE-03, FE-04, BE-09 |
@@ -195,6 +199,9 @@ Também ficam para o kickoff as decisões D1 a D5 do documento de prioridades. O
 | **FE-14** | **PWA instalável**: manifest válido e service worker registrado (conferir o `pwa.js` que já existe) | RNF05, Visão 9.2 | Lighthouse marca como instalável. Instalado em Android e iPhone | P | Qua 18/11 | — |
 | **FE-15** | **Canal de contato para reclamações** visível no app (já existe na `HomeView` do MVP: levar para a navegação ou para a tela do campus) | RNF08, Visão 9.1 | Link visível sem login | P | Qua 18/11 | FE-07 |
 | **FE-16** | Qualidade: funcional a partir de 360 px, guia de estilo, até 3 toques até o cardápio na primeira visita, últimas duas versões de Chrome, Firefox, Edge e Safari | RF17, RNF03, RNF05 | Checklist preenchido com QA-07 | M | Sex 20/11 | M4 |
+| **FE-17** | **Mutação no CI do front**: StrykerJS com `@stryker-mutator/vitest-runner` nos arquivos críticos, job `mutacao` incremental nos PRs que mexem neles (falha abaixo de 50%) e rodada semanal. `fast-check` instalado para os testes de propriedades | RNF06, ADR 0013 | Job vermelho num PR de prova com teste sem asserção, verde depois da correção | P | Qua 11/11 | FE-02 |
+| **FE-18** | **Testes de ponta a ponta** com Playwright em `frontend/e2e/` e workflow `e2e.yml` (PWA, API e banco no `docker compose`, fixtures do BD-03). Um fluxo por marco: cadastro e login (M1), check-in com localização simulada (M2), cardápio com filtros e avaliação (M3), previsão, progresso e ranking (M4) | RNF06, ADR 0013, Plano de Testes 3.5 | Workflow obrigatório nos PRs para a `develop` a partir do M2, com os fluxos do marco verdes | M | Qua 11/11 (estrutura e M1/M2), um fluxo novo por marco até qua 18/11 | FE-06, BD-03 |
+| **FE-19** | **Portas finais do frontend**: cobertura de linhas ≥ 70% e escore de mutação ≥ 50% nos arquivos críticos (`apiClient`, stores de auth, cardápio, avaliações, fila e gamificação, guardas do roteador); 0 achados críticos ou altos em SAST e nas dependências | RNF06, ADR 0013 | Relatórios do CI dentro das metas, anexados à issue | M | Qui 19/11 | FE-17 |
 
 ### 7.2 Extras (em ordem)
 
@@ -220,13 +227,15 @@ Também ficam para o kickoff as decisões D1 a D5 do documento de prioridades. O
 |---|---|---|---|
 | **QA-01** | Criar uma conta de teste `@aluno.unb.br` e conferir se os e-mails do sistema chegam (e se caem no spam) | Resultado avisado ao BE e ao BD | Sáb 07/11 |
 | **QA-02** | Medir coordenadas e raio dos RUs com pelo menos dois celulares (pelo menos o Gama) | Valores entregues ao BD-06 | Seg 09/11 |
-| **QA-03** | **Revisão de PRs** todos os dias, conferindo DoD, testes e se os nomes batem com a arquitetura | Nenhum PR parado mais de um dia | Contínuo |
+| **QA-03** | **Revisão de PRs** todos os dias, conferindo DoD, testes (com o checklist de testes gerados por IA do Plano de Testes, 3.10, e uma sabotagem rápida em pelo menos um teste do PR), o commit do teste antes do código (TDD) e se os nomes batem com a arquitetura | Nenhum PR parado mais de um dia | Contínuo |
 | **QA-04** | Teste de ponta a ponta do M2 em produção, em celular real, no RU | Fluxo completo funcionando | Ter 10/11 |
 | **QA-05** | **Coleta de check-ins** no almoço, em horários variados, todo dia útil a partir de 10/11. Prioridade: terças 10, 17 e 24/11 e quartas 11 e 18/11 | Planilha com quem fez check-in em cada dia | 10/11 a 24/11 |
 | **QA-06** | **Testes de aceite pelos cenários Dado/Quando/Então** dos requisitos, em produção, a cada marco | Lista de cenários aprovados e bugs abertos como issue | Sáb 14/11 (M3) e qua 18/11 (M4) |
 | **QA-07** | Testes em Chrome, Firefox, Edge e Safari, desktop e celular, e em tela de 360 px | Checklist preenchido | 19–21/11 |
 | **QA-08** | Roteiro do teste com usuários (tarefas, formulário de feedback) e recrutamento | Roteiro pronto e usuários confirmados para 23–24/11 | Sáb 21/11 |
 | **QA-09** | **Regressão final** de todos os fluxos obrigatórios em produção | Nenhum bug grave aberto | **Dom 22/11** |
+| **QA-10** | **Testes de sabotagem** em 100% dos módulos críticos do back e do front, feitos por quem não escreveu os testes do módulo, numa branch descartável (Plano de Testes 3.8) | Registro da seção 6 do Plano de Testes preenchido, com "Sim" em todas as linhas | Qui 19/11 a sáb 21/11 |
+| **QA-11** | **Auditoria dos testes gerados por IA**: procurar testes vazios, tautológicos ou que simulam a própria unidade, usando o checklist 3.10 e os mutantes sobreviventes do relatório de mutação | Lista de testes corrigidos (issue) e registro no `AI-USAGE.md` | Sáb 14/11 (M3) e qua 18/11 (M4) |
 
 ---
 
@@ -243,6 +252,7 @@ Também ficam para o kickoff as decisões D1 a D5 do documento de prioridades. O
 | **DOC-07** | PR de limpeza da documentação, seguindo a Parte 2 do documento de prioridades (retirar o que não entrou de Visão, Requisitos, glossário, C4 e ADRs; mudanças condicionais; README da R2) | Prep. 19–22/11, merge até ter 24/11 |
 | **DOC-08** | Conferir que o código bate com a arquitetura (models com o banco, classes com os Níveis 4, componentes com o front) e atualizar o "estado atual do código" do C4 do front | Dom 22/11 |
 | **DOC-09** | Merge da documentação na `develop` (que está em 29/09) e depois `develop` → `main` | Ter 24/11 |
+| **DOC-10** | Aceitar a ADR 0013 e o Plano de Testes (metas do plano de ensino no RNF06, para back e front) e avisar as frentes da mudança na Definition of Done | Sex 06/11 |
 
 ---
 
@@ -251,22 +261,22 @@ Também ficam para o kickoff as decisões D1 a D5 do documento de prioridades. O
 | Dia | BD | BE | FE | QA / DOC |
 |---|---|---|---|---|
 | Qui 05/11 | Kickoff, BD-01 | Kickoff, BE-01, BE-02, BE-04 | Kickoff, FE-01 | Kickoff, DOC-01 (concluído), DOC-02 |
-| Sex 06/11 | BD-01, BD-02, BD-05 | BE-03, BE-05, BE-04 | FE-01, FE-02 | DOC-02, QA-01, QA-02 |
-| Sáb 07/11 | BD-03, BD-04, BD-05 (**M1**) | BE-06, BE-03 (**M1**) | FE-03 | DOC-03, DOC-04 |
+| Sex 06/11 | BD-01, BD-02, BD-05 | BE-02, BE-03, BE-05, BE-04 | FE-01, FE-02 | DOC-02, **DOC-10**, QA-01, QA-02 |
+| Sáb 07/11 | BD-03, BD-04, BD-05 (**M1**) | BE-02, BE-06, BE-03 (**M1**) | FE-02, FE-03 | DOC-03, DOC-04 |
 | Dom 08/11 | BD-05 | BE-07, BE-08, **decisão BE-04** | FE-03, FE-04 | QA-03 |
 | Seg 09/11 | BD-06, BD-05 | BE-09 | FE-05 | QA-02, DOC-05 |
 | Ter 10/11 | **BD-08 (M2)** | **BE-10 (M2)**, BE-11 | **FE-06 (M2)**, FE-07 | QA-04, **QA-05 começa** |
-| Qua 11/11 | BD-07 | BE-11, BE-12 | FE-07 | QA-05 (quarta #1) |
+| Qua 11/11 | BD-07 | BE-11, BE-12, BE-19 | FE-07, FE-17, FE-18 | QA-05 (quarta #1) |
 | Qui 12/11 | BD-09 | BE-12, BE-13 | FE-07, FE-08 | QA-05 |
 | Sex 13/11 | BD-10 | BE-13, BE-12 | FE-08 | QA-05 |
-| Sáb 14/11 | BD-10 (**M3**) | BE-14 (**M3**) | FE-09, FE-10 (**M3**) | QA-06 |
+| Sáb 14/11 | BD-10 (**M3**) | BE-14 (**M3**) | FE-09, FE-10 (**M3**) | QA-06, QA-11 |
 | Dom 15/11 | Folga ou atraso acumulado | BE-15 | FE-11 | — |
 | Seg 16/11 | BD-11, BD-12 | BE-15, BE-16 | FE-11, FE-12 | QA-05 |
 | Ter 17/11 | BD-13 | BE-17 | FE-12, FE-13 | QA-05 (terça #2) |
-| Qua 18/11 | **M4** | **M4**, BE-E1 (se sem 4ª pessoa) | FE-14, FE-15 (**M4**) | QA-05 (quarta #2), QA-06, DOC-06 |
-| Qui 19/11 | BD-E2, BD-E3 | BE-18, BE-E2, BE-E3 | FE-16, FE-E2, FE-E3 | QA-07, DOC-07 |
-| Sex 20/11 (feriado) | BD-14 | BE-E4, BE-E5 | FE-16, FE-E3, FE-E4, FE-E5 | QA-07 |
-| Sáb 21/11 | BD-15, BD-E4, BD-E5 | BE-E6, correções | FE-E6, FE-E7, correções | QA-07, QA-08 |
+| Qua 18/11 | **M4** | **M4**, BE-E1 (se sem 4ª pessoa) | FE-14, FE-15 (**M4**) | QA-05 (quarta #2), QA-06, QA-11, DOC-06 |
+| Qui 19/11 | BD-E2, BD-E3 | BE-18, BE-E2, BE-E3 | FE-16, FE-19, FE-E2, FE-E3 | QA-07, QA-10, DOC-07 |
+| Sex 20/11 (feriado) | BD-14 | BE-E4, BE-E5 | FE-16, FE-E3, FE-E4, FE-E5 | QA-07, QA-10 |
+| Sáb 21/11 | BD-15, BD-E4, BD-E5 | BE-E6, correções | FE-E6, FE-E7, correções | QA-07, QA-08, QA-10 |
 | Dom 22/11 | Correções | Correções | Correções | **QA-09**, DOC-08 |
 | Seg 23 – Ter 24/11 | Só correções críticas | Só correções críticas | Só correções críticas | Teste com usuários, QA-05 (terça #3), DOC-07, DOC-09 |
 

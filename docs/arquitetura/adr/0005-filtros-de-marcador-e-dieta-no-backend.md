@@ -50,8 +50,8 @@ O desenho de classes está em `c4-nivel-4-exposicao-cardapio.md`.
 ## Consequências
 
 - As regras do RF08 e do RF09 ficam em um único lugar, em serviços
-  testáveis sem interface, o que ajuda a meta de cobertura de 60% em módulos
-  críticos (RNF06), e não são reimplementadas em JavaScript.
+  testáveis sem interface, o que ajuda as metas de cobertura e de mutação dos
+  módulos críticos (RNF06, ADR 0013), e não são reimplementadas em JavaScript.
 - Cada troca de filtro passa a exigir uma requisição ao backend. Em rede
   móvel lenta ou sem conexão, o filtro não responde como responderia se
   fosse aplicado localmente sobre um cardápio já carregado; isso pesa em um

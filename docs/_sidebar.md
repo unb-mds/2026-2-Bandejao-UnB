@@ -6,6 +6,9 @@
   - [Glossário do domínio](requisitos/CONTEXT-DOMINIO.md)
   - [Backlog do produto](requisitos/backlog.md)
 
+- **Qualidade**
+  - [Plano de testes](qualidade/plano-de-testes.md)
+
 - **Arquitetura (C4)**
   - [Níveis 1 e 2 — geral](arquitetura/c4-niveis-1-2.md)
   - Backend
@@ -30,6 +33,7 @@
   - [0007 — Sessão autenticada por cookie HttpOnly](arquitetura/adr/0007-sessao-autenticada-por-cookie-httponly.md)
   - [0008 — Matrícula/SIAPE em texto claro](arquitetura/adr/0008-matricula-siape-em-texto-claro.md)
   - [0012 — Hospedagem e serviço de e-mail](arquitetura/adr/0012-hospedagem-e-servico-de-email.md)
+  - [0013 — Estratégia de testes e portas de qualidade](arquitetura/adr/0013-estrategia-de-testes-e-portas-de-qualidade.md)
 
 - **Gestão do projeto**
   - [Atas de reunião](atas-reunioes/README.md)

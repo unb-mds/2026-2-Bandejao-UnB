@@ -613,7 +613,7 @@ Um visitante deve conseguir visualizar o cardápio de um campus em **no máximo 
 
 #### RNF04 — Segurança
 
-Senhas de usuário devem ser armazenadas de forma **criptografada (hash)**, nunca em texto plano. Toda comunicação entre cliente e servidor deve utilizar **HTTPS**. Entradas de usuário (ex.: comentários de avaliação, apelido) devem ser tratadas para prevenir injeção de código (XSS) e injeção de consultas (SQL Injection), usando consultas parametrizadas ou ORM. Os links de confirmação de e-mail e de redefinição de senha devem ser gerados com token aleatório imprevisível, de uso único e com prazo de validade (RF02, RF04). Matrícula/SIAPE e e-mail nunca devem ser retornados em respostas públicas nem a outros usuários (RI10).
+Senhas de usuário devem ser armazenadas de forma **criptografada (hash)**, nunca em texto plano. Toda comunicação entre cliente e servidor deve utilizar **HTTPS**. Entradas de usuário (ex.: comentários de avaliação, apelido) devem ser tratadas para prevenir injeção de código (XSS) e injeção de consultas (SQL Injection), usando consultas parametrizadas ou ORM. Os links de confirmação de e-mail e de redefinição de senha devem ser gerados com token aleatório imprevisível, de uso único e com prazo de validade (RF02, RF04). Matrícula/SIAPE e e-mail nunca devem ser retornados em respostas públicas nem a outros usuários (RI10). O código e as dependências do backend e do frontend não podem ter achado crítico ou alto em aberto na análise estática de segurança (SAST) e na auditoria de dependências (RNF06, ADR 0013).
 
 **Justificativa:** conjunto mínimo de boas práticas de segurança viável para uma equipe em seu primeiro projeto de maior porte, sem exigir maturidade de segurança de nível corporativo.
 
@@ -629,9 +629,20 @@ O sistema, como PWA, deve funcionar corretamente nas **duas versões mais recent
 
 #### RNF06 — Manutenibilidade
 
-O código-fonte deve manter cobertura de testes automatizados de, no mínimo, **60% nos módulos críticos** (leitura de cardápio, incluindo a leitura dos ícones de marcadores; cadastro e autenticação; avaliação de refeições e, na Release 2, detecção de campus, check-in, pergunta de saída da fila, previsão de pico com espera estimada, pontuação, sequência, patente, ranking e Bandeja de Ouro), e a arquitetura deve separar claramente esses módulos, de modo que uma mudança no formato do PDF do cardápio exija alteração apenas no módulo de leitura de cardápio. No backend em Django REST Framework (1.6, ADR 0001), essa separação se reflete em apps Django distintos por recurso (ex.: cadastro/autenticação, cardápio, avaliação, fila, gamificação), cada um com seu próprio conjunto de models, serializers, views e URLs.
+O código-fonte do backend e do frontend deve cumprir, nos **módulos críticos** (leitura de cardápio, incluindo a leitura dos ícones de marcadores; cadastro e autenticação; avaliação de refeições e, na Release 2, detecção de campus, check-in, pergunta de saída da fila, previsão de pico com espera estimada, pontuação, sequência, patente, ranking e Bandeja de Ouro), as metas abaixo, conferidas no pipeline de integração contínua, que recusa a mudança que não as cumprir:
 
-**Justificativa:** meta de cobertura de testes compatível com uma equipe sem experiência prévia em projetos de grande porte, mas suficiente para reduzir o risco já identificado de dependência do PDF externo e de inexperiência da equipe com as tecnologias escolhidas.
+| Métrica | Meta |
+|---|---|
+| Cobertura de linhas | **≥ 70%** |
+| Escore de mutação (porcentagem de alterações propositais no código detectadas pela suíte) | **≥ 50%** |
+| Teste de sabotagem (um defeito proposital em cada módulo faz a suíte falhar) | **100% dos módulos críticos** |
+| Achados críticos ou altos na análise estática de segurança (SAST) e nas dependências | **0 em aberto** |
+
+A suíte inclui testes unitários, de integração, de interface, de sistema, de ponta a ponta, de segurança, de mutação, de sabotagem e de propriedades, além dos testes específicos do tema (leitura do PDF, regras de horário, localização, concorrência e privacidade), escritos em TDD, conforme o Plano de Testes (`docs/qualidade/plano-de-testes.md`) e a ADR 0013.
+
+A arquitetura deve separar claramente esses módulos, de modo que uma mudança no formato do PDF do cardápio exija alteração apenas no módulo de leitura de cardápio. No backend em Django REST Framework (1.6, ADR 0001), essa separação se reflete em apps Django distintos por recurso (ex.: cadastro/autenticação, cardápio, avaliação, fila, gamificação), cada um com seu próprio conjunto de models, serializers, views e URLs.
+
+**Justificativa:** as metas seguem o plano de ensino da disciplina, que trata a cobertura como piso e mede a qualidade da suíte pela capacidade de detectar defeitos (mutação e sabotagem). Isso reduz o risco já identificado de dependência do PDF externo e de inexperiência da equipe com as tecnologias escolhidas, e o risco de testes sem asserção real escritos com apoio de IA.
 
 ---
 

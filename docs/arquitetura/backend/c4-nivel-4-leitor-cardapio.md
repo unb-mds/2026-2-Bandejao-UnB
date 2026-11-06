@@ -106,7 +106,8 @@ classDiagram
   o cron em si segue fora do diagrama, como já registrado no Nível 2. Um
   orquestrador central facilita isolar, em testes, cada etapa (download,
   parsing, validação, associação, estruturação, persistência) separadamente,
-  o que ajuda a bater a meta de cobertura de 60% em módulos críticos (RNF06).
+  o que ajuda a bater as metas de cobertura (≥ 70%) e de mutação (≥ 50%) dos
+  módulos críticos (RNF06, ADR 0013).
 - **Três exceções específicas, uma por tipo de falha**, em vez de uma
   exceção genérica: `DownloadError`, `LegendaInvalidaError` e
   `AssociacaoFalhouError`. Isso espelha os dois comportamentos de fallback
