@@ -7,7 +7,9 @@
 > Django (`Refeicao`, `Categoria`, `Prato`, `Marcador`), mas um escreve e o
 > outro só lê. Cobre a parte de exibição do Épico Cardápio: exibição por
 > campus/refeição/dia (RF07), filtro de marcadores (RF08), filtro de dieta
-> (RF09) e exibição da semana seguinte (RF18).
+> (RF09) e exibição da semana seguinte (RF18). Na Release 2, também publica
+> a lista de campi com o centro e o raio de detecção de cada um, usada pelo
+> PWA para detectar o campus no aparelho (RF20.1, ADR 0009).
 >
 > **Decisão tomada neste refinamento:** os filtros de marcador (RF08) e de
 > dieta (RF09) são aplicados **no backend** — o endpoint recebe os
@@ -18,41 +20,51 @@
 > Vue. Decisão registrada na ADR 0005
 > (`docs/arquitetura/adr/0005-filtros-de-marcador-e-dieta-no-backend.md`).
 >
-> **Protótipo da Release 1.** Como ainda não há backend, o protótipo aplica
-> os mesmos filtros no navegador (`frontend/src/utils/cardapio.js`), com a
-> mesma regra deste desenho: o prato com marcador evitado continua visível e
-> é sinalizado, e a categoria recebe `semOpcaoCompativel` quando todos os
-> pratos são sinalizados. Na Release 2, esse código sai do frontend e a
-> regra passa a rodar aqui.
+> **Endpoints deste componente** (combinados entre backend e frontend):
+>
+> | Endpoint | Acesso | View |
+> |---|---|---|
+> | `GET /api/cardapio/?campus=&semana=&dia=&refeicao=&marcadores=&dieta=` | Público | `CardapioView` |
+> | `GET /api/campi/` | Público | `CampiView` |
+>
+> No cardápio, `campus` é obrigatório; `semana` e `dia` vêm da semana
+> vigente e do dia corrente quando omitidos; `refeicao` é opcional (sem ela,
+> vale a refeição padrão da RN05); `marcadores` é a lista dos marcadores
+> selecionados, separados por vírgula, e `dieta` é um dos valores de
+> `DietaSelecionada`. Os parâmetros seguem a ADR 0005.
 
-## Nível 4 — Diagrama de Classes da Exposição do Cardápio
+Há dois diagramas: **4a** cardápio filtrado e **4b** lista de campi para a detecção. Cada diagrama tem no máximo 20 elementos e um título próprio, seguindo a skill c4-architecture usada pelo grupo; classes compartilhadas (como `Conta` ou as configurações) aparecem em mais de um diagrama.
+
+## Nível 4a — Cardápio filtrado
 
 ```mermaid
+---
+title: "Nível 4a — Exposição do Cardápio: consulta e filtros"
+---
 classDiagram
   class CardapioView {
     +get(request) Response
   }
-
   class CardapioQueryService {
     +obterCardapio(campus: Campus, semana: Semana, dia: date, refeicao: str, marcadoresSelecionados: list~str~, dieta: DietaSelecionada) CardapioFiltrado
   }
-
   class RefeicaoRepository {
     +buscarRefeicao(campus: Campus, data: date, tipo: str) Refeicao
     +refeicoesDoDia(campus: Campus, data: date) list~Refeicao~
+    +proximoDiaComServico(campus: Campus, depoisDe: date) date
     +existeCardapioPublicado(campus: Campus, semana: Semana) bool
   }
-
   class HorarioRefeicaoResolver {
+    +refeicaoPadrao(agora: datetime, refeicoesDoDia: list~Refeicao~) RefeicaoPadrao
     +refeicaoEmAndamento(agora: datetime, refeicoesDoDia: list~Refeicao~) str
     +proximaRefeicao(agora: datetime, refeicoesDoDia: list~Refeicao~) str
+    +ultimaRefeicaoDoDia(refeicoesDoDia: list~Refeicao~) str
   }
   class HorariosRefeicaoConfig {
     +horarioCafe: tuple
     +horarioAlmoco: tuple
     +horarioJantar: tuple
   }
-
   class SemanaCardapioResolver {
     +semanasDisponiveis(campus: Campus) list~Semana~
   }
@@ -61,27 +73,24 @@ classDiagram
     +fim: date
     +vigente: bool
   }
-
   class DietaSelecionada {
     <<enumeration>>
     SEM_FILTRO
     OVOLACTOVEGETARIANO
     VEGETARIANO_ESTRITO
   }
-
   class FiltroDietaService {
     +aplicar(refeicao: Refeicao, dieta: DietaSelecionada) list~Categoria~
   }
-
   class FiltroMarcadorService {
     +aplicar(categorias: list~Categoria~, marcadoresSelecionados: list~str~, alergenosIndisponivel: bool) list~CategoriaFiltrada~
     -contemTodosMarcados(pratos: list~Prato~, marcadoresSelecionados: list~str~) bool
   }
-
   class CardapioFiltrado {
     +campus: Campus
     +refeicao: str
     +data: date
+    +refeicaoEncerrada: bool
     +status: StatusCardapio
     +avisoSujeitoAAlteracao: str
     +alergenosIndisponivel: bool
@@ -101,14 +110,14 @@ classDiagram
   class PratoFiltrado {
     +descricao: str
     +marcadores: list~str~
-    +marcadoresSelecionados: list~str~
+    +contemMarcadorSelecionado: bool
   }
-
   class Refeicao {
     +campus: Campus
     +tipo: str
     +data: date
-    +alergenosIndisponivel: bool
+    +statusLeitura: str
+    +alergenosIndisponivel() bool
   }
   class Categoria {
     +nome: str
@@ -122,32 +131,27 @@ classDiagram
   }
 
   CardapioView --> CardapioQueryService : obterCardapio()
-
   CardapioQueryService --> RefeicaoRepository : busca refeição(ões)
-  CardapioQueryService --> HorarioRefeicaoResolver : resolve refeição padrão quando não informada (RF07)
+  CardapioQueryService --> HorarioRefeicaoResolver : resolve refeição padrão quando não informada (RF07, RN05)
   CardapioQueryService --> SemanaCardapioResolver : resolve semana vigente/seguinte (RF18)
   CardapioQueryService --> FiltroDietaService : 1. filtra por dieta (RF09)
   CardapioQueryService --> FiltroMarcadorService : 2. sinaliza marcadores (RF08)
   CardapioQueryService --> CardapioFiltrado : monta resposta
-
   HorarioRefeicaoResolver --> HorariosRefeicaoConfig : usa parâmetros do Anexo A
   SemanaCardapioResolver --> Semana : produz
-
   RefeicaoRepository ..> Refeicao : lê
   RefeicaoRepository ..> Categoria : lê
   RefeicaoRepository ..> Prato : lê
   RefeicaoRepository ..> Marcador : lê
-
   FiltroDietaService --> Categoria : lê linhas de dieta
   FiltroMarcadorService --> CategoriaFiltrada : produz
   FiltroMarcadorService --> PratoFiltrado : produz
-
   CardapioFiltrado --> StatusCardapio : tem
   CardapioFiltrado *-- CategoriaFiltrada
   CategoriaFiltrada *-- PratoFiltrado
 ```
 
-### Notas do diagrama
+### Notas do diagrama (4a)
 
 - **A decisão de filtrar no backend é o que dá origem a
   `FiltroDietaService` e `FiltroMarcadorService` como classes próprias**,
@@ -159,20 +163,38 @@ classDiagram
   esconder categorias/linhas inteiras (RF09) e o filtro de marcador só
   precisa então avaliar o que sobrou.
 - **`FiltroMarcadorService.aplicar` recebe `alergenosIndisponivel` como
-  parâmetro** para respeitar o RF08: se a refeição está marcada como
+  parâmetro** (a propriedade derivada de `Refeicao.statusLeitura`, coluna
+  `REFEICAO.status_leitura` do banco, igual à do Nível 4 do Leitor de
+  Cardápio) para respeitar o RF08: se a refeição está marcada como
   "informação de alérgenos indisponível" (RF06/L03), o filtro fica
   desativado para ela — o serviço não aplica sinalização nenhuma e
   `CardapioFiltrado.filtroMarcadorDesativado` fica `true`, para a interface
   informar o motivo.
-- **O filtro de marcador sinaliza, não oculta (RF08).** Todo prato continua
-  na resposta; `PratoFiltrado.marcadoresSelecionados` traz os marcadores
-  evitados que ele contém (lista vazia = prato não sinalizado), para a
-  interface exibir o alerta "Contém: …".
 - **`CategoriaFiltrada.semOpcaoCompativel`** cobre o caso do RF08 em que
   todos os pratos de uma categoria têm algum marcador selecionado — é uma
   informação calculada por `FiltroMarcadorService`, não um campo do model
   `Categoria`, porque depende da seleção de filtro de cada requisição, não
   é um dado fixo do cardápio.
+- **Refeição padrão da Release 2 (RN05).** Quando o PWA não informa a
+  refeição, `HorarioRefeicaoResolver.refeicaoPadrao` aplica a ordem da RN05:
+  1. a refeição em andamento;
+  2. senão, a próxima refeição ainda por vir no mesmo dia;
+  3. senão (todas as refeições do dia já terminaram), a última refeição do
+     dia (`ultimaRefeicaoDoDia`), até as 23h59, com
+     `CardapioFiltrado.refeicaoEncerrada = true`: o PWA mostra "refeição
+     encerrada" no lugar da previsão e do check-in, e a avaliação continua
+     aberta (RF15.1, RF20.3);
+  4. depois da meia-noite, volta a valer o item 2, e o café da manhã do novo
+     dia passa a ser o padrão;
+  5. se o campus não serve refeições no dia (ex.: domingo), o
+     `CardapioQueryService` pede ao `RefeicaoRepository` o
+     `proximoDiaComServico` e mostra a primeira refeição desse dia;
+     `CardapioFiltrado.data` indica o dia exibido.
+
+  Os dias e as refeições servidos são os do PDF (RF06.2). Se o dia a exibir
+  for de uma semana cujo PDF ainda não foi lido, o `status` vem
+  `NAO_PUBLICADO` (RF18). O resultado (`RefeicaoPadrao`) traz a refeição, o
+  dia e se ela está encerrada.
 - **`HorarioRefeicaoResolver` e `SemanaCardapioResolver` existem separados
   do `CardapioQueryService`** pelo mesmo motivo do `MatriculaValidator` no
   Cadastro/Autenticação: são duas regras de negócio compostas e
@@ -195,10 +217,82 @@ classDiagram
   em relação ao que fazer com eles. Por isso não há, neste diagrama, nenhuma
   classe de preferência de usuário persistida — não é responsabilidade
   deste componente.
-- **RF10 (ícones de marcador sempre visíveis, Release 2) não exige nenhuma
+- **RF10 (ícones de marcador sempre visíveis, Backlog) não exige nenhuma
   classe nova**: `PratoFiltrado.marcadores` já carrega essa informação
   independentemente do filtro estar ativo ou não; falta só a interface
   exibir os ícones sem exigir interação, o que é responsabilidade do PWA.
+
+## Nível 4b — Lista de campi para a detecção
+
+```mermaid
+---
+title: "Nível 4b — Exposição do Cardápio: campi com centro e raio de detecção"
+---
+classDiagram
+  class CampiView {
+    +get(request) Response
+  }
+  class CampusPublico {
+    +id: int
+    +nome: str
+    +centro: PontoGeografico
+    +raioDeteccaoMetros: int
+  }
+  class PontoGeografico {
+    +latitude: float
+    +longitude: float
+  }
+  class LocalizacaoCampusConfig {
+    <<lê CAMPUS, valores do Anexo A>>
+    +campi() list~Campus~
+    +centro(campus: Campus) PontoGeografico
+    +raioDeteccaoMetros(campus: Campus) int
+  }
+
+  CampiView --> LocalizacaoCampusConfig : lê centro e raio de detecção
+  CampiView --> CampusPublico : produz lista
+  CampusPublico --> PontoGeografico : tem
+```
+
+### Notas do diagrama (4b)
+
+- **`GET /api/campi/` publica o que o PWA precisa para detectar o campus no
+  aparelho (RF20.1, ADR 0009; combinado entre backend e frontend).** É público, não depende de login
+  e devolve, para cada campus, id, nome, centro e raio de detecção:
+
+  ```json
+  [
+    {"id": 1, "nome": "Gama", "centro": {"latitude": -15.989, "longitude": -48.044}, "raioDeteccaoMetros": 800}
+  ]
+  ```
+
+  (Valores ilustrativos; os reais vêm do Anexo A.) Fica numa view própria,
+  separada do `CardapioView`, porque campi e cardápio mudam em ritmos
+  diferentes: o PWA não precisa baixar um cardápio só para descobrir os
+  raios. A resposta vai com cabeçalhos de cache (`Cache-Control` e `ETag`),
+  e o PWA guarda a última versão no `localStorage`, para a detecção caber no
+  limite de 5 s mesmo com rede lenta (RN03).
+- **O raio de detecção não é o raio de confirmação do check-in.** O raio de
+  detecção (campus inteiro) fica em `LocalizacaoCampusConfig`; o raio de
+  confirmação (só o prédio do RU) fica em `LocalizacaoRUConfig`, no Nível 4
+  da Fila, e **não é publicado**, porque quem confirma o check-in é o
+  backend (RF12). As coordenadas do usuário nunca chegam a este endpoint: a
+  comparação é feita no aparelho, e o servidor recebe só o identificador do
+  campus (RI09).
+- **De onde vêm os valores (decisão tomada com o time de banco de dados).**
+  As duas configurações leem a tabela `CAMPUS`, preenchida por fixture com
+  os valores do Anexo A, que separa o que é do campus do que é do RU:
+  - `LocalizacaoCampusConfig` lê `centro_latitude`, `centro_longitude` e
+    `raio_deteccao_metros` (detecção, ADR 0009);
+  - `LocalizacaoRUConfig`, na Fila, lê `ru_latitude`, `ru_longitude` e
+    `raio_confirmacao_metros` (confirmação do check-in, RF12).
+- **A conta de distância existe nos dois lados**, no PWA (detecção) e na
+  `DistanciaGeografica` da Fila (confirmação do check-in). Os dois devem usar
+  a mesma fórmula e os mesmos casos de teste, com as coordenadas reais dos
+  RUs e dos campi, para não darem resultados diferentes.
+
+## Notas gerais
+
 - Este diagrama é uma **proposta de decomposição inicial**, coerente com a
   decisão de filtrar no backend tomada agora — se a equipe encontrar, na
   prática, uma razão para mover algum desses filtros de volta para o

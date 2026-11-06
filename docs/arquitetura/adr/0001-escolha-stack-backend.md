@@ -23,7 +23,7 @@ O DRF cobre, de forma pronta, boa parte do que a equipe teria que construir manu
 
 Esse fluxo (Model → Serializer → View → URL) é a base a ser replicada para os recursos principais do projeto. O uso de Viewsets e Routers do DRF é o próximo passo natural para manter um padrão consistente entre `/api/cardapio/`, `/api/cardapio/1/`, `/api/fila/` etc.
 
-O SQLite em desenvolvimento evita a necessidade de configurar um servidor de banco de dados à parte durante o desenvolvimento local; o MySQL em produção foi escolhido pela familiaridade da equipe e por ser amplamente suportado pelas opções de hospedagem consideradas para manter o sistema no ar após a disciplina (4.4 do Documento de Visão, ainda a definir).
+O SQLite em desenvolvimento evita a necessidade de configurar um servidor de banco de dados à parte durante o desenvolvimento local; o MySQL em produção foi escolhido pela familiaridade da equipe e por ser amplamente suportado pelas opções de hospedagem consideradas para manter o sistema no ar após a disciplina (4.4 do Documento de Visão). A hospedagem escolhida foi uma VPS da Hostinger, com MySQL 8 (ADR 0012).
 
 ## Consequências
 

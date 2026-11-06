@@ -21,22 +21,22 @@ A autenticação da API usa a **sessão do Django em cookie**, e não token.
 
 - O cookie de sessão é `HttpOnly` (inacessível a JavaScript), `Secure` (só HTTPS) e `SameSite=Lax`.
 - A sessão fica guardada no banco (`django_session`), o que permite encerrá-la pelo servidor.
-- **Duração:** 14 dias, renovada a cada uso (`SESSION_COOKIE_AGE`, `SESSION_SAVE_EVERY_REQUEST`). O valor passa a ser parâmetro configurável do Anexo A.
+- **Duração:** 14 dias, renovada a cada uso (`SESSION_COOKIE_AGE`, `SESSION_SAVE_EVERY_REQUEST`). O valor é parâmetro configurável do Anexo A do Documento de Requisitos ("Duração da sessão").
 - **CSRF:** requisições que alteram estado (POST, PUT, PATCH, DELETE) enviam o token CSRF do Django num cabeçalho. O `apiClient` do frontend é o único ponto que faz isso.
-- **Rotas de sessão:** `POST /api/sessao/` (login), `DELETE /api/sessao/` (logout) e `GET /api/sessao/` (quem sou eu: devolve só apelido e tipo de usuário, nunca matrícula/SIAPE ou e-mail, RI10). Os nomes finais ficam no contrato OpenAPI.
-- **`authStore`** não guarda token. Ao abrir o app, ele chama `GET /api/sessao/` para saber se há sessão e guarda só o apelido e o tipo de usuário.
+- **Rotas de sessão:** `POST /api/sessao/` (login), `DELETE /api/sessao/` (logout) e `GET /api/sessao/` (quem sou eu: devolve só apelido, tipo de usuário e `avisoPrivacidadePendente`, que indica se falta a ciência do aviso de privacidade atualizado antes do primeiro check-in, RF11 e RNF07.1; nunca matrícula/SIAPE ou e-mail, RI10). Os nomes finais ficam no contrato OpenAPI.
+- **`authStore`** não guarda token. Ao abrir o app, ele chama `GET /api/sessao/` para saber se há sessão e guarda só o apelido, o tipo de usuário e `avisoPrivacidadePendente`.
 - **Redefinição de senha encerra todas as sessões** da conta (RF04). O Django já faz isso ao trocar a senha, porque cada sessão guarda um hash derivado da senha e deixa de valer quando ela muda.
 - **Conta suspensa ou removida** (ADR 0004) é mapeada para `is_active = False`. Com isso, o login é recusado e as sessões já abertas deixam de autenticar na próxima requisição.
-- **PWA e API no mesmo domínio** (por exemplo, `bandejao.exemplo/` e `bandejao.exemplo/api/`), para o cookie `SameSite` funcionar sem CORS com credenciais. É requisito para a escolha de hospedagem (SP-02).
+- **PWA e API no mesmo domínio** (`bandejaounb.com.br/` e `bandejaounb.com.br/api/`), para o cookie `SameSite` funcionar sem CORS com credenciais. Era requisito para a escolha de hospedagem (SP-02) e é atendido pela máquina virtual da Azure (Azure for Students), em que o Caddy serve o PWA e encaminha `/api/` ao backend (ADR 0012).
 
 ## Consequências
 
 - A sessão sobrevive a recargas e à reabertura do PWA, sem expor credencial a JavaScript.
 - Não é preciso implementar emissão, renovação nem revogação de token: o Django já cobre isso, o que é importante para uma equipe iniciante com prazo curto.
 - Surge a necessidade de tratar CSRF no frontend, concentrada no `apiClient`.
-- A hospedagem precisa servir o PWA e a API sob o mesmo domínio. Se não der, será preciso configurar CORS com `credentials` e `SameSite=None`, o que é mais frágil, e esta ADR deve ser revista.
+- A hospedagem precisa servir o PWA e a API sob o mesmo domínio, o que a máquina virtual da Azure atende (ADR 0012). Se em uma futura troca de hospedagem isso não for possível, será preciso configurar CORS com `credentials` e `SameSite=None`, o que é mais frágil, e esta ADR deve ser revista.
 - Sessões ficam no banco e aumentam uma tabela. É preciso rodar `clearsessions` periodicamente, no mesmo agendador do leitor de cardápio (ADR 0003).
-- O C4 do frontend (nota sobre `authStore` e tabela de stores) e o Nível 4 de Cadastro/Autenticação (`Sessao`, `LoginService`) precisam ser atualizados.
+- O C4 do frontend (nota sobre `authStore` e tabela de stores) e o Nível 4 de Cadastro/Autenticação (`SessaoView`, `LoginService`) foram atualizados para esta decisão.
 - Fica criada a história de **logout** (US-03.3), que os requisitos não previam.
 
 ## Alternativas consideradas
@@ -48,7 +48,7 @@ A autenticação da API usa a **sessão do Django em cookie**, e não token.
 ## Relacionadas
 
 - Requisitos: RF03, RF04, RF05, RNF03, RNF04, RNF05, RI10.
-- `docs/adr/0001-escolha-stack-backend.md` (DRF, autenticação integrada).
-- `docs/adr/0004-acesso-direto-da-equipe-ao-banco.md` (conta suspensa ou removida).
+- `docs/arquitetura/adr/0001-escolha-stack-backend.md` (DRF, autenticação integrada).
+- `docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md` (conta suspensa ou removida).
 - `c4-niveis-3-4-frontend-bandejao.md` (`authStore`, `apiClient`).
 - `c4-nivel-4-cadastro-autenticacao.md` (`LoginService`, `Sessao`).

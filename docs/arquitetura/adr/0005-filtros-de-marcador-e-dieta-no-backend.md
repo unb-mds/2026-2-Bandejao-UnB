@@ -50,8 +50,8 @@ O desenho de classes está em `c4-nivel-4-exposicao-cardapio.md`.
 ## Consequências
 
 - As regras do RF08 e do RF09 ficam em um único lugar, em serviços
-  testáveis sem interface, o que ajuda a meta de cobertura de 60% em módulos
-  críticos (RNF06), e não são reimplementadas em JavaScript.
+  testáveis sem interface, o que ajuda as metas de cobertura e de mutação dos
+  módulos críticos (RNF06, ADR 0013), e não são reimplementadas em JavaScript.
 - Cada troca de filtro passa a exigir uma requisição ao backend. Em rede
   móvel lenta ou sem conexão, o filtro não responde como responderia se
   fosse aplicado localmente sobre um cardápio já carregado; isso pesa em um
@@ -79,9 +79,3 @@ centralizadas e testáveis.
 - Requisitos: RF06, RF07, RF08, RF09, RNF06.
 - `docs/arquitetura/adr/0001-escolha-stack-backend.md` (padrão Model → Serializer → View
   → URL, no qual os serviços de filtro se apoiam).
-
-## Nota — protótipo da Release 1 (28/09/2026)
-
-Como a Release 1 é um protótipo somente de frontend, sem backend real, os filtros de marcador e de dieta rodam **no navegador** (`frontend/src/utils/cardapio.js`). O código segue a mesma regra desta ADR e do RF08: o prato com marcador evitado **continua visível e é sinalizado** (não é ocultado), e a categoria recebe "sem opção compatível" quando todos os seus pratos são sinalizados.
-
-A decisão desta ADR continua valendo para a **Release 2**: quando o endpoint de cardápio existir, a regra passa a rodar nos serviços do backend e o código de filtro sai do frontend (histórias US-08.1 e US-09.1 e tarefa TT-05 do backlog).

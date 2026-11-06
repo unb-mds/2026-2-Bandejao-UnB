@@ -29,7 +29,7 @@ A matrícula/SIAPE é armazenada **em texto claro**, na coluna `USUARIO.matricul
 - **API:** nenhum serializer público inclui `matricula_siape` ou `email_institucional` (RI10). Há teste automatizado que verifica isso nas respostas de avaliação, histórico e sessão.
 - **Logs:** matrícula/SIAPE e senha não são gravadas em log de aplicação nem de acesso. As rotas de cadastro, login, recuperação e reenvio não registram o corpo da requisição.
 - **Backups:** mesmo nível de acesso restrito do banco de produção.
-- **Transporte:** HTTPS em toda comunicação (RNF04), e conexão da aplicação com o banco criptografada quando a hospedagem oferecer.
+- **Transporte:** HTTPS em toda comunicação (RNF04). Na máquina virtual da Azure (ADR 0012), a conexão da aplicação com o banco não sai do servidor, e a porta do banco não é exposta à internet; o acesso da equipe é feito por túnel SSH, que já é criptografado.
 
 O campo `identificadorCifrado` do Nível 4 de Cadastro/Autenticação passa a se chamar `matriculaSiape`, igual ao dicionário de dados.
 
@@ -45,12 +45,12 @@ O campo `identificadorCifrado` do Nível 4 de Cadastro/Autenticação passa a se
 
 - **Criptografia simétrica com índice cego (HMAC):** protege contra vazamento do banco sem as chaves e mantém unicidade e busca. Descartada por ora pelo custo de implementar e operar duas chaves. É o caminho natural de evolução.
 - **Hash irreversível (como a senha):** mantém unicidade e busca, mas impede recuperar a matrícula a partir do apelido. Descartada por violar o RNF07 e a ADR 0004.
-- **Criptografia de disco ou de banco pela hospedagem:** complementar, não substitui o controle de acesso. Pode ser adotada se a hospedagem oferecer sem custo (SP-02).
+- **Criptografia de disco ou de banco pela hospedagem:** complementar, não substitui o controle de acesso. Pode ser adotada se a hospedagem oferecer sem custo (SP-02). Na máquina virtual da Azure (ADR 0012), os discos gerenciados já são criptografados em repouso pela própria plataforma, sem custo; nenhuma criptografia adicional do banco foi adotada por ora.
 
 ## Relacionadas
 
 - Requisitos: RF01, RF03, RF04, RNF04, RNF07, RNF08, RI10, L01.
-- `docs/adr/0002-matricula-apelido-extraidos-do-email.md`.
-- `docs/adr/0004-acesso-direto-da-equipe-ao-banco.md`.
+- `docs/arquitetura/adr/0002-matricula-apelido-extraidos-do-email.md`.
+- `docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md`.
 - `C4-niveis-3-4-banco-de-dados-bandejao.md` (`USUARIO.matricula_siape`).
 - `c4-nivel-4-cadastro-autenticacao.md` (`Conta.identificadorCifrado`).

@@ -22,7 +22,8 @@ ficar:
 
 - **RNF06:** a arquitetura deve separar claramente os módulos críticos, de
   modo que uma mudança no formato do PDF exija alteração apenas no módulo de
-  leitura de cardápio, com cobertura mínima de 60% de testes.
+  leitura de cardápio, com as metas de teste dos módulos críticos (cobertura
+  de linhas ≥ 70% e escore de mutação ≥ 50%, ADR 0013).
 - **RNF02:** se a leitura falhar, o sistema continua exibindo o último
   cardápio lido com sucesso.
 - **Contexto da equipe:** primeiro projeto de maior porte na disciplina, com
@@ -64,8 +65,8 @@ O detalhamento do módulo está em `c4-nivel-4-leitor-cardapio.md`.
   linguagem é claramente superior, esta ADR precisa ser revisada, e o custo
   de extrair o módulo depende de a fronteira ter sido respeitada.
 - O disparo por cron exige que a hospedagem escolhida permita agendar tarefas
-  no servidor. A hospedagem ainda não foi definida (4.4 do Documento de
-  Visão), então isso deve ser conferido quando ela for escolhida.
+  no servidor. A hospedagem escolhida, uma máquina virtual Linux da Azure
+  (Azure for Students, ADR 0012), permite usar o cron do sistema operacional.
 - A frequência do cron precisa garantir a meta de atualização em até 24 horas
   do RF06, com margem. O valor exato ainda não foi decidido.
 - O cron é configuração de implantação e não está no código. Vale
@@ -89,9 +90,3 @@ de evolução se o teste com o PDF do Gama indicar o contrário.
 - `docs/arquitetura/adr/0001-escolha-stack-backend.md` (linguagem e framework do backend).
 - `docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md` (aviso à equipe em
   caso de falha de leitura).
-
-## Atualização (28/09/2026)
-
-- As duas pendências desta ADR viraram spikes com prazo no backlog do produto (`docs/requisitos/backlog.md`): a **biblioteca de leitura de PDF**, testada com o PDF real do RU do Gama, é decidida no **SP-01**; a **hospedagem** e a **frequência do cron** (com margem para a meta de 24 horas do RF06) são decididas no **SP-02**. Esta ADR deve ser atualizada com as duas escolhas quando os spikes terminarem.
-- O mesmo agendador do sistema operacional roda também o job de exclusão de cadastros pendentes expirados (RF02) e a limpeza de sessões do Django (ADR 0007).
-- O Leitor de Cardápio faz parte da Release 2. No protótipo da Release 1, o cardápio é simulado dentro do frontend.

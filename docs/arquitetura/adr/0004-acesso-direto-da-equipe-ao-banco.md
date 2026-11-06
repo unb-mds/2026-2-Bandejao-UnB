@@ -55,8 +55,9 @@ caminho principal.
 - O acesso ao banco dá visibilidade a dados pessoais, incluindo a matrícula ou
   o SIAPE de todos os usuários. Ele deve ficar restrito a membros nomeados da
   equipe (RNF07), e as credenciais de acesso não podem ser compartilhadas
-  informalmente. A forma de conexão dependerá da hospedagem, ainda não
-  definida (4.4 do Documento de Visão).
+  informalmente. A conexão é feita por túnel SSH até a máquina virtual da
+  Azure (ADR 0012), com chave SSH individual por membro; a porta do banco não é
+  exposta à internet.
 - Operações manuais **contornam as validações da API** (formato, unicidade,
   regras de negócio) e podem deixar dados inconsistentes. A equipe deve
   combinar quais operações são permitidas e como executá-las.
@@ -69,9 +70,11 @@ caminho principal.
   automação da moderação é a oportunidade natural de introduzir um registro.
 - Para que a moderação por banco tenha efeito, a API precisa **respeitar o
   estado alterado**: por exemplo, uma avaliação oculta não pode ser devolvida
-  pelo endpoint público, e uma conta suspensa não pode autenticar. Os models
-  precisam de campos que representem esses estados, e a equipe deve defini-los
-  ao implementar os apps de avaliação e de cadastro.
+  pelo endpoint público, e uma conta suspensa não pode autenticar. Os campos
+  que representam esses estados estão no Nível 4 do banco de dados:
+  `AVALIACAO.oculta` (avaliação oculta não aparece nos comentários nem entra
+  na nota média e na quantidade; ver o Nível 4 da Avaliação) e
+  `USUARIO.status` (`suspenso` e `removido` não autenticam; ver a ADR 0007).
 - SQLite em desenvolvimento e MySQL em produção (ADR 0001) significam que os
   procedimentos manuais precisam ser testados no banco de produção, não só no
   local.
@@ -93,11 +96,3 @@ futura da moderação de rotina.
   desenvolvimento e produção).
 - `docs/arquitetura/adr/0002-matricula-apelido-extraidos-do-email.md` (origem da matrícula
   e do apelido rastreados).
-
-## Atualização (28/09/2026)
-
-- Os campos de estado que a API precisa respeitar foram definidos no C4 do Banco de Dados:
-  - **`AVALIACAO.oculta`** (booleano, padrão `false`): avaliação oculta não é retornada pela API pública e não entra na média nem na contagem (RF15);
-  - **`USUARIO.status`** (`pendente`, `ativo`, `suspenso`, `removido`): conta `suspenso` ou `removido` não se autentica, e as sessões abertas deixam de valer (ADR 0007). A exclusão de conta é feita marcando `removido`, e não com `DELETE`, para manter o vínculo de rastreabilidade das avaliações (RNF08).
-- As operações manuais permitidas, quem tem acesso e como executar cada uma ficam em um **roteiro de moderação**, tarefa **TT-07** do backlog do produto.
-- A matrícula/SIAPE é armazenada em texto claro, com acesso restrito a este caminho (ADR 0008).
