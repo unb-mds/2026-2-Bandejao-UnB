@@ -9,6 +9,7 @@ Três camadas, da mais barata para a mais forte:
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.test import Client
 from rest_framework.test import APIClient
 
 QUATORZE_DIAS = 14 * 24 * 60 * 60
@@ -60,6 +61,10 @@ def test_api_autentica_so_por_sessao(settings):
 def test_api_responde_so_json(settings):
     renderizadores = settings.REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"]
     assert renderizadores == ["rest_framework.renderers.JSONRenderer"]
+
+
+def test_csrf_middleware_esta_ativo(settings):
+    assert "django.middleware.csrf.CsrfViewMiddleware" in settings.MIDDLEWARE
 
 
 def test_api_exige_login_por_padrao(settings):
@@ -149,6 +154,15 @@ def test_escrita_com_csrf_valido_e_aceita(cliente_logado):
         "/teste/escrita/", {}, format="json", HTTP_X_CSRFTOKEN=token
     )
     assert resposta.status_code == 200
+
+
+@pytest.mark.urls(URLS_DE_TESTE)
+def test_middleware_csrf_recusa_escrita_de_view_django_sem_token():
+    # Camada do middleware (a do DRF é a de cima). Sem o CsrfViewMiddleware
+    # no settings esta escrita passaria com 200.
+    cliente = Client(enforce_csrf_checks=True)
+    resposta = cliente.post("/teste/escrita-django/", {})
+    assert resposta.status_code == 403
 
 
 @pytest.mark.urls(URLS_DE_TESTE)

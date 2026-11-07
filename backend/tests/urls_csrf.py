@@ -6,6 +6,7 @@ os cookies emitidos, sem depender de endpoints que ainda não existem (BE-05).
 """
 
 from django.contrib.auth import authenticate, login
+from django.http import JsonResponse
 from django.urls import path
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -51,7 +52,18 @@ class LoginView(APIView):
         return Response({"ok": True})
 
 
+def escrita_django_pura(request):
+    """View Django comum (sem DRF): só o CsrfViewMiddleware a protege.
+
+    A SessionAuthentication do DRF faz a própria checagem de CSRF e as
+    APIView são isentas para o middleware. Sem esta view, remover o
+    CsrfViewMiddleware do settings não quebraria nenhum teste.
+    """
+    return JsonResponse({"ok": True})
+
+
 urlpatterns = [
+    path("teste/escrita-django/", escrita_django_pura),
     path("teste/escrita/", EscritaView.as_view()),
     path("teste/sem-permissao/", SemPermissaoView.as_view()),
     path("teste/login/", LoginView.as_view()),
