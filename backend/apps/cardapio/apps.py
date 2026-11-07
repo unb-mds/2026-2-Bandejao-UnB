@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class CardapioConfig(AppConfig):
-   name = 'apps.cardapio'
+    name = 'apps.cardapio'

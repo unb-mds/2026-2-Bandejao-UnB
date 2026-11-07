@@ -28,7 +28,7 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast =bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=lambda v: [s.strip() for s in v.split(',')])
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
 
 
 # Application definition
@@ -41,11 +41,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'apps.status',
-    'apps.core',
-    'apps.usuarios',
+    'apps.cadastro',
     'apps.cardapio',
-    'apps.avaliacoes',
+    'apps.avaliacao',
+    'apps.fila',
+    'apps.gamificacao',
 ]
 
 MIDDLEWARE = [
@@ -148,6 +148,47 @@ STATIC_URL = 'static/'
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
+
+# Django REST Framework
+# API só em JSON, autenticada pela sessão do Django (ADR 0007).
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    # Fechada por padrão: view que esquecer permission_classes não fica pública.
+    # As públicas (cadastro, login, cardápio) declaram AllowAny explicitamente.
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+    ],
+}
+
+
+# Sessão e CSRF (ADR 0007)
+# Cookie de sessão HttpOnly, Secure e SameSite=Lax, com 14 dias renovados a
+# cada uso. O PWA lê o cookie csrftoken e manda o valor no cabeçalho
+# X-CSRFToken nas escritas.
+# O flag Secure acompanha o DEBUG: em produção (DEBUG=False) é True; em
+# desenvolvimento, com o runserver em HTTP, desliga sozinho. O .env pode
+# forçar qualquer um dos dois valores.
+
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=not DEBUG, cast=bool)
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = config('SESSION_COOKIE_AGE', default=14 * 24 * 60 * 60, cast=int)
+SESSION_SAVE_EVERY_REQUEST = True
+
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=not DEBUG, cast=bool)
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_HEADER_NAME = 'HTTP_X_CSRFTOKEN'
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
 
 MAILERS = {
     'default': {

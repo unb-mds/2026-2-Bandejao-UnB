@@ -83,7 +83,7 @@ Para incluir uma página nova: crie o arquivo `.md` dentro de `docs/` e adicione
 | Backend | Python, Django, Django REST Framework ([ADR 0001](docs/arquitetura/adr/0001-escolha-stack-backend.md)) |
 | Banco de dados | SQLite em desenvolvimento, MySQL em produção |
 | Documentação | Docsify + Mermaid, publicado no GitHub Pages |
-| Testes e qualidade | Vitest, ESLint, Oxlint e Prettier no frontend; testes do Django no backend |
+| Testes e qualidade | Vitest, ESLint, Oxlint e Prettier no frontend; pytest e pytest-django no backend |
 
 ## Estrutura do repositório
 
@@ -91,7 +91,7 @@ Para incluir uma página nova: crie o arquivo `.md` dentro de `docs/` e adicione
 .
 ├── backend/            # API Django/DRF
 │   ├── config/         # settings, urls, wsgi/asgi
-│   └── apps/           # um app por recurso: usuarios, cardapio, avaliacoes, status, core
+│   └── apps/           # um app por recurso: cadastro, cardapio (com o leitor), avaliacao, fila, gamificacao
 ├── frontend/           # PWA em Vue 3 + Vite (views, router, assets)
 ├── docs/               # documentação publicada no GitHub Pages (Docsify)
 │   ├── requisitos/     # Visão, Requisitos, glossário e backlog
