@@ -143,6 +143,13 @@ class Usuario(AbstractBaseUser):
         """
         return self.status not in (StatusUsuario.SUSPENSO, StatusUsuario.REMOVIDO)
 
+    def clean_fields(self, exclude=None):
+        # NFC antes de validar: um "é" digitado já decomposto ("e" + acento
+        # combinado) vira o caractere único e passa no formato do apelido.
+        if self.apelido:
+            self.apelido = unicodedata.normalize("NFC", self.apelido)
+        super().clean_fields(exclude=exclude)
+
     def clean(self):
         super().clean()
         # 9 dígitos para estudante (extraída do e-mail) e 7 para
@@ -159,6 +166,8 @@ class Usuario(AbstractBaseUser):
             )
 
     def save(self, *args, **kwargs):
+        if self.apelido:
+            self.apelido = unicodedata.normalize("NFC", self.apelido)
         self.apelido_normalizado = normalizar_apelido(self.apelido)
         if self.email_institucional:
             self.email_institucional = self.email_institucional.strip().lower()

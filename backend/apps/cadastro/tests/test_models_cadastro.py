@@ -161,6 +161,18 @@ class TestApelido:
         with pytest.raises(ValidationError):
             criar_usuario(apelido="a b")
 
+    def test_apelido_decomposto_e_gravado_composto(self):
+        # "e" + acento combinado (NFD) vira "é" (NFC) antes de validar e salvar.
+        usuario = criar_usuario(apelido="Jose\u0301")
+        usuario.refresh_from_db()
+        assert usuario.apelido == "Jos\u00e9"
+        assert usuario.apelido_normalizado == "jose"
+
+    def test_apelido_decomposto_colide_com_o_composto(self):
+        criar_usuario(apelido="Jos\u00e9")
+        with pytest.raises(IntegrityError), transaction.atomic():
+            criar_usuario(apelido="Jose\u0301")
+
 
 class TestCriacaoDeConta:
     def test_conta_nasce_pendente_e_sem_email_confirmado(self):
