@@ -36,8 +36,8 @@ class SemPermissaoView(APIView):
 class LoginView(APIView):
     """Faz login de verdade para o teste conferir os cookies emitidos."""
 
-    authentication_classes = []
-    permission_classes = [AllowAny]
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
 
     @method_decorator(ensure_csrf_cookie)
     def post(self, request):

@@ -1,0 +1,54 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ "develop", "main" ]
+  pull_request:
+    branches: [ "develop", "main" ]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
+      with:
+        python-version: "3.14"
+        cache: pip
+        cache-dependency-path: backend/requirements-dev.txt
+    - run: pip install -r requirements-dev.txt
+    - run: ruff check .
+    - run: ruff format --check .
+
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
+      with:
+        python-version: "3.14"
+        cache: pip
+        cache-dependency-path: backend/requirements-dev.txt
+    - run: pip install -r requirements-dev.txt
+    - run: pytest --cov=apps --cov-branch --cov-fail-under=70
+
+  seguranca:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
+      with:
+        python-version: "3.14"
+        cache: pip
+        cache-dependency-path: backend/requirements-dev.txt
+    - run: pip install -r requirements-dev.txt
+    - run: bandit -r apps config -lll
+    - run: pip-audit -r requirements-dev.txt
+    - run: pipx run --spec semgrep==1.184.0 semgrep scan --config p/python --config p/django --severity ERROR --error --metrics=off
