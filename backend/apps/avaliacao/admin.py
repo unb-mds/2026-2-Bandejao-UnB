@@ -1,3 +1,1 @@
-from django.contrib import admin
-
-# Register your models here.
+"""Admin do app avaliacao (os models entram na BD-01)."""

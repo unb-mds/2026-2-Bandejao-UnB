@@ -1,3 +1,1 @@
-from django.db import models
-
-# Create your models here.
+"""Models do app cardapio (entram na BD-01)."""

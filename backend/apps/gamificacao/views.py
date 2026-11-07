@@ -1,3 +1,1 @@
-from django.shortcuts import render
-
-# Create your views here.
+"""Views do app gamificacao (entram nas histórias de usuário)."""
