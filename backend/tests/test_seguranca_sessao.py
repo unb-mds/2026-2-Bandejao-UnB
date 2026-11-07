@@ -119,7 +119,14 @@ def cookies_do_padrao(settings, carregar_settings):
 
 @pytest.fixture
 def usuario(db):
-    return get_user_model().objects.create_user(username="cris", password="senha-forte-123")
+    return get_user_model().objects.create_user(
+        matricula_siape="202400001",
+        tipo_usuario="estudante",
+        apelido="cris",
+        email_institucional="202400001@aluno.unb.br",
+        versao_aviso_aceita="teste",
+        password="senha-forte-123",
+    )
 
 
 @pytest.fixture
