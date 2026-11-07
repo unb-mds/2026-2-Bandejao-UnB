@@ -51,4 +51,4 @@ jobs:
     - run: pip install -r requirements-dev.txt
     - run: bandit -r apps config -lll
     - run: pip-audit -r requirements-dev.txt
-    - run: pipx run semgrep scan --config p/python --config p/django --severity ERROR --error --metrics=off
+    - run: pipx run --spec semgrep==1.184.0 semgrep scan --config p/python --config p/django --severity ERROR --error --metrics=off
