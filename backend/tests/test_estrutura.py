@@ -25,6 +25,8 @@ def test_app_antigo_nao_volta(nome):
 
 def test_so_os_apps_do_c4_estao_instalados_alem_do_django_e_do_drf():
     do_projeto = sorted(
-        config.label for config in apps.get_app_configs() if config.name.startswith("apps.")
+        config.label
+        for config in apps.get_app_configs()
+        if config.name.startswith("apps.")
     )
     assert do_projeto == sorted(APPS_DO_C4)

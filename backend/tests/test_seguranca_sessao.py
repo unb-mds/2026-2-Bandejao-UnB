@@ -10,6 +10,7 @@ Três camadas, da mais barata para a mais forte:
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 QUATORZE_DIAS = 14 * 24 * 60 * 60
@@ -124,6 +125,7 @@ def usuario(db):
         tipo_usuario="estudante",
         apelido="cris",
         email_institucional="202400001@aluno.unb.br",
+        aceite_privacidade_em=timezone.now(),
         versao_aviso_aceita="teste",
         password="senha-forte-123",
     )
