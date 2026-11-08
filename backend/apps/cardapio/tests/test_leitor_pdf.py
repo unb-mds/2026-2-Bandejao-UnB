@@ -45,7 +45,8 @@ GAMA_ALMOCO_ESPERADO = {
         "PRATO PRINCIPAL PADRÃO": [("Cubos de frango com manteiga de ervas", {LEITE})],
         "PRATO PRINCIPAL OVOLACTOVEGETARIANO": [
             ("Quibe de legumes com quinoa gratinado", {LEITE, TRIGO}),
-            # Texto solto na célula, no próprio PDF (caso difícil 9).
+            # Texto deixado por engano no próprio PDF (caso difícil 11): o
+            # leitor o lê como está, de propósito.
             ("Limão", set()),
         ],
         "PRATO PRINCIPAL VEGETARIANO ESTRITO": [("Tomate recheado com quinoa", set())],

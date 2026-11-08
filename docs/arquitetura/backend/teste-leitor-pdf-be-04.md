@@ -23,9 +23,11 @@ O leitor extrai dos três PDFs **todas** as refeições, dias, categorias, prato
 - Nenhum ícone ficou sem marcador ou sem prato nos três PDFs.
 - Cada PDF é lido em cerca de 1 s.
 
-### Decisão (08/11/2026)
+### Decisão (tomada em 08/11/2026)
 
 **Seguir com o leitor automático (BE-12). O cadastro pelo Django Admin (plano B) fica só como contingência.**
+
+Motivos:
 
 1. A parte de maior risco (L03: identificar os ícones e associá-los aos pratos pela posição) funcionou em todos os ícones dos três PDFs, inclusive com os dois geradores diferentes (Firefox e Word).
 2. Tudo roda em Python, com uma biblioteca MIT: a ADR 0003 (leitor como módulo do backend) continua valendo.
@@ -79,7 +81,7 @@ Três exceções separam os fallbacks do RF06: `FormatoPDFInvalidoError` (manter
 | 8 | Palavra com hífen quebrada | Darcy: "couve-" / "flor" | Junta em "couve-flor" | OK |
 | 9 | Subtítulo em fonte menor | "Legumes sauté" / "(batata, chuchu e cenoura)" | Fica na descrição do prato | OK; o BE-12 pode guardar à parte |
 | 10 | "Opção:" como alternativa | "Mix de doces" / "Opção: Fruta" | "Opção:" separa como "ou" e sai da descrição: vira o prato "Fruta" | OK (decidido em 08/11) |
-| 11 | Texto solto numa célula | Gama, almoço de 2ª (21/09): "Limão" na última linha da célula do prato ovolactovegetariano, abaixo do ícone de trigo do "Quibe de legumes com quinoa gratinado" | Vira um prato "Limão" | **Limitação**: erro do próprio PDF, sem como detectar |
+| 11 | Texto solto numa célula | Gama, almoço de 2ª (21/09): "Limão" na última linha da célula do prato ovolactovegetariano, abaixo do ícone de trigo do "Quibe de legumes com quinoa gratinado" | Vira um prato "Limão" | **Ignorado** (decidido em 08/11): erro de quem montou o PDF, sem regra no leitor para isso |
 | 12 | Palavras grudadas no PDF | Ceilândia e Darcy: "Tomate recheadocom" | Lidas como estão | Erro do próprio PDF |
 | 13 | Ícone na linha de baixo do texto | "Ovos mexidos" / [leite][ovo] | Prato da linha acima | OK |
 | 14 | Dois pratos com ícones na mesma linha | "Leite Integral [leite] OU Bebida de Soja [soja]" | Última palavra à esquerda do ícone | OK |
@@ -98,6 +100,5 @@ Três exceções separam os fallbacks do RF06: `FormatoPDFInvalidoError` (manter
 ## 6. Para o BE-12
 
 - Rodar o leitor em mais semanas e no PDF de Planaltina e juntar aqui os casos novos.
-- Decidir o caso 11 (texto solto). Uma ideia é avisar quando um prato principal tiver mais de um prato sem "ou".
 - Ligar o leitor ao `CardapioDownloader`, ao `CardapioRepository` e ao `AlertaEquipeService`, com as três exceções nos fallbacks do RF06.
 - O leitor devolve a dieta por categoria; o model `Prato` guarda a dieta no prato. O `CardapioRepository` copia a dieta da categoria para cada prato dela.
