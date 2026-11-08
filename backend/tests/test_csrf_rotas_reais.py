@@ -47,6 +47,7 @@ def test_escrita_com_sessao_e_sem_csrf_da_403(cliente_com_sessao, rota, metodo):
     resposta = getattr(cliente_com_sessao, metodo)(rota)
 
     assert resposta.status_code == 403
+    assert "CSRF" in resposta.json()["detail"]
 
 
 @pytest.mark.parametrize(("rota", "metodo"), ESCRITAS_LOGADAS)
