@@ -4,3 +4,5 @@ djangorestframework==3.18.2
 python-decouple==3.8
 sqlparse==0.6.0
 drf-spectacular==0.30.0
+# Leitor do PDF do cardápio (BE-04, ADR 0003). Traz pdfminer.six, pypdfium2 e Pillow.
+pdfplumber==0.11.10
