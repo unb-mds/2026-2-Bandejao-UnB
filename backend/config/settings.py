@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "apps.avaliacao",
     "apps.fila",
     "apps.gamificacao",
+    "drf_spectacular",
 ]
 
 AUTH_USER_MODEL = "cadastro.Usuario"
@@ -178,6 +179,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 
@@ -209,4 +211,13 @@ MAILERS = {
     "default": {
         "BACKEND": "django.core.mail.backends.console.EmailBackend",
     },
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Bandejão UnB API",
+    "VERSION": "1.0.0",
+    # O schema não deve aparecer dentro dele mesmo
+    "SERVE_INCLUDE_SCHEMA": False,
+    # Separa o schema de ENTRADA do de SAÍDA (ajuda muito o front)
+    "COMPONENT_SPLIT_REQUEST": True,
 }
