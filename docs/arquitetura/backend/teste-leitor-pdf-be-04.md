@@ -57,6 +57,7 @@ Cada página do PDF é uma refeição, com uma tabela de bordas desenhadas. Os �
 5. **`MarcadorIconMatcher.identificar`**: corta as bordas brancas do ícone, reduz a 24×24 px e compara com as 10 referências. Acima da distância 35, o ícone é desconhecido (`AssociacaoFalhouError`). Nos três PDFs, o pior acerto ficou em 28, e o segundo colocado ficou sempre pelo menos 1,48 vez mais longe que o certo. Abaixo de 1,3 vez, o leitor gera um aviso.
 6. **`CardapioEstruturador.separar_pratos`**:
    - "ou"/"OU" separa pratos, inclusive no fim da linha; "/" não separa (RF06.2).
+   - "Opção:" separa como "ou" e sai da descrição ("Opção: Fruta" vira "Fruta").
    - Linha nova que começa com **maiúscula** começa outro prato ("Arroz branco e integral" / "Feijão preto"). Com **minúscula** ou "(", continua o prato.
    - Se a linha anterior termina em conector ("e", "com", "de", "ao"…) ou vírgula, a linha nova continua o prato mesmo com maiúscula.
 7. **`MarcadorIconMatcher.associar`**: o ícone vai para o prato da última palavra à esquerda dele, na mesma linha. Se a linha só tem ícones, vai para o prato da linha de texto acima.
@@ -77,8 +78,8 @@ Três exceções separam os fallbacks do RF06: `FormatoPDFInvalidoError` (manter
 | 7 | Maiúscula depois de conector | Ceilândia: "Arroz branco e" / "Integral" | Regra do conector | OK |
 | 8 | Palavra com hífen quebrada | Darcy: "couve-" / "flor" | Junta em "couve-flor" | OK |
 | 9 | Subtítulo em fonte menor | "Legumes sauté" / "(batata, chuchu e cenoura)" | Fica na descrição do prato | OK; o BE-12 pode guardar à parte |
-| 10 | "Opção:" como alternativa | "Mix de doces" / "Opção: Fruta" | Vira um segundo prato "Opção: Fruta" | **Decidir** se o "Opção:" sai da descrição |
-| 11 | Texto solto numa célula | Gama, almoço de 2ª: "Limão" no prato ovolactovegetariano | Vira um prato "Limão" | **Limitação**: erro do próprio PDF, sem como detectar |
+| 10 | "Opção:" como alternativa | "Mix de doces" / "Opção: Fruta" | "Opção:" separa como "ou" e sai da descrição: vira o prato "Fruta" | OK (decidido em 08/11) |
+| 11 | Texto solto numa célula | Gama, almoço de 2ª (21/09): "Limão" na última linha da célula do prato ovolactovegetariano, abaixo do ícone de trigo do "Quibe de legumes com quinoa gratinado" | Vira um prato "Limão" | **Limitação**: erro do próprio PDF, sem como detectar |
 | 12 | Palavras grudadas no PDF | Ceilândia e Darcy: "Tomate recheadocom" | Lidas como estão | Erro do próprio PDF |
 | 13 | Ícone na linha de baixo do texto | "Ovos mexidos" / [leite][ovo] | Prato da linha acima | OK |
 | 14 | Dois pratos com ícones na mesma linha | "Leite Integral [leite] OU Bebida de Soja [soja]" | Última palavra à esquerda do ícone | OK |
@@ -97,6 +98,6 @@ Três exceções separam os fallbacks do RF06: `FormatoPDFInvalidoError` (manter
 ## 6. Para o BE-12
 
 - Rodar o leitor em mais semanas e no PDF de Planaltina e juntar aqui os casos novos.
-- Decidir os casos 10 ("Opção:") e 11 (texto solto). Para o 11, uma ideia é avisar quando um prato principal tiver mais de um prato sem "ou".
+- Decidir o caso 11 (texto solto). Uma ideia é avisar quando um prato principal tiver mais de um prato sem "ou".
 - Ligar o leitor ao `CardapioDownloader`, ao `CardapioRepository` e ao `AlertaEquipeService`, com as três exceções nos fallbacks do RF06.
 - O leitor devolve a dieta por categoria; o model `Prato` guarda a dieta no prato. O `CardapioRepository` copia a dieta da categoria para cada prato dela.

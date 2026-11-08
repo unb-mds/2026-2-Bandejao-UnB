@@ -109,7 +109,7 @@ GAMA_ALMOCO_ESPERADO = {
             ("Arroz branco e integral", set()),
             ("Feijão carioca", set()),
         ],
-        "SOBREMESA": [("Mix de doces", {LEITE, AMENDOIM}), ("Opção: Fruta", set())],
+        "SOBREMESA": [("Mix de doces", {LEITE, AMENDOIM}), ("Fruta", set())],
         "BEBIDA (Refresco de)": [("Uva", set())],
     },
     "2026-09-25": {
@@ -181,7 +181,7 @@ DARCY_ALMOCO_ESPERADO = {
             ("Arroz branco e integral", set()),
             ("Feijão preto", set()),
         ],
-        "SOBREMESA": [("Mix de doces", {LEITE, AMENDOIM}), ("OPÇÃO: Frutas", set())],
+        "SOBREMESA": [("Mix de doces", {LEITE, AMENDOIM}), ("Frutas", set())],
         "BEBIDA (Refresco de)": [("Laranja", set())],
     },
     "2026-11-11": {
@@ -486,6 +486,17 @@ def test_linha_terminada_em_conector_continua_mesmo_com_maiuscula():
     ]
     assert _descricoes(_linhas("Tomate, cebola,", "Pimentão")) == [
         "Tomate, cebola, Pimentão"
+    ]
+
+
+def test_opcao_separa_e_sai_da_descricao():
+    assert _descricoes(_linhas("Mix de doces", "Opção: Fruta")) == [
+        "Mix de doces",
+        "Fruta",
+    ]
+    assert _descricoes(_linhas("Mix de doces", "OPÇÃO: Frutas")) == [
+        "Mix de doces",
+        "Frutas",
     ]
 
 

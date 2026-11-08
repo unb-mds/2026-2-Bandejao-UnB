@@ -321,7 +321,9 @@ def _linhas_de_texto(palavras, tolerancia=3):
 
 
 def _e_separador(texto):
-    return texto.lower() == "ou"
+    # "Opção:" ("Mix de doces" / "Opção: Fruta") separa como "ou" e, como ele,
+    # não entra na descrição do prato.
+    return texto.lower() == "ou" or normalizar(texto) == "opcao:"
 
 
 # Palavras que deixam a frase em aberto no fim da linha: a linha seguinte
@@ -342,7 +344,8 @@ class CardapioEstruturador:
     def separar_pratos(linhas):
         """Separa o texto de uma célula em pratos.
 
-        - "ou"/"OU" separa pratos; "/" não separa (RF06.2).
+        - "ou"/"OU" separa pratos; "/" não separa (RF06.2). "Opção:" também
+          separa e sai da descrição ("Opção: Fruta" vira "Fruta").
         - Linha nova que começa com maiúscula começa outro prato
           ("Arroz branco e integral" / "Feijão preto"); com minúscula ou "(",
           continua o prato da linha anterior (quebra de linha do texto).
