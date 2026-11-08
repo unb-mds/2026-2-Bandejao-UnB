@@ -1,0 +1,1130 @@
+openapi: 3.0.3
+info:
+  title: Bandejão UnB API
+  version: 1.0.0
+paths:
+  /api/avaliacoes/:
+    post:
+      operationId: avaliacoes_create
+      description: 'É sempre um upsert: avaliar de novo a mesma refeição edita a anterior
+        (RF15). Os pontos não dependem da nota nem do comentário (RI11), e nenhum
+        campo de pontos, de campus ou de refeição de pontuação vem do front (RN09).'
+      summary: Avalia uma refeição (cria ou edita)
+      tags:
+      - avaliacao
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvaliacaoEntradaRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvaliacaoRegistrada'
+          description: Primeira avaliação desta refeição.
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvaliacaoRegistrada'
+          description: Avaliação anterior editada. Não pontua de novo.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Sem sessão. `codigo`: `nao_autenticado`.'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Refeição inexistente. `codigo`: `refeicao_nao_encontrada`.'
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Regra de negócio violada. `codigo`: `janela_avaliacao_fechada`
+            (refeição fora do dia corrente ou ainda não iniciada), `nota_invalida`
+            (ausente ou fora de 1 a 5) ou `comentario_muito_longo` (mais de 500 caracteres).'
+  /api/avaliacoes/resumo/:
+    get:
+      operationId: avaliacoes_resumo_list
+      description: Uma chamada só para o seletor de refeições da tela do campus. Os
+        comentários vêm à parte, por refeição.
+      summary: Nota média e quantidade de cada refeição do dia
+      parameters:
+      - in: query
+        name: campus
+        schema:
+          type: integer
+        description: Id do campus (o de GET /api/campi/).
+        required: true
+      - in: query
+        name: data
+        schema:
+          type: string
+          format: date
+        description: 'Dia do resumo. Omitido: dia corrente.'
+      tags:
+      - avaliacao
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ResumoRefeicao'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Parâmetro ausente ou inválido, como `campus`. `codigo`: `parametros_invalidos`.'
+  /api/cadastro/:
+    post:
+      operationId: cadastro_create
+      description: POST /api/cadastro/ (RF01, Cadastro N4 4a). Lógica na BE-05.
+      summary: Cria uma conta pendente
+      tags:
+      - cadastro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CadastroEntradaRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CadastroCriado'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApelidoIndisponivel'
+          description: 'Só professor/servidor: o apelido extraído do e-mail já existe
+            ou é inválido. Reenviar com `apelido`.'
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: Dados rejeitados. Matrícula/SIAPE ou e-mail já usados dão a
+            mesma mensagem, sem dizer qual dos dois (RI01).
+  /api/campi/:
+    get:
+      operationId: campi_list
+      description: Só `id` e `nome`. O raio do RU nunca é publicado.
+      summary: Lista os campi
+      tags:
+      - cardapio
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CampusPublico'
+          description: ''
+  /api/cardapio/:
+    get:
+      operationId: cardapio_retrieve
+      description: Os filtros de marcador e de dieta são aplicados no backend (ADR
+        0005). Cardápio ainda não publicado volta 200 com `status` igual a `nao_publicado`
+        (RF18).
+      summary: Cardápio de uma refeição, já filtrado
+      parameters:
+      - in: query
+        name: campus
+        schema:
+          type: integer
+        description: Id do campus (o de GET /api/campi/).
+        required: true
+      - in: query
+        name: dia
+        schema:
+          type: string
+          format: date
+        description: 'Dia a exibir. Omitido: dia corrente.'
+      - in: query
+        name: dieta
+        schema:
+          type: string
+          enum:
+          - ovolactovegetariano
+          - sem_filtro
+          - vegetariano_estrito
+        description: 'Omitida: sem_filtro.'
+      - in: query
+        name: marcadores
+        schema:
+          type: string
+        description: Marcadores selecionados, separados por vírgula.
+      - in: query
+        name: refeicao
+        schema:
+          type: string
+          enum:
+          - almoco
+          - cafe
+          - jantar
+        description: 'Omitida: refeição padrão (RN05).'
+      - in: query
+        name: semana
+        schema:
+          type: string
+          format: date
+        description: 'Início da semana. Omitido: semana vigente.'
+      tags:
+      - cardapio
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardapioFiltrado'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Parâmetro ausente ou inválido, como `campus`. `codigo`: `parametros_invalidos`.'
+  /api/checkins/:
+    post:
+      operationId: checkins_create
+      description: 'As coordenadas só viajam no corpo desta requisição: nunca em query
+        string e nunca em resposta, e o servidor não as grava (RI09, RF12). Campus
+        e refeição da pontuação são os do próprio check-in, nunca um campo enviado
+        pelo front (RN09).'
+      summary: Registra o check-in no RU, com confirmação por GPS
+      tags:
+      - fila
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckinEntradaRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckinRegistrado'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Sem sessão. `codigo`: `nao_autenticado`.'
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Falta dar ciência ao aviso de privacidade atualizado (RF11).
+            `codigo`: `aviso_privacidade_pendente`.'
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Check-in recusado. `codigo`: `fora_do_horario` (fora da janela
+            da refeição), `checkin_duplicado` (já existe check-in desta conta na mesma
+            refeição, RI03) ou `localizacao_nao_confirmada` (fora do raio do RU).'
+  /api/confirmar-email/{token}/:
+    post:
+      operationId: confirmar_email_create
+      description: POST /api/confirmar-email/{token}/ (RF02.1, Cadastro N4 4b).
+      summary: Confirma o e-mail pelo link recebido
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        description: Token do link enviado por e-mail (uso único, 24 h).
+        required: true
+      tags:
+      - cadastro
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: 'E-mail confirmado: a conta passa a poder entrar (RF03).'
+        '410':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Link expirado, inválido ou já usado (RF02.1). `codigo`: `token_invalido_ou_expirado`.
+            O front oferece reenviar o link.'
+  /api/fila/previsao/:
+    get:
+      operationId: fila_previsao_retrieve
+      description: Calculada sob demanda a partir dos check-ins das últimas 4 semanas,
+        no mesmo dia da semana (RF13). Com poucos dados volta 200 com `status` igual
+        a `dados_insuficientes`, e não erro.
+      summary: Previsão de pico por faixa de horário
+      parameters:
+      - in: query
+        name: campus
+        schema:
+          type: integer
+        description: Id do campus (o de GET /api/campi/).
+        required: true
+      - in: query
+        name: data
+        schema:
+          type: string
+          format: date
+        description: 'Dia da previsão. Omitido: dia corrente.'
+      - in: query
+        name: refeicao
+        schema:
+          type: string
+          enum:
+          - almoco
+          - cafe
+          - jantar
+        description: Refeição da previsão.
+        required: true
+      tags:
+      - fila
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrevisaoPico'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Parâmetro ausente ou inválido, como `campus`. `codigo`: `parametros_invalidos`.'
+  /api/gamificacao/adesao/:
+    post:
+      operationId: gamificacao_adesao_create
+      description: A adesão é desligada por padrão (RF27.1).
+      summary: Entra no ranking do semestre
+      tags:
+      - gamificacao
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Sem sessão. `codigo`: `nao_autenticado`.'
+    delete:
+      operationId: gamificacao_adesao_destroy
+      description: Tira a conta do ranking na hora. Os pontos continuam acumulando.
+        O PWA deve buscar o ranking de novo.
+      summary: Sai do ranking do semestre
+      tags:
+      - gamificacao
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Sem sessão. `codigo`: `nao_autenticado`.'
+  /api/gamificacao/progresso/:
+    get:
+      operationId: gamificacao_progresso_retrieve
+      description: Só a própria pessoa vê. Nunca traz a posição de ninguém.
+      summary: 'Meu progresso: patente, pontos e sequência'
+      tags:
+      - gamificacao
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Progresso'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Sem sessão. `codigo`: `nao_autenticado`.'
+  /api/privacidade/aceite/:
+    post:
+      operationId: privacidade_aceite_create
+      description: Sem corpo. O servidor grava a versão atual do aviso e a hora do
+        servidor (RF11, RNF07.1).
+      summary: Registra a ciência do aviso de privacidade
+      tags:
+      - cadastro
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: Ciência registrada.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Sem sessão. `codigo`: `nao_autenticado`.'
+  /api/ranking/{campusId}/:
+    get:
+      operationId: ranking_retrieve
+      description: 'Só quem aderiu aparece. Cada linha traz posição, apelido e patente:
+        nunca pontos, matrícula/SIAPE nem e-mail (RI10).'
+      summary: Ranking do semestre corrente de um campus
+      parameters:
+      - in: path
+        name: campusId
+        schema:
+          type: integer
+        description: Id do campus (o de GET /api/campi/).
+        required: true
+      tags:
+      - gamificacao
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RankingPublico'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Campus inexistente. `codigo`: `campus_nao_encontrado`.'
+  /api/reenviar-confirmacao/:
+    post:
+      operationId: reenviar_confirmacao_create
+      description: POST /api/reenviar-confirmacao/ (RF02.2, Cadastro N4 4b).
+      summary: Pede um novo link de confirmação de e-mail
+      tags:
+      - cadastro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReenvioConfirmacaoEntradaRequest'
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: Pedido recebido. A resposta é a mesma exista ou não uma conta
+            pendente, para não revelar quais contas existem. Quando há conta pendente,
+            o novo link vale 24 h (RF02.2).
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Não veio `matriculaSiape` nem `token`. `codigo`: `dados_invalidos`.'
+  /api/refeicoes/{refeicaoId}/avaliacoes/:
+    get:
+      operationId: refeicoes_avaliacoes_retrieve
+      description: Avaliações ocultas pela moderação não aparecem nem entram na média
+        (RNF08). Autor com conta removida aparece como `usuário removido`. Nunca expõe
+        dado pessoal do autor (RI10).
+      summary: Nota média e comentários de uma refeição
+      parameters:
+      - in: path
+        name: refeicaoId
+        schema:
+          type: integer
+        description: Id da refeição (inteiro, público de propósito).
+        required: true
+      tags:
+      - avaliacao
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvaliacoesDaRefeicao'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Refeição inexistente. `codigo`: `refeicao_nao_encontrada`.'
+  /api/sessao/:
+    get:
+      operationId: sessao_retrieve
+      description: Devolve só apelido, tipo e avisoPrivacidadePendente, nunca matrícula/SIAPE
+        ou e-mail (RI10).
+      summary: Quem sou eu (sessão atual)
+      tags:
+      - cadastro
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sessao'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Sem sessão. `codigo`: `nao_autenticado`.'
+    post:
+      operationId: sessao_create
+      description: 'Matrícula (9 dígitos) ou SIAPE (7 dígitos) no mesmo campo. O servidor
+        grava o cookie de sessão (HttpOnly) e o `csrftoken`. Um 401 aqui é senha ou
+        matrícula errada, não sessão expirada: a tela de login mostra a mensagem do
+        erro (o `authStore` já está vazio, então limpá-lo de novo não causa problema).'
+      summary: Entra na conta (login)
+      tags:
+      - cadastro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginEntradaRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sessao'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Credenciais inválidas, com mensagem genérica (RF03.1). Vale
+            também para conta suspensa ou removida. `codigo`: `credenciais_invalidas`.'
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Credenciais corretas, mas o e-mail ainda não foi confirmado
+            (RF02.2). `codigo`: `conta_nao_confirmada`. O front oferece reenviar o
+            link.'
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: '5 tentativas malsucedidas em 10 minutos: bloqueado por 10
+            minutos (RF03.2). `codigo`: `login_bloqueado`.'
+    delete:
+      operationId: sessao_destroy
+      description: |-
+        /api/sessao/ (Cadastro N4 4c): POST entra, GET diz quem sou, DELETE sai.
+
+        Uma rota, três verbos. O padrão do projeto é fechado (IsAuthenticated),
+        então só o POST (login) é liberado: quem entra ainda não tem sessão.
+      summary: Sai da conta (logout)
+      tags:
+      - cadastro
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: Sessão atual encerrada (RF03.3).
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Sem sessão. `codigo`: `nao_autenticado`.'
+components:
+  schemas:
+    ApelidoIndisponivel:
+      type: object
+      description: 'Resposta 409: o apelido tirado do e-mail não pôde ser usado.'
+      properties:
+        codigo:
+          type: string
+          description: Código do erro, em snake_case.
+        mensagem:
+          type: string
+          description: Texto para mostrar ao usuário.
+        apelidoSugerido:
+          type: string
+      required:
+      - apelidoSugerido
+      - codigo
+      - mensagem
+    Avaliacao:
+      type: object
+      description: A avaliação gravada. Só os campos do próprio autor.
+      properties:
+        id:
+          type: integer
+        refeicaoId:
+          type: integer
+        nota:
+          type: integer
+        comentario:
+          type: string
+        criadaEm:
+          type: string
+          format: date-time
+        editadaEm:
+          type: string
+          format: date-time
+          nullable: true
+          description: null se a avaliação nunca foi editada.
+      required:
+      - comentario
+      - criadaEm
+      - editadaEm
+      - id
+      - nota
+      - refeicaoId
+    AvaliacaoEntradaRequest:
+      type: object
+      description: Corpo do POST /api/avaliacoes/ (RF15, Avaliação N4 4a).
+      properties:
+        refeicaoId:
+          type: integer
+          description: Id da refeição avaliada.
+        nota:
+          type: integer
+          maximum: 5
+          minimum: 1
+          description: Obrigatória, de 1 a 5.
+        comentario:
+          type: string
+          description: Opcional, até 500 caracteres.
+          maxLength: 500
+      required:
+      - nota
+      - refeicaoId
+    AvaliacaoPublica:
+      type: object
+      description: Um comentário público (Avaliação N4 4b). Só dados do autor já públicos.
+      properties:
+        apelido:
+          type: string
+          description: Apelido do autor, ou `usuário removido` se a conta foi removida.
+        nota:
+          type: integer
+        comentario:
+          type: string
+        criadaEm:
+          type: string
+          format: date-time
+      required:
+      - apelido
+      - comentario
+      - criadaEm
+      - nota
+    AvaliacaoRegistrada:
+      type: object
+      description: 'Resposta do POST /api/avaliacoes/: a avaliação e os pontos.'
+      properties:
+        avaliacao:
+          $ref: '#/components/schemas/Avaliacao'
+        pontos:
+          $ref: '#/components/schemas/ResultadoPontuacao'
+      required:
+      - avaliacao
+      - pontos
+    AvaliacoesDaRefeicao:
+      type: object
+      description: Resposta do GET /api/refeicoes/{refeicaoId}/avaliacoes/.
+      properties:
+        resumoAvaliacoes:
+          $ref: '#/components/schemas/ResumoAvaliacoes'
+        comentarios:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvaliacaoPublica'
+      required:
+      - comentarios
+      - resumoAvaliacoes
+    CadastroCriado:
+      type: object
+      description: 'Resposta 201: a conta fica pendente até confirmar o e-mail (RF02).'
+      properties:
+        emailInstitucional:
+          type: string
+          format: email
+        status:
+          type: string
+          description: Sempre "pendente".
+      required:
+      - emailInstitucional
+      - status
+    CadastroEntradaRequest:
+      type: object
+      description: Corpo do POST /api/cadastro/ (RF01, Cadastro N4 4a).
+      properties:
+        tipoUsuario:
+          $ref: '#/components/schemas/TipoUsuarioEnum'
+        emailInstitucional:
+          type: string
+          format: email
+          minLength: 1
+        senha:
+          type: string
+          writeOnly: true
+          minLength: 8
+        apelido:
+          type: string
+          minLength: 1
+          description: Obrigatório para estudante. Professor/servidor só envia depois
+            de um 409 apelido_indisponivel.
+        matriculaSiape:
+          type: string
+          minLength: 1
+          description: SIAPE de 7 dígitos. Só para professor/servidor.
+        aceitePrivacidade:
+          type: boolean
+          description: Ciência do aviso de privacidade (RNF07.1). Precisa ser true.
+      required:
+      - aceitePrivacidade
+      - emailInstitucional
+      - senha
+      - tipoUsuario
+    CampusPublico:
+      type: object
+      description: Um campus na lista pública (Exposição N4 4b). Só id e nome na v1.
+      properties:
+        id:
+          type: integer
+        nome:
+          type: string
+      required:
+      - id
+      - nome
+    CardapioFiltrado:
+      type: object
+      description: Resposta do GET /api/cardapio/ (Exposição N4 4a).
+      properties:
+        campus:
+          type: integer
+          description: Id do campus (o de GET /api/campi/).
+        refeicao:
+          type: string
+          description: Um de "cafe", "almoco" ou "jantar".
+        data:
+          type: string
+          format: date
+          description: Dia exibido. Pode diferir do pedido (RN05).
+        refeicaoEncerrada:
+          type: boolean
+        status:
+          type: string
+          description: '"publicado" ou "nao_publicado" (RF18).'
+        avisoSujeitoAAlteracao:
+          type: string
+        alergenosIndisponivel:
+          type: boolean
+        filtroMarcadorDesativado:
+          type: boolean
+        categorias:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoriaFiltrada'
+      required:
+      - alergenosIndisponivel
+      - avisoSujeitoAAlteracao
+      - campus
+      - categorias
+      - data
+      - filtroMarcadorDesativado
+      - refeicao
+      - refeicaoEncerrada
+      - status
+    CategoriaFiltrada:
+      type: object
+      description: Uma linha do cardápio, com os pratos que sobraram nos filtros.
+      properties:
+        nome:
+          type: string
+        semOpcaoCompativel:
+          type: boolean
+          description: true se todos os pratos da categoria têm marcador selecionado.
+        pratos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PratoFiltrado'
+      required:
+      - nome
+      - pratos
+      - semOpcaoCompativel
+    Checkin:
+      type: object
+      description: O check-in confirmado. Nunca devolve coordenadas.
+      properties:
+        id:
+          type: integer
+        campus:
+          type: integer
+        tipoRefeicao:
+          type: string
+        data:
+          type: string
+          format: date
+      required:
+      - campus
+      - data
+      - id
+      - tipoRefeicao
+    CheckinEntradaRequest:
+      type: object
+      description: Corpo do POST /api/checkins/ (RF11, RF12, Fila N4 4a).
+      properties:
+        campus:
+          type: integer
+          description: Id do campus (o de GET /api/campi/).
+        tipoRefeicao:
+          type: string
+          minLength: 1
+          description: Um de "cafe", "almoco" ou "jantar".
+        coordenadas:
+          $ref: '#/components/schemas/CoordenadasRequest'
+      required:
+      - campus
+      - coordenadas
+      - tipoRefeicao
+    CheckinRegistrado:
+      type: object
+      description: 'Resposta 201 do POST /api/checkins/: o check-in e os pontos.'
+      properties:
+        checkin:
+          $ref: '#/components/schemas/Checkin'
+        pontos:
+          $ref: '#/components/schemas/ResultadoPontuacao'
+      required:
+      - checkin
+      - pontos
+    CoordenadasRequest:
+      type: object
+      description: Posição do aparelho. Só existe no corpo do check-in (RI09, RF12).
+      properties:
+        latitude:
+          type: number
+          format: double
+          maximum: 90
+          minimum: -90
+        longitude:
+          type: number
+          format: double
+          maximum: 180
+          minimum: -180
+      required:
+      - latitude
+      - longitude
+    Erro:
+      type: object
+      properties:
+        codigo:
+          type: string
+          description: Código do erro, em snake_case.
+        mensagem:
+          type: string
+          description: Texto para mostrar ao usuário.
+      required:
+      - codigo
+      - mensagem
+    FaixaPrevista:
+      type: object
+      description: Uma faixa de 15 minutos da previsão (Fila N4 4c).
+      properties:
+        inicio:
+          type: string
+          format: time
+          description: Horário local, America/Sao_Paulo.
+        fim:
+          type: string
+          format: time
+        nivel:
+          type: string
+          description: Um de "vazia", "curta", "moderada" ou "longa".
+        ehPico:
+          type: boolean
+          description: true na faixa mais cheia (em empate, em todas elas).
+      required:
+      - ehPico
+      - fim
+      - inicio
+      - nivel
+    LinhaRankingPublica:
+      type: object
+      description: Uma linha do ranking. Só dados públicos (RI10, RI12).
+      properties:
+        posicao:
+          type: integer
+        apelido:
+          type: string
+        patente:
+          type: string
+          description: Mesmos valores da patente de GET /api/gamificacao/progresso/.
+      required:
+      - apelido
+      - patente
+      - posicao
+    LoginEntradaRequest:
+      type: object
+      description: Corpo do POST /api/sessao/ (RF03.1, Cadastro N4 4c).
+      properties:
+        matriculaSiape:
+          type: string
+          minLength: 1
+          description: Matrícula (9 dígitos) ou SIAPE (7 dígitos), no mesmo campo.
+        senha:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - matriculaSiape
+      - senha
+    PratoFiltrado:
+      type: object
+      description: Um prato do cardápio (Exposição N4 4a).
+      properties:
+        descricao:
+          type: string
+        marcadores:
+          type: array
+          items:
+            type: string
+        contemMarcadorSelecionado:
+          type: boolean
+      required:
+      - contemMarcadorSelecionado
+      - descricao
+      - marcadores
+    PrevisaoPico:
+      type: object
+      description: Resposta do GET /api/fila/previsao/ (Fila N4 4c). Só agregados.
+      properties:
+        campus:
+          type: integer
+        tipoRefeicao:
+          type: string
+        data:
+          type: string
+          format: date
+        status:
+          type: string
+          description: '"disponivel" ou "dados_insuficientes" (RF13).'
+        faixas:
+          type: array
+          items:
+            $ref: '#/components/schemas/FaixaPrevista'
+          description: Vazia quando o status é dados_insuficientes.
+      required:
+      - campus
+      - data
+      - faixas
+      - status
+      - tipoRefeicao
+    Progresso:
+      type: object
+      description: Resposta do GET /api/gamificacao/progresso/ (Gamificação N4 4c).
+      properties:
+        patente:
+          type: string
+          description: Um de "CALOURO_DE_BANDEJA", "RATO_DE_RU", "VETERANO", "MESTRE_DA_FILA"
+            ou "LENDA_DO_RU" (RN11).
+        pontosTotais:
+          type: integer
+        faltaParaProxima:
+          type: integer
+          description: Pontos que faltam para a próxima patente. 0 na última.
+        sequencia:
+          type: integer
+          description: Semanas seguidas completadas (RN10).
+        diasNaSemana:
+          type: integer
+          description: Dias com check-in na semana corrente.
+        minimoDias:
+          type: integer
+          description: Dias necessários para completar a semana.
+        participaRanking:
+          type: boolean
+          description: Se a pessoa aderiu ao ranking (RF27.1).
+      required:
+      - diasNaSemana
+      - faltaParaProxima
+      - minimoDias
+      - participaRanking
+      - patente
+      - pontosTotais
+      - sequencia
+    RankingPublico:
+      type: object
+      description: Resposta do GET /api/ranking/{campusId}/ (Gamificação N4 4c).
+      properties:
+        campusId:
+          type: integer
+        semestre:
+          type: string
+          description: Por exemplo "2026.2".
+        linhas:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinhaRankingPublica'
+          description: Até 10 linhas. Vazia se ninguém aderiu ainda (RF27.2).
+      required:
+      - campusId
+      - linhas
+      - semestre
+    ReenvioConfirmacaoEntradaRequest:
+      type: object
+      description: |-
+        Corpo do POST /api/reenviar-confirmacao/ (RF02.2, Cadastro N4 4b).
+
+        PROVISÓRIO: a documentação não diz como o back acha a conta. Envie
+        um dos dois campos (confirmar no servidor.js do front).
+      properties:
+        matriculaSiape:
+          type: string
+          minLength: 1
+          description: Quem pede o reenvio pela tela de login (conta não confirmada).
+        token:
+          type: string
+          minLength: 1
+          description: Quem pede o reenvio pela tela do link expirado.
+    ResultadoPontuacao:
+      type: object
+      description: Bloco `pontos` devolvido por avaliação e check-in (Gamificação
+        N4).
+      properties:
+        total:
+          type: integer
+          description: 'Pontos desta resposta. 0: o PWA não mostra aviso (RF24.2).'
+        contribuicao:
+          type: integer
+          description: Parte do total que vem desta contribuição.
+        avaliacaoLiberada:
+          type: integer
+          description: Parte do total vinda de uma avaliação liberada agora (RN09).
+      required:
+      - avaliacaoLiberada
+      - contribuicao
+      - total
+    ResumoAvaliacoes:
+      type: object
+      description: Nota média e quantidade de avaliações de uma refeição.
+      properties:
+        media:
+          type: number
+          format: double
+          nullable: true
+          description: null enquanto não há avaliações.
+        quantidade:
+          type: integer
+      required:
+      - media
+      - quantidade
+    ResumoRefeicao:
+      type: object
+      description: Uma refeição no resumo do dia (Avaliação N4 4b).
+      properties:
+        refeicaoId:
+          type: integer
+        tipo:
+          type: string
+          description: Um de "cafe", "almoco" ou "jantar".
+        media:
+          type: number
+          format: double
+          nullable: true
+          description: null enquanto não há avaliações.
+        quantidade:
+          type: integer
+      required:
+      - media
+      - quantidade
+      - refeicaoId
+      - tipo
+    Sessao:
+      type: object
+      description: Quem está logado (Cadastro N4 4c). Nunca matrícula/SIAPE nem e-mail
+        (RI10).
+      properties:
+        apelido:
+          type: string
+        tipo:
+          type: string
+          description: '"estudante" ou "professor_servidor".'
+        avisoPrivacidadePendente:
+          type: boolean
+      required:
+      - apelido
+      - avisoPrivacidadePendente
+      - tipo
+    TipoUsuarioEnum:
+      enum:
+      - estudante
+      - professor_servidor
+      type: string
+      description: |-
+        * `estudante` - Estudante
+        * `professor_servidor` - Professor/Servidor
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
