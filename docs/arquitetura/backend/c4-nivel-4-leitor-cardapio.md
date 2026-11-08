@@ -10,9 +10,8 @@
 > define o módulo dentro do backend e o disparo por cron do SO, e ADR 0006 —
 > *Alerta de falha do leitor por e-mail*
 > (`docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md`). A
-> biblioteca de leitura de PDF ainda não foi escolhida (a ADR 0003 deixa
-> isso para o teste com o PDF real do Gama); por isso `CardapioPDFParser`
-> aparece sem biblioteca.
+> biblioteca de leitura de PDF é o `pdfplumber`, escolhido no teste com os
+> PDFs reais do BE-04 (`docs/arquitetura/backend/teste-leitor-pdf-be-04.md`).
 
 Há dois diagramas: **4a** leitura do PDF e **4b** gravação e alertas. Cada diagrama tem no máximo 20 elementos e um título próprio, seguindo a skill c4-architecture usada pelo grupo; classes compartilhadas (como `Conta` ou as configurações) aparecem em mais de um diagrama.
 
@@ -124,9 +123,10 @@ classDiagram
   RF06 é explícito: os ícones dos marcadores são imagens sobrepostas ao
   texto do PDF, fora da camada de texto extraível. Essa é provavelmente a
   classe de maior risco técnico do módulo (L03) e a que mais provavelmente
-  muda de implementação dependendo da biblioteca de leitura de PDF adotada
-  (ADR 0003, ainda não avaliada com o PDF real do campus do Gama segundo a
-  nota do Nível 2).
+  muda de implementação dependendo da biblioteca de leitura de PDF adotada.
+  No teste do BE-04 com o `pdfplumber`, ela identificou cada ícone
+  comparando a imagem com as da legenda e associou todos os ícones dos PDFs
+  do Gama, da Ceilândia e do Darcy Ribeiro.
 
 ## Nível 4b — Gravação e alertas
 

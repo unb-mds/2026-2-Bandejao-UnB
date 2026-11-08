@@ -265,8 +265,8 @@ com limite de avisos (ADR 0006) [E-mail]"| equipe
 - **Leitor de Cardápio não é um container à parte.** É um módulo (app Django)
   dentro do Backend, com fronteira nítida, conforme ADR 0003. Só seria
   promovido a container separado se a melhor biblioteca de leitura de PDF
-  exigisse outra linguagem — o que ainda depende de um teste com o PDF real
-  do RU do Gama.
+  exigisse outra linguagem. O teste com os PDFs reais (BE-04) mostrou que
+  não exige: a biblioteca escolhida é o `pdfplumber`, em Python.
 - **Gamificação também não é um container à parte.** Pontos, sequência,
   patente e ranking (RF24 a RF27) ficam em um app Django próprio dentro do
   Backend (RNF06), e os contadores ficam no mesmo Banco de Dados, ligados à

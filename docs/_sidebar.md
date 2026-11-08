@@ -16,6 +16,7 @@
     - [Nível 4 — Cadastro e autenticação](arquitetura/backend/c4-nivel-4-cadastro-autenticacao.md)
     - [Nível 4 — Exposição do cardápio](arquitetura/backend/c4-nivel-4-exposicao-cardapio.md)
     - [Nível 4 — Leitor do cardápio](arquitetura/backend/c4-nivel-4-leitor-cardapio.md)
+    - [Teste do leitor do PDF (BE-04)](arquitetura/backend/teste-leitor-pdf-be-04.md)
     - [Nível 4 — Avaliação](arquitetura/backend/c4-nivel-4-avaliacao.md)
     - [Nível 4 — Fila](arquitetura/backend/c4-nivel-4-fila.md)
     - [Nível 4 — Gamificação](arquitetura/backend/c4-nivel-4-gamificacao.md)
