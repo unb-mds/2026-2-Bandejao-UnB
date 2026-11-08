@@ -65,13 +65,14 @@ class Refeicao(models.Model):
         choices=StatusLeitura.choices,
         default=StatusLeitura.OK,
     )
-    # O N4 não fixa o tamanho. O MySQL em modo estrito recusa URL maior que o
-    # varchar, e o Leitor grava sem `full_clean`; por isso 500 e não os 200
-    # padrão do URLField.
+    # O N4 não fixa o tamanho. O `save()` não chama `full_clean`, então uma URL
+    # maior que a coluna só falharia no MySQL em modo estrito; por isso 500 e
+    # não os 200 padrão do URLField.
     fonte_pdf_url = models.URLField(max_length=500)
-    # Atualizada a cada gravação. Quem implementar o Leitor não deve chamar
-    # `save()` na refeição antiga ao manter o último cardápio válido, senão
-    # `lida_em` deixa de indicar quando a última leitura deu certo.
+    # Quando a leitura automatizada gravou ou atualizou esta refeição (N4).
+    # Qualquer `save()` atualiza o campo, inclusive pelo Django Admin. Quem
+    # implementar o Leitor não deve chamar `save()` na refeição antiga ao
+    # manter o último cardápio válido.
     lida_em = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -188,9 +189,9 @@ class ContadorAlerta(models.Model):
         Campus, on_delete=models.CASCADE, related_name="contadores_alerta"
     )
     tipo = models.CharField(max_length=30, choices=TipoAlerta.choices)
-    # Dia da contagem no horário de Brasília (ADR 0006). Quem grava o campo é
-    # quem calcula o dia: com TIME_ZONE em UTC nas settings, `localdate()` vira
-    # o dia às 21h de Brasília. Ajustar o TIME_ZONE é pendência do BD-04.
+    # Dia da contagem no horário de Brasília (N4 do banco, item 10). Calcular com
+    # `timezone.localdate()`, que só dá o dia de Brasília com
+    # TIME_ZONE = "America/Sao_Paulo".
     data = models.DateField()
     quantidade_enviada = models.SmallIntegerField(default=0)
     ultimo_envio_em = models.DateTimeField(null=True, blank=True)

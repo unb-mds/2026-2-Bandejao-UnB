@@ -1,7 +1,8 @@
 """Testes dos models do app `cardapio` (BD-01, parte 2).
 
 Cada teste vem de uma regra do Nível 4 do banco (dicionário de dados e tabela
-"Constraints principais") ou de uma lacuna apontada no review do PR #108.
+"Constraints principais") ou de um comportamento dos models de que o resto do
+sistema depende (M2M de marcadores, `auto_now`, unicidade).
 """
 
 from datetime import date, time, timedelta
@@ -115,8 +116,9 @@ class TestCampus:
             criar_campus(nome="Gama")
 
     def test_coordenadas_guardam_as_6_casas_decimais(self):
-        # Com 6 casas reais, uma coluna com menos casas arredondaria o valor.
-        # O limite de `max_digits` só é garantido no MySQL (SQLite não o aplica).
+        # O SQLite não guarda a precisão na coluna, mas o Django arredonda o
+        # valor ao relê-lo: com 6 casas reais, um `decimal_places` menor faz
+        # este teste falhar mesmo no SQLite.
         campus = criar_campus(
             ru_latitude=Decimal("-15.763147"),
             ru_longitude=Decimal("-47.866912"),
@@ -188,6 +190,10 @@ class TestRefeicao:
     def test_leitura_falhou_nao_indica_alergenos_indisponiveis(self):
         refeicao = criar_refeicao(status_leitura=StatusLeitura.LEITURA_FALHOU)
         assert refeicao.alergenos_indisponivel is False
+
+    def test_fonte_pdf_url_comporta_500_caracteres(self):
+        # O SQLite não aplica o tamanho do varchar; este teste guarda o valor.
+        assert Refeicao._meta.get_field("fonte_pdf_url").max_length == 500
 
     def test_lida_em_e_preenchida_automaticamente(self):
         assert criar_refeicao().lida_em is not None
