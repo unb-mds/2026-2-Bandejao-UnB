@@ -55,8 +55,9 @@ def test_sessao_de_14_dias_renovada_a_cada_uso(settings):
 
 
 def test_api_autentica_so_por_sessao(settings):
+    # BE-03 (4.1): subclasse da SessionAuthentication que devolve 401, e não 403.
     autenticacao = settings.REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]
-    assert autenticacao == ["rest_framework.authentication.SessionAuthentication"]
+    assert autenticacao == ["apps.cadastro.autenticacao.SessaoAutenticacao"]
 
 
 def test_api_responde_so_json(settings):
@@ -177,8 +178,10 @@ def test_middleware_csrf_recusa_escrita_de_view_django_sem_token():
 @pytest.mark.urls(URLS_DE_TESTE)
 def test_view_sem_permission_classes_nega_anonimo():
     # Esquecer permission_classes não pode deixar a view pública.
+    # BE-03 (4.1): sem sessão o backend responde 401 com `nao_autenticado`.
     resposta = APIClient().get("/teste/sem-permissao/")
-    assert resposta.status_code == 403
+    assert resposta.status_code == 401
+    assert resposta.json()["codigo"] == "nao_autenticado"
 
 
 @pytest.mark.urls(URLS_DE_TESTE)
