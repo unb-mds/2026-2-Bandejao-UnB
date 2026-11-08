@@ -1,15 +1,16 @@
 """Testes dos models do app `cardapio` (BD-01, parte 2).
 
-Cada teste vem de uma regra do Nível 4 do banco: dicionário de dados e
-tabela "Constraints principais".
+Cada teste vem de uma regra do Nível 4 do banco (dicionário de dados e tabela
+"Constraints principais") ou de uma lacuna apontada no review do PR #108.
 """
 
-from datetime import date, time
+from datetime import date, time, timedelta
 from decimal import Decimal
 
 import pytest
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
+from django.utils import timezone
 
 from apps.cardapio.models import (
     AlertaLeituraCardapio,
@@ -113,16 +114,31 @@ class TestCampus:
         with pytest.raises(IntegrityError), transaction.atomic():
             criar_campus(nome="Gama")
 
-    def test_coordenadas_cabem_na_precisao_definida(self):
+    def test_coordenadas_guardam_as_6_casas_decimais(self):
+        # Com 6 casas reais, uma coluna com menos casas arredondaria o valor.
+        # O limite de `max_digits` só é garantido no MySQL (SQLite não o aplica).
         campus = criar_campus(
-            ru_latitude=Decimal("-15.989000"),
-            ru_longitude=Decimal("-48.044000"),
-            centro_latitude=Decimal("-15.989500"),
-            centro_longitude=Decimal("-48.045000"),
+            ru_latitude=Decimal("-15.763147"),
+            ru_longitude=Decimal("-47.866912"),
+            centro_latitude=Decimal("-15.765031"),
+            centro_longitude=Decimal("-47.868044"),
         )
         campus.refresh_from_db()
-        assert campus.ru_latitude == Decimal("-15.989000")
-        assert campus.centro_longitude == Decimal("-48.045000")
+        assert campus.ru_latitude == Decimal("-15.763147")
+        assert campus.ru_longitude == Decimal("-47.866912")
+        assert campus.centro_latitude == Decimal("-15.765031")
+        assert campus.centro_longitude == Decimal("-47.868044")
+
+    def test_campus_protegido_nao_apaga_alertas_nem_contadores(self):
+        # O PROTECT de Refeicao prevalece sobre o CASCADE dos alertas.
+        refeicao = criar_refeicao()
+        campus = refeicao.campus
+        criar_alerta(campus=campus)
+        criar_contador(campus=campus)
+        with pytest.raises(ProtectedError):
+            campus.delete()
+        assert AlertaLeituraCardapio.objects.count() == 1
+        assert ContadorAlerta.objects.count() == 1
 
 
 class TestRefeicao:
@@ -131,6 +147,22 @@ class TestRefeicao:
         criar_refeicao(campus=campus)
         with pytest.raises(IntegrityError), transaction.atomic():
             criar_refeicao(campus=campus)
+
+    def test_unicidade_ignora_horario_e_status_de_leitura(self):
+        campus = criar_campus()
+        criar_refeicao(campus=campus)
+        with pytest.raises(IntegrityError), transaction.atomic():
+            criar_refeicao(
+                campus=campus,
+                horario_inicio=time(12, 0),
+                status_leitura=StatusLeitura.LEITURA_FALHOU,
+            )
+
+    def test_mesmo_campus_e_tipo_em_outro_dia_sao_permitidos(self):
+        campus = criar_campus()
+        criar_refeicao(campus=campus, data=date(2026, 11, 9))
+        criar_refeicao(campus=campus, data=date(2026, 11, 10))
+        assert Refeicao.objects.filter(campus=campus).count() == 2
 
     def test_tipos_diferentes_no_mesmo_dia_sao_permitidos(self):
         campus = criar_campus()
@@ -145,6 +177,7 @@ class TestRefeicao:
 
     def test_status_de_leitura_comeca_ok(self):
         refeicao = criar_refeicao()
+        refeicao.refresh_from_db()
         assert refeicao.status_leitura == StatusLeitura.OK
         assert refeicao.alergenos_indisponivel is False
 
@@ -158,6 +191,15 @@ class TestRefeicao:
 
     def test_lida_em_e_preenchida_automaticamente(self):
         assert criar_refeicao().lida_em is not None
+
+    def test_lida_em_e_atualizada_a_cada_gravacao(self, monkeypatch):
+        refeicao = criar_refeicao()
+        refeicao.refresh_from_db()
+        depois = refeicao.lida_em + timedelta(hours=1)
+        monkeypatch.setattr(timezone, "now", lambda: depois)
+        refeicao.save()
+        refeicao.refresh_from_db()
+        assert refeicao.lida_em == depois
 
     def test_campus_com_refeicao_nao_pode_ser_removido(self):
         refeicao = criar_refeicao()
@@ -221,6 +263,30 @@ class TestPratoMarcador:
         with pytest.raises(ProtectedError):
             marcador.delete()
 
+    def test_prato_e_marcador_se_enxergam_pela_relacao_many_to_many(self):
+        prato, soja, ovo = criar_prato(), criar_marcador(), criar_marcador()
+        PratoMarcador.objects.create(prato=prato, marcador=soja)
+        PratoMarcador.objects.create(prato=prato, marcador=ovo)
+        assert set(prato.marcadores.all()) == {soja, ovo}
+        assert list(soja.pratos.all()) == [prato]
+
+    def test_add_e_remove_pela_relacao_many_to_many(self):
+        prato, marcador = criar_prato(), criar_marcador()
+        prato.marcadores.add(marcador)
+        assert PratoMarcador.objects.filter(prato=prato, marcador=marcador).exists()
+        prato.marcadores.remove(marcador)
+        assert PratoMarcador.objects.count() == 0
+        assert Marcador.objects.filter(pk=marcador.pk).exists()
+
+    def test_prefetch_traz_os_marcadores_sem_consulta_extra(
+        self, django_assert_num_queries
+    ):
+        prato, soja = criar_prato(), criar_marcador()
+        PratoMarcador.objects.create(prato=prato, marcador=soja)
+        pratos = list(Prato.objects.prefetch_related("marcadores"))
+        with django_assert_num_queries(0):
+            assert list(pratos[0].marcadores.all()) == [soja]
+
 
 class TestAlertaLeituraCardapio:
     def test_alerta_novo_nao_esta_resolvido(self):
@@ -228,6 +294,16 @@ class TestAlertaLeituraCardapio:
         assert alerta.ocorrido_em is not None
         assert alerta.resolvido is False
         assert alerta.resolvido_em is None
+
+    def test_ocorrido_em_nao_muda_ao_salvar_de_novo(self, monkeypatch):
+        alerta = criar_alerta()
+        alerta.refresh_from_db()
+        original = alerta.ocorrido_em
+        monkeypatch.setattr(timezone, "now", lambda: original + timedelta(hours=1))
+        alerta.resolvido = True
+        alerta.save()
+        alerta.refresh_from_db()
+        assert alerta.ocorrido_em == original
 
     def test_refeicao_e_opcional(self):
         assert criar_alerta().refeicao is None
@@ -248,6 +324,7 @@ class TestAlertaLeituraCardapio:
 class TestContadorAlerta:
     def test_contador_novo_comeca_em_zero(self):
         contador = criar_contador()
+        contador.refresh_from_db()
         assert contador.quantidade_enviada == 0
         assert contador.ultimo_envio_em is None
 
@@ -264,6 +341,12 @@ class TestContadorAlerta:
         criar_contador(campus=campus, data=date(2026, 11, 10))
         assert ContadorAlerta.objects.filter(campus=campus).count() == 3
 
+    def test_mesmo_tipo_e_dia_em_outro_campus_sao_contagens_separadas(self):
+        # A falha de um campus não pode bloquear a contagem de outro.
+        criar_contador(campus=criar_campus())
+        criar_contador(campus=criar_campus())
+        assert ContadorAlerta.objects.count() == 2
+
     @pytest.mark.parametrize("quantidade", [0, 1, 2, 3])
     def test_quantidade_de_0_a_3_e_aceita(self, quantidade):
         contador = criar_contador(quantidade_enviada=quantidade)
@@ -273,6 +356,11 @@ class TestContadorAlerta:
     def test_quantidade_fora_de_0_a_3_e_rejeitada(self, quantidade):
         with pytest.raises(IntegrityError), transaction.atomic():
             criar_contador(quantidade_enviada=quantidade)
+
+    def test_quantidade_nula_e_rejeitada(self):
+        # NULL passaria no CHECK (resultado "unknown" em SQL); o NOT NULL barra.
+        with pytest.raises(IntegrityError), transaction.atomic():
+            criar_contador(quantidade_enviada=None)
 
     def test_remover_o_campus_remove_os_contadores(self):
         contador = criar_contador()

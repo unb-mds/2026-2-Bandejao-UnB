@@ -65,7 +65,13 @@ class Refeicao(models.Model):
         choices=StatusLeitura.choices,
         default=StatusLeitura.OK,
     )
-    fonte_pdf_url = models.URLField()
+    # O N4 não fixa o tamanho. O MySQL em modo estrito recusa URL maior que o
+    # varchar, e o Leitor grava sem `full_clean`; por isso 500 e não os 200
+    # padrão do URLField.
+    fonte_pdf_url = models.URLField(max_length=500)
+    # Atualizada a cada gravação. Quem implementar o Leitor não deve chamar
+    # `save()` na refeição antiga ao manter o último cardápio válido, senão
+    # `lida_em` deixa de indicar quando a última leitura deu certo.
     lida_em = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -106,12 +112,17 @@ class Prato(models.Model):
         Categoria, on_delete=models.CASCADE, related_name="pratos"
     )
     nome = models.CharField(max_length=200)
-    # Só nas linhas de prato principal (ou complemento, no café da manhã).
-    # `NULL` nas categorias comuns a todas as dietas (RF09).
+    # Segue o dicionário de dados do N4 do banco: a dieta fica no prato, e
+    # não na categoria. `NULL` nas categorias comuns a todas as dietas (RF09).
     dieta = models.CharField(
         max_length=20, choices=Dieta.choices, null=True, blank=True
     )
     ordem = models.IntegerField()
+    # Atalho sobre PratoMarcador: permite `prefetch_related("marcadores")`,
+    # `prato.marcadores.add(...)` e `remove(...)`. Não cria coluna nem tabela.
+    marcadores = models.ManyToManyField(
+        "Marcador", through="PratoMarcador", related_name="pratos"
+    )
 
     def __str__(self):
         return self.nome
@@ -160,7 +171,8 @@ class AlertaLeituraCardapio(models.Model):
     tipo = models.CharField(max_length=30, choices=TipoAlerta.choices)
     mensagem = models.TextField()
     ocorrido_em = models.DateTimeField(auto_now_add=True)
-    # Marcado pela equipe, por acesso direto ao banco (ADR 0004, RNF08).
+    # Marcado manualmente pela equipe; sem tela administrativa no escopo
+    # (RNF08). Hoje, por acesso direto ao banco (ADR 0004).
     resolvido = models.BooleanField(default=False)
     resolvido_em = models.DateTimeField(null=True, blank=True)
 
@@ -176,7 +188,9 @@ class ContadorAlerta(models.Model):
         Campus, on_delete=models.CASCADE, related_name="contadores_alerta"
     )
     tipo = models.CharField(max_length=30, choices=TipoAlerta.choices)
-    # Dia da contagem, no horário de Brasília.
+    # Dia da contagem no horário de Brasília (ADR 0006). Quem grava o campo é
+    # quem calcula o dia: com TIME_ZONE em UTC nas settings, `localdate()` vira
+    # o dia às 21h de Brasília. Ajustar o TIME_ZONE é pendência do BD-04.
     data = models.DateField()
     quantidade_enviada = models.SmallIntegerField(default=0)
     ultimo_envio_em = models.DateTimeField(null=True, blank=True)
