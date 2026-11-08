@@ -149,9 +149,7 @@ class TestRefeicao:
         assert refeicao.alergenos_indisponivel is False
 
     def test_alergenos_indisponivel_vem_do_status(self):
-        refeicao = criar_refeicao(
-            status_leitura=StatusLeitura.ALERGENOS_INDISPONIVEIS
-        )
+        refeicao = criar_refeicao(status_leitura=StatusLeitura.ALERGENOS_INDISPONIVEIS)
         assert refeicao.alergenos_indisponivel is True
 
     def test_leitura_falhou_nao_indica_alergenos_indisponiveis(self):
