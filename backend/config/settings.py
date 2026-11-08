@@ -166,14 +166,14 @@ STATIC_URL = "static/"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "apps.cadastro.autenticacao.SessaoAutenticacao",  # <- trocou a SessionAuthentication
+        "apps.cadastro.autenticacao.SessaoAutenticacao",
     ],
     # Fechada por padrão: view que esquecer permission_classes não fica pública.
     # As públicas (cadastro, login, cardápio) declaram AllowAny explicitamente.
-    "EXCEPTION_HANDLER": "config.excecoes.tratador_de_excecoes",
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "EXCEPTION_HANDLER": "config.excecoes.tratador_de_excecoes",
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
