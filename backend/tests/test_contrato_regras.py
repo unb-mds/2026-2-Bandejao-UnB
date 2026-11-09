@@ -24,8 +24,75 @@ PALAVRAS_PESSOAIS = (
     "telefone",
 )
 
+# Campos que cada resposta pública pode ter (em minúsculas, todos os status).
+# Campo novo numa resposta pública só entra depois de uma decisão consciente:
+# o teste falha até alguém acrescentá-lo aqui.
+_ERRO = {"codigo", "mensagem"}
+CAMPOS_PUBLICOS_PERMITIDOS = {
+    ("/api/cadastro/", "post"): _ERRO
+    | {"status", "emailinstitucional", "apelidosugerido"},
+    ("/api/confirmar-email/{token}/", "post"): _ERRO,
+    ("/api/reenviar-confirmacao/", "post"): _ERRO,
+    ("/api/sessao/", "post"): _ERRO | {"apelido", "tipo", "avisoprivacidadependente"},
+    ("/api/campi/", "get"): {"id", "nome"},
+    ("/api/cardapio/", "get"): _ERRO
+    | {
+        "alergenosindisponivel",
+        "avisosujeitoaalteracao",
+        "campus",
+        "categorias",
+        "contemmarcadorselecionado",
+        "data",
+        "descricao",
+        "filtromarcadordesativado",
+        "marcadores",
+        "nome",
+        "pratos",
+        "refeicao",
+        "refeicaoencerrada",
+        "semopcaocompativel",
+        "status",
+    },
+    ("/api/refeicoes/{refeicaoId}/avaliacoes/", "get"): _ERRO
+    | {
+        "resumoavaliacoes",
+        "media",
+        "quantidade",
+        "comentarios",
+        "apelido",
+        "nota",
+        "comentario",
+        "criadaem",
+    },
+    ("/api/avaliacoes/resumo/", "get"): _ERRO
+    | {"refeicaoid", "tipo", "media", "quantidade"},
+    ("/api/fila/previsao/", "get"): _ERRO
+    | {
+        "status",
+        "campus",
+        "data",
+        "tiporefeicao",
+        "faixas",
+        "inicio",
+        "fim",
+        "nivel",
+        "ehpico",
+    },
+    ("/api/ranking/{campusId}/", "get"): _ERRO
+    | {"campusid", "semestre", "linhas", "posicao", "apelido", "patente"},
+}
+
 # Coordenadas só existem no corpo do POST /api/checkins/ (RI09, RF12).
-PALAVRAS_DE_LOCALIZACAO = ("latitude", "longitude", "coordenadas")
+PALAVRAS_DE_LOCALIZACAO = (
+    "latitude",
+    "longitude",
+    "coordenadas",
+    "lat",
+    "lng",
+    "lon",
+    "geo",
+    "localizacao",
+)
 
 # Exceções conscientes: (rota, método) -> campos permitidos na resposta.
 # O cadastro devolve ao próprio solicitante o e-mail que ele acabou de enviar.
@@ -147,3 +214,18 @@ def test_toda_operacao_logada_declara_o_401(schema):
         if not _eh_publica(operacao) and "401" not in operacao["responses"]
     ]
     assert not sem_401, f"rotas logadas sem 401 declarado: {sem_401}"
+
+
+def test_resposta_publica_so_tem_campos_permitidos(schema):
+    """Lista positiva: pega `nome`, `userId`, `lat`... que a lista de palavras deixa passar."""
+    publicas = {(r, m): o for r, m, o in _operacoes(schema) if _eh_publica(o)}
+    assert set(publicas) == set(CAMPOS_PUBLICOS_PERMITIDOS), (
+        "rota pública nova ou removida"
+    )
+
+    extras = []
+    for (rota, metodo), operacao in publicas.items():
+        permitidos = CAMPOS_PUBLICOS_PERMITIDOS[(rota, metodo)]
+        for nome in _campos_das_respostas(schema, operacao) - permitidos:
+            extras.append(f"{metodo.upper()} {rota}: {nome}")
+    assert not extras, f"campos novos em respostas públicas: {extras}"

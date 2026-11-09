@@ -76,3 +76,14 @@ def test_nenhum_campo_proibido_no_contrato(schema):
     texto = json.dumps(schema)
     for campo in CAMPOS_PROIBIDOS:
         assert campo not in texto, f"Campo proibido no contrato: {campo}"
+
+
+def test_contrato_tem_so_os_endpoints_da_v1(schema):
+    """Endpoint fora da Tabela 2 (ex.: rascunho da v2) não entra sem aviso."""
+    operacoes = {
+        (rota, metodo)
+        for rota, itens in schema["paths"].items()
+        for metodo in itens
+        if metodo in ("get", "post", "put", "patch", "delete")
+    }
+    assert operacoes == set(ENDPOINTS_V1)

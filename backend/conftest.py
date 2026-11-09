@@ -54,3 +54,20 @@ def carregar_settings(monkeypatch):
         return modulo
 
     return carregar
+
+
+@pytest.fixture
+def usuario(db):
+    """Usuário comum, já com o aviso de privacidade aceito."""
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+
+    return get_user_model().objects.create_user(
+        matricula_siape="202400001",
+        tipo_usuario="estudante",
+        apelido="cris",
+        email_institucional="202400001@aluno.unb.br",
+        aceite_privacidade_em=timezone.now(),
+        versao_aviso_aceita="teste",
+        password="senha-forte-123",
+    )
