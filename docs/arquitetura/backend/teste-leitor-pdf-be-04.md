@@ -108,6 +108,7 @@ O leitor nunca devolve um cardápio vazio ou incompleto em silêncio. Todas as e
 
 ## 6. Para o BE-12
 
-- Rodar o leitor em mais semanas e no PDF de Planaltina e juntar aqui os casos novos.
+- Rodar o leitor em mais semanas e no PDF de Planaltina e juntar aqui os casos novos. O leitor é rigoroso de propósito: qualquer coluna extra com texto no cabeçalho recusa o PDF inteiro. Observar se isso recusa PDFs bons; se recusar, rever a regra em vez de afrouxá-la em silêncio.
+- Pendências da revisão do PR #114, deixadas para o BE-12: trocar os dicionários soltos de célula e dia por dataclasses (`Celula`, `Dia`) e aceitar "Opção" sem dois-pontos, se aparecer em algum PDF.
 - Ligar o leitor ao `CardapioDownloader`, ao `CardapioRepository` e ao `AlertaEquipeService`: `DownloadError` e `FormatoPDFInvalidoError` mantêm o último válido; refeição com `alergenos_indisponiveis` grava `status_leitura = alergenos_indisponiveis` e gera alerta.
 - O leitor devolve a dieta por categoria; o model `Prato` guarda a dieta no prato. O `CardapioRepository` copia a dieta da categoria para cada prato dela.
