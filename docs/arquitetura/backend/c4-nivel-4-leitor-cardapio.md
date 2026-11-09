@@ -158,10 +158,10 @@ classDiagram
   }
   class Categoria {
     +nome: str
-    +dieta: str
   }
   class Prato {
-    +descricao: str
+    +nome: str
+    +dieta: str | None
   }
   class Marcador {
     +nome: str
@@ -224,6 +224,14 @@ classDiagram
   app Cardápio** (não deste módulo) — aparecem aqui só como o destino da
   persistência do `CardapioRepository`, para deixar explícito o que o Leitor
   de Cardápio grava, sem redefinir o schema completo do app.
+- **`Categoria` e `Prato` seguem o dicionário de dados do Nível 4 do banco**
+  (seguido pelos models no PR #108): a dieta fica em `Prato.dieta`, nula nas
+  categorias comuns a todas as dietas (RF09), e o texto do prato fica em
+  `Prato.nome`. O parser continua devolvendo a dieta por categoria
+  (`CategoriaEstruturada.dieta`, Nível 4a) e o texto em
+  `PratoEstruturado.descricao`; ao gravar, o `CardapioRepository` copia a
+  dieta da categoria para cada prato dela e grava `descricao` em
+  `Prato.nome` (ver a seção 6 do teste do BE-04).
 - **`Refeicao.statusLeitura` é a coluna `REFEICAO.status_leitura` do banco**
   (`ok`, `alergenos_indisponiveis` ou `leitura_falhou`).
   `CardapioRepository.marcarAlergenosIndisponivel` grava
