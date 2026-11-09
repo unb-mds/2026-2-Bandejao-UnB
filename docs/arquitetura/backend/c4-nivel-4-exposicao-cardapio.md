@@ -167,16 +167,23 @@ classDiagram
   `Prato.dieta` é `padrao`, `ovolacto` ou `vegetariano_estrito` nas linhas
   de prato principal (almoço/jantar) e de complemento (café da manhã), e
   nula nas categorias comuns a todas as dietas (saladas, guarnição, sopa
-  etc.). O `FiltroDietaService` decide prato a prato, conforme o RF09:
-  - `SEM_FILTRO`: mantém todos os pratos;
-  - `OVOLACTOVEGETARIANO`: mantém os pratos com dieta `ovolacto`,
-    `vegetariano_estrito` ou nula, e oculta os de dieta `padrao`;
-  - `VEGETARIANO_ESTRITO`: mantém só os pratos com dieta
+  etc.). **Todos os pratos de uma categoria têm a mesma dieta**: o
+  `CardapioRepository` copia a dieta da categoria lida no PDF para cada
+  prato dela (ver o Nível 4 do Leitor de Cardápio). Por isso o
+  `FiltroDietaService` lê a dieta dos pratos, mas mantém ou remove a
+  categoria inteira, e devolve `list~Categoria~`. A regra segue o RF09:
+  - `SEM_FILTRO`: mantém todas as categorias;
+  - `OVOLACTOVEGETARIANO`: mantém as categorias cujos pratos têm dieta
+    `ovolacto`, `vegetariano_estrito` ou nula, e remove as de dieta
+    `padrao` (ex.: a linha "Prato principal padrão");
+  - `VEGETARIANO_ESTRITO`: mantém só as categorias cujos pratos têm dieta
     `vegetariano_estrito` ou nula.
 
-  A categoria que fica sem nenhum prato depois do filtro (ex.: a linha
-  "Prato principal padrão") sai da resposta; as categorias de pratos com
-  dieta nula nunca são ocultadas pela dieta.
+  Só sai da resposta a categoria removida pela dieta escolhida. Com
+  `SEM_FILTRO`, nenhuma categoria é removida, nem uma que já tenha vindo sem
+  pratos, e as categorias de pratos com dieta nula nunca são removidas pela
+  dieta. Isso é diferente do `semOpcaoCompativel` do RF08, que **mantém** a
+  categoria na resposta e só a sinaliza.
 - **`Prato.nome` sai como `PratoFiltrado.descricao`.** O model segue o
   dicionário do banco (`PRATO.nome`); o `PratoFiltrado` é a resposta da API
   e mantém `descricao`, que é o nome do campo no contrato OpenAPI

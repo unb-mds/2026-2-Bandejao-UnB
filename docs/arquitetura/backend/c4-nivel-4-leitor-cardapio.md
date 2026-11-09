@@ -229,9 +229,11 @@ classDiagram
   categorias comuns a todas as dietas (RF09), e o texto do prato fica em
   `Prato.nome`. O parser continua devolvendo a dieta por categoria
   (`CategoriaEstruturada.dieta`, Nível 4a) e o texto em
-  `PratoEstruturado.descricao`; ao gravar, o `CardapioRepository` copia a
-  dieta da categoria para cada prato dela e grava `descricao` em
-  `Prato.nome` (ver a seção 6 do teste do BE-04).
+  `PratoEstruturado.descricao`. Ao gravar, o `CardapioRepository` copia a
+  dieta da categoria para cada prato dela (ver a seção 6 do teste do BE-04)
+  e grava `descricao` em `Prato.nome`. Assim, todos os pratos de uma
+  categoria têm a mesma dieta, e a Exposição do Cardápio conta com isso no
+  `FiltroDietaService`.
 - **`Refeicao.statusLeitura` é a coluna `REFEICAO.status_leitura` do banco**
   (`ok`, `alergenos_indisponiveis` ou `leitura_falhou`).
   `CardapioRepository.marcarAlergenosIndisponivel` grava
