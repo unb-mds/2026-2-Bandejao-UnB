@@ -121,10 +121,10 @@ classDiagram
   }
   class Categoria {
     +nome: str
-    +dieta: str
   }
   class Prato {
-    +descricao: str
+    +nome: str
+    +dieta: str | None
   }
   class Marcador {
     +nome: str
@@ -143,7 +143,7 @@ classDiagram
   RefeicaoRepository ..> Categoria : lê
   RefeicaoRepository ..> Prato : lê
   RefeicaoRepository ..> Marcador : lê
-  FiltroDietaService --> Categoria : lê linhas de dieta
+  FiltroDietaService --> Prato : lê a dieta de cada prato
   FiltroMarcadorService --> CategoriaFiltrada : produz
   FiltroMarcadorService --> PratoFiltrado : produz
   CardapioFiltrado --> StatusCardapio : tem
@@ -162,6 +162,33 @@ classDiagram
   `FiltroDietaService`, depois `FiltroMarcadorService`), porque a dieta pode
   esconder categorias/linhas inteiras (RF09) e o filtro de marcador só
   precisa então avaliar o que sobrou.
+- **A dieta fica no `Prato`, não na `Categoria`** (`PRATO.dieta` no
+  dicionário de dados do Nível 4 do banco, seguido pelos models no PR #108).
+  `Prato.dieta` é `padrao`, `ovolacto` ou `vegetariano_estrito` nas linhas
+  de prato principal (almoço/jantar) e de complemento (café da manhã), e
+  nula nas categorias comuns a todas as dietas (saladas, guarnição, sopa
+  etc.). **Todos os pratos de uma categoria têm a mesma dieta**: o
+  `CardapioRepository` copia a dieta da categoria lida no PDF para cada
+  prato dela (ver o Nível 4 do Leitor de Cardápio). Por isso o
+  `FiltroDietaService` lê a dieta dos pratos, mas mantém ou remove a
+  categoria inteira, e devolve `list~Categoria~`. A regra segue o RF09:
+  - `SEM_FILTRO`: mantém todas as categorias;
+  - `OVOLACTOVEGETARIANO`: mantém as categorias cujos pratos têm dieta
+    `ovolacto`, `vegetariano_estrito` ou nula, e remove as de dieta
+    `padrao` (ex.: a linha "Prato principal padrão");
+  - `VEGETARIANO_ESTRITO`: mantém só as categorias cujos pratos têm dieta
+    `vegetariano_estrito` ou nula.
+
+  Só sai da resposta a categoria removida pela dieta escolhida. Com
+  `SEM_FILTRO`, nenhuma categoria é removida, nem uma que já tenha vindo sem
+  pratos, e as categorias de pratos com dieta nula nunca são removidas pela
+  dieta. Isso é diferente do `semOpcaoCompativel` do RF08, que **mantém** a
+  categoria na resposta e só a sinaliza.
+- **`Prato.nome` sai como `PratoFiltrado.descricao`.** O model segue o
+  dicionário do banco (`PRATO.nome`); o `PratoFiltrado` é a resposta da API
+  e mantém `descricao`, que é o nome do campo no contrato OpenAPI
+  (`backend/openapi.yaml`, BE-03). Renomear o campo da resposta mudaria o
+  contrato combinado com o frontend e fica fora deste ajuste.
 - **`FiltroMarcadorService.aplicar` recebe `alergenosIndisponivel` como
   parâmetro** (a propriedade derivada de `Refeicao.statusLeitura`, coluna
   `REFEICAO.status_leitura` do banco, igual à do Nível 4 do Leitor de
