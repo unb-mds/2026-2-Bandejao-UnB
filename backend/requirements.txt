@@ -4,5 +4,10 @@ djangorestframework==3.18.2
 python-decouple==3.8
 sqlparse==0.6.0
 drf-spectacular==0.30.0
-# Leitor do PDF do cardápio (BE-04, ADR 0003). Traz pdfminer.six, pypdfium2 e Pillow.
+# Leitor do PDF do cardápio (BE-04, ADR 0003). As dependências do pdfplumber
+# ficam fixas porque o resultado depende delas: o layout de texto vem do
+# pdfminer.six e as distâncias dos ícones, do redimensionamento do Pillow.
 pdfplumber==0.11.10
+pdfminer.six==20260107
+pillow==13.0.0
+pypdfium2==5.15.1
