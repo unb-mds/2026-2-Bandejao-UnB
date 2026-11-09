@@ -630,13 +630,18 @@ class CardapioPDFParser:
         try:
             with pdfplumber.open(self.caminho) as pdf:
                 for numero, pagina in enumerate(pdf.pages, start=1):
+                    # O `try` de fora pega o FormatoPDFInvalidoError também
+                    # da releitura só em texto, que nasce dentro do `except`.
                     try:
-                        refeicao = self._pagina(pagina)
-                    except (LegendaInvalidaError, AssociacaoFalhouError) as e:
-                        refeicao = self._pagina(pagina, com_marcadores=False)
-                        refeicao.alergenos_indisponiveis = True
-                        refeicao.motivo = f"{type(e).__name__}: {e}"
-                        avisos.append(f"pág. {numero}: só em texto ({refeicao.motivo})")
+                        try:
+                            refeicao = self._pagina(pagina)
+                        except (LegendaInvalidaError, AssociacaoFalhouError) as e:
+                            refeicao = self._pagina(pagina, com_marcadores=False)
+                            refeicao.alergenos_indisponiveis = True
+                            refeicao.motivo = f"{type(e).__name__}: {e}"
+                            avisos.append(
+                                f"pág. {numero}: só em texto ({refeicao.motivo})"
+                            )
                     except FormatoPDFInvalidoError as e:
                         raise FormatoPDFInvalidoError(f"pág. {numero}: {e}") from e
                     resultados.append(refeicao)
