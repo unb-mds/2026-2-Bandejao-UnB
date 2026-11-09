@@ -10,7 +10,8 @@ from pathlib import Path
 
 import pytest
 from django.core.management import call_command
-from drf_spectacular.generators import SchemaGenerator
+
+from tests.rotas_do_contrato import gerar_schema, operacoes
 
 # Arquivo oficial do contrato (se mudar o caminho, mude aqui e no comando de geração)
 CAMINHO_CONTRATO = Path(__file__).resolve().parent.parent / "openapi.yaml"
@@ -50,7 +51,7 @@ CAMPOS_PROIBIDOS = [
 @pytest.fixture(scope="module")
 def schema():
     """Gera o schema OpenAPI em memória, direto do código atual."""
-    return SchemaGenerator().get_schema(request=None, public=True)
+    return gerar_schema()
 
 
 def test_contrato_do_repositorio_esta_atualizado(tmp_path):
@@ -80,10 +81,5 @@ def test_nenhum_campo_proibido_no_contrato(schema):
 
 def test_contrato_tem_so_os_endpoints_da_v1(schema):
     """Endpoint fora da Tabela 2 (ex.: rascunho da v2) não entra sem aviso."""
-    operacoes = {
-        (rota, metodo)
-        for rota, itens in schema["paths"].items()
-        for metodo in itens
-        if metodo in ("get", "post", "put", "patch", "delete")
-    }
-    assert operacoes == set(ENDPOINTS_V1)
+    no_schema = {(rota, metodo) for rota, metodo, _ in operacoes(schema)}
+    assert no_schema == set(ENDPOINTS_V1)

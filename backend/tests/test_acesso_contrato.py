@@ -1,8 +1,8 @@
 """Teste 6 do guia: acesso às rotas do contrato (BE-03, 3.1 e 4.2).
 
 Rota logada sem sessão -> 401 com `nao_autenticado`.
-Rota logada com sessão -> chega na view (que ainda responde 501).
-Rota pública sem sessão -> chega na view (que ainda responde 501).
+Rota logada com sessão -> chega na view (não é barrada com 401/403).
+Rota pública sem sessão -> chega na view (não é barrada com 401/403).
 As rotas vêm do schema (tests/rotas_do_contrato.py), não de uma lista fixa.
 """
 
@@ -13,9 +13,13 @@ from tests.rotas_do_contrato import ROTAS_LOGADAS, ROTAS_PUBLICAS
 
 
 def test_schema_tem_as_rotas_esperadas():
-    """Guarda: se a leitura do schema quebrar, os testes abaixo não viram vazios."""
-    assert len(ROTAS_LOGADAS) == 8
-    assert len(ROTAS_PUBLICAS) == 10
+    """Guarda: se a leitura do schema quebrar, os testes abaixo não viram vazios.
+
+    A quantidade exata de rotas já é conferida por
+    `test_contrato_tem_so_os_endpoints_da_v1` (igualdade com ENDPOINTS_V1).
+    """
+    assert ROTAS_LOGADAS
+    assert ROTAS_PUBLICAS
 
 
 @pytest.mark.parametrize(("rota", "metodo"), ROTAS_LOGADAS)
@@ -34,13 +38,18 @@ def test_rota_logada_com_sessao_chega_na_view(usuario, rota, metodo):
 
     resposta = getattr(cliente, metodo)(rota)
 
-    # BE-05 em diante: trocar 501 pelo status de sucesso de cada rota.
-    assert resposta.status_code == 501
+    # Chegou na view: não foi barrada por autenticação nem por permissão.
+    # Hoje a view responde 501; depois do BE-05, sem corpo e sem dados no banco,
+    # 2xx, 400 ou 404 também servem.
+    assert resposta.status_code not in (401, 403)
 
 
 @pytest.mark.parametrize(("rota", "metodo"), ROTAS_PUBLICAS)
 def test_rota_publica_responde_sem_login(rota, metodo):
+    """Pega rota pública que perdeu o AllowAny."""
     resposta = getattr(APIClient(), metodo)(rota)
 
-    # BE-05 em diante: trocar 501 pelo status de sucesso de cada rota.
-    assert resposta.status_code == 501
+    # Chegou na view: não foi barrada por autenticação nem por permissão.
+    # Hoje a view responde 501; depois do BE-05, sem corpo e sem dados no banco,
+    # 2xx, 400 ou 404 também servem.
+    assert resposta.status_code not in (401, 403)

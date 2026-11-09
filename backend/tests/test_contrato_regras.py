@@ -6,9 +6,8 @@ Extras: coordenadas nunca saem em resposta; rota logada declara o 401.
 """
 
 import pytest
-from drf_spectacular.generators import SchemaGenerator
 
-METODOS = ("get", "post", "put", "patch", "delete")
+from tests.rotas_do_contrato import eh_publica, gerar_schema, operacoes
 
 # Nomes (em minúsculas) que nunca podem aparecer numa resposta pública.
 PALAVRAS_PESSOAIS = (
@@ -27,6 +26,8 @@ PALAVRAS_PESSOAIS = (
 # Campos que cada resposta pública pode ter (em minúsculas, todos os status).
 # Campo novo numa resposta pública só entra depois de uma decisão consciente:
 # o teste falha até alguém acrescentá-lo aqui.
+# Limitação: os nomes são comparados sem o caminho (em qual objeto o campo
+# está). Um objeto aninhado novo com `nome` passa onde `nome` já é permitido.
 _ERRO = {"codigo", "mensagem"}
 CAMPOS_PUBLICOS_PERMITIDOS = {
     ("/api/cadastro/", "post"): _ERRO
@@ -83,16 +84,12 @@ CAMPOS_PUBLICOS_PERMITIDOS = {
 }
 
 # Coordenadas só existem no corpo do POST /api/checkins/ (RI09, RF12).
-PALAVRAS_DE_LOCALIZACAO = (
-    "latitude",
-    "longitude",
-    "coordenadas",
-    "lat",
-    "lng",
-    "lon",
-    "geo",
-    "localizacao",
-)
+# Palavras longas: por substring (pega `latitudeAtual`).
+PALAVRAS_DE_LOCALIZACAO = ("latitude", "longitude", "coordenadas", "localizacao")
+# Abreviações: por igualdade, para `relatorio`, `colonia` e `geografia` não
+# darem falso positivo. `userLat` escapa daqui, mas numa resposta pública
+# CAMPOS_PUBLICOS_PERMITIDOS pega.
+NOMES_DE_LOCALIZACAO = {"lat", "lng", "lon", "geo"}
 
 # Exceções conscientes: (rota, método) -> campos permitidos na resposta.
 # O cadastro devolve ao próprio solicitante o e-mail que ele acabou de enviar.
@@ -103,20 +100,13 @@ EXCECOES_PESSOAIS = {
 
 @pytest.fixture(scope="module")
 def schema():
-    return SchemaGenerator().get_schema(request=None, public=True)
+    return gerar_schema()
 
 
-def _operacoes(schema):
-    """Percorre todas as operações como (rota, método, operação)."""
-    for rota, itens in schema["paths"].items():
-        for metodo, operacao in itens.items():
-            if metodo in METODOS:
-                yield rota, metodo, operacao
-
-
-def _eh_publica(operacao):
-    """Operação pública: o schema aceita requisição sem credencial (`{}`)."""
-    return {} in operacao.get("security", [])
+def _eh_localizacao(nome):
+    return nome in NOMES_DE_LOCALIZACAO or any(
+        palavra in nome for palavra in PALAVRAS_DE_LOCALIZACAO
+    )
 
 
 def _componente(schema, no):
@@ -159,15 +149,15 @@ def _campos_das_respostas(schema, operacao):
 
 def test_ha_operacoes_publicas_no_schema(schema):
     """Guarda: se a descoberta de rotas públicas quebrar, o teste 4 não vira vazio."""
-    publicas = [r for r, m, o in _operacoes(schema) if _eh_publica(o)]
+    publicas = [r for r, m, o in operacoes(schema) if eh_publica(o)]
     assert len(publicas) >= 6
 
 
 def test_resposta_publica_nao_expoe_dado_pessoal(schema):
     """Teste 4: nenhuma operação pública, em nenhum status, expõe dado pessoal."""
     violacoes = []
-    for rota, metodo, operacao in _operacoes(schema):
-        if not _eh_publica(operacao):
+    for rota, metodo, operacao in operacoes(schema):
+        if not eh_publica(operacao):
             continue
         permitidos = EXCECOES_PESSOAIS.get((rota, metodo), set())
         for nome in _campos_das_respostas(schema, operacao) - permitidos:
@@ -179,13 +169,13 @@ def test_resposta_publica_nao_expoe_dado_pessoal(schema):
 def test_coordenadas_nunca_saem_em_resposta(schema):
     """Latitude e longitude só entram (corpo do check-in); nunca saem (RI09)."""
     violacoes = []
-    for rota, metodo, operacao in _operacoes(schema):
+    for rota, metodo, operacao in operacoes(schema):
         for nome in _campos_das_respostas(schema, operacao):
-            if any(palavra in nome for palavra in PALAVRAS_DE_LOCALIZACAO):
+            if _eh_localizacao(nome):
                 violacoes.append(f"{metodo.upper()} {rota}: {nome}")
         for parametro in operacao.get("parameters", []):
             nome = parametro["name"].lower()
-            if any(palavra in nome for palavra in PALAVRAS_DE_LOCALIZACAO):
+            if _eh_localizacao(nome):
                 violacoes.append(f"{metodo.upper()} {rota}: parâmetro {nome}")
     assert not violacoes, f"localização fora do corpo de entrada: {violacoes}"
 
@@ -193,7 +183,7 @@ def test_coordenadas_nunca_saem_em_resposta(schema):
 def test_todo_erro_4xx_usa_componente_com_codigo(schema):
     """Teste 5: todo 4xx devolve um componente com `codigo` declarado e obrigatório."""
     sem_codigo = []
-    for rota, metodo, operacao in _operacoes(schema):
+    for rota, metodo, operacao in operacoes(schema):
         for status, resposta in operacao["responses"].items():
             if not status.startswith("4"):
                 continue
@@ -210,15 +200,18 @@ def test_toda_operacao_logada_declara_o_401(schema):
     """Rota logada sem sessão responde 401 (guia 4.1): o contrato precisa dizer isso."""
     sem_401 = [
         f"{metodo.upper()} {rota}"
-        for rota, metodo, operacao in _operacoes(schema)
-        if not _eh_publica(operacao) and "401" not in operacao["responses"]
+        for rota, metodo, operacao in operacoes(schema)
+        if not eh_publica(operacao) and "401" not in operacao["responses"]
     ]
     assert not sem_401, f"rotas logadas sem 401 declarado: {sem_401}"
 
 
 def test_resposta_publica_so_tem_campos_permitidos(schema):
-    """Lista positiva: pega `nome`, `userId`, `lat`... que a lista de palavras deixa passar."""
-    publicas = {(r, m): o for r, m, o in _operacoes(schema) if _eh_publica(o)}
+    """Lista positiva: pega `nome`, `userId`, `lat`... que a lista de palavras deixa passar.
+
+    Compara nomes, não caminhos (veja a limitação em CAMPOS_PUBLICOS_PERMITIDOS).
+    """
+    publicas = {(r, m): o for r, m, o in operacoes(schema) if eh_publica(o)}
     assert set(publicas) == set(CAMPOS_PUBLICOS_PERMITIDOS), (
         "rota pública nova ou removida"
     )
