@@ -7,31 +7,9 @@ privacidade pendente.
 """
 
 import pytest
-from django.contrib.auth import get_user_model
-from django.utils import timezone
 from rest_framework.test import APIClient
 
-ESCRITAS_LOGADAS = [
-    ("/api/sessao/", "delete"),
-    ("/api/privacidade/aceite/", "post"),
-    ("/api/avaliacoes/", "post"),
-    ("/api/checkins/", "post"),
-    ("/api/gamificacao/adesao/", "post"),
-    ("/api/gamificacao/adesao/", "delete"),
-]
-
-
-@pytest.fixture
-def usuario(db):
-    return get_user_model().objects.create_user(
-        matricula_siape="202400001",
-        tipo_usuario="estudante",
-        apelido="cris",
-        email_institucional="202400001@aluno.unb.br",
-        aceite_privacidade_em=timezone.now(),
-        versao_aviso_aceita="teste",
-        password="senha-forte-123",
-    )
+from tests.rotas_do_contrato import ESCRITAS_LOGADAS
 
 
 @pytest.fixture
@@ -47,6 +25,7 @@ def test_escrita_com_sessao_e_sem_csrf_da_403(cliente_com_sessao, rota, metodo):
     resposta = getattr(cliente_com_sessao, metodo)(rota)
 
     assert resposta.status_code == 403
+    # BE-05: quando o 403 de CSRF ganhar `codigo`, conferir o codigo aqui.
     assert "CSRF" in resposta.json()["detail"]
 
 
