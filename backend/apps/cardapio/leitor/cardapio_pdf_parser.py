@@ -9,10 +9,18 @@ Biblioteca: pdfplumber (MIT). Ela entrega, com coordenadas, as palavras, as
 bordas da tabela (retângulos finos) e as imagens dos ícones, com o conteúdo
 de cada imagem. O Pillow (dependência do pdfplumber) compara os ícones.
 
+Quando algo foge do esperado, o leitor nunca devolve um cardápio vazio ou
+incompleto em silêncio:
+- `FormatoPDFInvalidoError`: o PDF inteiro é recusado (o BE-12 mantém o
+  último cardápio válido, RF06.4);
+- `LegendaInvalidaError` e `AssociacaoFalhouError`: só a página afetada sai
+  sem marcadores, com `alergenos_indisponiveis=True` e o motivo (RF06.3).
+
 Uso, para conferir um PDF à mão (dentro de backend/):
     python -m apps.cardapio.leitor.cardapio_pdf_parser cardapio.pdf [--json]
 """
 
+import datetime
 import io
 import json
 import re
@@ -21,70 +29,88 @@ import unicodedata
 from dataclasses import asdict, dataclass, field
 
 import pdfplumber
+from pdfminer.psexceptions import PSException
+from pdfplumber.utils.exceptions import PdfminerException
 from PIL import Image
 
-MARCADORES_CONHECIDOS = {
-    "cogumelo",
-    "leite e derivados",
-    "mel",
-    "pimenta",
-    "soja",
-    "trigo/gluten",
-    "amendoim",
-    "oleaginosa",
-    "ovo",
-    "suino",
+# Rótulo da legenda (normalizado) -> nome do MARCADOR no dicionário de dados
+# (docs/arquitetura/banco-de-dados/C4-nivel-4-banco-de-dados-bandejao.md).
+ROTULOS_MARCADORES = {
+    "cogumelo": "cogumelo",
+    "leite e derivados": "leite_e_derivados",
+    "mel": "mel",
+    "pimenta": "pimenta",
+    "soja": "soja",
+    "trigo/gluten": "trigo_gluten",
+    "amendoim": "amendoim",
+    "oleaginosa": "oleaginosa",
+    "ovo": "ovo",
+    "suino": "suino",
 }
 
 # Bordas da tabela: retângulos com no máximo esta espessura (pt).
 ESPESSURA_MAX_BORDA = 2.5
 # Ícone de marcador: imagem baixa dentro da tabela (pt). A largura não
 # limita, porque o Word às vezes junta 2 ou 3 ícones numa imagem só.
+# Imagem mais alta que isso dentro da tabela é um erro (AssociacaoFalhouError).
 ALTURA_MAX_ICONE = 25
 # Distância média por pixel (0–255) acima da qual o ícone é "desconhecido".
 # Nos PDFs testados (Gama, Ceilândia e Darcy), o pior acerto ficou em 28 e o
-# erro mais próximo de um acerto ficou sempre 1,48 vez mais longe que ele.
+# segundo colocado ficou sempre pelo menos 1,48 vez mais longe que o certo.
 DISTANCIA_MAX_ICONE = 35
-# Abaixo desta razão (2ª distância / 1ª), o ícone é ambíguo e gera aviso.
+# Abaixo desta razão (2ª distância / 1ª), o ícone é ambíguo e a associação
+# falha: melhor sem marcadores do que com um marcador errado.
 RAZAO_MIN_ICONE = 1.3
 LADO_ASSINATURA = 24
 
 # Valores de TipoRefeicao e Dieta em apps/cardapio/models.py.
 REFEICOES = {"cafedamanha": "cafe", "almoco": "almoco", "jantar": "jantar"}
+DIETAS = {
+    "padrao": "padrao",
+    "ovolactovegetariano": "ovolacto",
+    "vegetariano estrito": "vegetariano_estrito",
+}
 
-RE_DATA = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})$")
-
-
-class FormatoPDFInvalidoError(Exception):
-    """O PDF não tem a tabela esperada: mantém o último cardápio válido."""
-
-
-class LegendaInvalidaError(Exception):
-    """Legenda diferente dos 10 marcadores: publica só em texto."""
+ROTULO_COMPOSICAO = "COMPOSI"
+RE_DATA = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4}|\d{2})$")
 
 
-class AssociacaoFalhouError(Exception):
-    """Ícone desconhecido ou sem prato: publica só em texto."""
+class LeitorCardapioError(Exception):
+    """Base das falhas do leitor: um só `except` no BE-12."""
+
+
+class FormatoPDFInvalidoError(LeitorCardapioError):
+    """O arquivo não é o PDF esperado: mantém o último cardápio válido."""
+
+
+class LegendaInvalidaError(LeitorCardapioError):
+    """Legenda diferente dos 10 marcadores: a página sai só em texto."""
+
+
+class AssociacaoFalhouError(LeitorCardapioError):
+    """Ícone desconhecido, ambíguo ou sem prato: a página sai só em texto."""
 
 
 @dataclass
 class PratoEstruturado:
     descricao: str
-    marcadores: list = field(default_factory=list)
+    marcadores: list[str] = field(default_factory=list)
 
 
 @dataclass
 class CategoriaEstruturada:
     nome: str
     dieta: str | None
-    pratos_por_dia: dict  # data ISO -> list[PratoEstruturado]
+    pratos_por_dia: dict[str, list[PratoEstruturado]]  # chave: data ISO
 
 
 @dataclass
 class RefeicaoEstruturada:
     refeicao: str
-    dias: list  # [{"dia": "2ª FEIRA", "data": "2026-09-21"}]
-    categorias: list
+    dias: list[dict[str, str]]  # [{"dia": "2ª FEIRA", "data": "2026-09-21"}]
+    categorias: list[CategoriaEstruturada]
+    alergenos_indisponiveis: bool = False
+    motivo: str | None = None
 
 
 def normalizar(texto):
@@ -111,6 +137,11 @@ def _centro(obj):
     return ((obj["x0"] + obj["x1"]) / 2, (obj["top"] + obj["bottom"]) / 2)
 
 
+def _dentro(obj, caixa):
+    cx, cy = _centro(obj)
+    return caixa["x0"] <= cx <= caixa["x1"] and caixa["top"] <= cy <= caixa["bottom"]
+
+
 class Grade:
     """Células da tabela, já com as células mescladas unidas.
 
@@ -134,7 +165,12 @@ class Grade:
         self.horiz, self.vert = horiz, vert
         self.ys = _agrupar([(r["top"] + r["bottom"]) / 2 for r in horiz])
         self.xs = _agrupar([(r["x0"] + r["x1"]) / 2 for r in vert])
-        self.bbox = (self.xs[0], self.ys[0], self.xs[-1], self.ys[-1])
+        self.caixa = {
+            "x0": self.xs[0],
+            "top": self.ys[0],
+            "x1": self.xs[-1],
+            "bottom": self.ys[-1],
+        }
         self._unir_celulas()
 
     def _tem_borda_h(self, y, x0, x1):
@@ -194,18 +230,30 @@ class Grade:
 # ------------------------------------------------------------------ ícones
 
 
+def _nomes(valor):
+    valores = valor if isinstance(valor, list) else [valor]
+    return [getattr(v, "name", v) for v in valores]
+
+
 def _imagem_pil(imagem_pdf):
-    """Decodifica a imagem do PDF: JPEG (DCTDecode) ou RGB cru (FlateDecode)."""
+    """Decodifica a imagem do PDF, ou devolve None se o formato não for aceito.
+
+    Aceita JPEG (DCTDecode, em qualquer espaço de cor) e RGB de 8 bits nos
+    filtros que o pdfminer decodifica (FlateDecode nos PDFs testados).
+    """
     stream = imagem_pdf["stream"]
-    filtros = stream.attrs.get("Filter")
-    filtros = filtros if isinstance(filtros, list) else [filtros]
-    if any(getattr(f, "name", f) == "DCTDecode" for f in filtros):
-        return Image.open(io.BytesIO(stream.get_rawdata())).convert("RGB")
-    w, h = imagem_pdf["srcsize"]
-    dados = stream.get_data()
-    if imagem_pdf.get("bits") != 8 or len(dados) < w * h * 3:
+    try:
+        if "DCTDecode" in _nomes(stream.attrs.get("Filter")):
+            return Image.open(io.BytesIO(stream.get_rawdata())).convert("RGB")
+        if "DeviceRGB" not in _nomes(imagem_pdf.get("colorspace") or []):
+            return None
+        w, h = imagem_pdf["srcsize"]
+        dados = stream.get_data()
+        if imagem_pdf.get("bits") != 8 or len(dados) < w * h * 3:
+            return None
+        return Image.frombytes("RGB", (w, h), dados[: w * h * 3])
+    except (OSError, ValueError, PSException):
         return None
-    return Image.frombytes("RGB", (w, h), dados[: w * h * 3])
 
 
 def _recortar_tinta(img, limite=100):
@@ -266,8 +314,9 @@ class LegendaValidator:
     """Lê a legenda abaixo da tabela e confere os 10 marcadores conhecidos."""
 
     def extrair(self, pagina, grade):
+        """Rótulo normalizado -> assinatura do ícone (None se não decodificou)."""
         palavras = pagina.extract_words(x_tolerance=1.5)
-        abaixo = [im for im in pagina.images if im["top"] > grade.bbox[3]]
+        abaixo = [im for im in pagina.images if im["top"] > grade.caixa["bottom"]]
         legenda = {}
         for im in abaixo:
             cx = (im["x0"] + im["x1"]) / 2
@@ -293,16 +342,22 @@ class LegendaValidator:
                 key=lambda g: abs((g[0]["x0"] + g[-1]["x1"]) / 2 - cx),
             )
             nome = normalizar(" ".join(p["text"] for p in grupo))
+            if nome in legenda:
+                raise LegendaInvalidaError(f"rótulo repetido na legenda: {nome!r}")
             legenda[nome] = _assinatura(_imagem_pil(im))
         return legenda
 
     def validar(self, legenda):
         nomes = set(legenda)
-        if nomes != MARCADORES_CONHECIDOS or any(v is None for v in legenda.values()):
-            faltam = MARCADORES_CONHECIDOS - nomes
-            sobram = nomes - MARCADORES_CONHECIDOS
+        conhecidos = set(ROTULOS_MARCADORES)
+        if nomes != conhecidos:
+            faltam = sorted(conhecidos - nomes)
+            sobram = sorted(nomes - conhecidos)
+            raise LegendaInvalidaError(f"faltam {faltam}, sobram {sobram}")
+        sem_imagem = sorted(n for n, img in legenda.items() if img is None)
+        if sem_imagem:
             raise LegendaInvalidaError(
-                f"faltam {sorted(faltam)}, sobram {sorted(sobram)}"
+                f"ícone da legenda em formato não suportado: {sem_imagem}"
             )
         return True
 
@@ -419,17 +474,26 @@ class MarcadorIconMatcher:
 
     @staticmethod
     def identificar(icone, legenda):
-        """Marcador da legenda mais parecido e as duas menores distâncias."""
+        """Marcador da legenda mais parecido com o ícone.
+
+        Falha se o ícone estiver longe de todos (desconhecido) ou se o
+        segundo colocado estiver perto demais do primeiro (ambíguo).
+        """
         assinatura = _assinatura(icone["imagem"])
         if assinatura is None:
             raise AssociacaoFalhouError("ícone em formato de imagem não suportado")
         distancias = sorted(
             (_distancia(assinatura, ref), nome) for nome, ref in legenda.items()
         )
-        melhor, nome = distancias[0]
+        (melhor, nome), (segunda, outro) = distancias[0], distancias[1]
         if melhor > DISTANCIA_MAX_ICONE:
             raise AssociacaoFalhouError(f"ícone desconhecido (distância {melhor:.1f})")
-        return nome, melhor, distancias[1][0]
+        # `<=` também pega o empate perfeito (0 contra 0).
+        if segunda <= melhor * RAZAO_MIN_ICONE:
+            raise AssociacaoFalhouError(
+                f"ícone ambíguo entre {nome} ({melhor:.1f}) e {outro} ({segunda:.1f})"
+            )
+        return nome
 
     @staticmethod
     def associar(icone, pratos):
@@ -470,32 +534,45 @@ class MarcadorIconMatcher:
 # ------------------------------------------------------------ página
 
 
-DIETAS = {
-    "padrao": "padrao",
-    "ovolactovegetariano": "ovolacto",
-    "vegetariano estrito": "vegetariano_estrito",
-}
-
-
 def _dieta(nome_categoria):
+    """Dieta da linha de prato principal ou complemento; None nas demais.
+
+    None quer dizer "comum a todas as dietas" (RF09). Por isso, uma linha de
+    prato principal com dieta desconhecida ("PRATO PRINCIPAL VEGANO") recusa
+    o PDF, em vez de aparecer para todo mundo no filtro.
+    """
     nome = normalizar(nome_categoria)
     if not nome.startswith(("prato principal", "complemento")):
         return None
     for chave, dieta in DIETAS.items():
         if nome.endswith(chave):
             return dieta
-    return None
+    raise FormatoPDFInvalidoError(f"linha de dieta desconhecida: {nome_categoria!r}")
+
+
+def _ler_data(texto):
+    """Dia da semana e data de uma célula do cabeçalho ("2ª FEIRA 21/9/2026").
+
+    Aceita ano com 4 ou 2 dígitos e recusa datas que não existem.
+    """
+    for token in texto.split():
+        m = RE_DATA.match(token)
+        if not m:
+            continue
+        d, mes, a = (int(g) for g in m.groups())
+        if a < 100:
+            a += 2000
+        try:
+            data = datetime.date(a, mes, d)
+        except ValueError as e:
+            raise FormatoPDFInvalidoError(f"data inválida no cabeçalho: {token}") from e
+        return texto.split(token)[0].strip(), data
+    raise FormatoPDFInvalidoError(f"coluna do cabeçalho sem data: {texto!r}")
 
 
 def _nome_refeicao(pagina, coluna):
     # Texto girado 90°: os caracteres ficam empilhados e se leem de baixo para cima.
-    chars = [
-        c
-        for c in pagina.chars
-        if coluna["x0"] <= (c["x0"] + c["x1"]) / 2 <= coluna["x1"]
-        and coluna["top"] <= (c["top"] + c["bottom"]) / 2 <= coluna["bottom"]
-        and c["text"].strip()
-    ]
+    chars = [c for c in pagina.chars if _dentro(c, coluna) and c["text"].strip()]
     chars.sort(key=lambda c: -c["top"])
     # Os espaços somem no texto girado ("Cafédamanhã"): compara sem espaços.
     lido = "".join(c["text"] for c in chars)
@@ -512,36 +589,50 @@ class CardapioPDFParser:
         self.caminho = caminho
 
     def extrair(self):
-        resultados, problemas = [], []
-        with pdfplumber.open(self.caminho) as pdf:
-            for numero, pagina in enumerate(pdf.pages, start=1):
-                refeicao, avisos = self._pagina(pagina)
-                resultados.append(refeicao)
-                problemas.extend(f"pág. {numero}: {a}" for a in avisos)
-        return resultados, problemas
+        """Devolve (refeições, avisos).
 
-    def _pagina(self, pagina):
-        avisos = []
+        Falha de legenda ou de ícone numa página não derruba as outras: a
+        página sai só em texto, com `alergenos_indisponiveis` e o motivo, e
+        gera um aviso. Qualquer outra falha recusa o PDF inteiro.
+        """
+        resultados, avisos = [], []
+        try:
+            with pdfplumber.open(self.caminho) as pdf:
+                for numero, pagina in enumerate(pdf.pages, start=1):
+                    try:
+                        refeicao = self._pagina(pagina)
+                    except (LegendaInvalidaError, AssociacaoFalhouError) as e:
+                        refeicao = self._pagina(pagina, com_marcadores=False)
+                        refeicao.alergenos_indisponiveis = True
+                        refeicao.motivo = f"{type(e).__name__}: {e}"
+                        avisos.append(f"pág. {numero}: só em texto ({refeicao.motivo})")
+                    except FormatoPDFInvalidoError as e:
+                        raise FormatoPDFInvalidoError(f"pág. {numero}: {e}") from e
+                    resultados.append(refeicao)
+        except (OSError, PdfminerException, PSException) as e:
+            raise FormatoPDFInvalidoError(f"não foi possível ler o PDF: {e}") from e
+        return resultados, avisos
+
+    def _pagina(self, pagina, com_marcadores=True):
         grade = Grade(pagina)
 
         def palavras_em(celula):
             # Palavras extraídas por célula: na página inteira, o pdfplumber
             # junta numa "linha" textos de alturas próximas em células
             # vizinhas e embaralha as letras de rótulos em fonte menor.
-            def dentro(obj):
-                cx, cy = _centro(obj)
-                return (
-                    celula["x0"] <= cx <= celula["x1"]
-                    and celula["top"] <= cy <= celula["bottom"]
-                )
-
-            return pagina.filter(dentro).extract_words(x_tolerance=1.5)
+            return pagina.filter(lambda obj: _dentro(obj, celula)).extract_words(
+                x_tolerance=1.5
+            )
 
         # Cabeçalho: célula "COMPOSIÇÃO" define a coluna das categorias; as
         # colunas à direita, na mesma faixa, são os dias.
         cabecalho = [c for c in grade.celulas if c["linhas"][0] == 0]
         col_categoria = next(
-            (c for c in cabecalho if "COMPOSI" in _texto(palavras_em(c)).upper()),
+            (
+                c
+                for c in cabecalho
+                if ROTULO_COMPOSICAO in _texto(palavras_em(c)).upper()
+            ),
             None,
         )
         if col_categoria is None:
@@ -553,22 +644,31 @@ class CardapioPDFParser:
             if c["x0"] < col_categoria["x1"] - 1:
                 continue
             texto = _texto(palavras_em(c))
-            data = next((m for m in map(RE_DATA.match, texto.split()) if m), None)
-            if not data:
+            # Colunas sem texto são o espaço entre bordas duplas.
+            if not texto:
                 continue
-            d, m, a = (int(g) for g in data.groups())
-            dias.append(
-                {
-                    "dia": texto.split(data.group(0))[0].strip(),
-                    "data": f"{a:04d}-{m:02d}-{d:02d}",
-                    "colunas": c["colunas"],
-                }
-            )
+            dia, data = _ler_data(texto)
+            if any(d["data"] == data.isoformat() for d in dias):
+                raise FormatoPDFInvalidoError(f"data repetida no cabeçalho: {data}")
+            dias.append({"dia": dia, "data": data.isoformat(), "colunas": c["colunas"]})
+        if not dias:
+            raise FormatoPDFInvalidoError("nenhum dia no cabeçalho")
 
-        # Legenda e assinaturas dos ícones.
-        validador = LegendaValidator()
-        legenda = validador.extrair(pagina, grade)
-        validador.validar(legenda)
+        icones, legenda = [], {}
+        if com_marcadores:
+            validador = LegendaValidator()
+            legenda = validador.extrair(pagina, grade)
+            validador.validar(legenda)
+            legenda = {ROTULOS_MARCADORES[n]: img for n, img in legenda.items()}
+            na_tabela = [im for im in pagina.images if _dentro(im, grade.caixa)]
+            grandes = [
+                im for im in na_tabela if im["bottom"] - im["top"] > ALTURA_MAX_ICONE
+            ]
+            if grandes:
+                raise AssociacaoFalhouError(
+                    f"{len(grandes)} imagem(ns) na tabela maiores que um ícone"
+                )
+            icones = [ic for im in na_tabela for ic in MarcadorIconMatcher.dividir(im)]
 
         # Categorias: células da coluna de categorias abaixo do cabeçalho.
         categorias = []
@@ -581,13 +681,6 @@ class CardapioPDFParser:
             ),
             key=lambda c: c["top"],
         )
-        icones = [
-            icone
-            for im in pagina.images
-            if im["bottom"] - im["top"] <= ALTURA_MAX_ICONE
-            and grade.bbox[1] <= _centro(im)[1] <= grade.bbox[3]
-            for icone in MarcadorIconMatcher.dividir(im)
-        ]
         icones_usados = set()
         for cat in celulas_cat:
             nome = _texto(palavras_em(cat))
@@ -603,23 +696,13 @@ class CardapioPDFParser:
                 linhas = _linhas_de_texto(palavras_em(celula))
                 grupos = CardapioEstruturador.separar_pratos(linhas)
                 pratos = [PratoEstruturado(_texto(g)) for g in grupos]
-                for im in icones:
-                    cx, cy = _centro(im)
-                    if not (
-                        celula["x0"] <= cx <= celula["x1"]
-                        and celula["top"] <= cy <= celula["bottom"]
-                    ):
+                for icone in icones:
+                    if not _dentro(icone, celula):
                         continue
-                    icones_usados.add(id(im))
-                    marcador, dist, segunda = MarcadorIconMatcher.identificar(
-                        im, legenda
-                    )
-                    if segunda < dist * RAZAO_MIN_ICONE:
-                        avisos.append(
-                            f"{nome}: ícone {marcador} com pouca margem "
-                            f"({dist:.1f} contra {segunda:.1f})"
-                        )
-                    indice = MarcadorIconMatcher.associar(im, grupos)
+                    icones_usados.add(id(icone))
+                    marcador = MarcadorIconMatcher.identificar(icone, legenda)
+                    indice = MarcadorIconMatcher.associar(icone, grupos)
+                    # O mesmo ícone repetido junto ao prato conta uma vez só.
                     if marcador not in pratos[indice].marcadores:
                         pratos[indice].marcadores.append(marcador)
                 # Célula mesclada vale para todos os dias que ela cobre.
@@ -629,6 +712,10 @@ class CardapioPDFParser:
                     if celula["colunas"][0] <= d["colunas"][0]
                     and d["colunas"][1] <= celula["colunas"][1]
                 ]
+                if pratos and not cobertos:
+                    raise FormatoPDFInvalidoError(
+                        f"{nome}: célula com pratos fora das colunas de dias"
+                    )
                 for d in cobertos:
                     pratos_por_dia[d["data"]].extend(
                         PratoEstruturado(p.descricao, list(p.marcadores))
@@ -636,22 +723,23 @@ class CardapioPDFParser:
                     )
             categorias.append(CategoriaEstruturada(nome, _dieta(nome), pratos_por_dia))
 
-        soltos = [im for im in icones if id(im) not in icones_usados]
+        soltos = [ic for ic in icones if id(ic) not in icones_usados]
         if soltos:
             raise AssociacaoFalhouError(
                 f"{len(soltos)} ícone(s) fora das células de pratos"
             )
 
-        refeicao = RefeicaoEstruturada(
+        return RefeicaoEstruturada(
             refeicao=_nome_refeicao(pagina, col_refeicao),
             dias=[{"dia": d["dia"], "data": d["data"]} for d in dias],
             categorias=categorias,
         )
-        return refeicao, avisos
 
 
 def imprimir(refeicao):
     print(f"\n=== {refeicao.refeicao} ===")
+    if refeicao.alergenos_indisponiveis:
+        print(f"(sem marcadores: {refeicao.motivo})")
     for d in refeicao.dias:
         print(f"\n--- {d['dia']} {d['data']} ---")
         for cat in refeicao.categorias:
