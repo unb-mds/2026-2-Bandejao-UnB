@@ -72,6 +72,27 @@ DIETAS = {
 }
 
 ROTULO_COMPOSICAO = "COMPOSI"
+# Dia da semana do cabeçalho (normalizado: "2ª FEIRA" vira "2a feira") ->
+# datetime.date.weekday(), de 0 (segunda) a 6 (domingo).
+DIAS_DA_SEMANA = {
+    "2a feira": 0,
+    "segunda-feira": 0,
+    "segunda": 0,
+    "3a feira": 1,
+    "terca-feira": 1,
+    "terca": 1,
+    "4a feira": 2,
+    "quarta-feira": 2,
+    "quarta": 2,
+    "5a feira": 3,
+    "quinta-feira": 3,
+    "quinta": 3,
+    "6a feira": 4,
+    "sexta-feira": 4,
+    "sexta": 4,
+    "sabado": 5,
+    "domingo": 6,
+}
 RE_DATA = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4}|\d{2})$")
 
 
@@ -553,7 +574,9 @@ def _dieta(nome_categoria):
 def _ler_data(texto):
     """Dia da semana e data de uma célula do cabeçalho ("2ª FEIRA 21/9/2026").
 
-    Aceita ano com 4 ou 2 dígitos e recusa datas que não existem.
+    A data é dia/mês/ano, como nos PDFs, com ano de 4 ou 2 dígitos. Recusa
+    datas que não existem e datas que não caem no dia da semana escrito
+    acima delas (uma "2ª FEIRA 22/9/2026" é erro de digitação no PDF).
     """
     for token in texto.split():
         m = RE_DATA.match(token)
@@ -566,7 +589,15 @@ def _ler_data(texto):
             data = datetime.date(a, mes, d)
         except ValueError as e:
             raise FormatoPDFInvalidoError(f"data inválida no cabeçalho: {token}") from e
-        return texto.split(token)[0].strip(), data
+        dia = texto.split(token)[0].strip()
+        esperado = DIAS_DA_SEMANA.get(normalizar(dia))
+        if esperado is None:
+            raise FormatoPDFInvalidoError(f"dia da semana desconhecido: {dia!r}")
+        if data.weekday() != esperado:
+            raise FormatoPDFInvalidoError(
+                f"{dia} {token}: a data não cai nesse dia da semana"
+            )
+        return dia, data
     raise FormatoPDFInvalidoError(f"coluna do cabeçalho sem data: {texto!r}")
 
 
