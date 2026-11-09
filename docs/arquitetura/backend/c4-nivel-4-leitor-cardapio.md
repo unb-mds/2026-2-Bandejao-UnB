@@ -10,9 +10,8 @@
 > define o módulo dentro do backend e o disparo por cron do SO, e ADR 0006 —
 > *Alerta de falha do leitor por e-mail*
 > (`docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md`). A
-> biblioteca de leitura de PDF ainda não foi escolhida (a ADR 0003 deixa
-> isso para o teste com o PDF real do Gama); por isso `CardapioPDFParser`
-> aparece sem biblioteca.
+> biblioteca de leitura de PDF é o `pdfplumber`, escolhido no teste com os
+> PDFs reais do BE-04 (`docs/arquitetura/backend/teste-leitor-pdf-be-04.md`).
 
 Há dois diagramas: **4a** leitura do PDF e **4b** gravação e alertas. Cada diagrama tem no máximo 20 elementos e um título próprio, seguindo a skill c4-architecture usada pelo grupo; classes compartilhadas (como `Conta` ou as configurações) aparecem em mais de um diagrama.
 
@@ -34,37 +33,38 @@ classDiagram
   }
   class DownloadError
   class CardapioPDFParser {
-    +extrair(pdf: ArquivoPDF) list~PaginaExtraida~
+    +extrair() tuple
   }
-  class PaginaExtraida {
-    +refeicao: str
-    +blocosTexto: list
-    +iconesComPosicao: list
+  class Grade {
+    +celulas: list
+    +caixa: dict
   }
+  class FormatoPDFInvalidoError
   class LegendaValidator {
-    +validar(legenda: list~str~) bool
-    -MARCADORES_CONHECIDOS: set~str~
+    +extrair(pagina, grade: Grade) dict
+    +validar(legenda: dict) bool
   }
   class LegendaInvalidaError
   class MarcadorIconMatcher {
-    +associar(pratos: list~Prato~, icones: list) dict
+    +dividir(imagem) list
+    +identificar(icone, legenda: dict) str
+    +associar(icone, pratos: list) int
   }
   class AssociacaoFalhouError
   class CardapioEstruturador {
-    +estruturar(pagina: PaginaExtraida, marcadoresPorPrato: dict) RefeicaoEstruturada
-    -separarPratos(textoCategoria: str) list~str~
+    +separar_pratos(linhas: list) list
   }
   class RefeicaoEstruturada {
-    +campus: Campus
     +refeicao: str
-    +data: date
+    +dias: list
     +categorias: list~CategoriaEstruturada~
-    +alergenosIndisponivel: bool
+    +alergenos_indisponiveis: bool
+    +motivo: str
   }
   class CategoriaEstruturada {
     +nome: str
     +dieta: str
-    +pratos: list~PratoEstruturado~
+    +pratos_por_dia: dict
   }
   class PratoEstruturado {
     +descricao: str
@@ -84,17 +84,18 @@ classDiagram
 
   LerCardapioCommand --> LeitorCardapioService : dispara, por campus (cron do SO)
   LeitorCardapioService --> CardapioDownloader : 1. baixa PDF
-  LeitorCardapioService --> CardapioPDFParser : 2. extrai texto e ícones
-  LeitorCardapioService --> LegendaValidator : 3. valida legenda
-  LeitorCardapioService --> MarcadorIconMatcher : 4. associa ícone a prato
-  LeitorCardapioService --> CardapioEstruturador : 5. monta estrutura
-  LeitorCardapioService --> CardapioRepository : 6. persiste / mantém último válido
+  LeitorCardapioService --> CardapioPDFParser : 2. lê o PDF (uma refeição por página)
+  CardapioPDFParser --> Grade : monta as células da tabela
+  CardapioPDFParser --> LegendaValidator : valida a legenda
+  CardapioPDFParser --> MarcadorIconMatcher : identifica e associa os ícones
+  CardapioPDFParser --> CardapioEstruturador : separa os pratos
+  CardapioPDFParser --> RefeicaoEstruturada : produz
+  LeitorCardapioService --> CardapioRepository : 3. persiste / mantém último válido
   LeitorCardapioService --> AlertaEquipeService : em qualquer falha acima
   CardapioDownloader ..> DownloadError : lança em falha de rede/HTTP
-  LegendaValidator ..> LegendaInvalidaError : lança se legenda ≠ 10 marcadores
-  MarcadorIconMatcher ..> AssociacaoFalhouError : lança se ícone não associável
-  CardapioPDFParser --> PaginaExtraida : produz, uma por refeição
-  CardapioEstruturador --> RefeicaoEstruturada : produz
+  CardapioPDFParser ..> FormatoPDFInvalidoError : lança se o PDF não é o esperado
+  LegendaValidator ..> LegendaInvalidaError : página sai só em texto
+  MarcadorIconMatcher ..> AssociacaoFalhouError : página sai só em texto
   RefeicaoEstruturada *-- CategoriaEstruturada
   CategoriaEstruturada *-- PratoEstruturado
 ```
@@ -108,15 +109,19 @@ classDiagram
   parsing, validação, associação, estruturação, persistência) separadamente,
   o que ajuda a bater as metas de cobertura (≥ 70%) e de mutação (≥ 50%) dos
   módulos críticos (RNF06, ADR 0013).
-- **Três exceções específicas, uma por tipo de falha**, em vez de uma
-  exceção genérica: `DownloadError`, `LegendaInvalidaError` e
-  `AssociacaoFalhouError`. Isso espelha os dois comportamentos de fallback
-  distintos exigidos pelo RF06/L03 — falha de leitura do PDF mantém o último
-  cardápio válido; legenda inválida ou associação de ícone falha publicam o
-  cardápio em texto, mas marcam a refeição como "informação de alérgenos
-  indisponível" e desativam o filtro (RF08) só para ela — e cada uma delas
-  deve gerar um alerta de tipo diferente para a equipe.
-- **`CardapioEstruturador.separarPratos` existe como método próprio** porque
+- **Quatro exceções específicas, uma por tipo de falha**, todas filhas de
+  `LeitorCardapioError`: `DownloadError` (BE-12) e `FormatoPDFInvalidoError`
+  mantêm o último cardápio válido; `LegendaInvalidaError` e
+  `AssociacaoFalhouError` são tratadas pelo `CardapioPDFParser` **por
+  página**: a refeição sai só em texto, com `alergenos_indisponiveis` e o
+  motivo, e o filtro (RF08) fica desativado só para ela. Cada uma gera um
+  alerta de tipo diferente para a equipe. Detalhes no teste do BE-04
+  (`teste-leitor-pdf-be-04.md`).
+- **Diagrama atualizado no BE-04**: a proposta inicial tinha uma
+  `PaginaExtraida` e um `CardapioEstruturador.estruturar()`. Na
+  implementação, o `CardapioPDFParser` monta a refeição com a `Grade` e as
+  outras classes, e o `MarcadorIconMatcher` associa um ícone por vez.
+- **`CardapioEstruturador.separar_pratos` existe como método próprio** porque
   a regra "ou/OU separa pratos; / não separa" (glossário, Termo Prato) é uma
   regra de negócio testável isoladamente, sem precisar de um PDF real —
   boa candidata a teste unitário dedicado.
@@ -124,9 +129,10 @@ classDiagram
   RF06 é explícito: os ícones dos marcadores são imagens sobrepostas ao
   texto do PDF, fora da camada de texto extraível. Essa é provavelmente a
   classe de maior risco técnico do módulo (L03) e a que mais provavelmente
-  muda de implementação dependendo da biblioteca de leitura de PDF adotada
-  (ADR 0003, ainda não avaliada com o PDF real do campus do Gama segundo a
-  nota do Nível 2).
+  muda de implementação dependendo da biblioteca de leitura de PDF adotada.
+  No teste do BE-04 com o `pdfplumber`, ela identificou cada ícone
+  comparando a imagem com as da legenda e associou todos os ícones dos PDFs
+  do Gama, da Ceilândia e do Darcy Ribeiro.
 
 ## Nível 4b — Gravação e alertas
 

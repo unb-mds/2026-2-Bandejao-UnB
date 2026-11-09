@@ -84,9 +84,28 @@ processos e mais infraestrutura para manter, sem que exista, até agora,
 evidência de que a linguagem do backend seja um limite real. Fica como caminho
 de evolução se o teste com o PDF do Gama indicar o contrário.
 
+## Atualização (08/11/2026, BE-04): biblioteca escolhida
+
+A biblioteca de leitura escolhida é o **`pdfplumber`** (MIT), testada com os
+PDFs reais do Gama (semana de 21/09/2026), da Ceilândia e do Darcy Ribeiro
+(semana de 09/11/2026). Ela entrega as palavras, as bordas da tabela e as
+imagens dos ícones com coordenadas e com o conteúdo de cada imagem. Com isso,
+o leitor identificou todos os ícones dos três PDFs pela legenda e associou
+cada um a um prato pela posição, nos PDFs gerados tanto pelo Firefox quanto
+pelo Word.
+
+O teste não mostrou necessidade de outra linguagem: o leitor continua como
+módulo do backend, como decidido acima. O PyMuPDF também atenderia, mas foi
+descartado pela licença AGPL. Com esse resultado, o grupo segue com o leitor
+automático (BE-12), e o cadastro pelo Django Admin fica só como contingência.
+
+Detalhes, casos difíceis e limites conhecidos em
+`docs/arquitetura/backend/teste-leitor-pdf-be-04.md`.
+
 ## Relacionadas
 
 - Requisitos: RF06, RNF02, RNF06, L03, L05.
 - `docs/arquitetura/adr/0001-escolha-stack-backend.md` (linguagem e framework do backend).
 - `docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md` (aviso à equipe em
   caso de falha de leitura).
+- `docs/arquitetura/backend/teste-leitor-pdf-be-04.md` (teste com os PDFs reais, BE-04).
