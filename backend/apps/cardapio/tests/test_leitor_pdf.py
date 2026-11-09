@@ -656,6 +656,26 @@ def test_le_data_com_ano_de_quatro_ou_dois_digitos():
     )
 
 
+def test_data_e_lida_como_dia_mes_ano():
+    # 9 de novembro de 2026 é segunda; lida como mês/dia, seria 11 de setembro.
+    assert leitor._ler_data("2ª FEIRA 09/11/2026")[1] == datetime.date(2026, 11, 9)
+
+
+def test_dia_da_semana_por_extenso_tambem_e_aceito():
+    assert leitor._ler_data("Segunda-feira 21/9/2026")[1] == datetime.date(2026, 9, 21)
+    assert leitor._ler_data("DOMINGO 15/11/2026")[1] == datetime.date(2026, 11, 15)
+
+
+def test_data_que_nao_cai_no_dia_da_semana_e_formato_invalido():
+    with pytest.raises(FormatoPDFInvalidoError, match="não cai nesse dia da semana"):
+        leitor._ler_data("2ª FEIRA 22/9/2026")
+
+
+def test_dia_da_semana_desconhecido_e_formato_invalido():
+    with pytest.raises(FormatoPDFInvalidoError, match="dia da semana desconhecido"):
+        leitor._ler_data("FERIADO 21/9/2026")
+
+
 def test_data_que_nao_existe_e_formato_invalido():
     with pytest.raises(FormatoPDFInvalidoError, match="data inválida"):
         leitor._ler_data("2ª FEIRA 31/02/2026")
