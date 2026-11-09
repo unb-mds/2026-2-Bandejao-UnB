@@ -814,6 +814,21 @@ def test_rotulo_repetido_na_legenda_publica_so_em_texto(monkeypatch):
     assert len(avisos) == 3
 
 
+def test_formato_invalido_na_releitura_so_em_texto_diz_a_pagina(monkeypatch):
+    # Legenda ruim (rótulo repetido) e dieta desconhecida na mesma página: a
+    # releitura sem marcadores recusa o PDF, e a mensagem ainda diz a página.
+    original = leitor.normalizar
+    monkeypatch.setattr(
+        leitor,
+        "normalizar",
+        lambda texto: "pimenta" if original(texto) == "mel" else original(texto),
+    )
+    dietas = {k: v for k, v in leitor.DIETAS.items() if k != "padrao"}
+    monkeypatch.setattr(leitor, "DIETAS", dietas)
+    with pytest.raises(FormatoPDFInvalidoError, match=r"^pág\. 1: linha de dieta"):
+        CardapioPDFParser(str(GAMA)).extrair()
+
+
 def test_data_repetida_no_cabecalho_e_recusada(monkeypatch):
     monkeypatch.setattr(
         leitor, "_ler_data", lambda texto: ("2ª FEIRA", datetime.date(2026, 9, 21))
