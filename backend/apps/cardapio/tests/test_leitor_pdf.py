@@ -9,9 +9,12 @@ Os almoços esperados do Gama e do Darcy foram conferidos prato a prato e
 ícone a ícone contra a imagem de cada página.
 """
 
+import datetime
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
+import pdfplumber
 import pytest
 from PIL import Image, ImageDraw
 
@@ -24,15 +27,18 @@ from apps.cardapio.leitor.cardapio_pdf_parser import (
     Grade,
     LegendaInvalidaError,
     LegendaValidator,
+    LeitorCardapioError,
     MarcadorIconMatcher,
 )
+from apps.cardapio.models import Dieta, TipoRefeicao
 
 PASTA = Path(__file__).parent / "fixtures" / "cardapios"
 GAMA = PASTA / "Gama-Semana-01-21-9-a-27-9.pdf"
 CEILANDIA = PASTA / "Ceilandia-Semana-04-09-11-a-15-11.pdf"
 DARCY = PASTA / "Darcy-Ribeiro-Semana-04-09-11-a-15-11.pdf"
 
-LEITE, OVO, SOJA, TRIGO = "leite e derivados", "ovo", "soja", "trigo/gluten"
+# Nomes do MARCADOR no dicionário de dados do banco.
+LEITE, OVO, SOJA, TRIGO = "leite_e_derivados", "ovo", "soja", "trigo_gluten"
 SUINO, PIMENTA, AMENDOIM = "suino", "pimenta", "amendoim"
 COGUMELO, OLEAGINOSA = "cogumelo", "oleaginosa"
 
@@ -45,8 +51,9 @@ GAMA_ALMOCO_ESPERADO = {
         "PRATO PRINCIPAL PADRÃO": [("Cubos de frango com manteiga de ervas", {LEITE})],
         "PRATO PRINCIPAL OVOLACTOVEGETARIANO": [
             ("Quibe de legumes com quinoa gratinado", {LEITE, TRIGO}),
-            # Texto deixado por engano no próprio PDF (caso difícil 11): o
-            # leitor o lê como está, de propósito.
+            # DEFEITO CONHECIDO DO PDF, não comportamento desejado: este
+            # "Limão" foi deixado por engano na célula (caso difícil 11). Foi
+            # decidido em 08/11 não tratar; o teste só registra o que sai hoje.
             ("Limão", set()),
         ],
         "PRATO PRINCIPAL VEGETARIANO ESTRITO": [("Tomate recheado com quinoa", set())],
@@ -278,6 +285,7 @@ DARCY_ALMOCO_ESPERADO = {
 def _ler(caminho):
     extraidas, avisos = CardapioPDFParser(str(caminho)).extrair()
     assert avisos == []
+    assert not any(r.alergenos_indisponiveis for r in extraidas)
     return {r.refeicao: r for r in extraidas}
 
 
@@ -297,15 +305,26 @@ def darcy():
 
 
 def _como_dict(refeicao):
+    # Lista ordenada, e não set: um marcador repetido no prato aparece.
     return {
         data: {
             cat.nome: [
-                (p.descricao, set(p.marcadores)) for p in cat.pratos_por_dia[data]
+                (p.descricao, sorted(p.marcadores)) for p in cat.pratos_por_dia[data]
             ]
             for cat in refeicao.categorias
             if cat.pratos_por_dia[data]
         }
         for data in (d["data"] for d in refeicao.dias)
+    }
+
+
+def _esperado(por_dia):
+    return {
+        data: {
+            cat: [(nome, sorted(marcadores)) for nome, marcadores in pratos]
+            for cat, pratos in categorias.items()
+        }
+        for data, categorias in por_dia.items()
     }
 
 
@@ -335,7 +354,7 @@ def test_gama_almoco_tem_seis_dias_e_o_cafe_cinco(gama):
 
 
 def test_gama_almoco_completo_com_pratos_e_marcadores(gama):
-    assert _como_dict(gama["almoco"]) == GAMA_ALMOCO_ESPERADO
+    assert _como_dict(gama["almoco"]) == _esperado(GAMA_ALMOCO_ESPERADO)
 
 
 def test_dieta_das_linhas_de_prato_principal_e_complemento(gama):
@@ -377,7 +396,7 @@ def test_peixe_sem_marcador(gama):
 
 def test_darcy_almoco_completo_com_domingo(darcy):
     assert [d["dia"] for d in darcy["almoco"].dias][-2:] == ["SÁBADO", "DOMINGO"]
-    assert _como_dict(darcy["almoco"]) == DARCY_ALMOCO_ESPERADO
+    assert _como_dict(darcy["almoco"]) == _esperado(DARCY_ALMOCO_ESPERADO)
 
 
 def test_darcy_rotulo_em_fonte_menor_nao_embaralha(darcy):
@@ -513,9 +532,7 @@ def test_ou_no_fim_da_linha():
 
 
 def _legenda(cor=(255, 255, 255)):
-    return {
-        nome: Image.new("RGB", (24, 24), cor) for nome in leitor.MARCADORES_CONHECIDOS
-    }
+    return {nome: Image.new("RGB", (24, 24), cor) for nome in leitor.ROTULOS_MARCADORES}
 
 
 def test_legenda_com_os_dez_marcadores_e_valida():
@@ -525,21 +542,60 @@ def test_legenda_com_os_dez_marcadores_e_valida():
 def test_legenda_sem_um_marcador_e_invalida():
     legenda = _legenda()
     del legenda["suino"]
-    with pytest.raises(LegendaInvalidaError):
+    with pytest.raises(LegendaInvalidaError, match="suino"):
         LegendaValidator().validar(legenda)
 
 
 def test_legenda_com_marcador_novo_e_invalida():
     legenda = _legenda()
     legenda["peixe"] = Image.new("RGB", (24, 24))
-    with pytest.raises(LegendaInvalidaError):
+    with pytest.raises(LegendaInvalidaError, match="peixe"):
         LegendaValidator().validar(legenda)
 
 
-def test_icone_desconhecido_falha_a_associacao():
-    preto = {"imagem": Image.new("RGB", (52, 52), (0, 0, 0))}
-    with pytest.raises(AssociacaoFalhouError):
-        MarcadorIconMatcher.identificar(preto, _legenda())
+def test_legenda_com_imagem_nao_decodificada_cita_o_marcador():
+    legenda = _legenda()
+    legenda["ovo"] = None
+    with pytest.raises(LegendaInvalidaError, match="ovo"):
+        LegendaValidator().validar(legenda)
+
+
+def _legenda_cinza(perto):
+    """Legenda em que só "mel" é branco; os outros nove são pretos."""
+    legenda = {nome: Image.new("RGB", (24, 24), (0, 0, 0)) for nome in "abcdefghi"}
+    legenda["mel"] = Image.new("RGB", (24, 24), (255, 255, 255))
+    # Ícone cinza uniforme: a distância até o branco é 255 - nível.
+    icone = {"imagem": Image.new("RGB", (52, 52), (255 - perto,) * 3)}
+    return icone, legenda
+
+
+def test_icone_logo_abaixo_do_limite_e_aceito():
+    icone, legenda = _legenda_cinza(leitor.DISTANCIA_MAX_ICONE - 1)
+    assert MarcadorIconMatcher.identificar(icone, legenda) == "mel"
+
+
+def test_icone_logo_acima_do_limite_e_desconhecido():
+    icone, legenda = _legenda_cinza(leitor.DISTANCIA_MAX_ICONE + 1)
+    with pytest.raises(AssociacaoFalhouError, match="desconhecido"):
+        MarcadorIconMatcher.identificar(icone, legenda)
+
+
+def test_icone_ambiguo_falha_a_associacao():
+    legenda = _legenda((0, 0, 255))
+    legenda["mel"] = Image.new("RGB", (24, 24), (200, 0, 0))
+    legenda["trigo/gluten"] = Image.new("RGB", (24, 24), (204, 0, 0))
+    icone = {"imagem": Image.new("RGB", (52, 52), (202, 0, 0))}
+    with pytest.raises(AssociacaoFalhouError, match="ambíguo"):
+        MarcadorIconMatcher.identificar(icone, legenda)
+
+
+def test_empate_perfeito_tambem_e_ambiguo():
+    legenda = _legenda((0, 0, 255))
+    legenda["mel"] = Image.new("RGB", (24, 24), (200, 0, 0))
+    legenda["trigo/gluten"] = Image.new("RGB", (24, 24), (200, 0, 0))
+    icone = {"imagem": Image.new("RGB", (52, 52), (200, 0, 0))}
+    with pytest.raises(AssociacaoFalhouError, match="ambíguo"):
+        MarcadorIconMatcher.identificar(icone, legenda)
 
 
 def test_icone_em_formato_nao_suportado_falha_a_associacao():
@@ -551,6 +607,223 @@ def test_icone_sem_prato_falha_a_associacao():
     icone = {"x0": 0, "x1": 10, "top": 0, "bottom": 10}
     with pytest.raises(AssociacaoFalhouError):
         MarcadorIconMatcher.associar(icone, [])
+
+
+def test_imagem_cmyk_nao_e_lida_como_rgb():
+    stream = SimpleNamespace(
+        attrs={"Filter": None}, get_data=lambda: bytes(52 * 52 * 4)
+    )
+    cmyk = {"stream": stream, "colorspace": ["DeviceCMYK"], "srcsize": (52, 52)}
+    assert leitor._imagem_pil({**cmyk, "bits": 8}) is None
+
+
+def test_todas_as_excecoes_tem_a_mesma_base():
+    for erro in (FormatoPDFInvalidoError, LegendaInvalidaError, AssociacaoFalhouError):
+        assert issubclass(erro, LeitorCardapioError)
+
+
+def test_valores_de_refeicao_e_dieta_existem_nos_models():
+    assert set(leitor.REFEICOES.values()) == set(TipoRefeicao.values)
+    assert set(leitor.DIETAS.values()) == set(Dieta.values)
+
+
+def test_marcadores_seguem_o_dicionario_de_dados():
+    assert set(leitor.ROTULOS_MARCADORES.values()) == {
+        "cogumelo",
+        "leite_e_derivados",
+        "mel",
+        "pimenta",
+        "soja",
+        "trigo_gluten",
+        "amendoim",
+        "oleaginosa",
+        "ovo",
+        "suino",
+    }
+
+
+# -------------------------------------------------- datas e dietas isoladas
+
+
+def test_le_data_com_ano_de_quatro_ou_dois_digitos():
+    assert leitor._ler_data("2ª FEIRA 21/9/2026") == (
+        "2ª FEIRA",
+        datetime.date(2026, 9, 21),
+    )
+    assert leitor._ler_data("SÁBADO 14/11/26") == (
+        "SÁBADO",
+        datetime.date(2026, 11, 14),
+    )
+
+
+def test_data_que_nao_existe_e_formato_invalido():
+    with pytest.raises(FormatoPDFInvalidoError, match="data inválida"):
+        leitor._ler_data("2ª FEIRA 31/02/2026")
+
+
+def test_coluna_sem_data_e_formato_invalido():
+    with pytest.raises(FormatoPDFInvalidoError, match="sem data"):
+        leitor._ler_data("2ª FEIRA 21/09")
+
+
+def test_linha_de_dieta_desconhecida_e_formato_invalido():
+    assert leitor._dieta("GUARNIÇÃO") is None
+    with pytest.raises(FormatoPDFInvalidoError, match="dieta desconhecida"):
+        leitor._dieta("PRATO PRINCIPAL VEGANO")
+
+
+# ------------------------------------- PDF real alterado: falhas que avisam
+
+
+def _com_imagens_extras(monkeypatch, gerar):
+    """Acrescenta imagens às páginas do PDF, como se viessem no arquivo.
+
+    `gerar(numero_da_pagina, imagens)` devolve as imagens a acrescentar.
+    """
+    original = pdfplumber.page.Page.images
+
+    def images(self):
+        imagens = original.fget(self)
+        if type(self) is not pdfplumber.page.Page:
+            return imagens
+        return imagens + gerar(self.page_number, imagens)
+
+    monkeypatch.setattr(pdfplumber.page.Page, "images", property(images))
+
+
+def _primeiro_icone_da_tabela(imagens):
+    return next(im for im in imagens if 150 < im["top"] < 450 and im["x0"] > 180)
+
+
+def _todos_os_marcadores(refeicao):
+    return [
+        m
+        for cat in refeicao.categorias
+        for pratos in cat.pratos_por_dia.values()
+        for p in pratos
+        for m in p.marcadores
+    ]
+
+
+def test_icone_fora_de_celula_de_prato_publica_a_pagina_so_em_texto(monkeypatch):
+    def na_coluna_das_categorias(numero, imagens):
+        if numero != 2:
+            return []
+        icone = _primeiro_icone_da_tabela(imagens)
+        largura = icone["x1"] - icone["x0"]
+        return [{**icone, "x0": 100, "x1": 100 + largura}]
+
+    _com_imagens_extras(monkeypatch, na_coluna_das_categorias)
+    refeicoes, avisos = CardapioPDFParser(str(GAMA)).extrair()
+    almoco = refeicoes[1]
+    assert almoco.alergenos_indisponiveis is True
+    assert "fora das células" in almoco.motivo
+    assert _todos_os_marcadores(almoco) == []
+    # O texto continua lá, e as outras páginas não são afetadas.
+    assert _pratos(almoco, "SALADA 1", "2026-09-21") == [("Repolho roxo", [])]
+    assert refeicoes[0].alergenos_indisponiveis is False
+    assert _todos_os_marcadores(refeicoes[2]) != []
+    assert len(avisos) == 1 and avisos[0].startswith("pág. 2:")
+
+
+def test_imagem_maior_que_icone_na_tabela_nao_some_em_silencio(monkeypatch):
+    def icone_esticado(numero, imagens):
+        if numero != 3:
+            return []
+        icone = _primeiro_icone_da_tabela(imagens)
+        return [{**icone, "bottom": icone["top"] + leitor.ALTURA_MAX_ICONE + 5}]
+
+    _com_imagens_extras(monkeypatch, icone_esticado)
+    refeicoes, avisos = CardapioPDFParser(str(GAMA)).extrair()
+    assert refeicoes[2].alergenos_indisponiveis is True
+    assert "maiores que um ícone" in refeicoes[2].motivo
+    assert _todos_os_marcadores(refeicoes[2]) == []
+    assert len(avisos) == 1
+
+
+def test_icone_repetido_junto_ao_prato_conta_uma_vez(monkeypatch):
+    def repetido(numero, imagens):
+        return [_primeiro_icone_da_tabela(imagens)] if numero == 2 else []
+
+    _com_imagens_extras(monkeypatch, repetido)
+    refeicoes, avisos = CardapioPDFParser(str(GAMA)).extrair()
+    assert avisos == []
+    assert _como_dict(refeicoes[1]) == _esperado(GAMA_ALMOCO_ESPERADO)
+
+
+def test_pdf_sem_datas_reconhecidas_e_recusado(monkeypatch):
+    monkeypatch.setattr(leitor, "RE_DATA", re.compile(r"^nunca$"))
+    with pytest.raises(FormatoPDFInvalidoError, match="pág. 1: coluna do cabeçalho"):
+        CardapioPDFParser(str(GAMA)).extrair()
+
+
+def _apagar_textos(monkeypatch, padrao):
+    """Faz o leitor ver como vazias as células cujo texto casa com `padrao`."""
+    original = leitor._texto
+
+    def texto(palavras):
+        lido = original(palavras)
+        return "" if re.search(padrao, lido) else lido
+
+    monkeypatch.setattr(leitor, "_texto", texto)
+
+
+def test_cabecalho_sem_nenhum_dia_e_recusado(monkeypatch):
+    _apagar_textos(monkeypatch, r"\d+/\d+/\d+")
+    with pytest.raises(FormatoPDFInvalidoError, match="nenhum dia"):
+        CardapioPDFParser(str(GAMA)).extrair()
+
+
+def test_celula_com_pratos_fora_dos_dias_e_recusada(monkeypatch):
+    # Some só o cabeçalho da 3ª feira: os pratos dela ficam sem dia.
+    _apagar_textos(monkeypatch, r"22/9/2026")
+    with pytest.raises(FormatoPDFInvalidoError, match="fora das colunas de dias"):
+        CardapioPDFParser(str(GAMA)).extrair()
+
+
+def test_rotulo_repetido_na_legenda_publica_so_em_texto(monkeypatch):
+    original = leitor.normalizar
+    monkeypatch.setattr(
+        leitor,
+        "normalizar",
+        lambda texto: "pimenta" if original(texto) == "mel" else original(texto),
+    )
+    refeicoes, avisos = CardapioPDFParser(str(GAMA)).extrair()
+    assert all(r.alergenos_indisponiveis for r in refeicoes)
+    assert all("repetido" in r.motivo for r in refeicoes)
+    assert len(avisos) == 3
+
+
+def test_data_repetida_no_cabecalho_e_recusada(monkeypatch):
+    monkeypatch.setattr(
+        leitor, "_ler_data", lambda texto: ("2ª FEIRA", datetime.date(2026, 9, 21))
+    )
+    with pytest.raises(FormatoPDFInvalidoError, match="data repetida"):
+        CardapioPDFParser(str(GAMA)).extrair()
+
+
+def test_pdf_sem_coluna_composicao_e_recusado(monkeypatch):
+    monkeypatch.setattr(leitor, "ROTULO_COMPOSICAO", "NAO EXISTE")
+    with pytest.raises(FormatoPDFInvalidoError, match="COMPOSIÇÃO"):
+        CardapioPDFParser(str(GAMA)).extrair()
+
+
+def test_refeicao_desconhecida_e_recusada(monkeypatch):
+    monkeypatch.setattr(leitor, "REFEICOES", {})
+    with pytest.raises(FormatoPDFInvalidoError, match="refeição desconhecida"):
+        CardapioPDFParser(str(GAMA)).extrair()
+
+
+def test_arquivo_que_nao_e_pdf_e_formato_invalido(tmp_path):
+    pagina_de_erro = tmp_path / "cardapio.pdf"
+    pagina_de_erro.write_text("<html><body>Erro 503</body></html>")
+    with pytest.raises(FormatoPDFInvalidoError, match="não foi possível ler"):
+        CardapioPDFParser(str(pagina_de_erro)).extrair()
+
+
+def test_arquivo_inexistente_e_formato_invalido(tmp_path):
+    with pytest.raises(FormatoPDFInvalidoError):
+        CardapioPDFParser(str(tmp_path / "nao-existe.pdf")).extrair()
 
 
 def _aneis(posicoes, largura, altura=52):
@@ -582,6 +855,7 @@ def test_main_imprime_as_refeicoes(capsys):
     saida = capsys.readouterr().out
     assert "=== almoco ===" in saida
     assert "Chipotle  <pimenta>" in saida
+    assert "AVISO" not in saida
 
 
 def test_main_em_json(capsys):
