@@ -3,7 +3,7 @@
 
 > Fontes: `docs/requisitos/CONTEXT-DOMINIO.md` (glossário do domínio),
 > Documento de Requisitos de Software (RF01–RF33, RN01–RN13, RNF01–RNF09,
-> RI01–RI12, Anexo A) e ADRs 0001 a 0011 (`docs/arquitetura/adr/`). Nomes de
+> RI01–RI12, Anexo A) e ADRs 0001 a 0014 (`docs/arquitetura/adr/`). Nomes de
 > entidades seguem o vocabulário canônico do glossário — não os nomes usados
 > no rascunho da issue (#32): "Cardápio" não existe como entidade única, pois
 > o glossário já decompõe esse conceito em Refeição → Categoria → Prato;
@@ -53,6 +53,8 @@ erDiagram
         decimal centro_latitude
         decimal centro_longitude
         int raio_deteccao_metros "detecção do campus no aparelho (ADR 0009)"
+        string rotulo_pagina_ru "título do bloco na página do RU (ADR 0014)"
+        string prefixo_arquivo_pdf "início do nome do PDF (ADR 0014)"
     }
 
     REFEICAO {
@@ -185,6 +187,16 @@ erDiagram
         datetime ultimo_envio_em "intervalo minimo de 6 h (ADR 0006)"
     }
 
+    FONTE_CARDAPIO {
+        int id PK
+        int campus_id FK "UNIQUE com semana_inicio (ADR 0014)"
+        date semana_inicio "início da semana, pelo texto do link"
+        string url "PDF da última leitura com sucesso"
+        string sha256 "conteúdo da última leitura com sucesso"
+        datetime verificado_em "última execução que achou o link"
+        datetime processado_em "última leitura com sucesso"
+    }
+
     TOKEN {
         int id PK
         int usuario_id FK
@@ -207,6 +219,7 @@ erDiagram
     CAMPUS ||--o{ PONTOS_SEMESTRE_CAMPUS : classifica
     CAMPUS ||--o{ ALERTA_LEITURA_CARDAPIO : gera
     CAMPUS ||--o{ CONTADOR_ALERTA : limita_avisos
+    CAMPUS ||--o{ FONTE_CARDAPIO : origem_do_cardapio
     REFEICAO ||--o{ CATEGORIA : contem
     REFEICAO ||--o{ AVALIACAO : recebe
     REFEICAO |o--o{ ALERTA_LEITURA_CARDAPIO : relaciona-se_a
@@ -262,6 +275,8 @@ Um dos 5 campi com RU; tabela de apoio povoada por fixture.
 | `raio_confirmacao_metros` | IntegerField | NOT NULL, fixture (Anexo A) | Raio de confirmação do check-in por GPS (RF12), medido a partir do RU. As colunas `ru_*` e este raio são lidos pela `LocalizacaoRUConfig` da Fila. |
 | `centro_latitude` / `centro_longitude` | DecimalField | NOT NULL, fixture (Anexo A) | Centro do campus, usado na detecção do campus no aparelho (ADR 0009). Publicado em `GET /api/campi/` e lido pela `LocalizacaoCampusConfig` da Exposição do Cardápio. |
 | `raio_deteccao_metros` | IntegerField | NOT NULL, fixture (Anexo A) | Raio de detecção do campus no aparelho (ADR 0009); diferente do raio de confirmação do check-in. Publicado em `GET /api/campi/` junto com as colunas `centro_*`. |
+| `rotulo_pagina_ru` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Nome do campus no título do bloco da página de cardápios do RU ("Cardápio <rótulo>"), usado pelo Leitor para achar o PDF do campus. A comparação ignora acentos, maiúsculas e espaços extras, e a ordem dos blocos na página não é usada (ADR 0014). Não é publicado na API. |
+| `prefixo_arquivo_pdf` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Início esperado do nome do PDF do campus (`Darcy-Ribeiro`, `Ceilandia`, `Gama`, `Planaltina`, `Fazenda`). Confere que o link do bloco é mesmo daquele campus (ADR 0014). Não é publicado na API. |
 
 ### `REFEICAO`
 
@@ -468,6 +483,21 @@ Controle do limite de avisos por e-mail do Leitor de Cardápio (ADR 0006): uma l
 | `ultimo_envio_em` | DateTimeField | nullable | Hora do último aviso enviado; um novo aviso da mesma combinação só sai 6 horas depois (ADR 0006). |
 | — | — | **UNIQUE** (`campus_id`, `tipo`, `data`) | Uma contagem por campus, tipo e dia. Quando a leitura do campus volta a funcionar, o `AlertaEquipeService` apaga as linhas do dia desse campus, zerando a contagem (ADR 0006). |
 
+### `FONTE_CARDAPIO`
+
+Origem do último PDF lido com sucesso de cada campus e semana (ADR 0014): uma linha por campus e semana, porque a semana vigente e a seguinte (RF18) podem estar publicadas ao mesmo tempo. Corresponde ao `FonteCardapio` do Nível 4c do Leitor de Cardápio. Leitura com sucesso é a que grava o cardápio da semana, mesmo com alguma refeição só em texto (RF06.3).
+
+| Campo | Tipo | Constraints | Descrição |
+|---|---|---|---|
+| `id` | BigAutoField | PK | Identificador interno do registro. |
+| `campus_id` | ForeignKey → `CAMPUS` | NOT NULL, `ON DELETE CASCADE` | Campus a que o PDF pertence. |
+| `semana_inicio` | DateField | NOT NULL | Primeiro dia da semana do PDF, lido do texto do link ("09/11/2026 À 15/11/2026"). |
+| `url` | URLField(500) | NOT NULL | Link do PDF da última leitura com sucesso. Mesmo tamanho de `REFEICAO.fonte_pdf_url`. |
+| `sha256` | CharField(64) | NOT NULL | SHA-256 do conteúdo desse PDF. Se a URL e o SHA-256 da próxima execução forem iguais, o Leitor não lê o PDF de novo; se o RU substituir o arquivo, o SHA-256 muda e o PDF é lido. |
+| `verificado_em` | DateTimeField | NOT NULL | Última execução do Leitor que achou o link do campus na página do RU, com ou sem mudança. |
+| `processado_em` | DateTimeField | NOT NULL | Última leitura com sucesso. `url` e `sha256` só mudam junto com este campo, para que um PDF com falha seja tentado de novo na execução seguinte. |
+| — | — | **UNIQUE** (`campus_id`, `semana_inicio`) | Uma origem por campus e semana. |
+
 ### `TOKEN`
 
 Link de uso único para confirmação de e-mail e redefinição de senha (RF02, RF04).
@@ -506,6 +536,8 @@ duas categorias.
 | Confirmação de check-in por GPS dentro do raio do **RU** | RF12 | **Aplicação**: cálculo de distância acontece na view, com `CAMPUS.ru_latitude`/`ru_longitude` e `CAMPUS.raio_confirmacao_metros` (diferente do raio de detecção do campus, `raio_deteccao_metros`); coordenadas do dispositivo **não são persistidas** (RI09) — não há coluna para elas em nenhuma tabela. |
 | Uma refeição por campus/dia/tipo | Decorre de RF06/RF07 | **Banco**: `UNIQUE (campus_id, data, tipo)` em `REFEICAO`. |
 | Exatamente 10 marcadores conhecidos | RF06 | **Banco**: `MARCADOR` populada por fixture com exatamente 10 linhas; a leitura do PDF só referencia marcadores já existentes na tabela, nunca cria um novo marcador dinamicamente — um ícone fora desses 10 vira `ALERTA_LEITURA_CARDAPIO` (`legenda_invalida`), não uma nova linha em `MARCADOR`. |
+| Cada PDF é associado ao campus pelo nome no título da página do RU, nunca pela ordem dos blocos | ADR 0014 | **Banco**: `UNIQUE` em `CAMPUS.rotulo_pagina_ru` e em `CAMPUS.prefixo_arquivo_pdf`, para dois campi não disputarem o mesmo bloco. **Aplicação**: `CardapioDownloader.localizarPDFs` compara o título com o rótulo e confere o nome do arquivo pelo prefixo. |
+| Um PDF só é lido de novo quando muda | ADR 0014 | **Banco**: `UNIQUE (campus_id, semana_inicio)` em `FONTE_CARDAPIO`. **Aplicação**: o `LeitorCardapioService` compara URL e SHA-256 com a linha do campus e da semana antes de ler o PDF. |
 | No máximo 3 avisos por dia por campus e tipo de falha, com 6 horas de intervalo | ADR 0006 | **Banco**: `UNIQUE (campus_id, tipo, data)` e `CHECK` em `CONTADOR_ALERTA.quantidade_enviada`. **Aplicação**: `AlertaEquipeService.deveEnviar` compara `ultimo_envio_em` com o intervalo de 6 horas. |
 | Avaliação oculta pela moderação não é exibida nem entra na nota média | RNF08, ADR 0004 | **Aplicação**: consultas públicas de avaliação (comentários, resumo do dia e histórico) filtram `AVALIACAO.oculta = false`. **Banco**: só a coluna com default `false`; quem a altera é a equipe, por acesso direto ao banco. |
 | Senha nunca em texto plano | RI04, RNF04 | **Aplicação**: Django `AbstractBaseUser`/hashers cuidam do hash antes de qualquer `INSERT`/`UPDATE`; o banco só enxerga o hash. |
@@ -693,10 +725,14 @@ SQLite a ser migrado: o MVP nasce direto em MySQL quando for para produção).
 - ADR 0007 (sessão por cookie), ADR 0009 (detecção de campus no aparelho),
   ADR 0010 (nível por chegadas com espera estimada) e ADR 0011 (contadores de
   gamificação), em `docs/arquitetura/adr/`.
+- `docs/arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md` — origem de
+  `FONTE_CARDAPIO` e das colunas `rotulo_pagina_ru` e `prefixo_arquivo_pdf`
+  de `CAMPUS`.
 - `docs/arquitetura/c4-niveis-1-2.md` — Níveis 1 e 2, onde o Banco de Dados
   aparece como um único container.
 - `docs/arquitetura/backend/` — Níveis 4 do backend (Fila, Avaliação,
-  Gamificação, Cadastro/Autenticação e Exposição do Cardápio), cujos models
+  Gamificação, Cadastro/Autenticação, Exposição do Cardápio e Leitor de
+  Cardápio), cujos models
   são a referência dos campos e dos nomes.
 - [`C4-nivel-3-banco-de-dados-bandejao.md`](C4-nivel-3-banco-de-dados-bandejao.md) — Nível 3
   (entidades e relacionamentos), que este arquivo detalha.

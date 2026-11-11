@@ -137,6 +137,7 @@ Um mutante que sobrevive é um teste que falta, ou um teste sem asserção real.
 | `avaliacao` | Mostrar a avaliação com `oculta = True` | Avaliação oculta (BE-13) |
 | `cadastro` | Devolver o e-mail no `GET /api/sessao/` | Teste da ADR 0008 |
 | `leitor` | Ignorar o ícone de um marcador | `MarcadorIconMatcher` com o PDF real (BE-12) |
+| `leitor` | Associar o link do PDF pela posição do bloco na página, e não pelo título do campus | Página do RU com os blocos em outra ordem (BE-12, ADR 0014) |
 | `filaStore` | Guardar as coordenadas na store | Store sem coordenadas (FE-05) |
 | `apiClient` | Não mandar o `X-CSRFToken` no `DELETE` | CSRF nas escritas (FE-01) |
 
@@ -174,7 +175,8 @@ O Bandejão tem riscos próprios, que pedem testes próprios:
 
 | Risco do tema | Teste | Back / Front |
 |---|---|---|
-| O PDF do cardápio muda sem aviso (L05) | **Teste de caracterização** com os PDFs reais guardados como fixture: a saída do leitor é comparada com uma saída conferida à mão. Se o formato mudar, o teste mostra o quê | Back (`leitor`) |
+| O PDF do cardápio muda sem aviso (L15) | **Teste de caracterização** com os PDFs reais guardados como fixture: a saída do leitor é comparada com uma saída conferida à mão. Se o formato mudar, o teste mostra o quê | Back (`leitor`) |
+| A página de cardápios do RU muda: ordem dos blocos, título ou nome do arquivo (L15) | **Teste de caracterização** com o HTML real da página guardado como fixture (ADR 0014): os blocos em outra ordem dão o mesmo resultado; sufixo `-1`/`-2` no nome do arquivo é aceito; bloco com a semana vigente e a seguinte gera as duas semanas; título ausente ou repetido, arquivo de outro campus, dois links para a mesma semana e dia do PDF fora do intervalo do link mantêm o último cardápio válido e alertam; o Gama com 6 dias num link de 7 é aceito; mesma URL e mesmo SHA-256 não leem o PDF de novo | Back (`leitor`) |
 | A associação dos ícones falha (L03) | PDF com a legenda alterada ou sem ícones: publica em texto e marca "sem marcadores" | Back (`leitor`) |
 | Regras que dependem de horário e data | Relógio simulado: RN05 (refeição padrão, domingo, refeição encerrada), avaliação até 23h59, faixas de 15 min no fuso `America/Sao_Paulo`, semestre sem data de término | Back (`time-machine`) e front (`vi.useFakeTimers`) |
 | Duas requisições ao mesmo tempo | Dois check-ins simultâneos: só um é gravado e só um pontua. Roda no job do MySQL, que tem o bloqueio de verdade | Back |
