@@ -1,13 +1,13 @@
 # ADR 0006 — Alerta de falha do Leitor de Cardápio por e-mail, com limite de avisos
 
-**Status:** Aceita (pontos em aberto resolvidos em 2026-11-05 pela ADR 0012)
+**Status:** Aceita (pontos em aberto resolvidos em 2026-11-05 pela ADR 0012; abrangência de `FALHA_LEITURA_PDF` ampliada em 2026-11-11 pela ADR 0014; regra para zerar o contador ajustada em 2026-11-13 pela ADR 0014)
 **Data:** 2026-09-27
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
 ## Contexto
 
 O Leitor de Cardápio (RF06) lê o PDF semanal do site do RU, cujo formato
-pode mudar sem aviso (L05) e cuja leitura dos ícones de marcador é o ponto
+pode mudar sem aviso (L15) e cuja leitura dos ícones de marcador é o ponto
 mais frágil do módulo (L03). O RF06 define comportamentos de contingência
 para as falhas:
 
@@ -43,17 +43,29 @@ falha persistente não vire ruído:
 - **intervalo mínimo de 6 horas** entre dois avisos da mesma combinação, para
   espalhar os avisos ao longo do dia caso a leitura rode mais de uma vez;
 - a contagem é diária e por combinação, e zera quando a leitura daquele
-  campus volta a funcionar ou, no mais tardar, no dia seguinte. Assim, uma
+  campus volta a funcionar ou, no mais tardar, no dia seguinte. Desde a ADR
+  0014, "voltar a funcionar" é a execução do Leitor terminar **sem nenhum
+  alerta emitido para o campus**, de qualquer tipo e em qualquer semana,
+  inclusive o de cardápio não publicado. A leitura com sucesso da semana
+  seguinte não zera a contagem de uma falha da semana vigente. Assim, uma
   falha que dura vários dias gera pelo menos um aviso por dia, e não fica em
   silêncio depois do terceiro e-mail.
 
-A regra é implementada em `AlertaEquipeService` (métodos `registrarAlerta` e
-`deveEnviar`), com o controle de contagem em `ContadorAlerta` (campus, tipo,
+A regra é implementada em `AlertaEquipeService` (métodos `registrarAlerta`,
+`deveEnviar` e `zerarContador`), com o controle de contagem em `ContadorAlerta` (campus, tipo,
 dia, quantidade enviada, horário do último envio), gravado na tabela
 `CONTADOR_ALERTA`. Os três tipos de falha são os mesmos em todo o sistema:
 `LEGENDA_INVALIDA`, `ASSOCIACAO_FALHOU` e `FALHA_LEITURA_PDF` no
 `TipoAlerta` do Leitor, e `legenda_invalida`, `associacao_falhou` e
-`falha_leitura_pdf` no banco. O desenho está em
+`falha_leitura_pdf` no banco.
+
+`FALHA_LEITURA_PDF` cobre também as falhas da descoberta do PDF na página do
+RU (ADR 0014): página fora do ar, título do campus ausente ou repetido, nome
+do arquivo que não bate com o campus, dois links para a mesma semana, dias do
+PDF fora do intervalo do link, e cardápio da semana ainda não publicado
+depois do prazo do Anexo A (só quando nenhum link da semana vigente é
+encontrado na página). A mensagem do alerta diz qual etapa falhou. Assim, a
+ADR 0014 não cria um tipo novo. O desenho está em
 `c4-nivel-4-leitor-cardapio.md`, e as tabelas, no Nível 4 do banco de dados.
 
 ## Consequências
@@ -100,10 +112,12 @@ complemento.
 
 ## Relacionadas
 
-- Requisitos: RF06, RF02, RF04, RNF08, L03, L05.
+- Requisitos: RF06, RF02, RF04, RNF08, L03, L15.
 - `docs/arquitetura/adr/0003-leitor-pdf-como-modulo-do-backend.md` (módulo do Leitor de
   Cardápio e disparo por cron).
 - `docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md` (canal passivo de
   consulta que esta decisão complementa).
 - `docs/arquitetura/adr/0012-hospedagem-e-servico-de-email.md` (provedor do
   Serviço de E-mail e destinatário dos alertas).
+- `docs/arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md` (falhas da
+  descoberta do PDF, alertadas como `FALHA_LEITURA_PDF`).

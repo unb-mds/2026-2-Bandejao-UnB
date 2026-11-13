@@ -52,6 +52,8 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 - ADR 0009 — Detecção de campus feita no aparelho (`docs/arquitetura/adr/0009-deteccao-de-campus-no-aparelho.md`).
 - ADR 0010 — Nível de fila calculado por chegadas, com espera estimada por saída da fila (`docs/arquitetura/adr/0010-nivel-por-chegadas-com-espera-estimada.md`).
 - ADR 0011 — Contadores de gamificação mantidos além da janela de retenção (`docs/arquitetura/adr/0011-contadores-de-gamificacao-alem-da-janela-de-retencao.md`).
+- ADR 0014 — Descoberta do PDF de cada campus na página de cardápios do RU (`docs/arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md`).
+- Restaurante Universitário da UnB. *Cardápio refeitório* (página em que o RU publica o PDF semanal de cada campus). Disponível em: https://ru.unb.br/cardapio-refeitorio/.
 
 ### 1.5 Termos
 
@@ -200,6 +202,8 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 
 **RF06.1 — Download e atualização semanal.** O sistema deve obter o PDF de cada campus e atualizar o cardápio exibido em até 24 horas depois de uma nova publicação.
 - Dado que o RU publica um novo PDF para um campus, quando o sistema o processa, então o cardápio exibido é atualizado em até 24 horas.
+- Dado que a página de cardápios do RU lista os campi em qualquer ordem, quando o sistema a lê, então cada PDF é associado ao campus pelo nome do campus no título do bloco, e nunca pela posição na página (ADR 0014).
+- Dado que o nome do arquivo não corresponde ao campus do título, ou que algum dia do PDF fica fora das datas do link, quando o sistema lê a página ou o PDF, então o cardápio daquela semana do campus não é atualizado, o último cardápio válido continua em exibição (RF06.4) e a equipe recebe um alerta (RF06.5).
 
 **RF06.2 — Categorias, pratos e dietas.** O sistema deve extrair do PDF as categorias, os pratos e as linhas de dieta, respeitando os dias e as refeições servidos em cada campus.
 - Dado o PDF de um campus, quando lido, então só existem as refeições e os dias que constam nele (por exemplo, almoço de sábado quando presente).
@@ -714,6 +718,7 @@ Requisitos inversos definem explicitamente o que o sistema **não deve** fazer, 
 | **L12** | **Espera estimada tende a ficar abaixo da realidade.** Ela usa só quem responde à pergunta de saída da fila. Quem desiste, quem não responde e quem responde "há mais de 10 min" ficam de fora, e quem diz "Ainda estou na fila" e não volta entra só com um piso. As esperas mais longas são as mais afetadas. | Pisos contados em vez de descartados (RN07) e uso da mediana (RN08); mínimo de respostas (RN08); texto na tela informando que é uma estimativa (RF22.2). |
 | **L13** | **Uso indevido e distorção causados pela gamificação.** Pontos, ranking e Bandeja de Ouro podem estimular quem tem várias contas (L02), quem vai ao Restaurante Executivo (L11), quem faz check-in sem comer no RU e quem responde à pergunta de saída da fila ao acaso só para pontuar, o que piora a previsão e a espera estimada (L12). | Pontos só com check-in confirmado por GPS, um por refeição (RF12, RI03); pontos que não dependem do conteúdo, do horário nem do nível da fila (RI11); mediana na espera estimada (RN08); ranking opcional, semestral e limitado a 10 usuários por campus; moderação manual (RNF08). Como os pontos revelam, de forma aproximada, a frequência de uso do RU, o ranking mostra a patente, não os pontos (RI12). |
 | **L14** | **Contadores de gamificação não são recalculáveis.** Pela ADR 0011, o sistema guarda só totais ligados à conta, não o histórico de check-ins. Um erro de pontuação só se corrige por ajuste manual da equipe, e uma mudança nos valores do Anexo A vale só daí em diante. Quem já tinha conta antes da Release 2 começa do zero. | Valores do Anexo A revisados antes da liberação; ajuste manual pela equipe, como na moderação (RNF08). |
+| **L15** | **Fonte externa do cardápio.** O sistema depende da página de cardápios do RU e do formato do PDF, que podem mudar sem aviso: título do campus, layout, ordem dos blocos, nome do arquivo e dia de publicação. | Associação pelo nome do campus, com conferência pelo nome do arquivo e pelas datas; último cardápio válido mantido e alerta à equipe (RF06.4, RF06.5, ADR 0014). |
 
 ---
 
@@ -780,6 +785,10 @@ Valores ajustáveis pela equipe sem alterar os requisitos.
 | Horário do almoço | 11h00 às 14h30 | RF07.3 (RN05), RF11, RF13, RF15.1, RF20.3 |
 | Horário do jantar | 17h00 às 19h30 | RF07.3 (RN05), RF11, RF13, RF15.1, RF20.3 |
 | Estrutura dos horários | Campus × refeição × dia da semana. Os dias e as refeições servidos vêm do PDF | RF06.2, RF07.1, RF07.3 (RN05) |
+| Página de cardápios do RU | https://ru.unb.br/cardapio-refeitorio/ | RF06.1 (ADR 0014) |
+| Rótulo na página do RU e prefixo do arquivo, por campus | Darcy Ribeiro / `Darcy-Ribeiro`; Ceilândia / `Ceilandia`; Gama / `Gama`; Planaltina / `Planaltina`; Fazenda Água Limpa / `Fazenda` | RF06.1 (ADR 0014) |
+| Frequência da verificação do cardápio | A cada 3 horas, todos os dias | RF06.1 (ADR 0003, ADR 0014) |
+| Prazo para alertar cardápio da semana não publicado | Segunda-feira, 12h (horário de Brasília) | RF06.5 (ADR 0014) |
 | Coordenadas e raio de confirmação do check-in por RU | A definir pela equipe para cada RU, com validação em campo. No Darcy Ribeiro, o RU e o Restaurante Executivo ficam no mesmo prédio e o GPS não os distingue (L11) | RF12 |
 | Coordenadas e raio de detecção de campus | A definir pela equipe, por campus; raio bem menor que a metade da distância até o campus mais próximo; na Fazenda Água Limpa, ponto próximo às instalações do RU | RF20.1 |
 | Tempo parado para nova detecção de campus | 30 minutos | RF20.1 |

@@ -20,11 +20,12 @@
 > - ✅ `c4-nivel-4-gamificacao.md` — Épico Gamificação → componente
 >   Gamificação
 >
-> Referências: ADRs 0001 a 0011, em `docs/arquitetura/adr/`. As que mais
+> Referências: ADRs 0001 a 0014, em `docs/arquitetura/adr/`. As que mais
 > pesam neste nível são a 0003 (Leitor de PDF como módulo do backend), a
 > 0004 (acesso direto da equipe ao banco), a 0007 (sessão por cookie
 > `HttpOnly`), a 0009 (detecção de campus no aparelho), a 0010 (nível por
-> chegadas com espera estimada) e a 0011 (contadores de gamificação).
+> chegadas com espera estimada), a 0011 (contadores de gamificação) e a 0014
+> (descoberta do PDF de cada campus).
 
 ### Legenda de formas (Nível 3)
 
@@ -53,8 +54,8 @@ Consome a API REST do Backend."]]
 
   site_ru{{"🌐 Site do RU
 Sistema Externo
-Publica o PDF semanal de
-cardápio de cada campus."}}
+Publica numa página de cardápios
+o PDF semanal de cada campus."}}
   email_svc{{"🌐 Serviço de E-mail
 Sistema Externo
 Brevo, via SMTP."}}
@@ -93,11 +94,13 @@ Lista de campi com centro e raio
 de detecção (RF20, ADR 0009)."]
       leitor["📖 Leitor de Cardápio
 Componente — módulo do app Cardápio (ADR 0003)
-Baixa e interpreta o PDF semanal, associa
+Acha o PDF de cada campus na página do RU
+pelo nome do campus (ADR 0014), baixa e
+interpreta o PDF semanal, associa
 ícones de marcador aos pratos por posição,
 valida a legenda e grava o cardápio
 estruturado (RF06). Disparado por cron
-do SO — o cron em si não é um componente
+do SO, de 3 em 3 horas — o cron em si não é um componente
 da aplicação (ver Nível 2)."]
     end
 
@@ -144,8 +147,8 @@ de pico [HTTPS/JSON]"| fila
 e redefinição [SMTP]"| email_svc
   cardapio -->|"Lê cardápio estruturado
 [Django ORM]"| db
-  leitor -->|"Baixa o PDF semanal
-de cada campus [HTTPS]"| site_ru
+  leitor -->|"Lê a página de cardápios e baixa
+o PDF de cada campus [HTTPS]"| site_ru
   leitor -->|"Grava cardápio estruturado e mantém
 o último cardápio válido em caso
 de falha [Django ORM]"| db
@@ -318,6 +321,12 @@ na exclusão de conta [chamada Python]"| fila
   disparada por cron, escreve no banco e depende de um sistema externo (Site
   do RU). Essa fronteira interna é exatamente o que o Nível 4 detalha (ver
   `c4-nivel-4-leitor-cardapio.md`).
+- **Leitor de Cardápio → Site do RU passa por uma página, não por um link
+  fixo.** O nome do PDF muda toda semana, e o RU reenvia arquivos com
+  sufixos `-1`, `-2`. O Leitor lê a página de cardápios, associa cada link ao
+  campus pelo título do bloco (nunca pela ordem), confere o nome do arquivo e
+  as datas, e só lê o PDF de novo quando a URL ou o conteúdo mudam
+  (ADR 0014, Nível 4c do Leitor).
 - **Leitor de Cardápio → Serviço de E-mail é o canal de alerta à Equipe.**
   Reaproveita a mesma integração já usada por Cadastro/Autenticação para
   confirmação de cadastro e redefinição de senha (RF02, RF04), em vez de
