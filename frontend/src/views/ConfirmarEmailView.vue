@@ -60,7 +60,9 @@ async function reenviar() {
   erro.value = ''
   try {
     const resposta = await auth.reenviarConfirmacao(
-      estado.value === 'invalido' ? { token: token.value } : { matriculaSiape: matriculaSiape.value },
+      estado.value === 'invalido'
+        ? { token: token.value }
+        : { matriculaSiape: matriculaSiape.value },
     )
     reenvio.value = resposta.mensagem
     linkSimulado.value = resposta.linkSimulado ?? ''

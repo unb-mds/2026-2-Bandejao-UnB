@@ -122,7 +122,11 @@ describe('POST /cadastro/ e confirmação de e-mail (RF01, RF02)', () => {
   it('professor_servidor: apelido do e-mail em uso dá 409 apelido_indisponivel com sugestão', async () => {
     expect((await post('/cadastro/', SERVIDOR)).status).toBe(201)
 
-    const outro = { ...SERVIDOR, matriculaSiape: '7654321', emailInstitucional: 'mariasilva@unb.br' }
+    const outro = {
+      ...SERVIDOR,
+      matriculaSiape: '7654321',
+      emailInstitucional: 'mariasilva@unb.br',
+    }
     const colisao = await post('/cadastro/', outro)
     expect(colisao.status).toBe(409)
     expect(colisao.dados.codigo).toBe('apelido_indisponivel')
@@ -332,26 +336,21 @@ describe('avaliações (RF15)', () => {
 
   it('não permite avaliar outro dia nem antes do início da refeição', async () => {
     await entrarComDemo()
-    const amanha = await post(
-      '/avaliacoes/',
-      { ...ALMOCO_HOJE, data: '2026-09-29', nota: 4 }
-    )
+    const amanha = await post('/avaliacoes/', { ...ALMOCO_HOJE, data: '2026-09-29', nota: 4 })
     expect(amanha.dados.codigo).toBe('fora_do_dia')
 
-    const jantar = await post(
-      '/avaliacoes/',
-      { ...ALMOCO_HOJE, refeicao: 'jantar', nota: 4 }
-    )
+    const jantar = await post('/avaliacoes/', { ...ALMOCO_HOJE, refeicao: 'jantar', nota: 4 })
     expect(jantar.dados.codigo).toBe('antes_do_inicio')
   })
 
   it('valida nota e tamanho do comentário', async () => {
     await entrarComDemo()
     expect((await post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 0 })).status).toBe(422)
-    const longo = await post(
-      '/avaliacoes/',
-      { ...ALMOCO_HOJE, nota: 3, comentario: 'x'.repeat(501) }
-    )
+    const longo = await post('/avaliacoes/', {
+      ...ALMOCO_HOJE,
+      nota: 3,
+      comentario: 'x'.repeat(501),
+    })
     expect(longo.status).toBe(422)
   })
 

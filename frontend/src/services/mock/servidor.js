@@ -197,7 +197,8 @@ function cadastrar(corpo, agora) {
     )
   }
   if (erroApelido) return dadosInvalidos(erroApelido)
-  if (apelidoEmUso(apelidoFinal)) return dadosInvalidos('Este apelido já está em uso. Escolha outro.')
+  if (apelidoEmUso(apelidoFinal))
+    return dadosInvalidos('Este apelido já está em uso. Escolha outro.')
 
   const usuario = {
     id: banco.novoId(),

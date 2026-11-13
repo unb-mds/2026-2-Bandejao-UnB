@@ -95,10 +95,7 @@ async function reenviarConfirmacao() {
       <CampoSenha v-model="senha" />
 
       <div class="esqueci">
-        <RouterLink
-          :to="{ name: 'recuperar-senha' }"
-          class="link-destaque"
-        >
+        <RouterLink :to="{ name: 'recuperar-senha' }" class="link-destaque">
           Esqueci a senha
         </RouterLink>
       </div>
