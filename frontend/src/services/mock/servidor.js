@@ -1,12 +1,20 @@
 /**
- * Backend simulado. Responde às mesmas rotas e com os mesmos formatos que a
- * API Django deverá expor (ver frontend/README.md → "Contrato da API"),
- * aplicando as regras de negócio do MVP: cadastro (RF01), confirmação de
- * e-mail (RF02), login com bloqueio (RF03), recuperação de senha (RF04),
- * cardápio (RF06/RF07) e avaliações (RF15).
+ * Backend simulado, só para desenvolvimento e testes (o build de produção
+ * não o inclui; ver apiClient). Nas rotas que o MVP usa — cadastro,
+ * confirmação, reenvio e sessão — segue o contrato OpenAPI v1 da BE-03
+ * (backend/openapi.yaml): mesmas rotas, nomes de campos, status HTTP e
+ * valores de `codigo`. Erros vêm como `{ codigo, mensagem }`.
+ *
+ * Também imita o navegador e o Django na sessão (ADR 0007):
+ * - o cookie de sessão é "HttpOnly": fica guardado aqui e o apiClient não o vê;
+ * - o cookie `csrftoken` é gravado em `document.cookie` no login, e escritas
+ *   com sessão sem o cabeçalho `X-CSRFToken` certo recebem 403 (como o DRF).
  *
  * Nos pontos em que o sistema real enviaria um e-mail, a resposta traz o
- * campo `linkSimulado`, que a interface mostra apenas em modo de simulação.
+ * campo extra `linkSimulado` (fora do contrato), que a interface mostra
+ * apenas em modo de simulação. Recuperação de senha, cardápio e avaliações
+ * ainda têm o formato do MVP: entram no contrato nas tarefas FE-08, FE-09 e
+ * FE-E2.
  */
 import { campusValido } from '@/constants/campi'
 import { REFEICOES, horaInicio } from '@/constants/refeicoes'
@@ -29,30 +37,60 @@ const VALIDADE_REDEFINICAO = HORA
 const LIMITE_TENTATIVAS_LOGIN = 5
 const JANELA_BLOQUEIO_LOGIN = 10 * MINUTO
 const LIMITE_RECUPERACOES_POR_HORA = 3
+const METODOS_DE_ESCRITA = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
 /** Estado volátil (some ao recarregar), como no servidor real após reinício. */
-const sessoes = new Map() // token → id do usuário
-const tentativasLogin = new Map() // e-mail → [instantes das falhas]
-const bloqueiosLogin = new Map() // e-mail → instante de fim do bloqueio
+const sessoes = new Map() // id da sessão → id do usuário (django_session)
+const tentativasLogin = new Map() // matrícula/SIAPE → [instantes das falhas]
+const bloqueiosLogin = new Map() // matrícula/SIAPE → instante de fim do bloqueio
 const pedidosRecuperacao = new Map() // e-mail → [instantes]
 
+/** "Cookie HttpOnly" sessionid deste navegador: o JavaScript da página não o lê. */
+let cookieSessao = null
+/** Valor do csrftoken que o servidor gravou por último. */
+let csrfAtual = null
+
 const ok = (dados, status = 200) => ({ status, dados })
-const erro = (status, detail, extra = {}) => ({ status, dados: { detail, ...extra } })
+const erro = (status, codigo, mensagem, extra = {}) => ({
+  status,
+  dados: { codigo, mensagem, ...extra },
+})
+const naoAutenticado = () =>
+  erro(401, 'nao_autenticado', 'É preciso entrar na conta para continuar.')
 
 function gerarToken() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-const normalizarEmail = (email = '') => email.trim().toLowerCase()
+function gravarCookieCsrf(valor) {
+  csrfAtual = valor
+  if (typeof document !== 'undefined') {
+    document.cookie = `csrftoken=${encodeURIComponent(valor)}; path=/; SameSite=Lax`
+  }
+}
+
+const normalizarEmail = (email = '') => String(email).trim().toLowerCase()
 
 function usuarioPorEmail(email) {
   return banco.estado.usuarios.find((u) => u.email === normalizarEmail(email))
 }
 
-function usuarioDaSessao(token) {
-  const id = token ? sessoes.get(token) : null
+function usuarioPorMatriculaSiape(matriculaSiape = '') {
+  const valor = String(matriculaSiape).trim()
+  return valor ? banco.estado.usuarios.find((u) => u.identificador === valor) : null
+}
+
+function usuarioDaSessao() {
+  const id = cookieSessao ? sessoes.get(cookieSessao) : null
   return id ? banco.estado.usuarios.find((u) => u.id === id) : null
 }
+
+/** Corpo do schema `Sessao`: nunca matrícula/SIAPE ou e-mail (RI10). */
+const corpoSessao = (usuario) => ({
+  apelido: usuario.apelido,
+  tipo: usuario.tipo,
+  avisoPrivacidadePendente: !usuario.aceitouAvisoAtualizado,
+})
 
 /** RF02: cadastro pendente não confirmado em 24h é excluído. */
 function removerPendentesExpirados(agora) {
@@ -73,6 +111,7 @@ function criarLink(tipo, usuario, validade, agora) {
     token,
     tipo,
     usuarioId: usuario.id,
+    usado: false,
     expiraEm: new Date(agora.getTime() + validade).toISOString(),
   })
   banco.salvar()
@@ -80,50 +119,64 @@ function criarLink(tipo, usuario, validade, agora) {
   return `${rota}?token=${encodeURIComponent(token)}`
 }
 
+/** Usa o link uma vez só. Fica marcado como usado para o reenvio por token. */
 function consumirLink(tipo, token, agora) {
-  const { estado } = banco
-  const link = estado.links.find((l) => l.tipo === tipo && l.token === token)
-  if (!link) return null
-  estado.links = estado.links.filter((l) => l !== link)
+  const link = banco.estado.links.find((l) => l.tipo === tipo && l.token === token)
+  if (!link || link.usado) return null
+  link.usado = true
   banco.salvar()
   return new Date(link.expiraEm) > agora ? link : null
 }
 
-// ─── Cadastro e autenticação ──────────────────────────────────────────────
+// ─── Cadastro (POST /api/cadastro/) ───────────────────────────────────────
+
+const dadosInvalidos = (mensagem) => erro(422, 'dados_invalidos', mensagem)
+
+function sugerirApelido(base, emUso) {
+  const raiz = (base.length >= 3 ? base : base.padEnd(3, '0')).slice(0, 18)
+  for (let n = 1; ; n++) if (!emUso(`${raiz}${n}`)) return `${raiz}${n}`
+}
 
 function cadastrar(corpo, agora) {
-  const { tipo, email = '', senha = '', apelido = '', siape = '', aceitouPrivacidade } = corpo
-  if (tipo !== 'estudante' && tipo !== 'servidor') {
-    return erro(422, 'Escolha se você é aluno, professor ou servidor.')
+  const {
+    tipoUsuario,
+    emailInstitucional = '',
+    senha = '',
+    apelido = '',
+    matriculaSiape = '',
+    aceitePrivacidade,
+  } = corpo
+  if (tipoUsuario !== 'estudante' && tipoUsuario !== 'professor_servidor') {
+    return dadosInvalidos('Escolha se você é aluno, professor ou servidor.')
   }
-  if (!aceitouPrivacidade) {
-    return erro(422, 'É preciso aceitar o aviso de privacidade para criar a conta.')
+  if (aceitePrivacidade !== true) {
+    return dadosInvalidos('É preciso aceitar o aviso de privacidade para criar a conta.')
   }
 
   let identificador
   let apelidoFinal
-  if (tipo === 'estudante') {
-    const analise = analisarEmailEstudante(email, agora)
-    if (analise.erro) return erro(422, analise.erro)
+  if (tipoUsuario === 'estudante') {
+    const analise = analisarEmailEstudante(emailInstitucional, agora)
+    if (analise.erro) return dadosInvalidos(analise.erro)
     identificador = analise.matricula
     apelidoFinal = apelido.trim()
   } else {
-    const erroSiape = validarSiape(siape)
-    if (erroSiape) return erro(422, erroSiape)
-    const analise = analisarEmailServidor(email)
-    if (analise.erro) return erro(422, analise.erro)
-    identificador = siape
+    const erroSiape = validarSiape(matriculaSiape)
+    if (erroSiape) return dadosInvalidos(erroSiape)
+    const analise = analisarEmailServidor(emailInstitucional)
+    if (analise.erro) return dadosInvalidos(analise.erro)
+    identificador = matriculaSiape
     apelidoFinal = apelido.trim() || analise.apelido
   }
 
   const erroSenha = validarSenha(senha)
-  if (erroSenha) return erro(422, erroSenha)
+  if (erroSenha) return dadosInvalidos(erroSenha)
 
-  const emailNormalizado = normalizarEmail(email)
+  const emailNormalizado = normalizarEmail(emailInstitucional)
   const { usuarios } = banco.estado
   if (usuarios.some((u) => u.email === emailNormalizado || u.identificador === identificador)) {
-    // Mensagem única, sem revelar qual dos dois já existe (C4 4b / RF03).
-    return erro(422, 'Matrícula/SIAPE ou e-mail já cadastrados.')
+    // Mensagem única, sem revelar qual dos dois já existe (RI01).
+    return dadosInvalidos('Matrícula/SIAPE ou e-mail já cadastrados.')
   }
 
   const apelidoEmUso = (valor) =>
@@ -131,19 +184,24 @@ function cadastrar(corpo, agora) {
     APELIDOS_SEMENTE.some((a) => a.toLowerCase() === valor.toLowerCase())
 
   const erroApelido = validarApelido(apelidoFinal)
-  if (tipo === 'servidor' && !apelido.trim() && (erroApelido || apelidoEmUso(apelidoFinal))) {
+  if (
+    tipoUsuario === 'professor_servidor' &&
+    !apelido.trim() &&
+    (erroApelido || apelidoEmUso(apelidoFinal))
+  ) {
     return erro(
       409,
+      'apelido_indisponivel',
       `Não foi possível usar "${apelidoFinal}" como apelido. Escolha um apelido para exibir nas suas avaliações.`,
-      { codigo: 'apelido_manual' },
+      { apelidoSugerido: sugerirApelido(apelidoFinal, apelidoEmUso) },
     )
   }
-  if (erroApelido) return erro(422, erroApelido)
-  if (apelidoEmUso(apelidoFinal)) return erro(422, 'Este apelido já está em uso. Escolha outro.')
+  if (erroApelido) return dadosInvalidos(erroApelido)
+  if (apelidoEmUso(apelidoFinal)) return dadosInvalidos('Este apelido já está em uso. Escolha outro.')
 
   const usuario = {
     id: banco.novoId(),
-    tipo,
+    tipo: tipoUsuario,
     email: emailNormalizado,
     identificador,
     apelido: apelidoFinal,
@@ -154,25 +212,42 @@ function cadastrar(corpo, agora) {
   }
   usuarios.push(usuario)
   const linkSimulado = criarLink('confirmacao', usuario, VALIDADE_CONFIRMACAO, agora)
-  return ok({ email: usuario.email, pendente: true, linkSimulado }, 201)
+  return ok({ emailInstitucional: usuario.email, status: 'pendente', linkSimulado }, 201)
 }
 
-function confirmarEmail({ token = '' }, agora) {
+// ─── Confirmação e reenvio ────────────────────────────────────────────────
+
+function confirmarEmail(token, agora) {
   const link = consumirLink('confirmacao', token, agora)
   const usuario = link && banco.estado.usuarios.find((u) => u.id === link.usuarioId)
   if (!usuario) {
-    return erro(410, 'Este link de confirmação expirou, já foi usado ou é inválido.')
+    return erro(
+      410,
+      'token_invalido_ou_expirado',
+      'Este link de confirmação expirou, já foi usado ou é inválido.',
+    )
   }
   usuario.confirmado = true
   banco.salvar()
-  return ok({ confirmado: true })
+  return ok(null)
 }
 
-function reenviarConfirmacao({ email = '' }, agora) {
-  const usuario = usuarioPorEmail(email)
+function reenviarConfirmacao({ matriculaSiape, token }, agora) {
+  if (!matriculaSiape && !token) {
+    return dadosInvalidos('Informe a matrícula/SIAPE ou abra de novo o link recebido.')
+  }
+  let usuario
+  if (matriculaSiape) {
+    usuario = usuarioPorMatriculaSiape(matriculaSiape)
+  } else {
+    const link = banco.estado.links.find((l) => l.tipo === 'confirmacao' && l.token === token)
+    usuario = link && banco.estado.usuarios.find((u) => u.id === link.usuarioId)
+  }
+
+  // Mesma resposta exista ou não uma conta pendente (RF02.2).
   const resposta = {
-    detail:
-      'Se houver um cadastro pendente para este e-mail, enviamos um novo link de confirmação.',
+    mensagem:
+      'Se houver um cadastro pendente, enviamos um novo link de confirmação para o e-mail institucional.',
   }
   if (usuario && !usuario.confirmado) {
     usuario.ultimoEnvio = agora.toISOString() // renova o prazo de 24h (RF02)
@@ -181,17 +256,17 @@ function reenviarConfirmacao({ email = '' }, agora) {
   return ok(resposta)
 }
 
-function entrar({ email = '', senha = '' }, agora) {
-  const chave = normalizarEmail(email)
+// ─── Sessão (/api/sessao/: POST entra, GET quem sou, DELETE sai) ──────────
+
+function entrar({ matriculaSiape = '', senha = '' }, agora) {
+  const chave = String(matriculaSiape).trim()
   const fimBloqueio = bloqueiosLogin.get(chave)
   if (fimBloqueio && fimBloqueio > agora) {
     const minutos = Math.ceil((fimBloqueio - agora) / MINUTO)
-    return erro(429, `Muitas tentativas. Tente novamente em ${minutos} min.`, {
-      codigo: 'bloqueado',
-    })
+    return erro(429, 'login_bloqueado', `Muitas tentativas. Tente novamente em ${minutos} min.`)
   }
 
-  const usuario = usuarioPorEmail(chave)
+  const usuario = usuarioPorMatriculaSiape(chave)
   if (!usuario || usuario.senha !== resumoSenha(senha)) {
     const recentes = (tentativasLogin.get(chave) ?? []).filter(
       (t) => agora - t < JANELA_BLOQUEIO_LOGIN,
@@ -201,42 +276,56 @@ function entrar({ email = '', senha = '' }, agora) {
     if (recentes.length >= LIMITE_TENTATIVAS_LOGIN) {
       bloqueiosLogin.set(chave, new Date(agora.getTime() + JANELA_BLOQUEIO_LOGIN))
       tentativasLogin.delete(chave)
-      return erro(429, 'Muitas tentativas. Tente novamente em 10 min.', { codigo: 'bloqueado' })
+      return erro(429, 'login_bloqueado', 'Muitas tentativas. Tente novamente em 10 min.')
     }
-    // Mensagem genérica: não indica se a conta existe (RF03).
-    return erro(401, 'E-mail ou senha incorretos.')
+    // Mensagem genérica: não indica se a conta existe (RF03.1).
+    return erro(401, 'credenciais_invalidas', 'Matrícula/SIAPE ou senha incorretos.')
   }
 
   tentativasLogin.delete(chave)
   if (!usuario.confirmado) {
     return erro(
       403,
+      'conta_nao_confirmada',
       'Confirme seu e-mail antes de entrar. Enviamos um link para a sua caixa de entrada.',
-      {
-        codigo: 'email_nao_confirmado',
-      },
     )
   }
 
-  const token = gerarToken()
-  sessoes.set(token, usuario.id)
-  return ok({ token, usuario: { apelido: usuario.apelido, tipo: usuario.tipo } })
+  // Como o Django: nova sessão e novo csrftoken a cada login.
+  if (cookieSessao) sessoes.delete(cookieSessao)
+  cookieSessao = gerarToken()
+  sessoes.set(cookieSessao, usuario.id)
+  gravarCookieCsrf(gerarToken())
+  return ok(corpoSessao(usuario))
 }
 
-function sair(token) {
-  sessoes.delete(token)
-  return ok({})
+function quemSou() {
+  const usuario = usuarioDaSessao()
+  return usuario ? ok(corpoSessao(usuario)) : naoAutenticado()
 }
+
+function sair() {
+  if (!usuarioDaSessao()) return naoAutenticado()
+  sessoes.delete(cookieSessao)
+  cookieSessao = null
+  return ok(null, 204)
+}
+
+// ─── Recuperação de senha (fora do contrato v1; ligada à API na FE-E2) ────
 
 function solicitarRecuperacao({ email = '' }, agora) {
   const chave = normalizarEmail(email)
   const resposta = {
-    detail: 'Se houver uma conta com este e-mail, enviaremos um link para redefinir a senha.',
+    mensagem: 'Se houver uma conta com este e-mail, enviaremos um link para redefinir a senha.',
   }
 
   const recentes = (pedidosRecuperacao.get(chave) ?? []).filter((t) => agora - t < HORA)
   if (recentes.length >= LIMITE_RECUPERACOES_POR_HORA) {
-    return erro(429, 'Limite de 3 solicitações por hora atingido. Tente novamente mais tarde.')
+    return erro(
+      429,
+      'limite_de_pedidos',
+      'Limite de 3 solicitações por hora atingido. Tente novamente mais tarde.',
+    )
   }
   recentes.push(agora)
   pedidosRecuperacao.set(chave, recentes)
@@ -250,22 +339,28 @@ function solicitarRecuperacao({ email = '' }, agora) {
 
 function redefinirSenha({ token = '', senha = '' }, agora) {
   const erroSenha = validarSenha(senha)
-  if (erroSenha) return erro(422, erroSenha)
+  if (erroSenha) return dadosInvalidos(erroSenha)
   const link = consumirLink('redefinicao', token, agora)
   const usuario = link && banco.estado.usuarios.find((u) => u.id === link.usuarioId)
-  if (!usuario) return erro(410, 'Este link de redefinição expirou, já foi usado ou é inválido.')
+  if (!usuario) {
+    return erro(
+      410,
+      'token_invalido_ou_expirado',
+      'Este link de redefinição expirou, já foi usado ou é inválido.',
+    )
+  }
 
   usuario.senha = resumoSenha(senha)
   banco.salvar()
   // A senha anterior deixa de valer e as sessões ativas são encerradas (RF04).
-  for (const [tokenSessao, id] of sessoes) if (id === usuario.id) sessoes.delete(tokenSessao)
+  for (const [sessao, id] of sessoes) if (id === usuario.id) sessoes.delete(sessao)
   return ok({ redefinida: true })
 }
 
 // ─── Cardápio e avaliações ────────────────────────────────────────────────
 
 function obterCardapio(campus, agora) {
-  if (!campusValido(campus)) return erro(404, 'Campus não encontrado.')
+  if (!campusValido(campus)) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
   return ok(montarCardapioSemana(campus, agora))
 }
 
@@ -279,10 +374,10 @@ function avaliacoesDaRefeicao(campus, data, refeicao, agora) {
   return { soma, quantidade, reais, comentarios: semente.comentarios }
 }
 
-function listarAvaliacoes(parametros, token, agora) {
+function listarAvaliacoes(parametros, agora) {
   const { campus, data, refeicao } = parametros
   if (!campusValido(campus) || !REFEICOES[refeicao] || !data) {
-    return erro(400, 'Informe campus, data e refeição.')
+    return erro(400, 'parametros_invalidos', 'Informe campus, data e refeição.')
   }
   const { soma, quantidade, reais, comentarios } = avaliacoesDaRefeicao(
     campus,
@@ -304,7 +399,7 @@ function listarAvaliacoes(parametros, token, agora) {
     .filter((a) => a.comentario)
     .sort((a, b) => b.criadaEm.localeCompare(a.criadaEm))
 
-  const usuario = usuarioDaSessao(token)
+  const usuario = usuarioDaSessao()
   const minha = usuario ? reais.find((a) => a.usuarioId === usuario.id) : null
   return ok({
     media: quantidade ? soma / quantidade : null,
@@ -315,7 +410,7 @@ function listarAvaliacoes(parametros, token, agora) {
 }
 
 function resumoSemana({ campus }, agora) {
-  if (!campusValido(campus)) return erro(404, 'Campus não encontrado.')
+  if (!campusValido(campus)) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
   const { dias } = montarCardapioSemana(campus, agora)
   let somaSemana = 0
   let quantidadeSemana = 0
@@ -338,10 +433,9 @@ function resumoSemana({ campus }, agora) {
   })
 }
 
-function avaliar(corpo, token, agora) {
-  const usuario = usuarioDaSessao(token)
-  if (!usuario)
-    return erro(401, 'Faça login para avaliar refeições.', { codigo: 'nao_autenticado' })
+function avaliar(corpo, agora) {
+  const usuario = usuarioDaSessao()
+  if (!usuario) return naoAutenticado()
 
   const { campus, data, refeicao, nota, comentario = '' } = corpo
   if (
@@ -349,19 +443,23 @@ function avaliar(corpo, token, agora) {
     !REFEICOES[refeicao] ||
     !refeicaoExiste(campus, data, refeicao, agora)
   ) {
-    return erro(404, 'Refeição não encontrada no cardápio.')
+    return erro(404, 'refeicao_nao_encontrada', 'Refeição não encontrada no cardápio.')
   }
   if (!Number.isInteger(nota) || nota < 1 || nota > 5)
-    return erro(422, 'Escolha uma nota de 1 a 5 estrelas.')
-  if (comentario.length > 500) return erro(422, 'O comentário pode ter no máximo 500 caracteres.')
+    return erro(422, 'nota_invalida', 'Escolha uma nota de 1 a 5 estrelas.')
+  if (comentario.length > 500) {
+    return erro(422, 'comentario_muito_longo', 'O comentário pode ter no máximo 500 caracteres.')
+  }
   if (data !== hojeISO(agora)) {
-    return erro(422, 'Só é possível avaliar refeições do dia de hoje.', { codigo: 'fora_do_dia' })
+    return erro(422, 'fora_do_dia', 'Só é possível avaliar refeições do dia de hoje.')
   }
   const inicio = REFEICOES[refeicao].inicio
   if (minutosAgora(agora) < minutosDoDia(inicio)) {
-    return erro(422, `A avaliação abre às ${horaInicio(refeicao)}, quando a refeição começa.`, {
-      codigo: 'antes_do_inicio',
-    })
+    return erro(
+      422,
+      'antes_do_inicio',
+      `A avaliação abre às ${horaInicio(refeicao)}, quando a refeição começa.`,
+    )
   }
 
   // Uma avaliação por usuário e refeição; a segunda tentativa edita (RF15).
@@ -394,26 +492,36 @@ function avaliar(corpo, token, agora) {
 // ─── Roteamento ───────────────────────────────────────────────────────────
 
 const ROTAS = [
-  ['GET', /^\/cardapio\/([\w-]+)\/$/, ({ agora }, [campus]) => obterCardapio(campus, agora)],
-  ['GET', /^\/avaliacoes\/resumo\/$/, ({ parametros, agora }) => resumoSemana(parametros, agora)],
-  [
-    'GET',
-    /^\/avaliacoes\/$/,
-    ({ parametros, token, agora }) => listarAvaliacoes(parametros, token, agora),
-  ],
-  ['POST', /^\/avaliacoes\/$/, ({ corpo, token, agora }) => avaliar(corpo, token, agora)],
   ['POST', /^\/cadastro\/$/, ({ corpo, agora }) => cadastrar(corpo, agora)],
-  ['POST', /^\/confirmar-email\/$/, ({ corpo, agora }) => confirmarEmail(corpo, agora)],
+  [
+    'POST',
+    /^\/confirmar-email\/([^/]+)\/$/,
+    ({ agora }, [token]) => confirmarEmail(decodeURIComponent(token), agora),
+  ],
   ['POST', /^\/reenviar-confirmacao\/$/, ({ corpo, agora }) => reenviarConfirmacao(corpo, agora)],
-  ['POST', /^\/login\/$/, ({ corpo, agora }) => entrar(corpo, agora)],
-  ['POST', /^\/logout\/$/, ({ token }) => sair(token)],
+  ['GET', /^\/sessao\/$/, () => quemSou()],
+  ['POST', /^\/sessao\/$/, ({ corpo, agora }) => entrar(corpo, agora)],
+  ['DELETE', /^\/sessao\/$/, () => sair()],
   ['POST', /^\/recuperar-senha\/$/, ({ corpo, agora }) => solicitarRecuperacao(corpo, agora)],
   ['POST', /^\/redefinir-senha\/$/, ({ corpo, agora }) => redefinirSenha(corpo, agora)],
+  ['GET', /^\/cardapio\/([\w-]+)\/$/, ({ agora }, [campus]) => obterCardapio(campus, agora)],
+  ['GET', /^\/avaliacoes\/resumo\/$/, ({ parametros, agora }) => resumoSemana(parametros, agora)],
+  ['GET', /^\/avaliacoes\/$/, ({ parametros, agora }) => listarAvaliacoes(parametros, agora)],
+  ['POST', /^\/avaliacoes\/$/, ({ corpo, agora }) => avaliar(corpo, agora)],
 ]
 
 const ATRASO_MS = import.meta.env.MODE === 'test' ? 0 : 250
 
-export async function tratarRequisicaoSimulada({ metodo, caminho, corpo, token }) {
+/**
+ * Como o `SessionAuthentication` do DRF: o CSRF só é cobrado de quem tem
+ * sessão. Quem não tem sessão cai no 401 da própria rota, nunca no 403.
+ */
+function csrfRecusado(metodo, cabecalhos) {
+  if (!METODOS_DE_ESCRITA.has(metodo) || !usuarioDaSessao()) return false
+  return !csrfAtual || cabecalhos['X-CSRFToken'] !== csrfAtual
+}
+
+export async function tratarRequisicaoSimulada({ metodo, caminho, corpo, cabecalhos = {} }) {
   if (ATRASO_MS) await new Promise((resolver) => setTimeout(resolver, ATRASO_MS))
 
   const agora = new Date()
@@ -423,14 +531,36 @@ export async function tratarRequisicaoSimulada({ metodo, caminho, corpo, token }
   const parametros = Object.fromEntries(url.searchParams)
   for (const [verbo, padrao, tratar] of ROTAS) {
     const encontrado = verbo === metodo && padrao.exec(url.pathname)
-    if (encontrado) {
-      return tratar(
-        { corpo: structuredClone(corpo ?? {}), parametros, token, agora },
-        encontrado.slice(1),
-      )
+    if (!encontrado) continue
+    if (csrfRecusado(metodo, cabecalhos)) {
+      // Mesmo corpo que o Django devolve hoje (o `codigo` do 403 entra na BE-05).
+      return { status: 403, dados: { detail: 'CSRF Failed: CSRF token missing or incorrect.' } }
     }
+    return tratar({ corpo: structuredClone(corpo ?? {}), parametros, agora }, encontrado.slice(1))
   }
-  return erro(404, 'Rota não encontrada.')
+  return erro(404, 'rota_nao_encontrada', 'Rota não encontrada.')
+}
+
+/** Ganchos para os testes. */
+export const simulacao = {
+  /** O servidor esqueceu a sessão (expirou ou foi encerrada em outro aparelho). */
+  expirarSessao() {
+    sessoes.clear()
+  },
+}
+
+/** Volta ao estado inicial: banco, sessões, cookies e contadores de tentativas. */
+export function reiniciarSimulacao() {
+  banco.reiniciar()
+  sessoes.clear()
+  tentativasLogin.clear()
+  bloqueiosLogin.clear()
+  pedidosRecuperacao.clear()
+  cookieSessao = null
+  csrfAtual = null
+  if (typeof document !== 'undefined') {
+    document.cookie = 'csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'
+  }
 }
 
 export { banco }

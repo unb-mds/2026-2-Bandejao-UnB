@@ -11,7 +11,7 @@ import IconeSvg from '@/components/IconeSvg.vue'
 /**
  * Cadastro em duas etapas (RF01): primeiro o tipo de usuário, depois os
  * campos daquele tipo. Professor e Servidor seguem o mesmo fluxo e viram o
- * mesmo tipo interno ("servidor"). As regras de formato são conferidas pela
+ * mesmo tipo da API ("professor_servidor"). As regras de formato são conferidas pela
  * API; aqui os campos só são formatados (sem espaços, só dígitos).
  */
 const TIPOS = [
@@ -62,23 +62,28 @@ async function criarConta() {
   enviando.value = true
   erro.value = ''
   try {
+    // Nomes do contrato OpenAPI v1. Campos que não se aplicam ficam de fora:
+    // professor/servidor só manda `apelido` depois de um 409.
     const resposta = await auth.cadastrar({
-      tipo: ehAluno.value ? 'estudante' : 'servidor',
-      email: email.value.trim(),
+      tipoUsuario: ehAluno.value ? 'estudante' : 'professor_servidor',
+      emailInstitucional: email.value.trim(),
       senha: senha.value,
-      apelido: mostrarApelido.value ? apelido.value : '',
-      siape: ehServidor.value ? siape.value : '',
-      aceitouPrivacidade: aceitou.value,
+      ...(mostrarApelido.value ? { apelido: apelido.value } : {}),
+      ...(ehServidor.value ? { matriculaSiape: siape.value } : {}),
+      aceitePrivacidade: aceitou.value,
     })
     router.push({
       name: 'confirmar-email',
-      query: { email: resposta.email },
+      query: { email: resposta.emailInstitucional },
       state: { linkSimulado: resposta.linkSimulado ?? null },
     })
   } catch (falha) {
     erro.value = falha.message
     // Apelido extraído do e-mail indisponível: o formulário ganha o campo de apelido (C4 4b).
-    if (falha.codigo === 'apelido_manual') pedirApelido.value = true
+    if (falha.codigo === 'apelido_indisponivel') {
+      pedirApelido.value = true
+      if (!apelido.value && falha.dados.apelidoSugerido) apelido.value = falha.dados.apelidoSugerido
+    }
   } finally {
     enviando.value = false
   }

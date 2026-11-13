@@ -56,7 +56,7 @@ async function solicitar() {
         placeholder="matricula@aluno.unb.br"
       />
 
-      <p v-if="resposta" class="mensagem mensagem--sucesso" role="status">{{ resposta.detail }}</p>
+      <p v-if="resposta" class="mensagem mensagem--sucesso" role="status">{{ resposta.mensagem }}</p>
       <p v-if="erro" class="mensagem mensagem--erro" role="alert">{{ erro }}</p>
       <LinkSimulado :link="resposta?.linkSimulado" rotulo="Abrir link de redefinição recebido" />
 
