@@ -203,7 +203,7 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 **RF06.1 — Download e atualização semanal.** O sistema deve obter o PDF de cada campus e atualizar o cardápio exibido em até 24 horas depois de uma nova publicação.
 - Dado que o RU publica um novo PDF para um campus, quando o sistema o processa, então o cardápio exibido é atualizado em até 24 horas.
 - Dado que a página de cardápios do RU lista os campi em qualquer ordem, quando o sistema a lê, então cada PDF é associado ao campus pelo nome do campus no título do bloco, e nunca pela posição na página (ADR 0014).
-- Dado que o nome do arquivo não corresponde ao campus do título, ou que algum dia do PDF fica fora das datas do link, quando o sistema lê a página, então o cardápio daquela semana do campus não é atualizado, o último cardápio válido continua em exibição (RF06.4) e a equipe recebe um alerta (RF06.5).
+- Dado que o nome do arquivo não corresponde ao campus do título, ou que algum dia do PDF fica fora das datas do link, quando o sistema lê a página ou o PDF, então o cardápio daquela semana do campus não é atualizado, o último cardápio válido continua em exibição (RF06.4) e a equipe recebe um alerta (RF06.5).
 
 **RF06.2 — Categorias, pratos e dietas.** O sistema deve extrair do PDF as categorias, os pratos e as linhas de dieta, respeitando os dias e as refeições servidos em cada campus.
 - Dado o PDF de um campus, quando lido, então só existem as refeições e os dias que constam nele (por exemplo, almoço de sábado quando presente).

@@ -1,6 +1,6 @@
 # ADR 0014 — Descoberta do PDF de cada campus na página de cardápios do RU
 
-**Status:** Proposta
+**Status:** Aceita (proposta em 2026-11-11, aceita em 2026-11-13 na revisão do PR #117)
 **Data:** 2026-11-11
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
@@ -77,8 +77,9 @@ campus**, um por semana. O desenho de classes está no Nível 4c do Leitor de Ca
 - **Conferência pelo nome do arquivo:** o nome do PDF precisa começar pelo
   prefixo do campus (`prefixo_arquivo_pdf`: `Darcy-Ribeiro`, `Ceilandia`,
   `Gama`, `Planaltina`, `Fazenda`), sem considerar os sufixos `-1`, `-2`.
-  Assim, um link colado no bloco errado pelo RU não vira o cardápio de outro
-  campus no app.
+  A comparação segue a mesma regra dos títulos: ignora acentos e maiúsculas
+  (`Ceilândia-…` e `gama-…` são aceitos). Assim, um link colado no bloco
+  errado pelo RU não vira o cardápio de outro campus no app.
 - **Conferência pelas datas:** todos os dias que o `CardapioPDFParser` lê no
   cabeçalho do PDF precisam estar **dentro do intervalo** do texto do link
   ("09/11/2026 À 15/11/2026"). A regra não é a igualdade, porque o link cobre
@@ -137,9 +138,28 @@ criado no `TipoAlerta` nem no banco.
 
 **Link ainda da semana anterior** (o RU ainda não publicou) **não é falha**.
 Nada muda, e o app mostra "cardápio ainda não publicado" para a semana nova
-(RF07.3). O alerta só sai se a semana vigente ainda não tem `FONTE_CARDAPIO`
-daquele campus depois de **segunda-feira às 12h, no horário de Brasília**
-(Anexo A), já que pode haver atraso normal até a segunda-feira.
+(RF07.3). O alerta de cardápio não publicado só sai quando **nenhum link da
+semana vigente** daquele campus é encontrado na página depois de
+**segunda-feira às 12h, no horário de Brasília** (Anexo A), já que pode haver
+atraso normal até a segunda-feira. Se o link da semana vigente existe mas o
+PDF falha na leitura, a equipe recebe só o alerta da falha, e não também o
+de "não publicado", que estaria errado. Para essa conta valem todos os links
+com datas legíveis achados no bloco do campus, inclusive os reprovados na
+conferência do nome do arquivo ou repetidos para a mesma semana. Quando a
+descoberta falha para o campus inteiro (página fora do ar, título ausente ou
+repetido), a conta não é feita, e sai só o alerta dessa falha.
+
+**Limite de avisos com mais de uma semana.** O contador diário da ADR 0006
+(`CONTADOR_ALERTA`, por campus, tipo e dia) só zera quando a execução termina
+**sem nenhum alerta emitido para aquele campus**: de qualquer tipo
+(inclusive `LEGENDA_INVALIDA` e `ASSOCIACAO_FALHOU`, mesmo numa leitura com
+sucesso), em qualquer semana, e inclusive o de cardápio não publicado. A
+leitura com sucesso de uma semana não zera o contador se outra semana do
+mesmo campus gerou alerta. Sem essa regra, a semana seguinte (RF18) lida com
+sucesso zeraria a contagem da semana vigente com falha, ou uma execução em
+que a semana vigente nem aparece na página zeraria a contagem do alerta de
+"não publicado". Nos dois casos, a mesma falha voltaria a gerar e-mails a
+cada 3 horas, furando o limite de 3 por dia.
 
 ## Consequências
 
@@ -160,8 +180,12 @@ daquele campus depois de **segunda-feira às 12h, no horário de Brasília**
   testes). Devem ser cobertos: os cinco campi, **os blocos em outra ordem**
   (o resultado tem que ser o mesmo), sufixo `-1`/`-2`, campus sem título,
   título repetido, arquivo de outro campus, dias do PDF fora do intervalo do
-  link, bloco com a semana vigente e a seguinte, dois links para a mesma
-  semana, e a mesma URL com o mesmo SHA-256 (o PDF não é lido de novo).
+  link, bloco com a semana vigente e a seguinte, semana vigente ausente da
+  página por várias execuções (o contador não zera), dois links para a mesma
+  semana, a mesma URL com o mesmo SHA-256 (o PDF não é lido de novo), a
+  semana seguinte lida com sucesso enquanto a vigente falha (o contador de
+  alertas não zera), e o link da semana vigente presente com o PDF falhando
+  (sai só o alerta da falha, e não o de "não publicado").
 - **Mudança no banco:** colunas `rotulo_pagina_ru` e `prefixo_arquivo_pdf` em
   `CAMPUS` e tabela `FONTE_CARDAPIO` (Níveis 3 e 4 do banco, item BD-16 do
   backlog). A `REFEICAO.fonte_pdf_url`, que já existe, continua guardando de

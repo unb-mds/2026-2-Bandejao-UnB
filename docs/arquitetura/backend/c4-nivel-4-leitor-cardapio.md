@@ -81,6 +81,7 @@ classDiagram
   }
   class AlertaEquipeService {
     +registrarAlerta(tipo: TipoAlerta, campus: Campus, detalhe: str) void
+    +zerarContador(campus: Campus) void
     -deveEnviar(tipo: TipoAlerta, campus: Campus) bool
     -MAX_AVISOS_POR_DIA: int = 3
     -INTERVALO_MINIMO: timedelta = 6h
@@ -191,6 +192,7 @@ classDiagram
   }
   class AlertaEquipeService {
     +registrarAlerta(tipo: TipoAlerta, campus: Campus, detalhe: str) void
+    +zerarContador(campus: Campus) void
     -deveEnviar(tipo: TipoAlerta, campus: Campus) bool
     -MAX_AVISOS_POR_DIA: int = 3
     -INTERVALO_MINIMO: timedelta = 6h
@@ -235,10 +237,12 @@ classDiagram
   `deveEnviar()` também impõe um intervalo mínimo de 6 horas entre avisos
   repetidos da mesma falha, para espalhar os 3 avisos ao longo do dia em vez
   de disparar todos de uma vez se o cron rodar mais de uma vez por dia. O
-  contador zera quando a leitura daquele campus volta a funcionar (ou, no
-  mais tardar, no dia seguinte) — assim, uma falha de vários dias seguidos
-  continua gerando pelo menos 1 aviso por dia, em vez de ficar em silêncio
-  total depois do 3º e-mail. Decisão registrada na ADR 0006
+  contador zera (`zerarContador`) quando a leitura daquele campus volta a
+  funcionar, isto é, quando a execução termina sem nenhum alerta emitido
+  para o campus (Nível 4c, ADR 0014), ou, no mais tardar, no dia seguinte —
+  assim, uma falha de vários dias seguidos continua gerando pelo menos 1
+  aviso por dia, em vez de ficar em silêncio total depois do 3º e-mail.
+  Decisão registrada na ADR 0006
   (`docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md`), que compara o
   e-mail com log passivo e consulta manual ao banco. O e-mail de destino
   desses avisos é `equipe@bandejaounb.com.br`, configurável por variável de
@@ -281,7 +285,7 @@ title: "Nível 4c — Leitor de Cardápio: descoberta do PDF de cada campus na p
 classDiagram
   class LeitorCardapioService {
     +processar(campus: Campus) void
-    -semanaAtrasada(campus: Campus, agora: datetime) bool
+    -semanaAtrasada(fontes: list~FontePDF~, agora: datetime) bool
   }
   class CardapioDownloader {
     +localizarPDFs(campus: Campus) list~FontePDF~
@@ -326,6 +330,7 @@ classDiagram
   class DownloadError
   class AlertaEquipeService {
     +registrarAlerta(tipo: TipoAlerta, campus: Campus, detalhe: str) void
+    +zerarContador(campus: Campus) void
   }
   class SiteRU["Site do RU (externo)"] {
     <<external>>
@@ -339,6 +344,7 @@ classDiagram
   CardapioDownloader --> ArquivoPDF : 1b. produz
   LeitorCardapioService --> FonteCardapio : compara URL e SHA-256 por campus e semana e grava após leitura com sucesso
   LeitorCardapioService --> AlertaEquipeService : FALHA_LEITURA_PDF
+  LeitorCardapioService --> AlertaEquipeService : zerarContador, se a execução não emitiu alerta para o campus
   CardapioDownloader ..> FonteNaoEncontradaError : lança se o título falta ou se repete, se o arquivo não bate ou se a semana se repete
   CardapioDownloader ..> DownloadError : lança em falha de rede/HTTP
   LeitorCardapioError <|-- FonteNaoEncontradaError
@@ -355,9 +361,9 @@ classDiagram
   do campus. Cada link vira uma `FontePDF`, identificada pela semana das
   datas do texto do link. Assim a semana vigente e a seguinte (RF18) podem
   estar no mesmo bloco. Dois links para a mesma semana geram
-  `FonteNaoEncontradaError` para aquela semana. A posição dos blocos na página (hoje Darcy Ribeiro, Ceilândia,
-  Gama, Planaltina e Fazenda Água Limpa) não é usada, porque o RU não
-  garante essa ordem (ADR 0014).
+  `FonteNaoEncontradaError` para aquela semana. A posição dos blocos na
+  página (hoje Darcy Ribeiro, Ceilândia, Gama, Planaltina e Fazenda Água
+  Limpa) não é usada, porque o RU não garante essa ordem (ADR 0014).
 - **A comparação dos títulos ignora acentos, maiúsculas e espaços extras.**
   Um título que não corresponde a nenhum campus é ignorado. Um campus sem
   título, ou com o título repetido, gera `FonteNaoEncontradaError`, e o
@@ -365,7 +371,8 @@ classDiagram
 - **`conferirArquivo` confere o nome do arquivo:** ele precisa começar pelo
   `prefixoArquivoPDF` do campus (`Darcy-Ribeiro`, `Ceilandia`, `Gama`,
   `Planaltina`, `Fazenda`), sem considerar os sufixos `-1`, `-2` que o
-  WordPress acrescenta quando o RU reenvia o arquivo. Se não bater, também é
+  WordPress acrescenta quando o RU reenvia o arquivo, e com a mesma regra
+  dos títulos: ignora acentos e maiúsculas. Se não bater, também é
   `FonteNaoEncontradaError`: um link colado no bloco errado pelo RU não vira
   o cardápio de outro campus.
 - **`FontePDF` guarda as datas do texto do link** ("ISM – 09/11/2026 À
@@ -374,20 +381,38 @@ classDiagram
   estão dentro do intervalo (Nível 4a).
 - **Semana ainda não publicada não é falha.** Se o link ainda é da semana
   anterior, nada muda e a Exposição do Cardápio mostra "cardápio ainda não
-  publicado" (RF07.3). `semanaAtrasada` devolve verdadeiro quando a semana
-  vigente ainda não tem `FonteCardapio` daquele campus depois do prazo do
-  Anexo A (segunda-feira, 12h, no horário de Brasília); aí a equipe recebe um
-  alerta `FALHA_LEITURA_PDF`.
+  publicado" (RF07.3). `semanaAtrasada` recebe todos os links com datas
+  legíveis achados no bloco do campus, inclusive os reprovados em
+  `conferirArquivo` ou repetidos para a mesma semana, e devolve verdadeiro só
+  quando **nenhum** deles é da
+  semana vigente depois do prazo do Anexo A (segunda-feira, 12h, no horário
+  de Brasília); aí a equipe recebe um alerta `FALHA_LEITURA_PDF` de cardápio
+  não publicado. Se o link da semana vigente existe mas a leitura falha, sai
+  só o alerta da falha: a decisão vem da página, e não da existência de
+  `FonteCardapio`, que só é criada depois de uma leitura com sucesso. Quando
+  a descoberta falha para o campus inteiro (página fora do ar, título
+  ausente ou repetido), `semanaAtrasada` não é avaliada, e sai só o alerta
+  dessa falha.
+- **O contador de alertas só zera sem nenhum alerta no campus.** O
+  `LeitorCardapioService` só chama `AlertaEquipeService.zerarContador`
+  quando a execução termina sem nenhum alerta emitido para o campus: de
+  qualquer tipo (inclusive `LEGENDA_INVALIDA` e `ASSOCIACAO_FALHOU`), em
+  qualquer semana, e inclusive o de cardápio não publicado. A leitura com
+  sucesso da semana seguinte (RF18) não zera a contagem de uma falha da
+  semana vigente, e uma execução em que a semana vigente nem aparece na
+  página não zera a contagem do "não publicado". Assim o limite de 3 avisos
+  por dia é respeitado (ADR 0006, ADR 0014).
 - **`FonteCardapioConfig` segue o padrão de `LocalizacaoRUConfig`** (Fila):
   a URL da página vem da configuração do Django (Anexo A), e o rótulo e o
   prefixo de cada campus vêm das colunas de `CAMPUS`, povoadas por fixture.
   Se o RU renomear um título, o ajuste é na fixture, sem mudar o código.
 - **`FonteCardapio` é a tabela `FONTE_CARDAPIO`**, com uma linha por campus
-  e semana.
-  `verificadoEm` é atualizado a cada execução que acha o link;
-  `url`, `sha256` e `processadoEm` só depois de uma leitura com sucesso, para
-  que um PDF com falha seja tentado de novo na execução seguinte. Ver o
-  Nível 4 do banco de dados.
+  e semana, criada na primeira leitura com sucesso daquela semana. Depois
+  disso, `verificadoEm` é atualizado a cada execução que acha o link, e
+  `url`, `sha256` e `processadoEm` só a cada nova leitura com sucesso, para
+  que um PDF com falha seja tentado de novo na execução seguinte. Uma semana
+  que nunca foi lida com sucesso não tem linha. Ver o Nível 4 do banco de
+  dados.
 - **A biblioteca de HTML é o `beautifulsoup4`**, com o `requests` para as
   requisições HTTPS. As requisições levam `User-Agent` do projeto e tempo
   limite.

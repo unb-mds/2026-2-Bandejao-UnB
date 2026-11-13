@@ -193,7 +193,7 @@ erDiagram
         date semana_inicio "início da semana, pelo texto do link"
         string url "PDF da última leitura com sucesso"
         string sha256 "conteúdo da última leitura com sucesso"
-        datetime verificado_em "última execução que achou o link"
+        datetime verificado_em "última execução que achou o link, após a primeira leitura com sucesso"
         datetime processado_em "última leitura com sucesso"
     }
 
@@ -276,7 +276,7 @@ Um dos 5 campi com RU; tabela de apoio povoada por fixture.
 | `centro_latitude` / `centro_longitude` | DecimalField | NOT NULL, fixture (Anexo A) | Centro do campus, usado na detecção do campus no aparelho (ADR 0009). Publicado em `GET /api/campi/` e lido pela `LocalizacaoCampusConfig` da Exposição do Cardápio. |
 | `raio_deteccao_metros` | IntegerField | NOT NULL, fixture (Anexo A) | Raio de detecção do campus no aparelho (ADR 0009); diferente do raio de confirmação do check-in. Publicado em `GET /api/campi/` junto com as colunas `centro_*`. |
 | `rotulo_pagina_ru` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Nome do campus no título do bloco da página de cardápios do RU ("Cardápio <rótulo>"), usado pelo Leitor para achar o PDF do campus. A comparação ignora acentos, maiúsculas e espaços extras, e a ordem dos blocos na página não é usada (ADR 0014). Não é publicado na API. |
-| `prefixo_arquivo_pdf` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Início esperado do nome do PDF do campus (`Darcy-Ribeiro`, `Ceilandia`, `Gama`, `Planaltina`, `Fazenda`). Confere que o link do bloco é mesmo daquele campus (ADR 0014). Não é publicado na API. |
+| `prefixo_arquivo_pdf` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Início esperado do nome do PDF do campus (`Darcy-Ribeiro`, `Ceilandia`, `Gama`, `Planaltina`, `Fazenda`). Confere que o link do bloco é mesmo daquele campus, ignorando acentos, maiúsculas e os sufixos `-1`, `-2` (ADR 0014). Não é publicado na API. |
 
 ### `REFEICAO`
 
@@ -481,7 +481,7 @@ Controle do limite de avisos por e-mail do Leitor de Cardápio (ADR 0006): uma l
 | `data` | DateField | NOT NULL | Dia da contagem, no horário de Brasília. A contagem de outro dia não vale: a cada dia começa uma linha nova. |
 | `quantidade_enviada` | SmallIntegerField | NOT NULL, default `0`, **CHECK** `0 <= quantidade_enviada <= 3` | Avisos já enviados no dia para essa combinação; no máximo 3 (ADR 0006). |
 | `ultimo_envio_em` | DateTimeField | nullable | Hora do último aviso enviado; um novo aviso da mesma combinação só sai 6 horas depois (ADR 0006). |
-| — | — | **UNIQUE** (`campus_id`, `tipo`, `data`) | Uma contagem por campus, tipo e dia. Quando a leitura do campus volta a funcionar, o `AlertaEquipeService` apaga as linhas do dia desse campus, zerando a contagem (ADR 0006). |
+| — | — | **UNIQUE** (`campus_id`, `tipo`, `data`) | Uma contagem por campus, tipo e dia. Quando a leitura do campus volta a funcionar, o `AlertaEquipeService.zerarContador` apaga as linhas do dia desse campus, zerando a contagem (ADR 0006). "Voltar a funcionar" é a execução terminar sem nenhum alerta emitido para o campus, de qualquer tipo e em qualquer semana, inclusive o de cardápio não publicado (ADR 0014). |
 
 ### `FONTE_CARDAPIO`
 
@@ -494,7 +494,7 @@ Origem do último PDF lido com sucesso de cada campus e semana (ADR 0014): uma l
 | `semana_inicio` | DateField | NOT NULL | Primeiro dia da semana do PDF, lido do texto do link ("09/11/2026 À 15/11/2026"). |
 | `url` | URLField(500) | NOT NULL | Link do PDF da última leitura com sucesso. Mesmo tamanho de `REFEICAO.fonte_pdf_url`. |
 | `sha256` | CharField(64) | NOT NULL | SHA-256 do conteúdo desse PDF. Se a URL e o SHA-256 da próxima execução forem iguais, o Leitor não lê o PDF de novo; se o RU substituir o arquivo, o SHA-256 muda e o PDF é lido. |
-| `verificado_em` | DateTimeField | NOT NULL | Última execução do Leitor que achou o link do campus na página do RU, com ou sem mudança. |
+| `verificado_em` | DateTimeField | NOT NULL | Última execução do Leitor que achou o link do campus e da semana na página do RU, com ou sem mudança. Só existe depois da primeira leitura com sucesso da semana, porque a linha só é criada nela: uma semana que nunca foi lida com sucesso não tem linha, e o alerta de cardápio não publicado não depende deste campo (ADR 0014). |
 | `processado_em` | DateTimeField | NOT NULL | Última leitura com sucesso. `url` e `sha256` só mudam junto com este campo, para que um PDF com falha seja tentado de novo na execução seguinte. |
 | — | — | **UNIQUE** (`campus_id`, `semana_inicio`) | Uma origem por campus e semana. |
 
