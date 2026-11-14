@@ -32,7 +32,8 @@ class Avaliacao(models.Model):
     criada_em = models.DateTimeField(auto_now_add=True)
     # A janela de edição (até 23h59 do mesmo dia) é validada na aplicação.
     editada_em = models.DateTimeField(null=True, blank=True)
-    # Marcador de pontos já concedidos (ADR 0011, decisão 4).
+    # Marcador de pontos já concedidos, preenchido pela Gamificação na primeira
+    # vez que a avaliação pontua (ADR 0011, seção Consequências).
     pontos_concedidos_em = models.DateTimeField(null=True, blank=True)
     # Moderação manual pela equipe, por acesso direto ao banco (ADR 0004).
     oculta = models.BooleanField(default=False)

@@ -1,4 +1,4 @@
-"""Testes do model `Avaliacao` (BD-01, parte 3).
+"""Testes do model `Avaliacao` (BD-01).
 
 Cada teste vem de uma regra do Nível 4 do banco (dicionário de dados e tabela
 "Constraints principais"): RF15, RNF07, RNF08.
@@ -84,8 +84,9 @@ def test_aceita_notas_de_1_a_5(nota):
 
 @pytest.mark.parametrize("nota", [0, 6, -1])
 def test_rejeita_nota_fora_de_1_a_5(nota):
+    usuario, refeicao = criar_usuario(), criar_refeicao()
     with pytest.raises(IntegrityError), transaction.atomic():
-        criar_avaliacao(nota=nota)
+        Avaliacao.objects.create(usuario=usuario, refeicao=refeicao, nota=nota)
 
 
 def test_comentario_com_500_caracteres_e_aceito():
@@ -93,13 +94,24 @@ def test_comentario_com_500_caracteres_e_aceito():
 
 
 def test_comentario_com_501_caracteres_e_rejeitado():
+    usuario, refeicao = criar_usuario(), criar_refeicao()
     with pytest.raises(IntegrityError), transaction.atomic():
-        criar_avaliacao(comentario="a" * 501)
+        Avaliacao.objects.create(
+            usuario=usuario, refeicao=refeicao, nota=4, comentario="a" * 501
+        )
 
 
 def test_comentario_conta_caracteres_e_nao_bytes():
     # 500 letras acentuadas ocupam mais de 500 bytes em UTF-8.
     assert criar_avaliacao(comentario="ç" * 500).pk
+
+
+def test_comentario_acentuado_com_501_caracteres_e_rejeitado():
+    usuario, refeicao = criar_usuario(), criar_refeicao()
+    with pytest.raises(IntegrityError), transaction.atomic():
+        Avaliacao.objects.create(
+            usuario=usuario, refeicao=refeicao, nota=4, comentario="ç" * 501
+        )
 
 
 def test_uma_avaliacao_por_usuario_por_refeicao():
@@ -119,6 +131,13 @@ def test_usuarios_diferentes_avaliam_a_mesma_refeicao():
     av = criar_avaliacao()
     Avaliacao.objects.create(usuario=criar_usuario(), refeicao=av.refeicao, nota=1)
     assert Avaliacao.objects.filter(refeicao=av.refeicao).count() == 2
+
+
+def test_usuario_nulo_nao_colide_no_unique():
+    refeicao = criar_refeicao()
+    Avaliacao.objects.create(usuario=None, refeicao=refeicao, nota=3)
+    Avaliacao.objects.create(usuario=None, refeicao=refeicao, nota=5)
+    assert Avaliacao.objects.filter(usuario__isnull=True).count() == 2
 
 
 def test_excluir_usuario_mantem_a_avaliacao_com_usuario_nulo():

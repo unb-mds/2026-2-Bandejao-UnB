@@ -1,4 +1,4 @@
-"""Testes dos models do app `gamificacao` (BD-01, parte 5):
+"""Testes dos models do app `gamificacao` (BD-01):
 PontuacaoUsuario e PontosSemestreCampus."""
 
 from decimal import Decimal
@@ -68,13 +68,21 @@ class TestPontuacaoUsuario:
         p = PontuacaoUsuario.objects.create(usuario=usuario)
         assert usuario.pontuacao == p
 
+    def test_aceita_pontos_e_sequencia_zero(self):
+        p = PontuacaoUsuario.objects.create(
+            usuario=criar_usuario(), pontos_totais=0, sequencia_atual=0
+        )
+        assert p.pk
+
     def test_pontos_totais_negativos_sao_rejeitados(self):
+        usuario = criar_usuario()
         with pytest.raises(IntegrityError), transaction.atomic():
-            PontuacaoUsuario.objects.create(usuario=criar_usuario(), pontos_totais=-1)
+            PontuacaoUsuario.objects.create(usuario=usuario, pontos_totais=-1)
 
     def test_sequencia_negativa_e_rejeitada(self):
+        usuario = criar_usuario()
         with pytest.raises(IntegrityError), transaction.atomic():
-            PontuacaoUsuario.objects.create(usuario=criar_usuario(), sequencia_atual=-1)
+            PontuacaoUsuario.objects.create(usuario=usuario, sequencia_atual=-1)
 
     def test_excluir_usuario_apaga_a_pontuacao(self):
         usuario = criar_usuario()
@@ -94,7 +102,7 @@ class TestPontosSemestreCampus:
     def test_uma_linha_por_conta_campus_e_semestre(self):
         p = self._linha()
         with pytest.raises(IntegrityError), transaction.atomic():
-            self._linha(usuario=p.usuario, campus=p.campus)
+            self._linha(usuario=p.usuario, campus=p.campus)  # só repete a chave
 
     def test_mesma_conta_em_outro_semestre_ou_campus(self):
         p = self._linha()
@@ -102,9 +110,13 @@ class TestPontosSemestreCampus:
         self._linha(usuario=p.usuario)
         assert PontosSemestreCampus.objects.filter(usuario=p.usuario).count() == 3
 
+    def test_aceita_pontos_zero(self):
+        assert self._linha(pontos=0).pontos == 0
+
     def test_pontos_negativos_sao_rejeitados(self):
+        usuario, campus = criar_usuario(), criar_campus()
         with pytest.raises(IntegrityError), transaction.atomic():
-            self._linha(pontos=-1)
+            self._linha(usuario=usuario, campus=campus, pontos=-1)
 
     def test_excluir_usuario_apaga_as_linhas(self):
         p = self._linha()

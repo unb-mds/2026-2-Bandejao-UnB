@@ -4,8 +4,9 @@
 Fonte: docs/arquitetura/banco-de-dados/C4-nivel-4-banco-de-dados-bandejao.md
 (dicionário de dados), RN09, RN10, RN12, ADR 0011.
 
-`posicao_final` (N4) fica de fora, conforme o backlog (BD-01): quando o
-fechamento do semestre for implementado, entra por uma migration simples.
+`posicao_final` (N4) fica de fora: a Bandeja de Ouro e o fechamento do
+semestre estão fora do escopo (backlog, seção 3, item 6). Se o escopo mudar,
+a coluna entra por uma migration simples.
 """
 
 from django.conf import settings
@@ -48,7 +49,8 @@ class PontuacaoUsuario(models.Model):
 
 
 class PontosSemestreCampus(models.Model):
-    """Uma linha por conta, campus e semestre (nada zera na virada)."""
+    """Uma linha por conta, campus e semestre (nada zera na virada). Dado
+    pessoal (RNF07)."""
 
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -61,7 +63,8 @@ class PontosSemestreCampus(models.Model):
     # Ex.: "2026.2".
     semestre_referencia = models.CharField(max_length=10)
     pontos = models.IntegerField(default=0)
-    # Desempate do ranking.
+    # Desempate do ranking. Com `auto_now`, qualquer `save()` muda o desempate;
+    # só quem pontua deve gravar a linha.
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:

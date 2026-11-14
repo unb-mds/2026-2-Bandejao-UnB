@@ -44,7 +44,9 @@ class Checkin(models.Model):
     por campus + tipo + data, para a fila funcionar mesmo sem o cardápio.
     Dado pessoal (RNF07) enquanto ligado à conta."""
 
-    # Anulado após 4 semanas (RNF07.3) e na exclusão de conta.
+    # O vínculo é anulado após 4 semanas (RNF07.3, job de retenção do BD-11) e
+    # na exclusão de conta (`RemoverContaCommand`); o `SET_NULL` cobre só a
+    # exclusão física da linha de USUARIO.
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -65,6 +67,7 @@ class Checkin(models.Model):
     tempo_espera_min = models.DecimalField(
         max_digits=5, decimal_places=1, null=True, blank=True
     )
+    # Marcador de pontos já concedidos (ADR 0011, seção Consequências).
     pontos_concedidos_em = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -87,8 +90,11 @@ class Checkin(models.Model):
 
 
 class TentativaCheckin(models.Model):
-    """Toda tentativa de check-in, confirmada ou rejeitada (RF12). Sem UNIQUE."""
+    """Toda tentativa de check-in, confirmada ou rejeitada (RF12). Sem UNIQUE.
+    Dado pessoal (RNF07) enquanto ligado à conta."""
 
+    # Mesma regra de retenção do `Checkin.usuario`: anulado pelo job de retenção
+    # e na exclusão de conta; o `SET_NULL` cobre só a exclusão física.
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -109,12 +115,31 @@ class TentativaCheckin(models.Model):
         max_length=30, choices=MotivoRejeicao.choices, null=True, blank=True
     )
 
+    class Meta:
+        constraints = (
+            # Confirmada não tem motivo; rejeitada tem sempre um motivo válido.
+            models.CheckConstraint(
+                condition=models.Q(
+                    resultado=ResultadoTentativa.CONFIRMADO, motivo__isnull=True
+                )
+                | models.Q(
+                    resultado=ResultadoTentativa.REJEITADO,
+                    # `IN` com NULL dá NULL, que o CHECK aceita; por isso o
+                    # `isnull=False` explícito.
+                    motivo__isnull=False,
+                    motivo__in=MotivoRejeicao.values,
+                ),
+                name="tentativa_motivo_coerente_com_resultado",
+            ),
+        )
+
     def __str__(self):
         return f"{self.resultado} em {self.data} ({self.campus_id})"
 
 
 class PerguntaSaida(models.Model):
-    """Pergunta de saída gerada por cada check-in confirmado (RF21)."""
+    """Pergunta de saída gerada por cada check-in confirmado (RF21). Dado
+    pessoal (RNF07) enquanto o check-in estiver ligado à conta."""
 
     checkin = models.OneToOneField(
         Checkin, on_delete=models.CASCADE, related_name="pergunta_saida"
@@ -124,12 +149,14 @@ class PerguntaSaida(models.Model):
         choices=EstadoPergunta.choices,
         default=EstadoPergunta.PENDENTE,
     )
-    # 1 ou 2.
+    # Vez em que a pergunta é exibida: 1 ou 2 (2 = repetição depois de "Ainda
+    # estou na fila"). Não tem relação com `TentativaCheckin`.
     tentativa = models.SmallIntegerField(default=1)
     # Check-in + 15 min (Anexo A).
     devida_em = models.DateTimeField()
     # Check-in + 60 min; a expiração é avaliada na consulta, sem cron.
     expira_em = models.DateTimeField()
+    # Marcador de pontos já concedidos (ADR 0011, seção Consequências).
     pontos_concedidos_em = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -152,11 +179,13 @@ class PerguntaSaida(models.Model):
 
 class RespostaSaida(models.Model):
     """Resposta à pergunta de saída; a segunda só existe depois de "Ainda estou
-    na fila". Não guarda a conta: chega a ela pela pergunta e pelo check-in."""
+    na fila". Não guarda a conta: chega a ela pela pergunta e pelo check-in.
+    Dado pessoal (RNF07) enquanto o check-in estiver ligado à conta."""
 
     pergunta = models.ForeignKey(
         PerguntaSaida, on_delete=models.CASCADE, related_name="respostas"
     )
+    # Vez da pergunta a que esta resposta se refere: 1 ou 2.
     tentativa = models.SmallIntegerField()
     resposta = models.CharField(max_length=20, choices=RespostaSaidaOpcao.choices)
     respondida_em = models.DateTimeField()
@@ -166,6 +195,10 @@ class RespostaSaida(models.Model):
             models.UniqueConstraint(
                 fields=("pergunta", "tentativa"),
                 name="resposta_saida_unica_por_pergunta_tentativa",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(tentativa__in=(1, 2)),
+                name="resposta_saida_tentativa_1_ou_2",
             ),
         )
 

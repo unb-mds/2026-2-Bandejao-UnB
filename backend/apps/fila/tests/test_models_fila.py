@@ -1,4 +1,4 @@
-"""Testes dos models do app `fila` (BD-01, parte 4): Checkin,
+"""Testes dos models do app `fila` (BD-01): Checkin,
 TentativaCheckin, PerguntaSaida e RespostaSaida."""
 
 from datetime import date, time, timedelta
@@ -162,6 +162,42 @@ class TestTentativaCheckin:
         t.refresh_from_db()
         assert t.usuario is None
 
+    def test_confirmada_com_motivo_e_rejeitada(self):
+        usuario, campus = criar_usuario(), criar_campus()
+        with pytest.raises(IntegrityError), transaction.atomic():
+            TentativaCheckin.objects.create(
+                usuario=usuario,
+                campus=campus,
+                tipo_refeicao=TipoRefeicao.ALMOCO,
+                data=DIA,
+                resultado=ResultadoTentativa.CONFIRMADO,
+                motivo=MotivoRejeicao.FORA_DO_HORARIO,
+            )
+
+    @pytest.mark.parametrize("motivo", [None, "", "outro_motivo"])
+    def test_rejeitada_sem_motivo_valido_e_rejeitada(self, motivo):
+        usuario, campus = criar_usuario(), criar_campus()
+        with pytest.raises(IntegrityError), transaction.atomic():
+            TentativaCheckin.objects.create(
+                usuario=usuario,
+                campus=campus,
+                tipo_refeicao=TipoRefeicao.ALMOCO,
+                data=DIA,
+                resultado=ResultadoTentativa.REJEITADO,
+                motivo=motivo,
+            )
+
+    @pytest.mark.parametrize("motivo", MotivoRejeicao.values)
+    def test_rejeitada_aceita_cada_motivo_do_n4(self, motivo):
+        t = TentativaCheckin.objects.create(
+            campus=criar_campus(),
+            tipo_refeicao=TipoRefeicao.ALMOCO,
+            data=DIA,
+            resultado=ResultadoTentativa.REJEITADO,
+            motivo=motivo,
+        )
+        assert t.pk
+
     def test_campus_com_tentativa_nao_pode_ser_excluido(self):
         campus = criar_campus()
         TentativaCheckin.objects.create(
@@ -186,10 +222,15 @@ class TestPerguntaSaida:
         with pytest.raises(IntegrityError), transaction.atomic():
             criar_pergunta(checkin=p.checkin)
 
+    @pytest.mark.parametrize("tentativa", [1, 2])
+    def test_aceita_tentativa_1_e_2(self, tentativa):
+        assert criar_pergunta(tentativa=tentativa).tentativa == tentativa
+
     @pytest.mark.parametrize("tentativa", [0, 3])
     def test_tentativa_so_pode_ser_1_ou_2(self, tentativa):
+        checkin = criar_checkin()
         with pytest.raises(IntegrityError), transaction.atomic():
-            criar_pergunta(tentativa=tentativa)
+            criar_pergunta(checkin=checkin, tentativa=tentativa)
 
     def test_excluir_checkin_apaga_a_pergunta(self):
         p = criar_pergunta()
@@ -217,6 +258,12 @@ class TestRespostaSaida:
         self._resposta(p, 1)
         self._resposta(p, 2, RespostaSaidaOpcao.SAI_ATE_5_MIN)
         assert p.respostas.count() == 2
+
+    @pytest.mark.parametrize("tentativa", [0, 3])
+    def test_tentativa_da_resposta_so_pode_ser_1_ou_2(self, tentativa):
+        pergunta = criar_pergunta()
+        with pytest.raises(IntegrityError), transaction.atomic():
+            self._resposta(pergunta, tentativa)
 
     def test_excluir_pergunta_apaga_as_respostas(self):
         p = criar_pergunta()
