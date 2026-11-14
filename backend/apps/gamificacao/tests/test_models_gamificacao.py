@@ -95,14 +95,16 @@ class TestPontosSemestreCampus:
     def _linha(self, **kwargs):
         dados = {"semestre_referencia": "2026.2", "pontos": 10}
         dados.update(kwargs)
-        dados.setdefault("usuario", criar_usuario())
-        dados.setdefault("campus", criar_campus())
+        if "usuario" not in dados:
+            dados["usuario"] = criar_usuario()
+        if "campus" not in dados:
+            dados["campus"] = criar_campus()
         return PontosSemestreCampus.objects.create(**dados)
 
     def test_uma_linha_por_conta_campus_e_semestre(self):
         p = self._linha()
         with pytest.raises(IntegrityError), transaction.atomic():
-            self._linha(usuario=p.usuario, campus=p.campus)  # só repete a chave
+            self._linha(usuario=p.usuario, campus=p.campus)
 
     def test_mesma_conta_em_outro_semestre_ou_campus(self):
         p = self._linha()

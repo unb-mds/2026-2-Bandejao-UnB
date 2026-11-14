@@ -66,8 +66,10 @@ def criar_checkin(**kwargs):
         "faixa_inicio": time(12, 0),
     }
     dados.update(kwargs)
-    dados.setdefault("usuario", criar_usuario())
-    dados.setdefault("campus", criar_campus())
+    if "usuario" not in dados:
+        dados["usuario"] = criar_usuario()
+    if "campus" not in dados:
+        dados["campus"] = criar_campus()
     return Checkin.objects.create(**dados)
 
 
@@ -78,7 +80,8 @@ def criar_pergunta(**kwargs):
         "expira_em": agora + timedelta(minutes=60),
     }
     dados.update(kwargs)
-    dados.setdefault("checkin", criar_checkin())
+    if "checkin" not in dados:
+        dados["checkin"] = criar_checkin()
     return PerguntaSaida.objects.create(**dados)
 
 

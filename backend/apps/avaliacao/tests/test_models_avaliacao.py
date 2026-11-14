@@ -63,8 +63,10 @@ def criar_refeicao():
 def criar_avaliacao(**kwargs):
     dados = {"nota": 4}
     dados.update(kwargs)
-    dados.setdefault("usuario", criar_usuario())
-    dados.setdefault("refeicao", criar_refeicao())
+    if "usuario" not in dados:
+        dados["usuario"] = criar_usuario()
+    if "refeicao" not in dados:
+        dados["refeicao"] = criar_refeicao()
     return Avaliacao.objects.create(**dados)
 
 
