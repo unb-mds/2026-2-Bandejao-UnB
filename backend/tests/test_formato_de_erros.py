@@ -7,12 +7,16 @@ confundir com os outros 403 do contrato.
 
 import logging
 
-from django.conf import settings
+import pytest
 from rest_framework.exceptions import (
     AuthenticationFailed,
+    MethodNotAllowed,
     NotAuthenticated,
+    NotFound,
     PermissionDenied,
+    ValidationError,
 )
+from rest_framework.test import APIClient
 
 from apps.cadastro.autenticacao import CsrfInvalido
 from config.excecoes import tratador_de_excecoes
@@ -85,11 +89,55 @@ def test_excecao_que_nao_e_do_drf_segue_para_o_django():
     assert _tratar(ValueError("erro")) is None
 
 
-def test_erro_500_vai_para_o_console_em_producao():
-    """Sem isto, com DEBUG=False o traceback de um 500 não aparece em lugar nenhum."""
-    assert settings.LOGGING["loggers"]["django.request"]["level"] == "ERROR"
-    handlers = logging.getLogger("django.request").handlers
-    console = [h for h in handlers if isinstance(h, logging.StreamHandler)]
-    assert console
-    # Sem o filtro require_debug_true do Django: vale também com DEBUG=False.
-    assert all(not h.filters for h in console)
+@pytest.mark.parametrize(
+    ("exc", "status"),
+    [
+        (ValidationError({"senha": ["Muito curta."]}), 400),
+        (ValidationError("Mensagem única."), 400),
+        (NotFound(), 404),
+        (MethodNotAllowed("PUT"), 405),
+        (PermissionDenied(), 403),
+    ],
+)
+def test_erro_com_codigo_padrao_segue_como_o_drf_devolve(exc, status):
+    """O formato do projeto só entra onde há tradução ou código próprio.
+
+    O 422 de validação de cada rota é responsabilidade da view (BE-05).
+    """
+    resposta = _tratar(exc)
+
+    assert resposta.status_code == status
+    assert "codigo" not in resposta.data
+
+
+@pytest.fixture
+def log_de_requisicoes():
+    """Anexa um coletor ao logger `django.request` (que não propaga)."""
+    registros = []
+
+    class Coletor(logging.Handler):
+        def emit(self, record):
+            registros.append(self.format(record))
+
+    logger = logging.getLogger("django.request")
+    coletor = Coletor()
+    logger.addHandler(coletor)
+    yield registros
+    logger.removeHandler(coletor)
+
+
+def test_erro_5xx_vai_para_o_log_em_producao(log_de_requisicoes):
+    """Sem o LOGGING, com DEBUG=False um 5xx não aparece em lugar nenhum."""
+    # As views ainda sem lógica respondem 501.
+    APIClient().post("/api/cadastro/", {}, format="json")
+
+    assert any("/api/cadastro/" in m for m in log_de_requisicoes)
+
+
+def test_log_nao_mostra_o_token_da_confirmacao_de_email(log_de_requisicoes):
+    """Quem lê o log não pode confirmar a conta de outra pessoa."""
+    APIClient().post("/api/confirmar-email/token-secreto/", {}, format="json")
+
+    assert log_de_requisicoes
+    assert any("/api/confirmar-email/" in m for m in log_de_requisicoes)
+    assert not any("token-secreto" in m for m in log_de_requisicoes)
