@@ -7,7 +7,7 @@ Extras: coordenadas nunca saem em resposta; rota logada declara o 401.
 
 import pytest
 
-from tests.rotas_do_contrato import eh_publica, gerar_schema, operacoes
+from tests.rotas_do_contrato import ESCRITAS, eh_publica, gerar_schema, operacoes
 
 # Nomes (em minúsculas) que nunca podem aparecer numa resposta pública.
 PALAVRAS_PESSOAIS = (
@@ -36,6 +36,8 @@ CAMPOS_PUBLICOS_PERMITIDOS = {
     ("/api/reenviar-confirmacao/", "post"): _ERRO,
     ("/api/sessao/", "post"): _ERRO | {"apelido", "tipo", "avisoprivacidadependente"},
     ("/api/campi/", "get"): {"id", "nome"},
+    # 204 sem corpo: só grava o cookie csrftoken.
+    ("/api/csrf/", "get"): set(),
     ("/api/cardapio/", "get"): _ERRO
     | {
         "alergenosindisponivel",
@@ -204,6 +206,21 @@ def test_toda_operacao_logada_declara_o_401(schema):
         if not eh_publica(operacao) and "401" not in operacao["responses"]
     ]
     assert not sem_401, f"rotas logadas sem 401 declarado: {sem_401}"
+
+
+def test_toda_escrita_declara_o_403_csrf_invalido(schema):
+    """Escrita sem o token CSRF recebe 403 `csrf_invalido` (#112): o contrato diz isso.
+
+    Vale para as públicas também: login e cadastro cobram o CSRF mesmo sem sessão.
+    """
+    sem_403 = [
+        f"{metodo.upper()} {rota}"
+        for rota, metodo, operacao in operacoes(schema)
+        if metodo in ESCRITAS
+        and "csrf_invalido"
+        not in operacao["responses"].get("403", {}).get("description", "")
+    ]
+    assert not sem_403, f"escritas sem o 403 csrf_invalido: {sem_403}"
 
 
 def test_resposta_publica_so_tem_campos_permitidos(schema):

@@ -52,3 +52,6 @@ ROTAS_PUBLICAS = [(url, metodo) for url, metodo, publica in OPERACOES if publica
 ESCRITAS_LOGADAS = [
     (url, metodo) for url, metodo in ROTAS_LOGADAS if metodo in ESCRITAS
 ]
+ESCRITAS_PUBLICAS = [
+    (url, metodo) for url, metodo in ROTAS_PUBLICAS if metodo in ESCRITAS
+]
