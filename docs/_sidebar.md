@@ -40,6 +40,7 @@
   - [0011 — Contadores de gamificação além da janela de retenção](arquitetura/adr/0011-contadores-de-gamificacao-alem-da-janela-de-retencao.md)
   - [0012 — Hospedagem e serviço de e-mail](arquitetura/adr/0012-hospedagem-e-servico-de-email.md)
   - [0013 — Estratégia de testes e portas de qualidade](arquitetura/adr/0013-estrategia-de-testes-e-portas-de-qualidade.md)
+  - [0014 — Descoberta do PDF de cada campus](arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md)
 
 - **Gestão do projeto**
   - [Atas de reunião](atas-reunioes/README.md)

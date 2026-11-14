@@ -1,7 +1,7 @@
 # ADR 0003 — Leitor de PDF como módulo do backend
 
 
-**Status:** Aceita
+**Status:** Aceita (frequência do cron e descoberta do PDF de cada campus definidas em 2026-11-11 pela ADR 0014)
 **Data:** 2026-09-27
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
@@ -16,7 +16,7 @@ ao texto, fora da camada de texto do PDF, e precisam ser associados aos
 pratos pela posição e identificados pela legenda do arquivo.
 
 Essa leitura é a principal fonte de instabilidade do sistema: o formato do PDF
-é controlado por terceiros e pode mudar sem aviso (L05), e a associação dos
+é controlado por terceiros e pode mudar sem aviso (L15), e a associação dos
 ícones pode falhar (L03). Três requisitos moldam onde esse código deve
 ficar:
 
@@ -68,7 +68,9 @@ O detalhamento do módulo está em `c4-nivel-4-leitor-cardapio.md`.
   no servidor. A hospedagem escolhida, uma máquina virtual Linux da Azure
   (Azure for Students, ADR 0012), permite usar o cron do sistema operacional.
 - A frequência do cron precisa garantir a meta de atualização em até 24 horas
-  do RF06, com margem. O valor exato ainda não foi decidido.
+  do RF06, com margem. Ela é de **3 em 3 horas, todos os dias** (ADR 0014),
+  porque o RU não tem dia fixo de publicação e às vezes corrige o PDF com a
+  semana em andamento.
 - O cron é configuração de implantação e não está no código. Vale
   documentá-lo junto com as instruções de deploy, para não se perder na troca
   de hospedagem ou de responsáveis.
@@ -104,8 +106,10 @@ Detalhes, casos difíceis e limites conhecidos em
 
 ## Relacionadas
 
-- Requisitos: RF06, RNF02, RNF06, L03, L05.
+- Requisitos: RF06, RNF02, RNF06, L03, L15.
 - `docs/arquitetura/adr/0001-escolha-stack-backend.md` (linguagem e framework do backend).
 - `docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md` (aviso à equipe em
   caso de falha de leitura).
 - `docs/arquitetura/backend/teste-leitor-pdf-be-04.md` (teste com os PDFs reais, BE-04).
+- `docs/arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md` (como o
+  módulo acha o PDF de cada campus e frequência do cron).

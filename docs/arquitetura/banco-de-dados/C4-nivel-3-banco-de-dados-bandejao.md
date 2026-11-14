@@ -3,7 +3,7 @@
 
 > Fontes: `docs/requisitos/CONTEXT-DOMINIO.md` (glossário do domínio),
 > Documento de Requisitos de Software (RF01–RF33, RN01–RN13, RNF01–RNF09,
-> RI01–RI12, Anexo A) e ADRs 0001 a 0011 (`docs/arquitetura/adr/`). Nomes de
+> RI01–RI12, Anexo A) e ADRs 0001 a 0014 (`docs/arquitetura/adr/`). Nomes de
 > entidades seguem o vocabulário canônico do glossário — não os nomes usados
 > no rascunho da issue (#32): "Cardápio" não existe como entidade única, pois
 > o glossário já decompõe esse conceito em Refeição → Categoria → Prato;
@@ -39,6 +39,7 @@ erDiagram
     CAMPUS ||--o{ PONTOS_SEMESTRE_CAMPUS : classifica
     CAMPUS ||--o{ ALERTA_LEITURA_CARDAPIO : gera
     CAMPUS ||--o{ CONTADOR_ALERTA : limita_avisos
+    CAMPUS ||--o{ FONTE_CARDAPIO : origem_do_cardapio
 
     REFEICAO ||--o{ CATEGORIA : contem
     REFEICAO ||--o{ AVALIACAO : recebe
@@ -66,7 +67,7 @@ erDiagram
   `PRATO`. `PRATO` só existe para exibição e para os filtros (RF08, RF09).
 - **`CHECKIN`, `TENTATIVA_CHECKIN`, `PERGUNTA_SAIDA`, `RESPOSTA_SAIDA`,
   `PONTUACAO_USUARIO` e `PONTOS_SEMESTRE_CAMPUS` são Release 2, e
-  `ALERTA_LEITURA_CARDAPIO` e `CONTADOR_ALERTA` são do módulo Leitor de Cardápio (ADR 0003)** —
+  `ALERTA_LEITURA_CARDAPIO`, `CONTADOR_ALERTA` e `FONTE_CARDAPIO` são do módulo Leitor de Cardápio (ADR 0003)** —
   incluídos aqui porque já fazem parte do modelo de dados em construção; a
   Release 2 é a entrega final.
 - **`CHECKIN` e `TENTATIVA_CHECKIN` são tabelas separadas** (decisão 2): a
@@ -87,6 +88,13 @@ erDiagram
   para respeitar o limite de 3 por dia com 6 horas de intervalo. Os dois usam
   os mesmos tipos de falha do `TipoAlerta` do Leitor: `legenda_invalida`,
   `associacao_falhou` e `falha_leitura_pdf`.
+- **Origem do cardápio de cada campus (ADR 0014):** `FONTE_CARDAPIO` guarda,
+  por campus e semana, o link e o SHA-256 do último PDF lido com sucesso,
+  para o Leitor só processar de novo quando o RU publica ou corrige o
+  arquivo. Uma por semana porque a semana vigente e a seguinte (RF18) podem
+  estar publicadas ao mesmo tempo. O rótulo do
+  campus na página do RU e o prefixo do nome do arquivo ficam no próprio
+  `CAMPUS`, povoados por fixture.
 - **`TOKEN` generaliza os links de uso único** de confirmação de e-mail (RF02)
   e de redefinição de senha (RF04): mesma estrutura, campo `tipo` diferencia o
   uso. Ver o [Nível 4](C4-nivel-4-banco-de-dados-bandejao.md) para os campos.
@@ -104,8 +112,8 @@ erDiagram
 - `docs/requisitos/documento-de-requisitos-bandejao.md` — Documento de
   Requisitos de Software — Bandejão (RF01–RF33, RN01–RN13, RNF01–RNF09,
   RI01–RI12, Anexo A).
-- ADRs 0001 a 0011, em `docs/arquitetura/adr/` (em especial 0003, 0009, 0010
-  e 0011, que originam entidades e campos deste nível).
+- ADRs 0001 a 0014, em `docs/arquitetura/adr/` (em especial 0003, 0009, 0010,
+  0011 e 0014, que originam entidades e campos deste nível).
 - `docs/arquitetura/c4-niveis-1-2.md` — Níveis 1 e 2, onde o Banco de Dados
   aparece como um único container.
 - `docs/arquitetura/backend/` — Níveis 4 do backend, cujos models

@@ -276,7 +276,7 @@ O sistema se comporta "como uma espécie de porta": o visitante pode consultar o
 
 ### 4.3 Suposições e dependências
 
-- **Dependência:** publicação regular do cardápio, em PDF, no site oficial do RU. É uma fonte externa fora do controle da equipe; o risco está descrito na Seção 6.
+- **Dependência:** publicação regular do cardápio, em PDF, no site oficial do RU. É uma fonte externa fora do controle da equipe e sem dia fixo de publicação: o cardápio da semana costuma sair no fim de semana, às vezes só na segunda-feira, e pode ser corrigido com a semana em andamento. O risco está descrito na Seção 6.
 - **Suposição (MVP):** os usuários avaliam as refeições de boa-fé. Como a matrícula/SIAPE não é validada e não se exige prova de presença para avaliar, a confiabilidade da nota média depende dessa boa-fé (11.4).
 - **Suposição (Release 2):** os usuários farão check-in com regularidade. A previsão só é exibida quando há check-ins em 3 dias distintos nas últimas 4 semanas; no início da operação, é esperado que ela apareça como "dados insuficientes". A espera estimada depende ainda de os usuários responderem à pergunta de saída da fila e só é exibida com ao menos 3 respostas em 2 dias distintos.
 - **Regra de negócio (Release 2):** a fila é estimada exclusivamente a partir de dados que os próprios usuários informam sobre a sua presença (check-in) e a sua saída da fila: o nível da previsão vem dos check-ins, e a espera estimada, das respostas sobre a saída da fila. Não há votação sobre o nível da fila nem sensores (Seção 6).
@@ -368,7 +368,7 @@ Os recursos 5.21 a 5.24 e o 5.30 pertencem à Release 2, e os 5.25 a 5.29, ao Ba
 
 ## 6. Restrições
 
-- **Cardápio em PDF:** o cardápio vem de um PDF publicado pelo próprio RU, fonte não estruturada e fora do controle da equipe. Mudanças no formato do arquivo podem comprometer a leitura automatizada (4.3).
+- **Cardápio em PDF:** o cardápio vem de um PDF publicado pelo próprio RU, fonte não estruturada e fora do controle da equipe. Mudanças no formato do arquivo ou na página em que o RU o publica podem comprometer a leitura automatizada (4.3; L15 no Documento de Requisitos).
 - **Fila sem sensor e sem votação:** a estimativa da fila (Release 2) não usa sensor físico, votação sobre o nível da fila nem fonte de dados independente; depende inteiramente dos check-ins e das respostas sobre a saída da fila dos usuários cadastrados (4.3). A espera estimada tende a ficar abaixo da realidade (L12 no Documento de Requisitos).
 - **Localização sujeita à permissão:** a detecção do campus e a confirmação do check-in dependem de o usuário permitir a localização ao navegador. Sem permissão, o campus não é detectado e o check-in não é possível.
 - **Identidade não validada:** o cadastro exige matrícula ou SIAPE/matrícula funcional em formato válido, mas o sistema não valida a existência, a situação ativa nem a titularidade do identificador; não há validação real prevista. Terceirizados e demais pessoas sem matrícula ou SIAPE não podem se cadastrar e usam o sistema como visitantes.
@@ -499,9 +499,9 @@ Definido pela Matriz de Impacto x Esforço: baixo ou alto esforço por item (Se�
 
 ### 11.4 Risco
 
-Os riscos e as limitações conhecidos estão na Seção 5 do Documento de Requisitos (L01 a L14). Os que mais afetam a visão do produto são:
+Os riscos e as limitações conhecidos estão na Seção 5 do Documento de Requisitos (L01 a L15). Os que mais afetam a visão do produto são:
 
-- **Dependência do PDF externo:** mudanças no formato do arquivo podem comprometer a leitura do cardápio (Seção 6).
+- **Dependência do PDF externo (L15):** mudanças no formato do arquivo ou na página de publicação podem comprometer a leitura do cardápio (Seção 6).
 - **Identidade não validada e contas múltiplas (L01, L02):** alguém pode cadastrar a matrícula de outra pessoa, uma matrícula inventada de formato válido ou várias contas. Isso afeta a confiabilidade da nota média já no MVP.
 - **Avaliação sem prova de presença (L06):** no MVP, qualquer usuário autenticado pode avaliar uma refeição do dia depois que ela começou, sem comprovar que comeu.
 - **Baixa adesão ao check-in e à pergunta de saída da fila (L08), risco da Release 2:** com poucos check-ins ou poucas respostas, a previsão de pico e a espera estimada são pouco representativas.
