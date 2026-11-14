@@ -71,6 +71,8 @@ class SessaoSerializer(serializers.Serializer):
     """Quem está logado (Cadastro N4 4c). Nunca matrícula/SIAPE nem e-mail (RI10)."""
 
     apelido = serializers.CharField()
-    # CharField de propósito (ver nota abaixo): ChoiceField geraria aviso.
+    # CharField de propósito: um ChoiceField repetiria as opções de
+    # `tipoUsuario` com outro nome de enum, e o drf-spectacular avisa
+    # ("multiple names for the same choice set"), o que derruba o --fail-on-warn.
     tipo = serializers.CharField(help_text='"estudante" ou "professor_servidor".')
     avisoPrivacidadePendente = serializers.BooleanField()

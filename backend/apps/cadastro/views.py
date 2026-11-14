@@ -1,11 +1,14 @@
 """Views do app cadastro."""
 
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.cadastro.autenticacao import CsrfObrigatorio
 from apps.cadastro.serializers import (
     ApelidoIndisponivelSerializer,
     CadastroCriadoSerializer,
@@ -17,10 +20,36 @@ from apps.cadastro.serializers import (
 from config.erros import ErroSerializer
 
 
+class CsrfView(APIView):
+    """GET /api/csrf/: grava o cookie `csrftoken` antes do login (#112).
+
+    As escritas públicas (cadastro, login, confirmação, reenvio) cobram o
+    CSRF mesmo sem sessão. O PWA chama esta rota ao abrir e lê o cookie.
+    """
+
+    permission_classes = (AllowAny,)
+
+    @extend_schema(
+        summary="Grava o cookie csrftoken",
+        description=(
+            "Sem corpo. Chame antes da primeira escrita sem sessão (cadastro, "
+            "login, confirmação, reenvio) e mande o valor do cookie no "
+            "cabeçalho `X-CSRFToken`. O login troca o token: leia o cookie "
+            "de novo a cada escrita (ADR 0007)."
+        ),
+        tags=["cadastro"],
+        request=None,
+        responses={204: OpenApiResponse(description="Cookie `csrftoken` gravado.")},
+    )
+    @method_decorator(ensure_csrf_cookie)
+    def get(self, request):
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class CadastroView(APIView):
     """POST /api/cadastro/ (RF01, Cadastro N4 4a). Lógica na BE-05."""
 
-    permission_classes = (AllowAny,)
+    permission_classes = (AllowAny, CsrfObrigatorio)
 
     @extend_schema(
         summary="Cria uma conta pendente",
@@ -52,7 +81,7 @@ class ConfirmacaoEmailView(APIView):
     """POST /api/confirmar-email/{token}/ (RF02.1, Cadastro N4 4b)."""
 
     # Público: quem confirma ainda não tem login.
-    permission_classes = (AllowAny,)
+    permission_classes = (AllowAny, CsrfObrigatorio)
 
     @extend_schema(
         summary="Confirma o e-mail pelo link recebido",
@@ -82,7 +111,7 @@ class ConfirmacaoEmailView(APIView):
         },
     )
     def post(self, request, token):
-        # Só contrato: a lógica (ConfirmacaoEmailService) vem na BE-05.
+        # Só contrato: a lógica (ConfirmacaoEmailService) vem na BE-06.
         return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
 
 
@@ -90,7 +119,7 @@ class ReenvioConfirmacaoView(APIView):
     """POST /api/reenviar-confirmacao/ (RF02.2, Cadastro N4 4b)."""
 
     # Público: quem pede o reenvio ainda não consegue entrar.
-    permission_classes = (AllowAny,)
+    permission_classes = (AllowAny, CsrfObrigatorio)
 
     @extend_schema(
         summary="Pede um novo link de confirmação de e-mail",
@@ -114,7 +143,7 @@ class ReenvioConfirmacaoView(APIView):
         },
     )
     def post(self, request):
-        # Só contrato: a lógica (ConfirmacaoEmailService) vem na BE-05.
+        # Só contrato: a lógica (ConfirmacaoEmailService) vem na BE-06.
         return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
 
 
@@ -123,11 +152,12 @@ class SessaoView(APIView):
 
     Uma rota, três verbos. O padrão do projeto é fechado (IsAuthenticated),
     então só o POST (login) é liberado: quem entra ainda não tem sessão.
+    O login cobra o CSRF mesmo assim (login CSRF, #112).
     """
 
     def get_permissions(self):
         if self.request.method == "POST":
-            return [AllowAny()]
+            return [AllowAny(), CsrfObrigatorio()]
         return super().get_permissions()
 
     @extend_schema(
@@ -169,7 +199,7 @@ class SessaoView(APIView):
         },
     )
     def post(self, request):
-        # Só contrato: a lógica (LoginService) vem na BE-05.
+        # Só contrato: a lógica (LoginService) vem na BE-07.
         return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
 
     @extend_schema(
@@ -206,7 +236,7 @@ class SessaoView(APIView):
 
 
 class AceiteAvisoPrivacidadeView(APIView):
-    """POST /api/privacidade/aceite/ (RF11, Cadastro N4 4d).
+    """POST /api/privacidade/aceite/ (RNF07.1, Cadastro N4 4d).
 
     Sem permission_classes de propósito: o padrão do projeto já exige login.
     """
@@ -228,5 +258,5 @@ class AceiteAvisoPrivacidadeView(APIView):
         },
     )
     def post(self, request):
-        # Só contrato: a lógica (AvisoPrivacidadeService) vem na BE-05.
+        # Só contrato: a lógica (AvisoPrivacidadeService) vem na BE-07.
         return Response(status=status.HTTP_501_NOT_IMPLEMENTED)

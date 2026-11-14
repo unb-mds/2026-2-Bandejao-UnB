@@ -221,4 +221,30 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     # Separa o schema de ENTRADA do de SAÍDA (ajuda muito o front)
     "COMPONENT_SPLIT_REQUEST": True,
+    # O primeiro é o padrão do drf-spectacular; o segundo documenta o 403 de
+    # CSRF em toda escrita (#112).
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "config.erros.documentar_csrf_invalido",
+    ],
+}
+
+# Logs (#112)
+# Na configuração padrão do Django, com DEBUG=False o traceback de um 500 não
+# vai para lugar nenhum. Aqui ele vai para o console (que o servidor guarda).
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        # propagate=False: sem isto, com DEBUG=True o erro sairia duas vezes.
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
 }

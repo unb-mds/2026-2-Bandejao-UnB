@@ -53,6 +53,13 @@ paths:
           description: 'Regra de negócio violada. `codigo`: `janela_avaliacao_fechada`
             (refeição fora do dia corrente ou ainda não iniciada), `nota_invalida`
             (ausente ou fora de 1 a 5) ou `comentario_muito_longo` (mais de 500 caracteres).'
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Token CSRF ausente ou inválido: pegue o cookie em `GET /api/csrf/`
+            e mande o valor no cabeçalho `X-CSRFToken`. `codigo`: `csrf_invalido`.'
   /api/avaliacoes/resumo/:
     get:
       operationId: avaliacoes_resumo_list
@@ -129,6 +136,13 @@ paths:
                 $ref: '#/components/schemas/Erro'
           description: Dados rejeitados. Matrícula/SIAPE ou e-mail já usados dão a
             mesma mensagem, sem dizer qual dos dois (RI01).
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Token CSRF ausente ou inválido: pegue o cookie em `GET /api/csrf/`
+            e mande o valor no cabeçalho `X-CSRFToken`. `codigo`: `csrf_invalido`.'
   /api/campi/:
     get:
       operationId: campi_list
@@ -252,7 +266,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/Erro'
           description: 'Falta dar ciência ao aviso de privacidade atualizado (RF11).
-            `codigo`: `aviso_privacidade_pendente`.'
+            `codigo`: `aviso_privacidade_pendente`. Ou: Token CSRF ausente ou inválido:
+            pegue o cookie em `GET /api/csrf/` e mande o valor no cabeçalho `X-CSRFToken`.
+            `codigo`: `csrf_invalido`.'
         '422':
           content:
             application/json:
@@ -288,6 +304,28 @@ paths:
                 $ref: '#/components/schemas/Erro'
           description: 'Link expirado, inválido ou já usado (RF02.1). `codigo`: `token_invalido_ou_expirado`.
             O front oferece reenviar o link.'
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Token CSRF ausente ou inválido: pegue o cookie em `GET /api/csrf/`
+            e mande o valor no cabeçalho `X-CSRFToken`. `codigo`: `csrf_invalido`.'
+  /api/csrf/:
+    get:
+      operationId: csrf_retrieve
+      description: 'Sem corpo. Chame antes da primeira escrita sem sessão (cadastro,
+        login, confirmação, reenvio) e mande o valor do cookie no cabeçalho `X-CSRFToken`.
+        O login troca o token: leia o cookie de novo a cada escrita (ADR 0007).'
+      summary: Grava o cookie csrftoken
+      tags:
+      - cadastro
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '204':
+          description: Cookie `csrftoken` gravado.
   /api/fila/previsao/:
     get:
       operationId: fila_previsao_retrieve
@@ -354,6 +392,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Erro'
           description: 'Sem sessão. `codigo`: `nao_autenticado`.'
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Token CSRF ausente ou inválido: pegue o cookie em `GET /api/csrf/`
+            e mande o valor no cabeçalho `X-CSRFToken`. `codigo`: `csrf_invalido`.'
     delete:
       operationId: gamificacao_adesao_destroy
       description: Tira a conta do ranking na hora. Os pontos continuam acumulando.
@@ -372,6 +417,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Erro'
           description: 'Sem sessão. `codigo`: `nao_autenticado`.'
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Token CSRF ausente ou inválido: pegue o cookie em `GET /api/csrf/`
+            e mande o valor no cabeçalho `X-CSRFToken`. `codigo`: `csrf_invalido`.'
   /api/gamificacao/progresso/:
     get:
       operationId: gamificacao_progresso_retrieve
@@ -413,6 +465,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Erro'
           description: 'Sem sessão. `codigo`: `nao_autenticado`.'
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Token CSRF ausente ou inválido: pegue o cookie em `GET /api/csrf/`
+            e mande o valor no cabeçalho `X-CSRFToken`. `codigo`: `csrf_invalido`.'
   /api/ranking/{campusId}/:
     get:
       operationId: ranking_retrieve
@@ -470,6 +529,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Erro'
           description: 'Não veio `matriculaSiape` nem `token`. `codigo`: `dados_invalidos`.'
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Token CSRF ausente ou inválido: pegue o cookie em `GET /api/csrf/`
+            e mande o valor no cabeçalho `X-CSRFToken`. `codigo`: `csrf_invalido`.'
   /api/refeicoes/{refeicaoId}/avaliacoes/:
     get:
       operationId: refeicoes_avaliacoes_retrieve
@@ -564,7 +630,8 @@ paths:
                 $ref: '#/components/schemas/Erro'
           description: 'Credenciais corretas, mas o e-mail ainda não foi confirmado
             (RF02.2). `codigo`: `conta_nao_confirmada`. O front oferece reenviar o
-            link.'
+            link. Ou: Token CSRF ausente ou inválido: pegue o cookie em `GET /api/csrf/`
+            e mande o valor no cabeçalho `X-CSRFToken`. `codigo`: `csrf_invalido`.'
         '429':
           content:
             application/json:
@@ -579,6 +646,7 @@ paths:
 
         Uma rota, três verbos. O padrão do projeto é fechado (IsAuthenticated),
         então só o POST (login) é liberado: quem entra ainda não tem sessão.
+        O login cobra o CSRF mesmo assim (login CSRF, #112).
       summary: Sai da conta (logout)
       tags:
       - cadastro
@@ -593,6 +661,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Erro'
           description: 'Sem sessão. `codigo`: `nao_autenticado`.'
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Token CSRF ausente ou inválido: pegue o cookie em `GET /api/csrf/`
+            e mande o valor no cabeçalho `X-CSRFToken`. `codigo`: `csrf_invalido`.'
 components:
   schemas:
     ApelidoIndisponivel:
