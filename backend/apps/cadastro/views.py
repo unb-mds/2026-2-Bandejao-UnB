@@ -152,11 +152,11 @@ class SessaoView(APIView):
 
     Uma rota, três verbos. O padrão do projeto é fechado (IsAuthenticated),
     então só o POST (login) é liberado: quem entra ainda não tem sessão.
-    O login cobra o CSRF mesmo assim (login CSRF, #112).
     """
 
     def get_permissions(self):
         if self.request.method == "POST":
+            # Sem sessão, mas cobrando o CSRF: fecha o login CSRF (#112).
             return [AllowAny(), CsrfObrigatorio()]
         return super().get_permissions()
 

@@ -202,6 +202,16 @@ CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=not DEBUG, cast=bool)
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_HEADER_NAME = "HTTP_X_CSRFTOKEN"
+# Em produção o Caddy encerra o HTTPS e encaminha ao Gunicorn em HTTP
+# (ADR 0012). Sem este cabeçalho o Django acha que a requisição é HTTP, o
+# `Origin: https://...` do navegador não confere e todo login e cadastro dá
+# 403 de CSRF. Só é seguro porque o Gunicorn não fica exposto: o Caddy sempre
+# regrava o X-Forwarded-Proto. O .env pode desligar.
+if config("ATRAS_DE_PROXY_HTTPS", default=not DEBUG, cast=bool):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+else:
+    SECURE_PROXY_SSL_HEADER = None
+
 CSRF_TRUSTED_ORIGINS = config(
     "CSRF_TRUSTED_ORIGINS",
     default="",
@@ -232,17 +242,26 @@ SPECTACULAR_SETTINGS = {
 # Logs (#112)
 # Na configuração padrão do Django, com DEBUG=False o traceback de um 500 não
 # vai para lugar nenhum. Aqui ele vai para o console (que o servidor guarda).
+# O path de cada 5xx vai junto; o filtro tira dele o token da confirmação de
+# e-mail. O motivo de um 403 de CSRF sai, sem o path, no logger
+# `apps.cadastro.autenticacao` (nível WARNING, pelo logger raiz).
 
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "filters": {
+        "mascara_token": {"()": "config.logs.MascaraTokenDoPath"},
+    },
     "handlers": {
         "console": {"class": "logging.StreamHandler"},
     },
     "loggers": {
         # propagate=False: sem isto, com DEBUG=True o erro sairia duas vezes.
+        # Também desliga o mail_admins padrão do Django, que não usamos (não
+        # há ADMINS). Se um dia houver, acrescente o handler aqui.
         "django.request": {
             "handlers": ["console"],
+            "filters": ["mascara_token"],
             "level": "ERROR",
             "propagate": False,
         },

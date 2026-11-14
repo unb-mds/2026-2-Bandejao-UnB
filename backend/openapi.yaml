@@ -646,7 +646,6 @@ paths:
 
         Uma rota, três verbos. O padrão do projeto é fechado (IsAuthenticated),
         então só o POST (login) é liberado: quem entra ainda não tem sessão.
-        O login cobra o CSRF mesmo assim (login CSRF, #112).
       summary: Sai da conta (logout)
       tags:
       - cadastro

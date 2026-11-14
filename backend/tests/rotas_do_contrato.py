@@ -11,8 +11,9 @@ from functools import cache
 
 from drf_spectacular.generators import SchemaGenerator
 
-METODOS = ("get", "post", "put", "patch", "delete")
-ESCRITAS = ("post", "put", "patch", "delete")
+from config.erros import ESCRITAS
+
+METODOS = ("get", *ESCRITAS)
 
 
 @cache

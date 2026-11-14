@@ -34,7 +34,7 @@ def documentar_csrf_invalido(result, generator, request, public):
                 continue
             respostas = operacao["responses"]
             if "403" in respostas:
-                anterior = respostas["403"]["description"]
+                anterior = respostas["403"].get("description", "")
                 respostas["403"]["description"] = f"{anterior} Ou: {DESCRICAO_CSRF}"
             else:
                 respostas["403"] = {
