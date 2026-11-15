@@ -124,10 +124,14 @@ class CadastroService:
                     versao_aviso_aceita=AvisoPrivacidadeConfig.versao_atual,
                 )
                 self.pontuacao_service.inicializar_conta(conta)
-                # on_commit: o e-mail só sai se a conta for gravada. Uma falha
-                # do SMTP não desfaz o cadastro (a pessoa pede o reenvio).
+                # on_commit: o e-mail só sai se a conta for gravada. Ele roda
+                # depois do COMMIT, quando a conta já existe: robust=True faz
+                # qualquer erro ali (banco, SMTP) ir para o log em vez de virar
+                # 500, que levaria a pessoa a tentar de novo e ouvir "já
+                # cadastrado". Sem link, ela pede o reenvio.
                 transaction.on_commit(
-                    lambda: self.confirmacao_email_service.enviar_link(conta)
+                    lambda: self.confirmacao_email_service.enviar_link(conta),
+                    robust=True,
                 )
         except IntegrityError as exc:
             self._classificar_corrida(

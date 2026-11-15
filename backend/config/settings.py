@@ -169,6 +169,19 @@ STATIC_URL = "static/"
 # usuário e a senha ficam só no .env do servidor (BD-05). Nos testes, o
 # pytest-django troca o backend pelo de memória (django.core.mail.outbox).
 
+
+def config_sem_padrao_em_producao(nome, padrao_em_desenvolvimento):
+    """Lê a variável do .env; em produção (sem DEBUG) ela é obrigatória.
+
+    Mesmo padrão da SECRET_KEY: esquecer a variável no deploy para o servidor
+    na subida (UndefinedValueError), em vez de ele responder 201 e nunca
+    entregar o link. Com DEBUG, vale o padrão de desenvolvimento.
+    """
+    if DEBUG:
+        return config(nome, default=padrao_em_desenvolvimento)
+    return config(nome)
+
+
 BACKEND_DE_EMAIL_SMTP = "django.core.mail.backends.smtp.EmailBackend"
 BACKEND_DE_EMAIL = config(
     "EMAIL_BACKEND",
@@ -180,11 +193,11 @@ BACKEND_DE_EMAIL = config(
 )
 if BACKEND_DE_EMAIL == BACKEND_DE_EMAIL_SMTP:
     OPCOES_DE_EMAIL = {
-        "host": config("EMAIL_HOST", default="localhost"),
+        "host": config_sem_padrao_em_producao("EMAIL_HOST", "localhost"),
         "port": config("EMAIL_PORT", default=587, cast=int),
         "use_tls": config("EMAIL_USE_TLS", default=True, cast=bool),
-        "username": config("EMAIL_HOST_USER", default=""),
-        "password": config("EMAIL_HOST_PASSWORD", default=""),
+        "username": config_sem_padrao_em_producao("EMAIL_HOST_USER", ""),
+        "password": config_sem_padrao_em_producao("EMAIL_HOST_PASSWORD", ""),
         # Sem esse limite, um SMTP travado prende o worker do Gunicorn.
         "timeout": 10,
     }
@@ -203,8 +216,9 @@ DEFAULT_FROM_EMAIL = config(
 )
 
 # Endereço do PWA: o link de confirmação de e-mail aponta para a página
-# /confirmar-email dele, e não para a API.
-URL_DO_PWA = config("URL_DO_PWA", default="http://localhost:5173")
+# /confirmar-email dele, e não para a API. Sem padrão em produção: um link
+# para localhost faria todo cadastro expirar e ser apagado em 24 h.
+URL_DO_PWA = config_sem_padrao_em_producao("URL_DO_PWA", "http://localhost:5173")
 
 # Django REST Framework
 # API só em JSON, autenticada pela sessão do Django (ADR 0007).
@@ -292,10 +306,21 @@ LOGGING = {
     "filters": {
         "mascara_token": {"()": "config.logs.MascaraTokenDoPath"},
     },
+    "formatters": {
+        # Horário e nível: sem isto, o logging.lastResort do Python mostra só a
+        # mensagem, e não dá para saber quando a falha aconteceu.
+        "padrao": {"format": "{asctime} {levelname} {name}: {message}", "style": "{"},
+    },
     "handlers": {
-        "console": {"class": "logging.StreamHandler"},
+        "console": {"class": "logging.StreamHandler", "formatter": "padrao"},
     },
     "loggers": {
+        # O código do projeto (apps.*): falhas no envio do e-mail e a contagem
+        # do job de exclusão (INFO). Os logs não levam e-mail nem token.
+        "apps": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
         # propagate=False: sem isto, com DEBUG=True o erro sairia duas vezes.
         # Também desliga o mail_admins padrão do Django, que não usamos (não
         # há ADMINS). Se um dia houver, acrescente o handler aqui.

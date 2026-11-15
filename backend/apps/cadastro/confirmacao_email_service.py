@@ -18,6 +18,7 @@ Fluxo:
 import hashlib
 import logging
 import secrets
+import smtplib
 from datetime import timedelta
 from urllib.parse import urlencode
 
@@ -44,7 +45,7 @@ Para ativar sua conta no Bandejão UnB, abra o link abaixo:
 
 {link}
 
-O link vale por 24 horas e só pode ser usado uma vez. Se ele vencer, peça um
+O link vale por {horas} horas e só pode ser usado uma vez. Se ele vencer, peça um
 novo na tela de entrar.
 
 Se você não criou uma conta no Bandejão UnB, ignore este e-mail.
@@ -63,42 +64,69 @@ class ConfirmacaoEmailService:
     def enviar_link(self, conta: Usuario) -> None:
         """Gera um link novo (24 h) e manda para o e-mail institucional.
 
-        Os links anteriores da conta deixam de valer. Se o SMTP falhar, a conta
-        continua pendente e a pessoa pode pedir o reenvio: o erro vai para o
-        log (sem token e sem e-mail) e não sobe para quem chamou.
+        A ordem importa, como trocar a fechadura só depois de entregar a chave
+        nova: primeiro grava o token novo, depois manda o e-mail e, só se ele
+        sair, invalida os links anteriores da conta.
+
+        Se o envio falhar (erro do SMTP ou da rede), o token novo é apagado e
+        os anteriores continuam valendo: a pessoa não fica sem link nenhum, e o
+        prazo do job (RF02.3) só renova quando um link chega de fato. O erro vai
+        para o log (sem token e sem e-mail) e não sobe para quem chamou. Erros
+        de banco e de programação sobem normalmente.
         """
         token = secrets.token_urlsafe(32)
+        # Monta a mensagem antes do envio: um erro aqui é bug e tem que subir.
+        corpo = CORPO.format(
+            apelido=conta.apelido,
+            link=self._link_do_pwa(token),
+            horas=int(VALIDADE_DO_LINK.total_seconds() // 3600),
+        )
         agora = timezone.now()
-        with transaction.atomic():
-            Token.objects.filter(
-                usuario=conta,
-                tipo=TipoToken.CONFIRMACAO_EMAIL,
-                usado_em__isnull=True,
-            ).update(usado_em=agora)
-            Token.objects.create(
-                usuario=conta,
-                tipo=TipoToken.CONFIRMACAO_EMAIL,
-                token_hash=hash_do_token(token),
-                expira_em=agora + VALIDADE_DO_LINK,
-            )
+        novo = Token.objects.create(
+            usuario=conta,
+            tipo=TipoToken.CONFIRMACAO_EMAIL,
+            token_hash=hash_do_token(token),
+            expira_em=agora + VALIDADE_DO_LINK,
+        )
 
         try:
             send_mail(
                 ASSUNTO,
-                CORPO.format(apelido=conta.apelido, link=self._link_do_pwa(token)),
+                corpo,
                 # None: usa o DEFAULT_FROM_EMAIL (nao-responda@..., ADR 0012).
                 None,
                 [conta.email_institucional],
             )
-        except Exception as exc:  # noqa: BLE001 - qualquer falha do backend de e-mail
-            # Só o id da conta e o nome da exceção: a mensagem de um erro SMTP
-            # pode trazer o endereço do destinatário. Sem traceback pelo mesmo
-            # motivo (ele mostraria os argumentos).
-            logger.error(
-                "Falha ao enviar o link de confirmação da conta %s: %s",
-                conta.pk,
-                type(exc).__name__,
-            )
+        except (smtplib.SMTPException, OSError) as exc:
+            # OSError cobre a rede: conexão recusada, timeout, erro de TLS.
+            novo.delete()
+            self._registrar_falha_no_envio(conta, exc)
+            return
+
+        # Só os links mais antigos que o novo (pk menor): se dois reenvios
+        # correrem juntos, o mais recente sobrevive, e não os dois morrem.
+        Token.objects.filter(
+            usuario=conta,
+            tipo=TipoToken.CONFIRMACAO_EMAIL,
+            usado_em__isnull=True,
+            pk__lt=novo.pk,
+        ).update(usado_em=agora)
+
+    def _registrar_falha_no_envio(self, conta: Usuario, exc: Exception) -> None:
+        """Log da falha sem dados pessoais.
+
+        Só o id da conta, o nome da exceção e o código SMTP (421, 550...), que
+        não carrega endereço. A mensagem da exceção fica de fora porque pode
+        trazer o destinatário (`SMTPRecipientsRefused` guarda o endereço), e o
+        traceback também, porque mostraria os argumentos.
+        """
+        codigo = getattr(exc, "smtp_code", None)
+        logger.error(
+            "Falha ao enviar o link de confirmação da conta %s: %s%s",
+            conta.pk,
+            type(exc).__name__,
+            f" (código SMTP {codigo})" if codigo is not None else "",
+        )
 
     def confirmar(self, token: str) -> None:
         """Ativa a conta dona do token. Levanta `TokenExpiradoOuInvalidoError`."""

@@ -11,6 +11,7 @@ cardápio: quem o coloca no cron do SO é a frente de banco (BD-07), junto do
 import logging
 
 from django.core.management.base import BaseCommand
+from django.db import DatabaseError
 from django.utils import timezone
 
 from apps.cadastro.confirmacao_email_service import VALIDADE_DO_LINK
@@ -28,11 +29,21 @@ class ExclusaoCadastroPendenteJob:
         limite = timezone.now() - VALIDADE_DO_LINK
         excluidas = 0
         # Lista antes de apagar (apagar no meio de um cursor aberto dá problema
-        # no SQLite). Uma conta por vez: cada exclusão confere o prazo de novo,
-        # na própria transação, então um reenvio no meio do job é respeitado.
+        # no SQLite). Uma conta por vez, cada uma na própria transação: a
+        # exclusão trava a conta e confere o prazo de novo, então um reenvio ou
+        # uma confirmação no meio do job são respeitados.
         for conta in list(self.conta_repository.pendentes_expiradas(limite)):
-            if self.conta_repository.excluir_pendente_expirada(conta, limite):
-                excluidas += 1
+            try:
+                if self.conta_repository.excluir_pendente_expirada(conta, limite):
+                    excluidas += 1
+            except DatabaseError as exc:
+                # Um erro numa conta (trava, FK de um token criado no meio) não
+                # pode impedir as outras: a que falhou fica para a próxima rodada.
+                logger.error(
+                    "Falha ao excluir o cadastro pendente %s: %s",
+                    conta.pk,
+                    type(exc).__name__,
+                )
         # Só a contagem: o log não leva matrícula nem e-mail (RNF07).
         logger.info("Cadastros pendentes expirados excluídos: %s", excluidas)
         return excluidas

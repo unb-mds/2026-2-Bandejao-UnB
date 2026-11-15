@@ -75,20 +75,25 @@ class ContaRepository:
     def excluir_pendente_expirada(self, conta, limite: datetime) -> bool:
         """Apaga a conta se ela ainda for pendente e expirada. Diz se apagou.
 
-        Confere de novo na hora de apagar: entre a listagem do job e aqui, a
-        pessoa pode ter confirmado ou pedido um link novo. Apaga pelo ORM (e
-        nunca por DELETE direto) para os tokens e a pontuação irem junto
-        (`on_delete=CASCADE`).
+        Entre a listagem do job e aqui, a pessoa pode ter confirmado ou pedido
+        um link novo. Por isso a conta é travada (`select_for_update`) antes de
+        o prazo ser conferido de novo: no MySQL, um reenvio ou uma confirmação
+        concorrentes esperam o fim desta transação. Se um deles fez commit
+        antes, a conferência já vê o link novo (ou a conta ativa) e não apaga.
+        No SQLite dos testes, a trava não tem efeito (ele trava o banco inteiro
+        na escrita), então lá só a conferência protege.
+
+        Apaga pelo ORM (e nunca por DELETE direto) para os tokens e a pontuação
+        irem junto (`on_delete=CASCADE`).
         """
+        modelo = get_user_model()
         with transaction.atomic():
-            ainda_expirada = (
-                self.pendentes_expiradas(limite)
-                .filter(pk=conta.pk)
-                .values_list("pk", flat=True)
-            )
-            # O QuerySet com agregação não aceita delete(): apaga pelos ids.
-            ids = list(ainda_expirada)
-            if not ids:
+            travada = modelo.objects.select_for_update().filter(pk=conta.pk).first()
+            if travada is None:
                 return False
-            get_user_model().objects.filter(pk__in=ids).delete()
+            ainda_expirada = self.pendentes_expiradas(limite).filter(pk=conta.pk)
+            if not ainda_expirada.exists():
+                return False
+            # Pelo id: o QuerySet com agregação (Max) não aceita delete().
+            modelo.objects.filter(pk=conta.pk).delete()
             return True
