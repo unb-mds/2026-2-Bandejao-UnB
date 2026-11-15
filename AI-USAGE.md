@@ -11,5 +11,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação inicial: resultados de SQLite, MySQL e cobertura registrados na descrição do PR e na [execução verde do CI](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/43680330500).
 - Prova com migration: `cardapio.0002_prova_bd02` aplicada com sucesso no MySQL no [PR #125](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/125), fechado sem merge.
 - Proteção da branch: job `testes-mysql` configurado como obrigatório na `develop`.
-- Revisão humana: [review inicial de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/124#pullrequestreview-5910959826) realizado; ajustes solicitados em andamento.
-- Pendências: validar os ajustes localmente e no CI e obter nova conferência do revisor, incluindo o checklist de testes gerados por IA da seção 3.10 do Plano de Testes.
+- Validação dos ajustes do review: [CI aprovado no commit 62f0e67](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/43730856149).
+- Revisão humana: [revisão dos ajustes por AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/124#pullrequestreview-5911855469), com merge autorizado após as correções finais.
+- Situação: observações finais registradas neste ajuste; conferir os checks do último commit antes do merge.

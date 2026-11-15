@@ -246,6 +246,8 @@ Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR par
 - A auditoria de `requirements-ci-mysql.txt`, incluindo o driver MySQL, acontece antes das migrations e dos testes.
 - A evidência de aceite inclui um PR de prova com migration executando os jobs SQLite e MySQL. Esse PR de prova é fechado sem merge.
 
+**Decisão sobre collation (BD-02):** o banco de testes MySQL mantém `utf8mb4_0900_ai_ci`, que ignora diferenças de acentos e maiúsculas/minúsculas nas comparações. Assim, `"Açúcar"` e `"acucar"` são considerados iguais: inserir ambos em `Marcador.nome`, que possui restrição de unicidade, provoca `IntegrityError` no MySQL. No SQLite, com a comparação padrão desse campo, os dois valores podem coexistir. Essa diferença entre os bancos é conhecida e fica documentada; a collation do MySQL é mantida.
+
 ### 5.2 `frontend-ci.yml` (FE-02, FE-17)
 
 | Job | Comandos | Bloqueia o merge |
