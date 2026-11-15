@@ -8,3 +8,8 @@ db.sqlite3
 # Editor
 .vscode/
 .idea/
+
+# Cobertura do pytest-cov
+.coverage
+.coverage.*
+htmlcov/
