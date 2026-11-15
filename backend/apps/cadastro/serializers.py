@@ -108,11 +108,13 @@ class ReenvioConfirmacaoEntradaSerializer(serializers.Serializer):
 class LoginEntradaSerializer(serializers.Serializer):
     """Corpo do POST /api/sessao/ (RF03.1, Cadastro N4 4c)."""
 
-    matriculaSiape = serializers.CharField(
+    # Texto, como no cadastro: um SIAPE enviado como número perderia o zero
+    # à esquerda.
+    matriculaSiape = TextoEstritoField(
         help_text="Matrícula (9 dígitos) ou SIAPE (7 dígitos), no mesmo campo.",
     )
     # Sem cortar os espaços das pontas, como no cadastro.
-    senha = serializers.CharField(write_only=True, trim_whitespace=False)
+    senha = TextoEstritoField(write_only=True, trim_whitespace=False)
 
 
 class SessaoSerializer(serializers.Serializer):

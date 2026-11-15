@@ -12,6 +12,8 @@ from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from config.parametros import AvisoPrivacidadeConfig
+
 # Tamanho do apelido (RN02). Único lugar com esses números: as regex abaixo,
 # o max_length das colunas e o ApelidoResolver leem daqui.
 APELIDO_TAMANHO_MINIMO = 3
@@ -139,7 +141,10 @@ class Usuario(AbstractBaseUser):
     aceite_privacidade_em = models.DateTimeField()
     versao_aviso_aceita = models.CharField(max_length=20)
     criado_em = models.DateTimeField(auto_now_add=True)
+    # Bloqueio de login (RF03.2), geridos pelo TentativaLoginTracker. A
+    # primeira falha marca o começo da janela de 10 minutos.
     tentativas_login_falhas = models.IntegerField(default=0)
+    primeira_falha_login_em = models.DateTimeField(null=True, blank=True)
     bloqueado_ate = models.DateTimeField(null=True, blank=True)
     removido_em = models.DateTimeField(null=True, blank=True)
 
@@ -156,6 +161,15 @@ class Usuario(AbstractBaseUser):
         barra o login dela é o LoginService (conta não confirmada, RF02/RF03).
         """
         return self.status not in (StatusUsuario.SUSPENSO, StatusUsuario.REMOVIDO)
+
+    def aviso_privacidade_pendente(self) -> bool:
+        """Falta a ciência da versão atual do aviso (RF11, RNF07.1, Cadastro N4 4d).
+
+        Método do model para a Fila (check-in) ler sem chamar o cadastro.
+        Trocar `AvisoPrivacidadeConfig.versao_atual` volta a gerar a pendência
+        para todos, sem mudar código.
+        """
+        return self.versao_aviso_aceita != AvisoPrivacidadeConfig.versao_atual
 
     def clean_fields(self, exclude=None):
         # NFC antes de validar: um "é" digitado já decomposto ("e" + acento

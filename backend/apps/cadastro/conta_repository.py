@@ -1,7 +1,7 @@
-"""Acesso às contas no cadastro (Cadastro N4 4a e 4b).
+"""Acesso às contas no cadastro (Cadastro N4 4a, 4b, 4c e 4d).
 
-Só o que a BE-05 e a BE-06 usam. `salvar` e o uso de `buscar_por_identificador`
-no login (BE-07) e `excluir` (exclusão de conta, BD-12) entram nas issues delas.
+Só o que a BE-05, a BE-06 e a BE-07 usam. `excluir` (exclusão de conta, BD-12)
+entra na issue dela.
 """
 
 from datetime import datetime
@@ -46,9 +46,21 @@ class ContaRepository:
             .values_list("apelido_normalizado", flat=True)
         )
 
-    def buscar_por_identificador(self, identificador: str):
-        """A conta da matrícula/SIAPE, ou None se não houver."""
-        return get_user_model().objects.filter(matricula_siape=identificador).first()
+    def buscar_por_identificador(self, identificador: str, travar: bool = False):
+        """A conta da matrícula/SIAPE, ou None se não houver.
+
+        `travar=True` (só dentro de `transaction.atomic`) trava a linha até o
+        fim da transação, como o login faz para contar as tentativas.
+        """
+        contas = get_user_model().objects.filter(matricula_siape=identificador)
+        if travar:
+            contas = contas.select_for_update()
+        return contas.first()
+
+    def salvar(self, conta, campos: list[str] | None = None):
+        """Grava a conta. Com `campos`, só eles (o resto em memória pode estar velho)."""
+        conta.save(update_fields=campos)
+        return conta
 
     def pendentes_expiradas(self, limite: datetime):
         """Contas pendentes cujo último link de confirmação saiu antes de `limite`.
