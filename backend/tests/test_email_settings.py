@@ -166,8 +166,11 @@ def test_erro_do_on_commit_aparece_no_log_em_producao(carregar_settings, capsys)
         )
         saida = capsys.readouterr().err
     finally:
-        # Volta o logging do resto da suíte.
-        configure_logging(settings.LOGGING_CONFIG, settings.LOGGING)
+        # Volta o logging do resto da suíte, fora do capsys: dentro dele, os
+        # handlers recriados guardariam o stderr falso, que o capsys fecha no
+        # fim do teste ("I/O operation on closed file" nos testes seguintes).
+        with capsys.disabled():
+            configure_logging(settings.LOGGING_CONFIG, settings.LOGGING)
 
     assert "on_commit" in saida
     assert "ERROR" in saida
