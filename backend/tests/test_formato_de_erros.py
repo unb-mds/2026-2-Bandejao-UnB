@@ -128,10 +128,10 @@ def log_de_requisicoes():
 
 def test_erro_5xx_vai_para_o_log_em_producao(log_de_requisicoes):
     """Sem o LOGGING, com DEBUG=False um 5xx não aparece em lugar nenhum."""
-    # As views ainda sem lógica respondem 501.
-    APIClient().post("/api/cadastro/", {}, format="json")
+    # As views ainda sem lógica respondem 501 (o login vem na BE-07).
+    APIClient().post("/api/sessao/", {}, format="json")
 
-    assert any("/api/cadastro/" in m for m in log_de_requisicoes)
+    assert any("/api/sessao/" in m for m in log_de_requisicoes)
 
 
 def test_log_nao_mostra_o_token_da_confirmacao_de_email(log_de_requisicoes):
