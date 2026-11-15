@@ -19,7 +19,7 @@ ROTA = "/api/cadastro/"
 
 @pytest.fixture(autouse=True)
 def hoje_fixo():
-    """2º semestre de 2026: o último prefixo de matrícula aceito é 262."""
+    """Em 2026, o último ano aceito no prefixo da matrícula é 26."""
     with mock.patch(
         "apps.cadastro.validadores.timezone.localdate", return_value=date(2026, 11, 14)
     ):
@@ -142,9 +142,8 @@ def test_email_de_estudante_fora_do_formato(cliente, email):
     [
         ("25109873", "9 dígitos"),  # 8 dígitos (L10)
         ("25109873a", "9 dígitos"),  # letra
-        ("091098732", "semestre de ingresso"),  # antes de 2010
-        ("253098732", "semestre de ingresso"),  # 3º dígito inválido
-        ("271098732", "semestre de ingresso"),  # semestre futuro
+        ("091098732", "ano de ingresso"),  # antes de 2010
+        ("271098732", "ano de ingresso"),  # ano futuro
         ("251123456", "Confira os dígitos"),  # crescente
         ("251654321", "Confira os dígitos"),  # decrescente
         ("251111111", "Confira os dígitos"),  # todos iguais
@@ -160,7 +159,7 @@ def test_matricula_impossivel_e_rejeitada_com_mensagem_especifica(
     assert_422(resposta, trecho)
 
 
-def test_novo_semestre_aceito_sem_mudar_codigo(cliente):
+def test_novo_ano_aceito_sem_mudar_codigo(cliente):
     with mock.patch(
         "apps.cadastro.validadores.timezone.localdate", return_value=date(2027, 2, 1)
     ):
@@ -407,3 +406,12 @@ def test_aceite_so_vale_com_o_booleano_true(cliente, valor):
 
     assert_422(resposta, "aviso de privacidade")
     assert not Usuario.objects.exists()
+
+
+def test_matricula_com_terceiro_digito_fora_de_1_e_2_e_aceita(cliente):
+    """Outros níveis de ensino podem ter outro 3º dígito (ADR 0002, L16)."""
+    resposta = cliente.post(
+        ROTA, estudante(emailInstitucional="250098732@aluno.unb.br"), format="json"
+    )
+
+    assert resposta.status_code == 201

@@ -10,10 +10,9 @@ from apps.cadastro.validadores import (
     MatriculaValidator,
     SenhaValidator,
     SiapeValidator,
-    codigo_semestre,
 )
 
-# 2º semestre de 2026: o último prefixo aceito é 262 (Anexo A).
+# Em 2026, o último ano aceito no prefixo é 26 (Anexo A).
 HOJE = date(2026, 11, 14)
 
 
@@ -47,50 +46,57 @@ def test_matricula_fora_do_formato_e_rejeitada(matricula, valor):
 
 
 # --- MatriculaValidator.validar_prefixo_ano_semestre (RN01, Anexo A) ---------
+#
+# Só o ano é conferido: os 2 primeiros dígitos, de 10 (2010) ao ano corrente.
+# O 3º dígito pode ser qualquer um: ele é 1 ou 2 na graduação, mas não há
+# confirmação para os outros níveis de ensino (ADR 0002, L16).
 
 
-@pytest.mark.parametrize("valor", ["101098732", "102098732", "251098732", "262098732"])
-def test_prefixo_entre_101_e_o_semestre_corrente_e_aceito(matricula, valor):
+@pytest.mark.parametrize(
+    "valor",
+    [
+        "101098732",  # 2010, o primeiro ano aceito
+        "251098732",
+        "262098732",  # ano corrente
+        "260098732",  # 3º dígito 0
+        "263098732",  # 3º dígito 3
+        "269098732",  # 3º dígito 9
+    ],
+)
+def test_ano_entre_2010_e_o_ano_corrente_e_aceito(matricula, valor):
     assert matricula.validar_prefixo_ano_semestre(valor)
 
 
 @pytest.mark.parametrize(
     "valor",
     [
-        "091098732",  # 2009: antes da janela
-        "100098732",  # 3º dígito 0
-        "253098732",  # 3º dígito 3
-        "271098732",  # 1º semestre de 2027: "futuro"
+        "091098732",  # 2009: antes de 2010 (L10)
+        "001098732",  # 2000
+        "271098732",  # 2027: ano futuro
         "999098732",
+        "2a1098732",  # não é número
     ],
 )
-def test_prefixo_fora_da_janela_e_rejeitado(matricula, valor):
+def test_ano_fora_do_intervalo_e_rejeitado(matricula, valor):
     assert not matricula.validar_prefixo_ano_semestre(valor)
 
 
-def test_no_1o_semestre_o_prefixo_do_2o_ainda_e_futuro():
-    validador = MatriculaValidator(hoje=date(2026, 6, 30))
-
-    assert validador.validar_prefixo_ano_semestre("261098732")
-    assert not validador.validar_prefixo_ano_semestre("262098732")
-
-
-def test_virada_de_semestre_aceita_o_novo_prefixo_sem_mudar_codigo():
+def test_virada_de_ano_aceita_o_novo_ano_sem_mudar_codigo():
     """RF01.3: o intervalo é recalculado a partir da data."""
-    validador = MatriculaValidator(hoje=date(2027, 1, 1))
+    em_dezembro = MatriculaValidator(hoje=date(2026, 12, 31))
+    em_janeiro = MatriculaValidator(hoje=date(2027, 1, 1))
 
-    assert validador.validar_prefixo_ano_semestre("271098732")
-    assert not validador.validar_prefixo_ano_semestre("272098732")
+    assert not em_dezembro.validar_prefixo_ano_semestre("271098732")
+    assert em_janeiro.validar_prefixo_ano_semestre("271098732")
+    assert em_janeiro.validar_prefixo_ano_semestre("272098732")
 
 
-def test_sem_data_usa_o_dia_de_hoje():
-    hoje = timezone.localdate()
-    atual = codigo_semestre(hoje)
-    proximo = atual + 9 if atual % 10 == 2 else atual + 1
+def test_sem_data_usa_o_ano_de_hoje():
+    ano = timezone.localdate().year % 100
     validador = MatriculaValidator()
 
-    assert validador.validar_prefixo_ano_semestre(f"{atual}098732")
-    assert not validador.validar_prefixo_ano_semestre(f"{proximo}098732")
+    assert validador.validar_prefixo_ano_semestre(f"{ano:02d}1098732")
+    assert not validador.validar_prefixo_ano_semestre(f"{ano + 1:02d}1098732")
 
 
 # --- MatriculaValidator.validar_sequencia_digitos (RN01) ---------------------
