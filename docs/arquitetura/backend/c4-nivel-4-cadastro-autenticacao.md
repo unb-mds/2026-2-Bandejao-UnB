@@ -293,9 +293,13 @@ classDiagram
 - **Sem teto absoluto (pendente).** Como cada reenvio renova o prazo, uma conta
   pendente pode ficar viva para sempre se alguém pedir reenvio a cada menos de
   24 h. O limite de pedidos fica na #123; um teto (por exemplo, `criado_em` + N
-  dias) ainda precisa ser decidido pelo grupo e registrado no Anexo A. O `TokenConfirmacao` é o model `Token` com
+  dias) ainda precisa ser decidido pelo grupo e registrado no Anexo A.
+- **Token.** O `TokenConfirmacao` é o model `Token` com
   `tipo = confirmacao_email`: o campo `usado` é a coluna `usado_em`, e o
   `token` em claro só existe no e-mail (o banco guarda o SHA-256).
+- **Primeiro envio que falha.** O token não entregue é apagado, então a conta
+  fica sem link, e o prazo do job passa a contar do `criado_em` da conta. Sem
+  um reenvio, ela é apagada em 24 h, e a falha fica no log.
 - **Link do e-mail.** Aponta para a página `/confirmar-email` do PWA
   (`URL_DO_PWA` no `.env`), que chama `POST /api/confirmar-email/{token}/`.
 - **Reenvio.** `contaParaReenvio` acha a conta pela matrícula/SIAPE ou por um
