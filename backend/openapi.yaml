@@ -102,7 +102,7 @@ paths:
   /api/cadastro/:
     post:
       operationId: cadastro_create
-      description: POST /api/cadastro/ (RF01, Cadastro N4 4a). Lógica na BE-05.
+      description: POST /api/cadastro/ (RF01, Cadastro N4 4a).
       summary: Cria uma conta pendente
       tags:
       - cadastro
@@ -128,14 +128,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApelidoIndisponivel'
           description: 'Só professor/servidor: o apelido extraído do e-mail já existe
-            ou é inválido. Reenviar com `apelido`.'
+            ou é inválido. Reenviar com `apelido`. `codigo`: `apelido_indisponivel`.'
         '422':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: Dados rejeitados. Matrícula/SIAPE ou e-mail já usados dão a
-            mesma mensagem, sem dizer qual dos dois (RI01).
+          description: 'Dados rejeitados, com mensagem específica (RF01). Matrícula/SIAPE
+            ou e-mail já usados dão a mesma mensagem, sem dizer qual dos dois (RF01.5).
+            `codigo`: `dados_invalidos`.'
         '403':
           content:
             application/json:
