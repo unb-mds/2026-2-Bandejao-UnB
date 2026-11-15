@@ -102,6 +102,11 @@ if DB_ENGINE == "mysql":
             "PORT": config("DB_PORT", default="3306"),
             "OPTIONS": {
                 "charset": "utf8mb4",
+                "isolation_level": "read committed",
+            },
+            "TEST": {
+                "CHARSET": "utf8mb4",
+                "COLLATION": "utf8mb4_0900_ai_ci",
             },
         }
     }

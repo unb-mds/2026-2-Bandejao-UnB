@@ -52,3 +52,63 @@ jobs:
     - run: bandit -r apps config -lll
     - run: pip-audit -r requirements-dev.txt
     - run: pipx run --spec semgrep==1.184.0 semgrep scan --config p/python --config p/django --severity ERROR --error --metrics=off
+
+  testes-mysql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: senha-ci-descartavel
+          MYSQL_ROOT_HOST: "%"
+          MYSQL_DATABASE: bandejao_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+    env:
+      SECRET_KEY: chave-exclusiva-do-ci
+      DB_ENGINE: mysql
+      DB_NAME: bandejao_ci
+      DB_USER: root
+      DB_PASSWORD: senha-ci-descartavel
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+            backend/requirements-ci-mysql.txt
+
+      - name: Instalar bibliotecas do MySQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y default-libmysqlclient-dev build-essential pkg-config
+
+      - name: Instalar dependências Python
+        run: python -m pip install -r requirements-ci-mysql.txt
+
+      - name: Conferir migrations pendentes
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Aplicar migrations do zero
+        run: python manage.py migrate --noinput
+
+      - name: Executar testes no MySQL
+        run: python -m pytest --cov=apps --cov-branch --cov-fail-under=70
+
+      - name: Auditar dependências
+        run: pip-audit -r requirements-ci-mysql.txt
