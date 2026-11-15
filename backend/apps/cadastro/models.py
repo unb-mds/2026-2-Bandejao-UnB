@@ -12,12 +12,17 @@ from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.core.exceptions import ValidationError
 from django.db import models
 
-# Apelido digitado: de 3 a 20 caracteres, só letras, números, ponto, hífen e
-# sublinhado (sem espaço nem caractere invisível). `fullmatch` evita o `$`, que
-# aceitaria uma quebra de linha no fim.
-FORMATO_APELIDO = re.compile(r"[\w.-]{3,20}")
-# Apelido depois de normalizado: ASCII minúsculo, de 3 a 20 caracteres.
-FORMATO_APELIDO_NORMALIZADO = re.compile(r"[a-z0-9._-]{3,20}")
+# Tamanho do apelido (RN02). Único lugar com esses números: as regex abaixo,
+# o max_length das colunas e o ApelidoResolver leem daqui.
+APELIDO_TAMANHO_MINIMO = 3
+APELIDO_TAMANHO_MAXIMO = 20
+_TAMANHO = f"{{{APELIDO_TAMANHO_MINIMO},{APELIDO_TAMANHO_MAXIMO}}}"
+# Apelido digitado: só letras, números, ponto, hífen e sublinhado (sem espaço
+# nem caractere invisível). `fullmatch` evita o `$`, que aceitaria uma quebra
+# de linha no fim.
+FORMATO_APELIDO = re.compile(rf"[\w.-]{_TAMANHO}")
+# Apelido depois de normalizado: ASCII minúsculo.
+FORMATO_APELIDO_NORMALIZADO = re.compile(rf"[a-z0-9._-]{_TAMANHO}")
 MENSAGEM_APELIDO = (
     "O apelido deve ter de 3 a 20 caracteres: letras (com ou sem acento), "
     "números, ponto, hífen ou sublinhado, sem espaço."
@@ -33,6 +38,11 @@ def normalizar_apelido(apelido: str) -> str:
     texto = unicodedata.normalize("NFKD", apelido).casefold()
     texto = unicodedata.normalize("NFKD", texto)
     return "".join(c for c in texto if not unicodedata.combining(c))
+
+
+def normalizar_email(email: str) -> str:
+    """Sem espaços nas pontas e em minúsculas, para o UNIQUE ser igual nos dois bancos."""
+    return email.strip().lower()
 
 
 def validar_apelido(valor: str) -> None:
@@ -106,11 +116,15 @@ class Usuario(AbstractBaseUser):
     tipo_usuario = models.CharField(max_length=20, choices=TipoUsuario.choices)
     # Dado privado (RI10, RNF07): nunca em resposta pública. Texto claro (ADR 0008).
     matricula_siape = models.CharField(max_length=9, unique=True)
-    apelido = models.CharField(max_length=20, validators=[validar_apelido])
+    apelido = models.CharField(
+        max_length=APELIDO_TAMANHO_MAXIMO, validators=[validar_apelido]
+    )
     # Gerado no save(). Só tem [a-z0-9._-] (garantido por `validar_apelido`),
     # então a collation do banco não muda o resultado do UNIQUE. Atenção:
     # QuerySet.update() e bulk_create() não passam pelo save().
-    apelido_normalizado = models.CharField(max_length=20, unique=True, editable=False)
+    apelido_normalizado = models.CharField(
+        max_length=APELIDO_TAMANHO_MAXIMO, unique=True, editable=False
+    )
     # Gravado sempre em minúsculas (save), para o UNIQUE ser igual nos dois bancos.
     email_institucional = models.EmailField(unique=True)
     # Coluna `senha_hash` do Nível 4. Grave sempre por set_password() ou
@@ -170,7 +184,7 @@ class Usuario(AbstractBaseUser):
             self.apelido = unicodedata.normalize("NFC", self.apelido)
         self.apelido_normalizado = normalizar_apelido(self.apelido)
         if self.email_institucional:
-            self.email_institucional = self.email_institucional.strip().lower()
+            self.email_institucional = normalizar_email(self.email_institucional)
         # Com save(update_fields=[...]), o campo derivado precisa ir junto,
         # senão a unicidade do apelido quebra sem erro.
         update_fields = kwargs.get("update_fields")

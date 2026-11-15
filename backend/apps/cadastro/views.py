@@ -13,9 +13,11 @@ from apps.cadastro.cadastro_service import (
     MENSAGEM_AVISO,
     MENSAGEM_DADOS,
     MENSAGEM_SENHA,
+    MENSAGEM_SIAPE,
     CadastroService,
 )
 from apps.cadastro.erros import ApelidoIndisponivelError, CadastroInvalidoError
+from apps.cadastro.models import MENSAGEM_APELIDO
 from apps.cadastro.serializers import (
     ApelidoIndisponivelSerializer,
     CadastroCriadoSerializer,
@@ -26,13 +28,16 @@ from apps.cadastro.serializers import (
 )
 from config.erros import ErroSerializer
 
-# Mensagem do 422 quando o corpo nem passa no serializer, na ordem em que os
-# campos são conferidos. O {"campo": [...]} do DRF, em inglês, não vai ao front.
+# Mensagem do 422 quando o corpo nem passa no serializer. O DRF devolve todos
+# os campos com erro; a ordem abaixo é a prioridade escolhida pelo time para
+# mostrar um só. O {"campo": [...]} do DRF, em inglês, não vai ao front.
 MENSAGENS_DO_SERIALIZER = (
     ("tipoUsuario", "Escolha se você é aluno, professor ou servidor."),
     ("aceitePrivacidade", MENSAGEM_AVISO),
     ("emailInstitucional", "Informe o seu e-mail institucional da UnB."),
+    ("matriculaSiape", MENSAGEM_SIAPE),
     ("senha", MENSAGEM_SENHA),
+    ("apelido", MENSAGEM_APELIDO),
 )
 
 
@@ -91,9 +96,10 @@ class CadastroView(APIView):
             422: OpenApiResponse(
                 ErroSerializer,
                 description=(
-                    "Dados rejeitados, com mensagem específica (RF01). "
-                    "Matrícula/SIAPE ou e-mail já usados dão a mesma "
-                    "mensagem, sem dizer qual dos dois (RF01.5). "
+                    "Dados rejeitados. A mensagem diz o que corrigir, exceto "
+                    "quando o corpo vem fora do formato esperado (mensagem "
+                    "genérica). Matrícula/SIAPE ou e-mail já usados dão a "
+                    "mesma mensagem, sem dizer qual dos dois (RF01.5). "
                     "`codigo`: `dados_invalidos`."
                 ),
             ),
@@ -109,9 +115,10 @@ class CadastroView(APIView):
             )
             return dados_invalidos(mensagem)
 
-        dados = entrada.validated_data
         try:
-            conta = CadastroService().registrar(dados["tipoUsuario"], dados)
+            conta = CadastroService().registrar(
+                entrada.validated_data["tipoUsuario"], entrada.para_dados_cadastro()
+            )
         except ApelidoIndisponivelError as erro:
             return Response(
                 {

@@ -10,6 +10,8 @@ lê do `settings.py` (duração da sessão, fuso) continuam lá, e a classe só 
 expõe, para o número do Anexo A não ficar escrito em dois lugares.
 """
 
+from typing import Final
+
 
 class AvisoPrivacidadeConfig:
     """Versão do aviso de privacidade em vigor (RF11, RNF07.1, Cadastro N4 4a e 4d).
@@ -20,4 +22,4 @@ class AvisoPrivacidadeConfig:
 
     # Igual à "Versão" de docs/requisitos/aviso-de-privacidade.md (DOC-03).
     # Um teste falha se as duas ficarem diferentes.
-    versao_atual = "2026-11-14"
+    versao_atual: Final = "2026-11-14"

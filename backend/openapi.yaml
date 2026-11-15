@@ -134,7 +134,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Dados rejeitados, com mensagem específica (RF01). Matrícula/SIAPE
+          description: 'Dados rejeitados. A mensagem diz o que corrigir, exceto quando
+            o corpo vem fora do formato esperado (mensagem genérica). Matrícula/SIAPE
             ou e-mail já usados dão a mesma mensagem, sem dizer qual dos dois (RF01.5).
             `codigo`: `dados_invalidos`.'
         '403':
@@ -798,22 +799,24 @@ components:
           type: string
           format: email
           minLength: 1
+          maxLength: 254
         senha:
           type: string
           writeOnly: true
           minLength: 8
         apelido:
           type: string
-          minLength: 1
-          description: Obrigatório para estudante. Professor/servidor só envia depois
-            de um 409 apelido_indisponivel.
+          nullable: true
+          description: Obrigatório para estudante. Professor/servidor pode deixar
+            vazio (o apelido sai do e-mail) ou digitar um, como depois de um 409 apelido_indisponivel.
         matriculaSiape:
           type: string
-          minLength: 1
-          description: SIAPE de 7 dígitos. Só para professor/servidor.
+          nullable: true
+          description: SIAPE de 7 dígitos, como texto. Só para professor/servidor.
         aceitePrivacidade:
           type: boolean
-          description: Ciência do aviso de privacidade (RNF07.1). Precisa ser true.
+          description: Ciência do aviso de privacidade (RNF07.1). Precisa ser o booleano
+            true.
       required:
       - aceitePrivacidade
       - emailInstitucional

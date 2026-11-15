@@ -24,7 +24,13 @@ TAMANHO_MINIMO_SENHA = 8
 
 
 def codigo_semestre(dia: date) -> int:
-    """Código de ano/semestre do dia (ex.: 262 no 2º semestre de 2026)."""
+    """Código de ano/semestre do dia (ex.: 262 no 2º semestre de 2026).
+
+    Aproximação: usa o semestre do calendário (janeiro a junho, julho a
+    dezembro), e não o calendário letivo da UnB, e o dia vem de
+    `timezone.localdate()` com `TIME_ZONE = "UTC"`. Na virada, um prefixo novo
+    pode ser aceito algumas horas antes ou depois.
+    """
     semestre = 1 if dia.month <= 6 else 2
     return (dia.year % 100) * 10 + semestre
 
@@ -50,7 +56,11 @@ class MatriculaValidator:
         return PRIMEIRO_PREFIXO <= int(prefixo) <= codigo_semestre(hoje)
 
     def validar_sequencia_digitos(self, matricula: str) -> bool:
-        """Rejeita os 6 dígitos finais crescentes, decrescentes ou todos iguais."""
+        """Rejeita os 6 dígitos finais todos iguais ou em sequência de passo 1.
+
+        Passo 1 para cima (`123456`) ou para baixo (`654321`). `251567890`
+        passa, porque de 9 para 0 o passo não é 1.
+        """
         final = matricula[3:]
         if not re.fullmatch(r"[0-9]{6}", final):
             return False

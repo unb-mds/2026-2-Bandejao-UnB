@@ -1,7 +1,7 @@
 """Regras do apelido no cadastro (RN02, RF01.5, ADR 0002, Cadastro N4 4a).
 
-- Digitado (Estudante, ou Professor/Servidor depois do 409): formato da RN02
-  e disponibilidade; se falhar, o cadastro é rejeitado (422).
+- Digitado (Estudante, ou Professor/Servidor que preferir digitar): formato
+  da RN02 e disponibilidade; se falhar, o cadastro é rejeitado (422).
 - Extraído do e-mail (Professor/Servidor): sem os caracteres não
   alfanuméricos; se ficar em uso ou fora do tamanho, o erro é recuperável
   (409) e traz uma sugestão livre para a pessoa confirmar ou trocar.
@@ -10,18 +10,30 @@
 import re
 import unicodedata
 
-from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
+from apps.cadastro.conta_repository import ContaRepository
 from apps.cadastro.erros import ApelidoIndisponivelError, CadastroInvalidoError
-from apps.cadastro.models import MENSAGEM_APELIDO, normalizar_apelido, validar_apelido
+from apps.cadastro.models import (
+    APELIDO_TAMANHO_MAXIMO,
+    APELIDO_TAMANHO_MINIMO,
+    MENSAGEM_APELIDO,
+    normalizar_apelido,
+    validar_apelido,
+)
 
 MENSAGEM_APELIDO_EM_USO = "Este apelido já está em uso. Escolha outro."
-TAMANHO_MINIMO = 3
-TAMANHO_MAXIMO = 20
+PEDIDO_DE_APELIDO = "Escolha um apelido para exibir nas suas avaliações."
+# A raiz da sugestão é cortada aqui para sobrar espaço para o número (como no
+# simulado do front, #119). Com 3 dígitos ou mais, a raiz encurta mais.
+TAMANHO_RAIZ_SUGESTAO = 18
+TENTATIVAS_SUGESTAO = 999
 
 
 class ApelidoResolver:
+    def __init__(self, conta_repository: ContaRepository | None = None):
+        self.conta_repository = conta_repository or ContaRepository()
+
     def resolver_manual(self, apelido_digitado: str) -> str:
         """Devolve o apelido digitado, já sem espaços nas pontas e em NFC."""
         apelido = unicodedata.normalize("NFC", apelido_digitado.strip())
@@ -36,21 +48,34 @@ class ApelidoResolver:
     def resolver_extraido(self, texto_antes_do_arroba: str) -> str:
         """`maria.silva` vira `mariasilva` (RF01.4)."""
         apelido = self._limpar_caracteres_nao_alfanumericos(texto_antes_do_arroba)
-        tamanho_ok = TAMANHO_MINIMO <= len(apelido) <= TAMANHO_MAXIMO
-        if tamanho_ok and self.validar_disponibilidade(apelido):
-            return apelido
-        raise ApelidoIndisponivelError(
-            f'Não foi possível usar "{apelido}" como apelido. '
-            "Escolha um apelido para exibir nas suas avaliações.",
-            apelido_sugerido=self._sugerir(apelido),
-        )
+        try:
+            validar_apelido(apelido)
+        except ValidationError:
+            raise self.indisponivel(apelido) from None
+        if not self.validar_disponibilidade(apelido):
+            raise self.indisponivel(apelido)
+        return apelido
 
     def validar_disponibilidade(self, apelido: str) -> bool:
         """Livre sem distinguir maiúsculas nem acentos (mesma regra do UNIQUE)."""
-        return not (
-            get_user_model()
-            .objects.filter(apelido_normalizado=normalizar_apelido(apelido))
-            .exists()
+        return not self.conta_repository.existe_apelido(apelido)
+
+    def indisponivel(self, apelido_extraido: str) -> ApelidoIndisponivelError:
+        """O 409 do apelido extraído, com uma sugestão livre."""
+        if apelido_extraido:
+            exibido = apelido_extraido[:APELIDO_TAMANHO_MAXIMO]
+            if len(apelido_extraido) > APELIDO_TAMANHO_MAXIMO:
+                exibido += "…"
+            mensagem = (
+                f'Não foi possível usar "{exibido}" como apelido. {PEDIDO_DE_APELIDO}'
+            )
+        else:
+            mensagem = (
+                "Não foi possível gerar um apelido a partir do seu e-mail. "
+                f"{PEDIDO_DE_APELIDO}"
+            )
+        return ApelidoIndisponivelError(
+            mensagem, apelido_sugerido=self._sugerir(apelido_extraido)
         )
 
     def _limpar_caracteres_nao_alfanumericos(self, texto: str) -> str:
@@ -61,14 +86,17 @@ class ApelidoResolver:
     def _sugerir(self, apelido: str) -> str:
         """Primeiro `<raiz><n>` livre, com no máximo 20 caracteres.
 
-        Mesma regra do simulado do front (#119): completa com "0" até 3
-        caracteres e corta a raiz em 18, para caber o número.
+        Completa com "0" até 3 caracteres (como o simulado do front, #119) e
+        busca de uma vez os apelidos em uso que começam com a raiz.
         """
-        raiz = apelido.ljust(TAMANHO_MINIMO, "0")
-        n = 1
-        while True:
+        raiz = apelido.ljust(APELIDO_TAMANHO_MINIMO, "0")
+        tamanho_minimo_raiz = APELIDO_TAMANHO_MAXIMO - len(str(TENTATIVAS_SUGESTAO))
+        em_uso = self.conta_repository.apelidos_com_prefixo(raiz[:tamanho_minimo_raiz])
+        for n in range(1, TENTATIVAS_SUGESTAO + 1):
             sufixo = str(n)
-            candidato = raiz[: min(18, TAMANHO_MAXIMO - len(sufixo))] + sufixo
-            if self.validar_disponibilidade(candidato):
+            corte = min(TAMANHO_RAIZ_SUGESTAO, APELIDO_TAMANHO_MAXIMO - len(sufixo))
+            candidato = raiz[:corte] + sufixo
+            if normalizar_apelido(candidato) not in em_uso:
                 return candidato
-            n += 1
+        # Só com 999 apelidos iguais em uso: é um erro do sistema, não da pessoa.
+        raise RuntimeError(f"Sem sugestão livre de apelido para a raiz {raiz!r}")

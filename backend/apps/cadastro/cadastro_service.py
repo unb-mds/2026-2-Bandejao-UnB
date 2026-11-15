@@ -1,15 +1,21 @@
 """CadastroService: cria a conta pendente (RF01, RN01, RN02, Cadastro N4 4a).
 
-Ordem das checagens (a mesma do simulado do front, #119):
+Ordem das checagens do serviço (a mesma do simulado do front, #119):
 1. ciência do aviso de privacidade;
-2. formato do e-mail e da matrícula/SIAPE do tipo escolhido;
+2. formato do e-mail e da matrícula (Estudante) ou do SIAPE e do e-mail
+   (Professor/Servidor);
 3. senha;
 4. matrícula/SIAPE ou e-mail já usados (mesma mensagem para os dois);
 5. apelido.
 A duplicidade vem antes do apelido: senão, o 409 do apelido de um
 Professor/Servidor confirmaria que aquele e-mail ainda não tem conta.
+
+Pelo endpoint, o serializer barra antes o que nem tem o formato certo (senha
+curta, e-mail malformado, aceite que não é booleano). A ordem acima vale para
+o que passa por ele.
 """
 
+import logging
 from datetime import date
 
 from django.contrib.auth import get_user_model
@@ -19,13 +25,14 @@ from django.utils import timezone
 
 from apps.cadastro.apelido_resolver import MENSAGEM_APELIDO_EM_USO, ApelidoResolver
 from apps.cadastro.conta_repository import ContaRepository
+from apps.cadastro.dados_cadastro import DadosCadastro
 from apps.cadastro.erros import (
     CadastroInvalidoError,
     EmailJaCadastradoError,
     IdentificadorJaCadastradoError,
 )
 from apps.cadastro.identificador_extractor import extractor_para
-from apps.cadastro.models import TipoUsuario
+from apps.cadastro.models import TipoUsuario, Usuario
 from apps.cadastro.validadores import (
     EmailInstitucionalValidator,
     MatriculaValidator,
@@ -34,6 +41,8 @@ from apps.cadastro.validadores import (
 )
 from apps.gamificacao.pontuacao_service import PontuacaoService
 from config.parametros import AvisoPrivacidadeConfig
+
+logger = logging.getLogger(__name__)
 
 MENSAGEM_AVISO = "É preciso aceitar o aviso de privacidade para criar a conta."
 MENSAGEM_EMAIL_ESTUDANTE = (
@@ -59,27 +68,30 @@ class CadastroService:
         self.siape_validator = SiapeValidator()
         self.email_validator = EmailInstitucionalValidator()
         self.senha_validator = SenhaValidator()
-        self.apelido_resolver = ApelidoResolver()
         self.conta_repository = ContaRepository()
+        self.apelido_resolver = ApelidoResolver(self.conta_repository)
         self.pontuacao_service = PontuacaoService()
+        self.validacoes_por_tipo = {
+            TipoUsuario.ESTUDANTE: self._validar_estudante,
+            TipoUsuario.PROFESSOR_SERVIDOR: self._validar_professor_servidor,
+        }
 
-    def registrar(self, tipo_usuario: TipoUsuario, dados: dict):
+    def registrar(self, tipo_usuario: TipoUsuario, dados: DadosCadastro) -> Usuario:
         """Cria a conta `pendente` e os contadores dela, na mesma transação.
 
         Levanta `CadastroInvalidoError` (422) ou `ApelidoIndisponivelError` (409).
         """
-        if dados.get("aceitePrivacidade") is not True:
+        if dados.aceite_privacidade is not True:
             raise CadastroInvalidoError(MENSAGEM_AVISO)
 
-        email = dados.get("emailInstitucional", "").strip()
+        validar = self.validacoes_por_tipo.get(tipo_usuario)
+        if validar is None:
+            raise ValueError(f"Tipo de usuário sem regra de cadastro: {tipo_usuario!r}")
+        email = dados.email_institucional.strip()
         extraido = extractor_para(tipo_usuario).extrair(dados)
-        if tipo_usuario == TipoUsuario.ESTUDANTE:
-            self._validar_estudante(email, extraido.identificador)
-        else:
-            self._validar_professor_servidor(email, extraido.identificador)
+        validar(email, extraido.identificador)
 
-        senha = dados.get("senha", "")
-        if not self.senha_validator.validar(senha):
+        if not self.senha_validator.validar(dados.senha):
             raise CadastroInvalidoError(MENSAGEM_SENHA)
 
         if self.conta_repository.existe_matricula_ou_siape(extraido.identificador):
@@ -87,17 +99,22 @@ class CadastroService:
         if self.conta_repository.existe_email(email):
             raise EmailJaCadastradoError
 
-        apelido_digitado = (dados.get("apelido") or "").strip()
-        if tipo_usuario == TipoUsuario.ESTUDANTE or apelido_digitado:
-            apelido = self.apelido_resolver.resolver_manual(apelido_digitado)
-        else:
+        # Sem apelido sugerido (Estudante) ou com um apelido digitado, vale o
+        # digitado. Senão, o apelido sai do e-mail (Professor/Servidor).
+        apelido_digitado = dados.apelido.strip()
+        apelido_extraido = (
+            extraido.apelido_sugerido is not None and not apelido_digitado
+        )
+        if apelido_extraido:
             apelido = self.apelido_resolver.resolver_extraido(extraido.apelido_sugerido)
+        else:
+            apelido = self.apelido_resolver.resolver_manual(apelido_digitado)
 
         try:
             with transaction.atomic():
                 conta = get_user_model().objects.create_user(
                     matricula_siape=extraido.identificador,
-                    password=senha,
+                    password=dados.senha,
                     tipo_usuario=tipo_usuario,
                     apelido=apelido,
                     email_institucional=email,
@@ -106,15 +123,45 @@ class CadastroService:
                 )
                 self.pontuacao_service.inicializar_conta(conta)
         except IntegrityError as exc:
-            # Outro cadastro igual entrou entre a checagem e o INSERT: quem
-            # decide é o UNIQUE do banco.
-            if not self.apelido_resolver.validar_disponibilidade(apelido):
-                raise CadastroInvalidoError(MENSAGEM_APELIDO_EM_USO) from exc
-            raise IdentificadorJaCadastradoError from exc
+            self._classificar_corrida(
+                exc,
+                tipo_usuario,
+                extraido.identificador,
+                email,
+                apelido,
+                apelido_extraido,
+            )
+            raise
         except ValidationError as exc:
-            # Sobra do full_clean do model (ex.: e-mail com mais de 254 caracteres).
+            # Sobra do full_clean do model, que o serializer deveria ter barrado.
+            logger.warning(
+                "Cadastro recusado pelo full_clean do model: %s",
+                sorted(exc.message_dict),
+            )
             raise CadastroInvalidoError(MENSAGEM_DADOS) from exc
         return conta
+
+    def _classificar_corrida(
+        self, exc, tipo_usuario, identificador, email, apelido, apelido_extraido
+    ) -> None:
+        """Outro cadastro igual entrou entre a checagem e o INSERT.
+
+        Quem decide é o UNIQUE do banco. A duplicidade é conferida primeiro: no
+        duplo clique, o apelido "ocupado" é o da própria pessoa. Um
+        IntegrityError que não é nenhum desses casos volta para quem chamou e
+        vira 500, com rastro no log.
+        """
+        # Só o nome da exceção: no MySQL, a mensagem traz o valor repetido.
+        logger.warning("Corrida no cadastro (%s): %s", tipo_usuario, type(exc).__name__)
+        repositorio = self.conta_repository
+        if repositorio.existe_matricula_ou_siape(
+            identificador
+        ) or repositorio.existe_email(email):
+            raise IdentificadorJaCadastradoError from exc
+        if not self.apelido_resolver.validar_disponibilidade(apelido):
+            if apelido_extraido:
+                raise self.apelido_resolver.indisponivel(apelido) from exc
+            raise CadastroInvalidoError(MENSAGEM_APELIDO_EM_USO) from exc
 
     def _validar_estudante(self, email: str, matricula: str) -> None:
         if not self.email_validator.validar_formato_estudante(email):
