@@ -208,7 +208,7 @@ title: "Nível 4b — Cadastro/Autenticação: confirmação de e-mail e cadastr
 ---
 classDiagram
   class ConfirmacaoEmailView {
-    +get(token: str) Response
+    +post(request, token: str) Response
   }
   class ReenvioConfirmacaoView {
     +post(request) Response
@@ -219,6 +219,7 @@ classDiagram
   class ConfirmacaoEmailService {
     +enviarLink(conta: Conta) void
     +confirmar(token: str) void
+    +contaParaReenvio(matriculaSiape: str, token: str) Conta
     +reenviar(conta: Conta) void
   }
   class TokenConfirmacao {
@@ -234,7 +235,8 @@ classDiagram
     +existeEmail(email: str) bool
     +buscarPorIdentificador(identificador: str) Conta
     +salvar(conta: Conta) Conta
-    +excluirPendenteExpirada(conta: Conta) void
+    +pendentesExpiradas(limite: datetime) list~Conta~
+    +excluirPendenteExpirada(conta: Conta, limite: datetime) bool
     +excluir(conta: Conta) void
   }
   class ExclusaoCadastroPendenteJob {
@@ -280,6 +282,18 @@ classDiagram
   não de uma ação disparada por requisição HTTP. Roda pelo mesmo cron do SO
   do Leitor de Cardápio, junto com o `clearsessions` do Django (ADR 0007), a
   retenção da Fila e o fechamento do semestre da Gamificação.
+- **Implementação (BE-06, #96).** O job é o comando
+  `python manage.py excluir_cadastros_pendentes`. O prazo de 24 h conta do
+  último link enviado (o reenvio renova, RF02.2), e não da criação da conta;
+  a exclusão é pelo ORM, para os tokens e a `PontuacaoUsuario` irem junto
+  (`CASCADE`). O `TokenConfirmacao` é o model `Token` com
+  `tipo = confirmacao_email`: o campo `usado` é a coluna `usado_em`, e o
+  `token` em claro só existe no e-mail (o banco guarda o SHA-256).
+- **Link do e-mail.** Aponta para a página `/confirmar-email` do PWA
+  (`URL_DO_PWA` no `.env`), que chama `POST /api/confirmar-email/{token}/`.
+- **Reenvio.** `contaParaReenvio` acha a conta pela matrícula/SIAPE ou por um
+  token antigo (mesmo vencido ou usado). A resposta HTTP é sempre a mesma,
+  exista ou não a conta.
 
 ## Nível 4c — Login e recuperação de senha
 
