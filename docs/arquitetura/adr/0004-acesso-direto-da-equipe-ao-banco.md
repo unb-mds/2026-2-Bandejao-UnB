@@ -2,7 +2,7 @@
 
 
 **Status:** Aceita
-**Data:** 2026-09-27 (revisada em 2026-11-14: a exclusão de conta passa a apagar a conta, para atender à LGPD)
+**Data:** 2026-09-27 (revisada em 2026-11-14: a exclusão de conta passa a apagar a conta, para atender à LGPD; e em 2026-11-15: retenção dos backups e ponderação do legítimo interesse)
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
 ## Contexto
@@ -128,6 +128,23 @@ de existir (migration da BD-12).
 - A opção (A) foi descartada por exigir um prazo novo no Anexo A, um job de
   limpeza e a demonstração formal do legítimo interesse, sem ganho real para
   a moderação.
+- Os dados da conta excluída também saem das cópias de segurança, que são
+  guardadas por 7 dias (Anexo A, ADR 0012).
+
+**Ponderação do legítimo interesse (LGPD, art. 10).** O aviso de privacidade
+usa o legítimo interesse (art. 7º, IX) para três tratamentos que não dependem
+do consentimento. Para cada um, a ponderação entre o interesse da equipe e os
+direitos do titular é a seguinte:
+
+| Tratamento | Interesse da equipe | Dado tratado (só o necessário, art. 10, §1º) | Por que não prevalecem os direitos do titular |
+|---|---|---|---|
+| Dados de segurança da conta (tentativas de login erradas e bloqueio) | Impedir que alguém descubra a senha de outra pessoa por tentativa e erro (RF03.2) | Um contador e um horário de fim do bloqueio, ligados à conta | Protege o próprio titular; o dado é zerado a cada login certo ou nova janela de 10 minutos e some com a conta |
+| Cookies necessários (sessão e CSRF) | Manter a pessoa logada e impedir pedidos falsificados por outros sites (ADR 0007, #112) | Identificador de sessão e token aleatório, sem dado pessoal no cookie | Sem eles o aplicativo não funciona; não há publicidade nem rastreamento entre sites; a sessão dura 14 dias e termina no "Sair" |
+| Registros técnicos do servidor | Diagnosticar falhas e se defender de ataques | Data, hora, página e, se o servidor registrar, endereço IP; nunca o corpo de cadastro e login nem o token da confirmação de e-mail | Acesso só da equipe nomeada (ADR 0008); o titular é informado no aviso; o prazo de guarda desses registros deve ser definido junto com a configuração do servidor |
+
+O titular pode se opor a esses tratamentos pelo e-mail da equipe (art. 18,
+§2º). Como eles são necessários para o aplicativo funcionar com segurança, a
+oposição é atendida com a exclusão da conta.
 
 ## Alternativa considerada
 

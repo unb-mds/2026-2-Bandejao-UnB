@@ -657,7 +657,7 @@ O sistema deve tratar como dados pessoais a matrícula/SIAPE, o e-mail, o apelid
 - **RNF07.1 Finalidade:** os dados são coletados só para as finalidades do aviso de privacidade (login, recuperação de senha, identificação do autor de avaliações e, na Release 2, estimativa da fila, uso da localização, gamificação e ranking). Quem já tinha conta vê o aviso atualizado uma vez, no login seguinte (efeito sobre o check-in no RF11).
 - **RNF07.2 Acesso:** a matrícula/SIAPE é armazenada de forma recuperável pela equipe (não como hash), com acesso restrito à equipe.
 - **RNF07.3 Retenção:** o vínculo dos registros de check-in, de tentativas e de respostas com a conta dura a janela de 4 semanas (Anexo A); depois, resta só o registro anônimo (campus, refeição, data, faixa e tempo de espera). Os contadores de gamificação são a exceção: permanecem ligados à conta, sem o histórico individual de check-ins, respostas e avaliações (ADR 0011).
-- **RNF07.4 Exclusão:** a conta é excluída por solicitação à equipe e apagada de vez, com a matrícula/SIAPE, o e-mail, o apelido e a senha (LGPD, art. 18, VI; ADR 0004). As avaliações permanecem publicadas como "usuário removido", sem vínculo com a pessoa, e quem pede a exclusão também pode pedir que elas sejam apagadas. O vínculo dos registros de fila é removido na hora. Os contadores de gamificação são excluídos junto com a conta, que sai na hora do ranking. Depois da exclusão, a mesma matrícula/SIAPE e o mesmo e-mail podem ser usados num cadastro novo.
+- **RNF07.4 Exclusão:** a conta é excluída por solicitação à equipe e apagada de vez, com a matrícula/SIAPE, o e-mail, o apelido e a senha (LGPD, art. 18, VI; ADR 0004). As avaliações permanecem publicadas como "usuário removido", sem vínculo com a pessoa, e quem pede a exclusão também pode pedir que elas sejam apagadas. O vínculo dos registros de fila é removido na hora. Os contadores de gamificação são excluídos junto com a conta, que sai na hora do ranking. Depois da exclusão, a mesma matrícula/SIAPE e o mesmo e-mail podem ser usados num cadastro novo. Os dados da conta excluída somem das cópias de segurança do banco no prazo de retenção do Anexo A.
 
 **Justificativa:** o cadastro por matrícula/SIAPE cria um vínculo entre identidade e comportamento no sistema; o tratamento precisa ser transparente e minimizado.
 
@@ -807,6 +807,7 @@ Valores ajustáveis pela equipe sem alterar os requisitos.
 | Mínimo de dados para exibir a espera estimada | 3 tempos de espera em 2 dias distintos, na janela de 4 semanas | RN08, RF22.2 |
 | Prazo de manutenção do vínculo com a conta (check-ins, tentativas e respostas) | 4 semanas, a mesma janela da previsão | RNF07.3 |
 | Validade do link de confirmação de e-mail | 24 horas | RF02.1 a RF02.3 |
+| Retenção das cópias de segurança (backup) do banco | 7 dias: uma cópia por dia, e a mais antiga é apagada ao passar desse prazo | RNF07.4 (ADR 0012) |
 | Validade do link de redefinição de senha | 1 hora | RF04.2 |
 | Limite de solicitações de redefinição | 3 por hora por matrícula/SIAPE | RF04.1 |
 | Bloqueio de login | 5 tentativas em 10 minutos, bloqueio de 10 minutos | RF03.2 |

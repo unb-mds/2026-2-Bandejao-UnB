@@ -134,7 +134,10 @@ publicidade.
 - **Conta e apelido:** enquanto a conta existir. Na exclusão, são apagados
   (seção 9).
 - **Avaliações:** enquanto a conta existir, ligadas a ela. Depois da
-  exclusão, continuam publicadas sem ligação com você (seção 9).
+  exclusão, continuam publicadas sem ligação com a sua conta (seção 9).
+- **Cópias de segurança:** o banco de dados é copiado uma vez por dia, e cada
+  cópia é guardada por até 7 dias. Por isso, os dados de uma conta excluída
+  somem de todas as cópias em até 7 dias depois da exclusão.
 
 ## 9. Exclusão da conta
 
@@ -148,8 +151,11 @@ do seu e-mail institucional. Na exclusão:
 - **a conta é apagada de vez:** matrícula ou SIAPE, e-mail, apelido, a versão
   embaralhada da senha e os links de confirmação deixam de existir;
 - as suas avaliações continuam publicadas, mas aparecem como "usuário
-  removido", sem nenhuma ligação com você. Se preferir, peça no mesmo e-mail
-  que elas também sejam apagadas.
+  removido", sem ligação com a sua conta. Se o texto de alguma delas puder
+  identificar você, ou se preferir, peça no mesmo e-mail que elas também
+  sejam apagadas;
+- as cópias de segurança do banco são substituídas em até 7 dias, e com elas
+  somem os dados da conta excluída (seção 8).
 
 Depois da exclusão, você pode criar uma conta nova com a mesma matrícula/SIAPE
 e o mesmo e-mail.
