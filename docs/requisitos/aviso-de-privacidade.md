@@ -15,9 +15,15 @@ Quem cuida dos seus dados é a equipe do Bandejão. O contato é
 ## 1. Sem conta
 
 Você pode ver o cardápio, as avaliações e a previsão da fila sem criar conta.
-Nesse caso, o Bandejão não guarda nenhum dado que identifique você. O campus
-e os filtros que você escolhe ficam salvos só no seu aparelho, para a tela já
-abrir do jeito que você deixou.
+Nesse caso, o Bandejão não guarda nenhum dado que identifique você:
+
+- o campus e os filtros que você escolhe ficam salvos só no seu aparelho,
+  para a tela já abrir do jeito que você deixou;
+- se você permitir, o aplicativo usa a localização para abrir a tela do
+  campus em que você está, mas essa conta é feita no seu aparelho e as
+  coordenadas não saem dele (seção 4);
+- ao abrir o aplicativo, o navegador recebe o cookie de segurança descrito na
+  seção 3, que não identifica você.
 
 ## 2. Dados que guardamos quando você cria uma conta
 
@@ -29,6 +35,9 @@ abrir do jeito que você deixou.
 | Apelido | Identificar você nas avaliações e, se quiser, no ranking |
 | Senha | Entrar na conta. Guardamos só uma versão embaralhada (hash), nunca a senha em si |
 | Data e versão deste aviso que você aceitou | Comprovar o seu consentimento |
+| Situação da conta (pendente, ativa, suspensa ou removida) e data de criação | Saber se a conta pode entrar |
+| Tentativas de login erradas e horário de bloqueio | Bloquear a conta por alguns minutos depois de várias senhas erradas |
+| Links de confirmação de e-mail e de redefinição de senha | Conferir o link quando você o abre. Guardamos só uma versão embaralhada do link, com a validade |
 
 A matrícula e o SIAPE são conferidos só pelo formato: o Bandejão não consulta
 nenhum sistema da UnB.
@@ -37,39 +46,55 @@ nenhum sistema da UnB.
 
 - **Avaliações:** a nota e o comentário que você deixa sobre uma refeição
   ficam ligados à sua conta.
-- **Check-in:** quando você faz check-in no RU, guardamos o campus, a
-  refeição, a data e a hora, e se o check-in foi confirmado ou recusado. Esses
-  registros servem para calcular a previsão de movimento da fila e os seus
+- **Check-in:** quando você tenta fazer check-in no RU, guardamos o campus, a
+  refeição, a data, a hora, a faixa de 15 minutos em que você chegou e se o
+  check-in foi confirmado ou recusado. Quando é recusado, guardamos também o
+  motivo (por exemplo, fora do horário, check-in repetido ou localização não
+  confirmada). Esses registros servem para calcular a previsão de movimento
+  da fila e os seus pontos.
+- **Pergunta de saída da fila:** depois do check-in, o aplicativo pode
+  perguntar se você já saiu da fila. Guardamos a sua resposta, a hora em que
+  você respondeu e o tempo de espera calculado a partir dela, para estimar o
+  tempo de espera de cada faixa de horário.
+- **Pontos, sequência e ranking:** guardamos os seus pontos totais, os pontos
+  de cada semestre em cada campus, a sua sequência de semanas com check-in e
+  se você escolheu aparecer no ranking. A patente é calculada a partir dos
   pontos.
-- **Pontos e ranking:** guardamos os seus pontos totais, os pontos de cada
-  semestre em cada campus e se você escolheu aparecer no ranking. A patente é
-  calculada a partir dos pontos.
-- **Sessão:** quando você entra, o navegador guarda um cookie de sessão, que
-  vale por 14 dias e é renovado a cada uso, e um cookie de segurança contra
-  pedidos falsificados (CSRF). Os dois são necessários para o aplicativo
-  funcionar. Não usamos cookies de publicidade nem ferramentas de análise de
-  uso.
-- **Registros técnicos:** o servidor registra informações técnicas das
-  requisições (como data, hora, endereço da página e endereço IP) para
+- **Cookies:** são dois, e os dois são necessários para o aplicativo
+  funcionar.
+  - O **cookie de segurança** (CSRF) é gravado ao abrir o aplicativo, com ou
+    sem conta. Ele protege contra pedidos falsificados por outros sites e não
+    identifica você.
+  - O **cookie de sessão** é gravado quando você entra na conta. Ele vale por
+    14 dias e é renovado a cada uso. Sair da conta o encerra.
+
+  Não usamos cookies de publicidade nem ferramentas de análise de uso.
+- **Registros técnicos:** o servidor pode registrar informações técnicas das
+  requisições (como data, hora, página acessada e endereço IP) para
   diagnosticar falhas e se defender de ataques. O conteúdo dos formulários de
   cadastro e login não é registrado.
 
 ## 4. Localização
 
-O Bandejão pede a sua localização **só no momento do check-in**, para conferir
-se você está perto do RU. As coordenadas são enviadas uma vez, comparadas com
-a posição do RU e descartadas logo em seguida, aconteça o que acontecer: **não
-guardamos as suas coordenadas.** Fica registrado só se o check-in foi
-confirmado ou recusado.
+O aplicativo pede permissão para usar a localização do aparelho, com ou sem
+conta. Você pode negar. Ela tem dois usos:
 
-Você pode negar a permissão de localização. Nesse caso, o check-in não fica
-disponível, mas o resto do aplicativo funciona normalmente.
+- **Abrir a tela do campus em que você está.** Essa conta é feita **no seu
+  aparelho**: as coordenadas não são enviadas ao Bandejão.
+- **Confirmar o check-in.** Só nesse momento as coordenadas são enviadas ao
+  servidor, uma vez, para conferir se você está perto do RU. Elas são
+  descartadas logo em seguida, aconteça o que acontecer. Fica registrado só se
+  o check-in foi confirmado ou recusado, e o motivo.
+
+**O Bandejão não guarda as suas coordenadas.** Sem a permissão, você escolhe
+o campus na mão e o check-in não fica disponível, mas o resto do aplicativo
+funciona normalmente.
 
 ## 5. O que fica público
 
 - **O seu apelido** aparece junto das suas avaliações.
-- **No ranking,** só aparece quem escolheu participar, e só com apelido e
-  patente, sem os pontos. Você pode sair do ranking quando quiser.
+- **No ranking,** só aparece quem escolheu participar, e só com a posição, o
+  apelido e a patente, sem os pontos. Você pode sair do ranking quando quiser.
 
 Matrícula, SIAPE e e-mail **nunca** aparecem para outros usuários.
 
@@ -90,12 +115,14 @@ publicidade.
 
 - **Cadastro não confirmado:** se você não confirmar o e-mail em 24 horas, a
   conta pendente é apagada.
-- **Check-ins:** a ligação entre os seus check-ins e a sua conta dura 4
-  semanas. Depois disso, fica só o registro anônimo (campus, refeição, data e
-  horário), usado na previsão da fila.
-- **Pontos:** ficam ligados à sua conta enquanto ela existir, sem o histórico
-  dos check-ins e avaliações que os geraram.
-- **Conta, apelido e avaliações:** enquanto a conta existir.
+- **Check-ins e respostas da pergunta de saída:** a ligação desses registros
+  com a sua conta dura 4 semanas. Depois disso, fica só o registro anônimo
+  (campus, refeição, data, faixa de 15 minutos e tempo de espera), usado na
+  previsão da fila.
+- **Pontos e sequência:** ficam ligados à sua conta enquanto ela existir, sem
+  o histórico dos check-ins, respostas e avaliações que os geraram.
+- **Conta, apelido e avaliações:** enquanto a conta existir. Depois da
+  exclusão, veja a seção 8.
 
 ## 8. Exclusão da conta
 
@@ -103,13 +130,19 @@ Para excluir a sua conta, escreva para **equipe@bandejaounb.com.br** a partir
 do seu e-mail institucional. Na exclusão:
 
 - você não consegue mais entrar, e as suas sessões são encerradas;
-- os seus pontos são apagados e você sai do ranking na hora;
-- os seus check-ins deixam de ser ligados à sua conta na hora;
+- os seus pontos e a sua sequência são apagados, e você sai do ranking na
+  hora;
+- os seus check-ins e respostas deixam de ser ligados à sua conta na hora;
 - as suas avaliações continuam publicadas, mas aparecem como "usuário
   removido".
 
-A conta fica marcada como removida, e não apagada de vez, para que a equipe
-ainda consiga tratar denúncias sobre as avaliações que ficaram publicadas.
+**O que continua guardado:** a conta é marcada como removida, e não apagada
+de vez. A matrícula ou o SIAPE, o e-mail, o apelido e a versão embaralhada da
+senha continuam no banco, sem uso para entrar, para que a equipe ainda
+consiga tratar denúncias sobre as avaliações que ficaram publicadas. Por
+isso, não é possível criar uma conta nova com a mesma matrícula/SIAPE, o
+mesmo e-mail ou o mesmo apelido. Esses dados ficam guardados enquanto o
+Bandejão estiver no ar.
 
 ## 9. Os seus direitos
 
@@ -128,5 +161,6 @@ Nacional de Proteção de Dados (ANPD).
 
 ## 10. Mudanças neste aviso
 
-Quando este aviso mudar, a data da versão no topo muda junto, e o aplicativo
-mostra o novo texto antes do seu próximo check-in, para você dar ciência.
+Quando este aviso mudar, a data da versão no topo muda junto. Na próxima vez
+que você entrar, o aplicativo mostra o novo texto para você dar ciência, e o
+check-in só volta a funcionar depois disso.
