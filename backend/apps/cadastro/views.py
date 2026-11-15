@@ -216,8 +216,9 @@ class ReenvioConfirmacaoView(APIView):
             422: OpenApiResponse(
                 ErroSerializer,
                 description=(
-                    "Não veio `matriculaSiape` nem `token`. "
-                    "`codigo`: `dados_invalidos`."
+                    "Corpo inválido: não veio `matriculaSiape` nem `token`, "
+                    "ou um deles veio vazio ou com tipo errado (mesmo que o "
+                    "outro esteja certo). `codigo`: `dados_invalidos`."
                 ),
             ),
         },

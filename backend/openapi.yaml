@@ -530,7 +530,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Não veio `matriculaSiape` nem `token`. `codigo`: `dados_invalidos`.'
+          description: 'Corpo inválido: não veio `matriculaSiape` nem `token`, ou
+            um deles veio vazio ou com tipo errado (mesmo que o outro esteja certo).
+            `codigo`: `dados_invalidos`.'
         '403':
           content:
             application/json:

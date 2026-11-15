@@ -219,7 +219,7 @@ classDiagram
   class ConfirmacaoEmailService {
     +enviarLink(conta: Conta) void
     +confirmar(token: str) void
-    +contaParaReenvio(matriculaSiape: str, token: str) Conta
+    +contaParaReenvio(matriculaSiape: Optional~str~, token: Optional~str~) Optional~Conta~
     +reenviar(conta: Conta) void
   }
   class TokenConfirmacao {
@@ -240,7 +240,7 @@ classDiagram
     +excluir(conta: Conta) void
   }
   class ExclusaoCadastroPendenteJob {
-    +executar() void
+    +executar() int
   }
   class EmailSvc["Serviço de E-mail (externo)"] {
     <<external>>
@@ -261,13 +261,14 @@ classDiagram
   }
 
   ConfirmacaoEmailView --> ConfirmacaoEmailService : confirmar()
-  ReenvioConfirmacaoView --> ConfirmacaoEmailService : reenviar()
+  ReenvioConfirmacaoView --> ConfirmacaoEmailService : contaParaReenvio() / reenviar()
   CadastroService --> ContaRepository : verifica duplicidade / salva
   CadastroService --> Conta : cria (pendente)
   CadastroService --> ConfirmacaoEmailService : dispara envio de link
   ConfirmacaoEmailService --> TokenConfirmacao : gera/consome
   ConfirmacaoEmailService ..> TokenExpiradoOuInvalidoError : lança se inválido/expirado
-  ConfirmacaoEmailService --> ContaRepository : marca confirmada
+  ConfirmacaoEmailService --> ContaRepository : busca pela matrícula/SIAPE
+  ConfirmacaoEmailService --> Conta : marca confirmada (ORM)
   ConfirmacaoEmailService ..> EmailSvc : envia link [SMTP]
   ExclusaoCadastroPendenteJob --> ContaRepository : exclui pendentes expiradas
   ContaRepository ..> Conta : grava/lê
@@ -283,10 +284,16 @@ classDiagram
   do Leitor de Cardápio, junto com o `clearsessions` do Django (ADR 0007), a
   retenção da Fila e o fechamento do semestre da Gamificação.
 - **Implementação (BE-06, #96).** O job é o comando
-  `python manage.py excluir_cadastros_pendentes`. O prazo de 24 h conta do
-  último link enviado (o reenvio renova, RF02.2), e não da criação da conta;
-  a exclusão é pelo ORM, para os tokens e a `PontuacaoUsuario` irem junto
-  (`CASCADE`). O `TokenConfirmacao` é o model `Token` com
+  `python manage.py excluir_cadastros_pendentes`, e `executar()` devolve
+  quantas contas apagou. O prazo de 24 h conta do último link **entregue** (o
+  reenvio renova, RF02.2; um envio que falhou não deixa token), e não da
+  criação da conta. Cada exclusão trava a conta (`select_for_update`) e confere
+  o prazo de novo, e um erro de banco numa conta não para as outras. A exclusão
+  é pelo ORM, para os tokens e a `PontuacaoUsuario` irem junto (`CASCADE`).
+- **Sem teto absoluto (pendente).** Como cada reenvio renova o prazo, uma conta
+  pendente pode ficar viva para sempre se alguém pedir reenvio a cada menos de
+  24 h. O limite de pedidos fica na #123; um teto (por exemplo, `criado_em` + N
+  dias) ainda precisa ser decidido pelo grupo e registrado no Anexo A. O `TokenConfirmacao` é o model `Token` com
   `tipo = confirmacao_email`: o campo `usado` é a coluna `usado_em`, e o
   `token` em claro só existe no e-mail (o banco guarda o SHA-256).
 - **Link do e-mail.** Aponta para a página `/confirmar-email` do PWA
