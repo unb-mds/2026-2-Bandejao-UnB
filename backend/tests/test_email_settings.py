@@ -144,3 +144,39 @@ def test_os_logs_do_projeto_aparecem_no_console(carregar_settings):
     assert "formatters" in modulo.LOGGING
     assert "asctime" in modulo.LOGGING["formatters"]["padrao"]["format"]
     assert modulo.LOGGING["handlers"]["console"]["formatter"] == "padrao"
+
+
+def test_erro_do_on_commit_aparece_no_log_em_producao(carregar_settings, capsys):
+    """O `on_commit(robust=True)` do cadastro registra a falha no logger
+    `django.db.backends.base`. Sem uma entrada própria no LOGGING, ele cai no
+    console padrão do Django, que só mostra com DEBUG: em produção a falha
+    sumiria. O `caplog` não pega isso (captura antes dos filtros), por isso o
+    teste aplica o LOGGING de produção e lê o stderr de verdade.
+    """
+    import logging.config
+
+    from django.conf import settings
+    from django.utils.log import configure_logging
+
+    modulo = carregar_settings()  # sem DEBUG
+    try:
+        logging.config.dictConfig(modulo.LOGGING)
+        logging.getLogger("django.db.backends.base").error(
+            "Error calling enviar_link in on_commit() (OperationalError)."
+        )
+        saida = capsys.readouterr().err
+    finally:
+        # Volta o logging do resto da suíte.
+        configure_logging(settings.LOGGING_CONFIG, settings.LOGGING)
+
+    assert "on_commit" in saida
+    assert "ERROR" in saida
+
+
+def test_o_log_do_on_commit_sai_uma_vez_so(carregar_settings):
+    """propagate=False: com DEBUG, o console padrão do Django mostraria de novo."""
+    base = carregar_settings(DEBUG="True").LOGGING["loggers"]["django.db.backends.base"]
+
+    assert base["handlers"] == ["console"]
+    assert base["level"] == "ERROR"
+    assert base["propagate"] is False
