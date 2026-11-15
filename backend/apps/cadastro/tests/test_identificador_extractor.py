@@ -2,6 +2,7 @@
 
 import pytest
 
+from apps.cadastro.dados_cadastro import DadosCadastro
 from apps.cadastro.identificador_extractor import (
     EstudanteIdentificadorExtractor,
     IdentificadorExtractor,
@@ -12,10 +13,14 @@ from apps.cadastro.identificador_extractor import (
 from apps.cadastro.models import TipoUsuario
 
 
+def dados(**campos):
+    return DadosCadastro(senha="senha-forte-123", aceite_privacidade=True, **campos)
+
+
 def test_estudante_tira_a_matricula_do_email_e_nao_sugere_apelido():
     """Estudante: a matrícula vem do e-mail e o apelido é digitado."""
     extraido = EstudanteIdentificadorExtractor().extrair(
-        {"emailInstitucional": " 251098732@aluno.unb.br ", "apelido": "cris"}
+        dados(email_institucional=" 251098732@aluno.unb.br ", apelido="cris")
     )
 
     assert extraido == IdentificadorExtraido(
@@ -25,7 +30,7 @@ def test_estudante_tira_a_matricula_do_email_e_nao_sugere_apelido():
 
 def test_estudante_ignora_matricula_digitada():
     extraido = EstudanteIdentificadorExtractor().extrair(
-        {"emailInstitucional": "251098732@aluno.unb.br", "matriculaSiape": "999999999"}
+        dados(email_institucional="251098732@aluno.unb.br", matricula_siape="999999999")
     )
 
     assert extraido.identificador == "251098732"
@@ -34,7 +39,7 @@ def test_estudante_ignora_matricula_digitada():
 def test_professor_servidor_usa_o_siape_digitado_e_sugere_o_texto_antes_do_arroba():
     """Professor/Servidor: o SIAPE é digitado e o apelido vem do e-mail."""
     extraido = ProfessorServidorIdentificadorExtractor().extrair(
-        {"emailInstitucional": "maria.silva@unb.br", "matriculaSiape": " 1234567 "}
+        dados(email_institucional="maria.silva@unb.br", matricula_siape=" 1234567 ")
     )
 
     # A limpeza dos caracteres é do ApelidoResolver, não do extractor.
@@ -45,7 +50,7 @@ def test_professor_servidor_usa_o_siape_digitado_e_sugere_o_texto_antes_do_arrob
 
 def test_professor_servidor_sem_siape_extrai_identificador_vazio():
     extraido = ProfessorServidorIdentificadorExtractor().extrair(
-        {"emailInstitucional": "maria@unb.br"}
+        dados(email_institucional="maria@unb.br")
     )
 
     assert extraido.identificador == ""
@@ -63,3 +68,8 @@ def test_estrategia_escolhida_pelo_tipo_de_usuario(tipo, classe):
 
     assert isinstance(extractor, classe)
     assert isinstance(extractor, IdentificadorExtractor)
+
+
+def test_tipo_sem_estrategia_da_erro_claro():
+    with pytest.raises(ValueError, match="visitante"):
+        extractor_para("visitante")

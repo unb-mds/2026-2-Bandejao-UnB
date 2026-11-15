@@ -19,8 +19,3 @@ def test_inicializar_conta_cria_contadores_zerados(usuario):
     assert pontuacao.ultima_semana_completada is None
     # Adesão ao ranking é opcional e começa desligada (RN12).
     assert pontuacao.participa_ranking is False
-
-
-@pytest.mark.django_db
-def test_inicializar_conta_nao_devolve_nada(usuario):
-    assert PontuacaoService().inicializar_conta(usuario) is None

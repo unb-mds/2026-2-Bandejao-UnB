@@ -3,12 +3,14 @@
 from datetime import date
 
 import pytest
+from django.utils import timezone
 
 from apps.cadastro.validadores import (
     EmailInstitucionalValidator,
     MatriculaValidator,
     SenhaValidator,
     SiapeValidator,
+    codigo_semestre,
 )
 
 # 2º semestre de 2026: o último prefixo aceito é 262 (Anexo A).
@@ -82,12 +84,13 @@ def test_virada_de_semestre_aceita_o_novo_prefixo_sem_mudar_codigo():
 
 
 def test_sem_data_usa_o_dia_de_hoje():
-    ano = date.today().year % 100
-    prefixo_futuro = f"{ano + 1:02d}1"
+    hoje = timezone.localdate()
+    atual = codigo_semestre(hoje)
+    proximo = atual + 9 if atual % 10 == 2 else atual + 1
+    validador = MatriculaValidator()
 
-    assert not MatriculaValidator().validar_prefixo_ano_semestre(
-        f"{prefixo_futuro}098732"
-    )
+    assert validador.validar_prefixo_ano_semestre(f"{atual}098732")
+    assert not validador.validar_prefixo_ano_semestre(f"{proximo}098732")
 
 
 # --- MatriculaValidator.validar_sequencia_digitos (RN01) ---------------------

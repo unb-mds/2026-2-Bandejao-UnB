@@ -6,6 +6,7 @@ confundir com os outros 403 do contrato.
 """
 
 import logging
+from unittest import mock
 
 import pytest
 from rest_framework.exceptions import (
@@ -13,7 +14,9 @@ from rest_framework.exceptions import (
     MethodNotAllowed,
     NotAuthenticated,
     NotFound,
+    ParseError,
     PermissionDenied,
+    UnsupportedMediaType,
     ValidationError,
 )
 from rest_framework.test import APIClient
@@ -85,6 +88,37 @@ def test_permission_denied_com_codigo_proprio_usa_esse_codigo():
     }
 
 
+@pytest.mark.parametrize(
+    ("exc", "status", "codigo"),
+    [
+        (ParseError(), 400, "json_invalido"),
+        (UnsupportedMediaType("text/plain"), 415, "tipo_de_conteudo_invalido"),
+    ],
+)
+def test_corpo_ilegivel_vem_no_formato_do_projeto(exc, status, codigo):
+    resposta = _tratar(exc)
+
+    assert resposta.status_code == status
+    assert set(resposta.data) == {"codigo", "mensagem"}
+    assert resposta.data["codigo"] == codigo
+
+
+def test_json_malformado_no_cadastro_da_400_json_invalido(db):
+    resposta = APIClient().post(
+        "/api/cadastro/", data="{nao e json", content_type="application/json"
+    )
+
+    assert resposta.status_code == 400
+    assert resposta.json()["codigo"] == "json_invalido"
+
+
+def test_content_type_errado_no_cadastro_da_415(db):
+    resposta = APIClient().post("/api/cadastro/", data="x", content_type="text/plain")
+
+    assert resposta.status_code == 415
+    assert resposta.json()["codigo"] == "tipo_de_conteudo_invalido"
+
+
 def test_excecao_que_nao_e_do_drf_segue_para_o_django():
     assert _tratar(ValueError("erro")) is None
 
@@ -141,3 +175,26 @@ def test_log_nao_mostra_o_token_da_confirmacao_de_email(log_de_requisicoes):
     assert log_de_requisicoes
     assert any("/api/confirmar-email/" in m for m in log_de_requisicoes)
     assert not any("token-secreto" in m for m in log_de_requisicoes)
+
+
+def test_erro_5xx_do_cadastro_vai_para_o_log(log_de_requisicoes, db):
+    """Um erro inesperado do CadastroService não pode sumir sem rastro."""
+    cliente = APIClient(raise_request_exception=False)
+    with mock.patch(
+        "apps.cadastro.views.CadastroService.registrar",
+        side_effect=RuntimeError("falhou"),
+    ):
+        resposta = cliente.post(
+            "/api/cadastro/",
+            {
+                "tipoUsuario": "estudante",
+                "emailInstitucional": "251098732@aluno.unb.br",
+                "apelido": "cris",
+                "senha": "senha-forte-123",
+                "aceitePrivacidade": True,
+            },
+            format="json",
+        )
+
+    assert resposta.status_code == 500
+    assert any("/api/cadastro/" in m for m in log_de_requisicoes)

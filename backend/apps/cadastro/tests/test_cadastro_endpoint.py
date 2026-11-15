@@ -293,6 +293,7 @@ def test_apelido_extraido_em_uso_da_409_com_sugestao(cliente):
 
     assert resposta.status_code == 409
     corpo = resposta.json()
+    assert set(corpo) == {"codigo", "mensagem", "apelidoSugerido"}
     assert corpo["codigo"] == "apelido_indisponivel"
     assert corpo["apelidoSugerido"] == "mariasilva1"
     assert corpo["mensagem"]
@@ -328,4 +329,81 @@ def test_cadastro_sem_token_csrf_e_recusado(db):
 
     assert resposta.status_code == 403
     assert resposta.json()["codigo"] == "csrf_invalido"
+    assert not Usuario.objects.exists()
+
+
+def test_reenvio_depois_do_409_com_apelido_em_uso_da_422(cliente):
+    cliente.post(ROTA, estudante(apelido="mariasilva"), format="json")
+    cliente.post(ROTA, professor(), format="json")
+
+    resposta = cliente.post(ROTA, professor(apelido="MariaSilva"), format="json")
+
+    corpo = assert_422(resposta)
+    assert corpo["mensagem"] == "Este apelido já está em uso. Escolha outro."
+
+
+# --- Campos opcionais vazios: o front manda "" nos campos escondidos ----------
+
+
+@pytest.mark.parametrize("vazio", ["", None, "   "])
+def test_professor_com_apelido_vazio_ganha_o_apelido_do_email(cliente, vazio):
+    resposta = cliente.post(ROTA, professor(apelido=vazio), format="json")
+
+    assert resposta.status_code == 201
+    assert Usuario.objects.get().apelido == "mariasilva"
+
+
+@pytest.mark.parametrize("vazio", ["", None])
+def test_estudante_com_matricula_siape_vazia_e_aceito(cliente, vazio):
+    resposta = cliente.post(ROTA, estudante(matriculaSiape=vazio), format="json")
+
+    assert resposta.status_code == 201
+
+
+def test_siape_numerico_e_rejeitado(cliente):
+    """0123456 viraria 123456: o SIAPE tem que chegar como texto."""
+    resposta = cliente.post(ROTA, professor(matriculaSiape=1234567), format="json")
+
+    assert_422(resposta, "7 dígitos")
+
+
+# --- Bordas do corpo ------------------------------------------------------------
+
+
+def test_email_com_mais_de_254_caracteres_da_422_sem_passar_pelo_409(cliente):
+    email = "a" * 250 + "@unb.br"
+
+    resposta = cliente.post(ROTA, professor(emailInstitucional=email), format="json")
+
+    assert_422(resposta, "e-mail institucional")
+
+
+def test_mensagem_do_409_sem_texto_aproveitavel_no_email(cliente):
+    resposta = cliente.post(
+        ROTA, professor(emailInstitucional="--@unb.br"), format="json"
+    )
+
+    assert resposta.status_code == 409
+    corpo = resposta.json()
+    assert '""' not in corpo["mensagem"]
+    assert "a partir do seu e-mail" in corpo["mensagem"]
+
+
+def test_senha_mantem_os_espacos_das_pontas(cliente):
+    resposta = cliente.post(ROTA, estudante(senha="  abcdefg  "), format="json")
+
+    assert resposta.status_code == 201
+    assert Usuario.objects.get().check_password("  abcdefg  ")
+
+
+def test_senha_curta_com_espacos_nas_pontas_continua_curta(cliente):
+    assert_422(cliente.post(ROTA, estudante(senha="  abc  "), format="json"))
+
+
+@pytest.mark.parametrize("valor", ["true", 1, "1", "sim"])
+def test_aceite_so_vale_com_o_booleano_true(cliente, valor):
+    """A prova de consentimento é o JSON `true`, nada que pareça com ele."""
+    resposta = cliente.post(ROTA, estudante(aceitePrivacidade=valor), format="json")
+
+    assert_422(resposta, "aviso de privacidade")
     assert not Usuario.objects.exists()

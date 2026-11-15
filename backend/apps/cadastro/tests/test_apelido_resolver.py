@@ -138,3 +138,36 @@ def test_validar_disponibilidade(resolver):
 
     assert not resolver.validar_disponibilidade("CRIS")
     assert resolver.validar_disponibilidade("outro")
+
+
+@pytest.mark.django_db
+def test_mensagem_do_409_nao_repete_texto_longo(resolver):
+    with pytest.raises(ApelidoIndisponivelError) as erro:
+        resolver.resolver_extraido("a" * 250)
+
+    assert "a" * 21 not in erro.value.mensagem
+
+
+@pytest.mark.django_db
+def test_mensagem_do_409_sem_texto_aproveitavel(resolver):
+    with pytest.raises(ApelidoIndisponivelError) as erro:
+        resolver.resolver_extraido("--")
+
+    assert '""' not in erro.value.mensagem
+    assert "a partir do seu e-mail" in erro.value.mensagem
+
+
+@pytest.mark.django_db
+def test_sugestao_usa_uma_consulta_so(resolver, django_assert_max_num_queries):
+    for n in range(1, 31):
+        criar_conta(f"mariasilva{n}", matricula=f"25109{n:04d}")
+    criar_conta("mariasilva", matricula="251098799")
+
+    # Uma consulta para ver que "mariasilva" está em uso e outra para a sugestão.
+    with (
+        django_assert_max_num_queries(2),
+        pytest.raises(ApelidoIndisponivelError) as erro,
+    ):
+        resolver.resolver_extraido("maria.silva")
+
+    assert erro.value.apelido_sugerido == "mariasilva31"
