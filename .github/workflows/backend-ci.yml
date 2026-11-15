@@ -80,6 +80,12 @@ jobs:
       DB_PASSWORD: senha-ci-descartavel
       DB_HOST: 127.0.0.1
       DB_PORT: "3306"
+      # Sem DEBUG, o settings exige o endereço do PWA e o SMTP (BE-06, #96).
+      # Os passos com manage.py rodam fora do pytest e não leem o pytest.ini,
+      # então os valores dele vêm repetidos aqui. Com o backend de memória, o
+      # settings não monta o SMTP e não pede EMAIL_HOST nem credenciais.
+      EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+      URL_DO_PWA: http://localhost:5173
 
     steps:
       - uses: actions/checkout@v5
