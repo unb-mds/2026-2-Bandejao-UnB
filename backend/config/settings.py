@@ -321,6 +321,16 @@ LOGGING = {
             "handlers": ["console"],
             "level": "INFO",
         },
+        # Falha de um transaction.on_commit(robust=True), como o envio do link
+        # depois do cadastro. Sem esta entrada, o erro cai no console padrão
+        # do Django, que só mostra com DEBUG: em produção sumiria sem rastro.
+        # ERROR: o nível DEBUG deste logger é o SQL de cada consulta.
+        # propagate=False pelo mesmo motivo do django.request, abaixo.
+        "django.db.backends.base": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
         # propagate=False: sem isto, com DEBUG=True o erro sairia duas vezes.
         # Também desliga o mail_admins padrão do Django, que não usamos (não
         # há ADMINS). Se um dia houver, acrescente o handler aqui.
