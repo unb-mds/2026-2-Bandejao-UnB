@@ -328,14 +328,19 @@ classDiagram
     +autenticar(identificador: str, senha: str) Conta
   }
   class TentativaLoginTracker {
-    +registrarTentativa(identificador: str, sucesso: bool) void
-    +estaBloqueado(identificador: str) bool
+    +registrarTentativa(conta: Conta, sucesso: bool) void
+    +estaBloqueado(conta: Conta) bool
+    +segundosRestantes(conta: Conta) int
     -MAX_TENTATIVAS: int = 5
     -JANELA: timedelta = 10min
     -BLOQUEIO: timedelta = 10min
   }
+  class IdentificadorInvalidoError
   class ContaNaoConfirmadaError
   class CredenciaisInvalidasError
+  class LoginBloqueadoError {
+    +segundosRestantes: int
+  }
   class SessoesDaConta {
     <<django_session, ADR 0007>>
     +abrir(request, conta: Conta) void
@@ -368,8 +373,8 @@ classDiagram
   class ContaRepository {
     +existeMatriculaOuSiape(identificador: str) bool
     +existeEmail(email: str) bool
-    +buscarPorIdentificador(identificador: str) Conta
-    +salvar(conta: Conta) Conta
+    +buscarPorIdentificador(identificador: str, travar: bool) Conta
+    +salvar(conta: Conta, campos: list~str~) Conta
     +excluirPendenteExpirada(conta: Conta) void
     +excluir(conta: Conta) void
   }
@@ -392,16 +397,17 @@ classDiagram
   }
 
   SessaoView --> LoginService : autenticar(), no POST
-  SessaoView --> SessoesDaConta : encerrarAtual(), no DELETE
+  SessaoView --> SessoesDaConta : abrir(), no POST; encerrarAtual(), no DELETE
   SessaoView ..> Conta : lê apelido, tipo e aviso pendente, no GET
   SolicitarRecuperacaoSenhaView --> RecuperacaoSenhaService : solicitar()
   RedefinirSenhaView --> RecuperacaoSenhaService : redefinir()
   LoginService --> TentativaLoginTracker : verifica bloqueio / registra tentativa
-  LoginService --> ContaRepository : busca conta
+  LoginService --> ContaRepository : busca e trava a conta
   LoginService --> PasswordHasher : verifica senha
+  LoginService ..> IdentificadorInvalidoError : lança se nem 9 nem 7 dígitos
   LoginService ..> ContaNaoConfirmadaError : lança se conta pendente
   LoginService ..> CredenciaisInvalidasError : lança em erro (mensagem genérica)
-  LoginService --> SessoesDaConta : abre a sessão, em sucesso
+  LoginService ..> LoginBloqueadoError : lança se bloqueado
   SessoesDaConta --> ParametrosSessaoConfig : lê duração
   RecuperacaoSenhaService --> SolicitacaoRedefinicaoTracker : limita 3/hora
   RecuperacaoSenhaService --> TokenRedefinicaoSenha : gera/consome
@@ -436,6 +442,39 @@ classDiagram
   sessões (diagrama 4d).
 - **`clearsessions`** roda pelo cron do SO para apagar sessões expiradas de
   `django_session`.
+- **Implementação do login (BE-07, #97).** O `LoginService` confere, nesta
+  ordem: formato (RN01, 9 ou 7 dígitos, sem consultar o banco: 422
+  `dados_invalidos`, não conta como tentativa), conta inexistente, bloqueio,
+  senha e conta suspensa ou removida, e por fim conta pendente. Conta
+  inexistente, senha errada e conta suspensa ou removida dão o mesmo 401
+  `credenciais_invalidas`; para a conta inexistente, o service calcula um hash
+  à toa, para o tempo de resposta não revelar que ela não existe. A conta
+  pendente só recebe o 403 `conta_nao_confirmada` com a senha certa.
+- **Quem abre a sessão é a `SessaoView`**, com `SessoesDaConta.abrir()`
+  depois do `autenticar()`, e não o `LoginService`: assim o service não
+  depende da requisição HTTP e é testado sem ela. O `login` do Django troca o
+  id da sessão (evita fixação de sessão) e o `csrftoken`, que o PWA relê.
+  `encerrarTodas` entra com a redefinição de senha (RF04) e a exclusão de
+  conta (BD-12).
+- **Onde o `TentativaLoginTracker` guarda a contagem.** Nas colunas da
+  própria conta: `tentativas_login_falhas`, `primeira_falha_login_em` (o
+  começo da janela de 10 minutos, coluna nova da BE-07) e `bloqueado_ate`. Por
+  isso os métodos recebem a `Conta`, e não o identificador. O `LoginService`
+  trava a linha (`select_for_update`) antes de contar, para duas tentativas
+  simultâneas não virarem uma. A janela começa na primeira falha (não
+  desliza), a 5ª falha da janela já responde 429 `login_bloqueado` (como o
+  simulado do front, #119), com `Retry-After` em segundos, e tentativas
+  durante o bloqueio não o estendem. Um acerto zera tudo, inclusive o de uma
+  conta pendente (senha certa não é tentativa malsucedida).
+- **Limitação aceita: o 429 só existe para conta que existe.** Uma
+  matrícula/SIAPE sem conta não tem onde guardar a contagem e nunca bloqueia,
+  então quem errar a senha 5 vezes descobre, pelo 429, que a conta existe.
+  Não é um vazamento novo: o cadastro já diz, de propósito, se a
+  matrícula/SIAPE tem conta (RF01.5). O que torna cara a descoberta de contas
+  em massa (e o teste de uma senha em muitas matrículas) é o limite de pedidos
+  por IP no login, no cadastro e no reenvio, que fica na #123. Se o grupo
+  quiser fechar também este caso, as tentativas passam a ficar no cache
+  compartilhado da #123, por identificador, e não só na `USUARIO`.
 
 - **`TentativaLoginTracker` e `SolicitacaoRedefinicaoTracker` são duas
   classes, não uma genérica de "rate limiting"**, porque os parâmetros e a
@@ -496,7 +535,7 @@ classDiagram
     +existeMatriculaOuSiape(identificador: str) bool
     +existeEmail(email: str) bool
     +buscarPorIdentificador(identificador: str) Conta
-    +salvar(conta: Conta) Conta
+    +salvar(conta: Conta, campos: list~str~) Conta
     +excluirPendenteExpirada(conta: Conta) void
     +excluir(conta: Conta) void
   }
@@ -552,6 +591,12 @@ classDiagram
   - se mesmo assim chegar um check-in sem a ciência, a Fila recusa com `403`
     e `"codigo": "aviso_privacidade_pendente"` (passo 0 do `CheckinService`,
     `c4-nivel-4-fila.md`).
+
+  **Implementação (BE-07, #97).** `avisoPrivacidadePendente()` compara
+  `versao_aviso_aceita` com `AvisoPrivacidadeConfig.versaoAtual`. O
+  `registrarCiencia` ignora o corpo da requisição (versão e hora são as do
+  servidor) e não faz nada se a conta já aceitou a versão atual: a hora do
+  primeiro aceite é a prova do consentimento.
 
   `avisoPrivacidadePendente()` é um método do model, para que a Fila o leia
   como lê os outros dados da `Conta`, sem chamar este componente. Uma versão
