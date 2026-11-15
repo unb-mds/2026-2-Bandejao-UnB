@@ -21,7 +21,7 @@ Nesse caso, o Bandejão não guarda nenhum dado que identifique você:
   para a tela já abrir do jeito que você deixou;
 - se você permitir, o aplicativo usa a localização para abrir a tela do
   campus em que você está, mas essa conta é feita no seu aparelho e as
-  coordenadas não saem dele (seção 4);
+  coordenadas não saem dele (seção 5);
 - ao abrir o aplicativo, o navegador recebe o cookie de segurança descrito na
   seção 3, que não identifica você.
 
@@ -74,7 +74,17 @@ nenhum sistema da UnB.
   diagnosticar falhas e se defender de ataques. O conteúdo dos formulários de
   cadastro e login não é registrado.
 
-## 4. Localização
+## 4. Base legal
+
+- **Consentimento** (LGPD, art. 7º, I): a conta, as avaliações, o check-in, a
+  localização, a pergunta de saída da fila, os pontos e o ranking. Você dá o
+  consentimento ao aceitar este aviso no cadastro e pode revogá-lo excluindo
+  a conta (seção 9).
+- **Legítimo interesse** (LGPD, art. 7º, IX): os dados de segurança da conta
+  (tentativas de login e bloqueio), os cookies necessários e os registros
+  técnicos do servidor, usados só para proteger o aplicativo e as contas.
+
+## 5. Localização
 
 O aplicativo pede permissão para usar a localização do aparelho, com ou sem
 conta. Você pode negar. Ela tem dois usos:
@@ -90,7 +100,7 @@ conta. Você pode negar. Ela tem dois usos:
 o campus na mão e o check-in não fica disponível, mas o resto do aplicativo
 funciona normalmente.
 
-## 5. O que fica público
+## 6. O que fica público
 
 - **O seu apelido** aparece junto das suas avaliações.
 - **No ranking,** só aparece quem escolheu participar, e só com a posição, o
@@ -98,7 +108,7 @@ funciona normalmente.
 
 Matrícula, SIAPE e e-mail **nunca** aparecem para outros usuários.
 
-## 6. Quem tem acesso
+## 7. Quem tem acesso
 
 - **A equipe do Bandejão.** Só membros nomeados da equipe acessam o banco de
   dados diretamente. Eles podem ver a matrícula ou o SIAPE ligados a um
@@ -111,7 +121,7 @@ Matrícula, SIAPE e e-mail **nunca** aparecem para outros usuários.
 Não vendemos nem compartilhamos os seus dados com mais ninguém, nem para
 publicidade.
 
-## 7. Por quanto tempo guardamos
+## 8. Por quanto tempo guardamos
 
 - **Cadastro não confirmado:** se você não confirmar o e-mail em 24 horas, a
   conta pendente é apagada.
@@ -121,10 +131,12 @@ publicidade.
   previsão da fila.
 - **Pontos e sequência:** ficam ligados à sua conta enquanto ela existir, sem
   o histórico dos check-ins, respostas e avaliações que os geraram.
-- **Conta, apelido e avaliações:** enquanto a conta existir. Depois da
-  exclusão, veja a seção 8.
+- **Conta e apelido:** enquanto a conta existir. Na exclusão, são apagados
+  (seção 9).
+- **Avaliações:** enquanto a conta existir, ligadas a ela. Depois da
+  exclusão, continuam publicadas sem ligação com você (seção 9).
 
-## 8. Exclusão da conta
+## 9. Exclusão da conta
 
 Para excluir a sua conta, escreva para **equipe@bandejaounb.com.br** a partir
 do seu e-mail institucional. Na exclusão:
@@ -133,18 +145,16 @@ do seu e-mail institucional. Na exclusão:
 - os seus pontos e a sua sequência são apagados, e você sai do ranking na
   hora;
 - os seus check-ins e respostas deixam de ser ligados à sua conta na hora;
+- **a conta é apagada de vez:** matrícula ou SIAPE, e-mail, apelido, a versão
+  embaralhada da senha e os links de confirmação deixam de existir;
 - as suas avaliações continuam publicadas, mas aparecem como "usuário
-  removido".
+  removido", sem nenhuma ligação com você. Se preferir, peça no mesmo e-mail
+  que elas também sejam apagadas.
 
-**O que continua guardado:** a conta é marcada como removida, e não apagada
-de vez. A matrícula ou o SIAPE, o e-mail, o apelido e a versão embaralhada da
-senha continuam no banco, sem uso para entrar, para que a equipe ainda
-consiga tratar denúncias sobre as avaliações que ficaram publicadas. Por
-isso, não é possível criar uma conta nova com a mesma matrícula/SIAPE, o
-mesmo e-mail ou o mesmo apelido. Esses dados ficam guardados enquanto o
-Bandejão estiver no ar.
+Depois da exclusão, você pode criar uma conta nova com a mesma matrícula/SIAPE
+e o mesmo e-mail.
 
-## 9. Os seus direitos
+## 10. Os seus direitos
 
 Pela LGPD, você pode pedir à equipe, pelo e-mail
 **equipe@bandejaounb.com.br**:
@@ -152,14 +162,15 @@ Pela LGPD, você pode pedir à equipe, pelo e-mail
 - a confirmação de que tratamos os seus dados e uma cópia deles;
 - a correção de dados incompletos ou errados (o apelido é escolhido só no
   cadastro e não pode ser trocado depois);
-- a exclusão da conta, como descrito na seção 8;
+- a exclusão da conta, como descrito na seção 9;
 - informações sobre com quem os seus dados são compartilhados;
 - a revogação do seu consentimento, que é feita pela exclusão da conta.
 
-Respondemos pelo mesmo e-mail. Você também pode reclamar à Autoridade
+Respondemos pelo mesmo e-mail. O pedido de cópia dos seus dados é atendido
+em até 15 dias (LGPD, art. 19). Você também pode reclamar à Autoridade
 Nacional de Proteção de Dados (ANPD).
 
-## 10. Mudanças neste aviso
+## 11. Mudanças neste aviso
 
 Quando este aviso mudar, a data da versão no topo muda junto. Na próxima vez
 que você entrar, o aplicativo mostra o novo texto para você dar ciência, e o

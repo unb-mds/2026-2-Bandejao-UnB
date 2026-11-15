@@ -101,6 +101,7 @@ classDiagram
     +buscarPorIdentificador(identificador: str) Conta
     +salvar(conta: Conta) Conta
     +excluirPendenteExpirada(conta: Conta) void
+    +excluir(conta: Conta) void
   }
   class IdentificadorJaCadastradoError
   class EmailJaCadastradoError
@@ -114,7 +115,6 @@ classDiagram
     +emailConfirmado: bool
     +status: StatusConta
     +criadaEm: datetime
-    +removidaEm: datetime
     +versaoAvisoAceita: str
     +avisoAceitoEm: datetime
     +avisoPrivacidadePendente() bool
@@ -172,9 +172,12 @@ classDiagram
   matrícula/e-mail duplicados).
 - **`MatriculaValidator` tem três métodos separados**, não um só
   `validar()`, porque o RF01 define três checagens compostas e
-  independentes: formato (9 dígitos), prefixo de ano/semestre (janela
-  dinâmica, recalculada a cada semestre conforme o Anexo A) e sequência dos
+  independentes: formato (9 dígitos), prefixo de ano (de 2010 ao ano
+  corrente, recalculado a cada ano conforme o Anexo A) e sequência dos
   6 dígitos restantes (rejeita crescente, decrescente ou todos iguais).
+  O método do prefixo mantém o nome `validarPrefixoAnoSemestre`, mas só
+  confere o ano: o 3º dígito (semestre) não é conferido, porque o formato
+  dos outros níveis de ensino não foi confirmado (L16, ADR 0002).
   Métodos separados tornam cada regra testável isoladamente com casos de
   borda próprios, sem depender de montar uma matrícula "válida no resto"
   só para testar uma das três checagens.
@@ -232,6 +235,7 @@ classDiagram
     +buscarPorIdentificador(identificador: str) Conta
     +salvar(conta: Conta) Conta
     +excluirPendenteExpirada(conta: Conta) void
+    +excluir(conta: Conta) void
   }
   class ExclusaoCadastroPendenteJob {
     +executar() void
@@ -249,7 +253,6 @@ classDiagram
     +emailConfirmado: bool
     +status: StatusConta
     +criadaEm: datetime
-    +removidaEm: datetime
     +versaoAvisoAceita: str
     +avisoAceitoEm: datetime
     +avisoPrivacidadePendente() bool
@@ -343,6 +346,7 @@ classDiagram
     +buscarPorIdentificador(identificador: str) Conta
     +salvar(conta: Conta) Conta
     +excluirPendenteExpirada(conta: Conta) void
+    +excluir(conta: Conta) void
   }
   class EmailSvc["Serviço de E-mail (externo)"] {
     <<external>>
@@ -357,7 +361,6 @@ classDiagram
     +emailConfirmado: bool
     +status: StatusConta
     +criadaEm: datetime
-    +removidaEm: datetime
     +versaoAvisoAceita: str
     +avisoAceitoEm: datetime
     +avisoPrivacidadePendente() bool
@@ -401,7 +404,7 @@ classDiagram
 - **Redefinir a senha encerra todas as sessões** da conta (RF04): o Django
   já invalida as sessões quando a senha muda, e o diagrama deixa isso
   explícito na seta `RecuperacaoSenhaService → SessoesDaConta`.
-- **Conta suspensa ou removida vira `is_active = False`** (ADR 0004 e
+- **Conta suspensa vira `is_active = False`** (ADR 0004 e
   0007): o login é recusado com a mesma mensagem genérica de
   `CredenciaisInvalidasError`, e as sessões já abertas deixam de autenticar
   na requisição seguinte. A exclusão de conta também encerra todas as
@@ -440,7 +443,6 @@ classDiagram
     +emailConfirmado: bool
     +status: StatusConta
     +criadaEm: datetime
-    +removidaEm: datetime
     +versaoAvisoAceita: str
     +avisoAceitoEm: datetime
     +avisoPrivacidadePendente() bool
@@ -450,7 +452,6 @@ classDiagram
     PENDENTE
     ATIVO
     SUSPENSO
-    REMOVIDO
   }
   class TipoUsuario {
     <<enumeration>>
@@ -472,6 +473,7 @@ classDiagram
     +buscarPorIdentificador(identificador: str) Conta
     +salvar(conta: Conta) Conta
     +excluirPendenteExpirada(conta: Conta) void
+    +excluir(conta: Conta) void
   }
   class RemoverContaCommand {
     <<management command, rodado pela equipe>>
@@ -492,10 +494,10 @@ classDiagram
   }
 
   Conta --> StatusConta : tem
-  RemoverContaCommand --> ContaRepository : 1. marca REMOVIDO
-  RemoverContaCommand --> PontuacaoService : 2. apaga contadores
-  RemoverContaCommand --> RetencaoFilaService : 3. desvincula registros de fila
-  RemoverContaCommand --> SessoesDaConta : 4. encerra sessões
+  RemoverContaCommand --> PontuacaoService : 1. apaga contadores
+  RemoverContaCommand --> RetencaoFilaService : 2. desvincula registros de fila
+  RemoverContaCommand --> SessoesDaConta : 3. encerra sessões
+  RemoverContaCommand --> ContaRepository : 4. apaga a conta
   ContaRepository ..> Conta : grava/lê
   Conta --> TipoUsuario : tem
   AceiteAvisoPrivacidadeView --> AvisoPrivacidadeService : registrarCiencia()
@@ -535,23 +537,26 @@ classDiagram
   Release 2.
 - **`status` da conta (decisão tomada com o time de banco de dados).** A
   `Conta` passa a ter o mesmo `status` do banco: `PENDENTE` (cadastro sem
-  e-mail confirmado), `ATIVO`, `SUSPENSO` e `REMOVIDO`, com `removidaEm`.
-  `confirmada` virou `emailConfirmado`, como a coluna `email_confirmado`.
-  Conta suspensa ou removida não autentica e fica fora do ranking; os
-  outros componentes leem `Conta.status` (o `Conta.removida` dos rascunhos
-  antigos deixa de existir).
+  e-mail confirmado), `ATIVO` e `SUSPENSO`. Não há estado de conta
+  removida: a exclusão apaga a conta (ver abaixo). `confirmada` virou
+  `emailConfirmado`, como a coluna `email_confirmado`. Conta suspensa não
+  autentica e fica fora do ranking; os outros componentes leem
+  `Conta.status`.
 - **Exclusão de conta (RNF07.4): `RemoverContaCommand`.** A equipe roda o
   comando com o id da conta, e ele faz tudo numa transação:
-  1. marca `status = REMOVIDO` e preenche `removidaEm`, sem apagar a conta;
-  2. pede à Gamificação que apague os contadores
+  1. pede à Gamificação que apague os contadores
      (`PontuacaoService.apagarContadores`): pontos totais, pontos do
-     semestre, posição final e, com ela, a Bandeja de Ouro;
-  3. pede à Fila que retire o vínculo dos registros de fila da conta
+     semestre e sequência;
+  2. pede à Fila que retire o vínculo dos registros de fila da conta
      (`RetencaoFilaService.desvincularConta`);
-  4. encerra as sessões da conta (`django_session`, ADR 0007).
+  3. encerra as sessões da conta (`django_session`, ADR 0007);
+  4. apaga a conta: matrícula/SIAPE, e-mail, apelido, hash da senha e
+     tokens deixam de existir (LGPD, art. 18, VI; revisão da ADR 0004).
 
-  As avaliações ficam, exibidas como "usuário removido" (RNF07.4), e
-  mantêm o vínculo para moderação (RNF08). A conta nunca é apagada
-  fisicamente, porque isso quebraria essa rastreabilidade. O comando chama
-  os outros componentes, em vez de apagar as tabelas deles direto, para que
-  cada um continue sendo o único dono dos próprios dados.
+  As avaliações ficam publicadas, exibidas como "usuário removido"
+  (RNF07.4), sem vínculo com a pessoa: `AVALIACAO.usuario_id` vira nulo
+  (`ON DELETE SET NULL`). A equipe ainda pode ocultá-las (RNF08), mas não
+  identifica mais o autor. Se a pessoa pedir, a equipe também apaga as
+  avaliações dela antes de apagar a conta. O comando chama os outros
+  componentes, em vez de apagar as tabelas deles direto, para que cada um
+  continue sendo o único dono dos próprios dados.

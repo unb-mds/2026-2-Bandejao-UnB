@@ -492,8 +492,9 @@ classDiagram
 ### Notas do diagrama (4c)
 
 - **O ranking (RN12) é calculado na consulta, não gravado.** Entram só
-  as contas que aderiram (`participaRanking`), com conta ativa (nem suspensa
-  nem removida) e com pelo menos 1 ponto no semestre no campus. A ordem é
+  as contas que aderiram (`participaRanking`), com conta ativa (não
+  suspensa; a conta excluída já não existe) e com pelo menos 1 ponto no
+  semestre no campus. A ordem é
   pelos pontos do semestre no campus, do maior para o menor, e o empate vai
   para quem chegou primeiro à pontuação (`atualizadoEm` mais antigo).
   `classificacao` calcula a posição de **todos** os elegíveis, porque "Meu
@@ -649,9 +650,9 @@ classDiagram
   Avaliação para o `BandejaOuroResolver` é uma leitura, não uma chamada de
   pontuação: no Nível 3 ela segue pela mesma seta Avaliação → Gamificação,
   e está desenhada no Nível 4 da Avaliação.
-- **Conta removida (RNF07.4):** os contadores, os pontos do semestre, a
+- **Conta excluída (RNF07.4):** os contadores, os pontos do semestre, a
   posição final e, com ela, a Bandeja são apagados, e a conta sai do ranking
-  na hora. **Conta suspensa:** fica fora do ranking e do fechamento e não
+  na hora. Depois disso, a própria conta é apagada. **Conta suspensa:** fica fora do ranking e do fechamento e não
   exibe a Bandeja, mas nada é apagado. Quem apaga é o `RemoverContaCommand`
   do Cadastro/Autenticação, chamando `PontuacaoService.apagarContadores`.
 

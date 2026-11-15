@@ -310,20 +310,19 @@ classDiagram
 - **`AvaliacaoPublicaMapper` é o único lugar por onde uma `Conta` vira
   visível para terceiros**, e ele deliberadamente só extrai o apelido e o
   distintivo — nunca a matrícula/SIAPE ou o e-mail (RI10, RNF04). Também é aqui que a
-  exclusão de conta (RNF07) se reflete: se `Conta.status` for `REMOVIDO`,
+  exclusão de conta (RNF07.4) se reflete: se `Avaliacao.contaId` for nulo,
   o mapper devolve "usuário removido" no lugar do apelido, sem distintivo,
-  em vez de a avaliação sumir — a RNF07 exige que a avaliação em si
-  permaneça, só o autor fica anônimo. `status` é o mesmo campo do banco
-  (`USUARIO.status`) e substitui o antigo `Conta.removida`.
-- **`Avaliacao.contaId` nunca é apagado, mesmo com a conta removida** —
-  é o vínculo permanente exigido pela RNF08 (rastreabilidade e moderação:
-  a equipe precisa conseguir identificar o autor de uma avaliação
-  problemática por consulta administrativa manual, o mesmo acesso direto
-  ao banco já desenhado no Nível 3, ADR 0004). O `AvaliacaoPublicaMapper`
-  só controla o que é exibido publicamente; o dado de rastreabilidade
-  continua inteiro no banco. Por isso a exclusão de conta
-  (`RemoverContaCommand`, no Cadastro/Autenticação) só marca a conta como
-  `REMOVIDO`, sem apagá-la.
+  em vez de a avaliação sumir — a RNF07.4 exige que a avaliação em si
+  permaneça, só o autor fica anônimo.
+- **`Avaliacao.contaId` vale enquanto a conta existir** — é o vínculo
+  exigido pela RNF08 (rastreabilidade e moderação: a equipe precisa
+  conseguir identificar o autor de uma avaliação problemática por consulta
+  administrativa manual, o mesmo acesso direto ao banco já desenhado no
+  Nível 3, ADR 0004). A exclusão de conta (`RemoverContaCommand`, no
+  Cadastro/Autenticação) apaga a conta, e o `contaId` vira nulo
+  (`ON DELETE SET NULL`): a avaliação continua moderável (pode ser
+  ocultada), mas o autor deixa de ser identificável (LGPD, revisão da
+  ADR 0004).
 - **Avaliação oculta pela moderação (RNF08, ADR 0004).** A equipe oculta
   uma avaliação por acesso direto ao banco, marcando `Avaliacao.oculta`
   (coluna `AVALIACAO.oculta`, default falso; decisão tomada com o time de

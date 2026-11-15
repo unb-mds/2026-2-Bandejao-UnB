@@ -117,7 +117,7 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 
 **RF01.3 — Validação do formato da matrícula de Estudante.** O sistema deve rejeitar matrículas de Estudante com formato impossível, conforme a RN01.
 - Dado uma matrícula com 8 dígitos (L10), com letras ou pontuação, com prefixo fora do intervalo válido ou com os 6 dígitos finais em sequência óbvia (ex.: `123456`, `111111`), quando envio, então o cadastro é rejeitado com mensagem específica.
-- Dado que o semestre corrente passa a ser outro, quando o sistema recalcula o intervalo de prefixos, então o novo código de semestre é aceito sem alteração de código.
+- Dado que o ano corrente passa a ser outro, quando o sistema recalcula o intervalo de anos do prefixo, então o novo ano é aceito sem alteração de código.
 
 **RF01.4 — Cadastro de Professor/Servidor.** O sistema deve cadastrar Professor/Servidor com SIAPE/matrícula funcional de 7 dígitos, e-mail institucional `@unb.br` e senha, gerando o apelido a partir do e-mail (RN02, ADR 0002).
 - Dado o e-mail `maria.silva@unb.br` e um SIAPE de 7 dígitos, quando envio, então a conta é criada com o apelido `mariasilva`.
@@ -657,7 +657,7 @@ O sistema deve tratar como dados pessoais a matrícula/SIAPE, o e-mail, o apelid
 - **RNF07.1 Finalidade:** os dados são coletados só para as finalidades do aviso de privacidade (login, recuperação de senha, identificação do autor de avaliações e, na Release 2, estimativa da fila, uso da localização, gamificação e ranking). Quem já tinha conta vê o aviso atualizado uma vez, no login seguinte (efeito sobre o check-in no RF11).
 - **RNF07.2 Acesso:** a matrícula/SIAPE é armazenada de forma recuperável pela equipe (não como hash), com acesso restrito à equipe.
 - **RNF07.3 Retenção:** o vínculo dos registros de check-in, de tentativas e de respostas com a conta dura a janela de 4 semanas (Anexo A); depois, resta só o registro anônimo (campus, refeição, data, faixa e tempo de espera). Os contadores de gamificação são a exceção: permanecem ligados à conta, sem o histórico individual de check-ins, respostas e avaliações (ADR 0011).
-- **RNF07.4 Exclusão:** a conta é excluída por solicitação à equipe; as avaliações permanecem como "usuário removido" e o vínculo dos registros de fila é removido na hora. Os contadores de gamificação são excluídos junto com a conta, que sai na hora do ranking.
+- **RNF07.4 Exclusão:** a conta é excluída por solicitação à equipe e apagada de vez, com a matrícula/SIAPE, o e-mail, o apelido e a senha (LGPD, art. 18, VI; ADR 0004). As avaliações permanecem publicadas como "usuário removido", sem vínculo com a pessoa, e quem pede a exclusão também pode pedir que elas sejam apagadas. O vínculo dos registros de fila é removido na hora. Os contadores de gamificação são excluídos junto com a conta, que sai na hora do ranking. Depois da exclusão, a mesma matrícula/SIAPE e o mesmo e-mail podem ser usados num cadastro novo.
 
 **Justificativa:** o cadastro por matrícula/SIAPE cria um vínculo entre identidade e comportamento no sistema; o tratamento precisa ser transparente e minimizado.
 
@@ -665,7 +665,7 @@ O sistema deve tratar como dados pessoais a matrícula/SIAPE, o e-mail, o apelid
 
 #### RNF08 — Rastreabilidade e moderação
 
-Toda avaliação deve manter vínculo permanente com a conta, o apelido e a matrícula/SIAPE de quem a escreveu, de modo que a equipe possa identificar o autor de uma avaliação problemática por consulta administrativa manual. A moderação (ocultar avaliações, suspender contas, tratar matrículas contestadas) é executada diretamente pela equipe; não há tela administrativa no escopo. O site deve divulgar um canal de contato para reclamações, que é o endereço `equipe@bandejaounb.com.br` (ADR 0012).
+Toda avaliação deve manter vínculo com a conta, o apelido e a matrícula/SIAPE de quem a escreveu enquanto a conta existir, de modo que a equipe possa identificar o autor de uma avaliação problemática por consulta administrativa manual. Quando a conta é excluída (RNF07.4), o vínculo deixa de existir: a avaliação continua moderável (pode ser ocultada), mas o autor não é mais identificável. A moderação (ocultar avaliações, suspender contas, tratar matrículas contestadas) é executada diretamente pela equipe; não há tela administrativa no escopo. O site deve divulgar um canal de contato para reclamações, que é o endereço `equipe@bandejaounb.com.br` (ADR 0012).
 
 **Justificativa:** como a matrícula/SIAPE não é validada (L01), a rastreabilidade posterior é o principal instrumento de responsabilização por uso indevido.
 
@@ -719,6 +719,7 @@ Requisitos inversos definem explicitamente o que o sistema **não deve** fazer, 
 | **L13** | **Uso indevido e distorção causados pela gamificação.** Pontos, ranking e Bandeja de Ouro podem estimular quem tem várias contas (L02), quem vai ao Restaurante Executivo (L11), quem faz check-in sem comer no RU e quem responde à pergunta de saída da fila ao acaso só para pontuar, o que piora a previsão e a espera estimada (L12). | Pontos só com check-in confirmado por GPS, um por refeição (RF12, RI03); pontos que não dependem do conteúdo, do horário nem do nível da fila (RI11); mediana na espera estimada (RN08); ranking opcional, semestral e limitado a 10 usuários por campus; moderação manual (RNF08). Como os pontos revelam, de forma aproximada, a frequência de uso do RU, o ranking mostra a patente, não os pontos (RI12). |
 | **L14** | **Contadores de gamificação não são recalculáveis.** Pela ADR 0011, o sistema guarda só totais ligados à conta, não o histórico de check-ins. Um erro de pontuação só se corrige por ajuste manual da equipe, e uma mudança nos valores do Anexo A vale só daí em diante. Quem já tinha conta antes da Release 2 começa do zero. | Valores do Anexo A revisados antes da liberação; ajuste manual pela equipe, como na moderação (RNF08). |
 | **L15** | **Fonte externa do cardápio.** O sistema depende da página de cardápios do RU e do formato do PDF, que podem mudar sem aviso: título do campus, layout, ordem dos blocos, nome do arquivo e dia de publicação. | Associação pelo nome do campus, com conferência pelo nome do arquivo e pelas datas; último cardápio válido mantido e alerta à equipe (RF06.4, RF06.5, ADR 0014). |
+| **L16** | **Matrícula de outros níveis de ensino não confirmada.** As regras de formato da matrícula de estudante (RN01: 9 dígitos, ano no prefixo, 6 dígitos finais sem sequência óbvia) foram conferidas só com matrículas de graduação. Na graduação, o 3º dígito é sempre `1` ou `2`; para os outros níveis (como a pós-graduação), o formato não foi confirmado. Por isso o 3º dígito não é conferido. Se a matrícula de outro nível não tiver 9 dígitos, essa pessoa não consegue se cadastrar. | O e-mail institucional confirmado (RF02) prova que a caixa existe; a regra do prefixo serve só como filtro de erro de digitação. Confirmar o formato com estudantes de outros níveis e, se for diferente, revisar a RN01 e o RF03.1 juntos (ADR 0002). |
 
 ---
 
@@ -810,7 +811,7 @@ Valores ajustáveis pela equipe sem alterar os requisitos.
 | Limite de solicitações de redefinição | 3 por hora por matrícula/SIAPE | RF04.1 |
 | Bloqueio de login | 5 tentativas em 10 minutos, bloqueio de 10 minutos | RF03.2 |
 | Duração da sessão | 14 dias, renovada a cada uso; encerrada antes pelo "Sair" (RF03.3) ou pela redefinição de senha (RF04.2) | RF03.1, RF03.3 (ADR 0007) |
-| Janela de validação do prefixo da matrícula de estudante | Dinâmica: de `101` (2010, 1º semestre) até o código do semestre corrente do sistema (ex.: `262` no 2º semestre de 2026), recalculada automaticamente a cada semestre | RN01 (RF01.3) |
+| Intervalo de anos do prefixo da matrícula de estudante | Dinâmico: de `10` (2010) até os 2 últimos dígitos do ano corrente do sistema (ex.: `26` em 2026), recalculado automaticamente a cada ano. O 3º dígito não é conferido (L16) | RN01 (RF01.3) |
 | Pontos por check-in confirmado | 10 pontos | RN09 (RF24.1) |
 | Pontos por resposta à pergunta de saída da fila | 15 pontos, uma vez por pergunta | RN09 (RF24.1) |
 | Pontos por avaliação (com check-in na mesma refeição) | 5 pontos, uma vez por refeição | RN09 (RF24.1) |
@@ -832,7 +833,7 @@ Regras citadas pelos requisitos funcionais. Onde há uma versão do MVP e outra 
 #### RN01 — Formato da matrícula e do SIAPE
 
 - **Estudante:** matrícula com exatamente 9 dígitos numéricos, extraída do e-mail institucional. Matrícula de 8 dígitos (anterior a 2010) é rejeitada (L10).
-- **Prefixo (3 primeiros dígitos, ano/semestre de ingresso):** os 2 primeiros dígitos correspondem aos 2 últimos de um ano entre 2010 e o ano corrente, e o 3º dígito é `1` ou `2`. O intervalo válido vai de `101` (2010, 1º semestre) até o código do semestre corrente, calculado a partir da data do sistema (ex.: `262` no 2º semestre de 2026). Nenhum código fora do intervalo, inclusive "futuro", é aceito. O ano e o semestre correntes usados no cálculo são parâmetros configuráveis (Anexo A).
+- **Prefixo (ano de ingresso):** os 2 primeiros dígitos correspondem aos 2 últimos de um ano entre 2010 e o ano corrente, calculado a partir da data do sistema (ex.: de `10` a `26` em 2026). Nenhum ano fora do intervalo, inclusive "futuro", é aceito. O 3º dígito indica o semestre de ingresso (`1` ou `2`) na graduação, mas não é conferido, porque o formato dos outros níveis de ensino não foi confirmado (L16, ADR 0002).
 - **Seis dígitos finais:** são rejeitados se formarem uma sequência inteira crescente (`123456`), uma sequência inteira decrescente (`654321`) ou se todos forem iguais (`111111`).
 - **Professor/Servidor:** SIAPE/matrícula funcional com exatamente 7 dígitos numéricos.
 - **Outros formatos**, inclusive com pontuação, são rejeitados com mensagem específica.

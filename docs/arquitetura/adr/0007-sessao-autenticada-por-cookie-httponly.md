@@ -26,7 +26,7 @@ A autenticação da API usa a **sessão do Django em cookie**, e não token.
 - **Rotas de sessão:** `POST /api/sessao/` (login), `DELETE /api/sessao/` (logout) e `GET /api/sessao/` (quem sou eu: devolve só apelido, tipo de usuário e `avisoPrivacidadePendente`, que indica se falta a ciência do aviso de privacidade atualizado antes do primeiro check-in, RF11 e RNF07.1; nunca matrícula/SIAPE ou e-mail, RI10). Os nomes finais ficam no contrato OpenAPI.
 - **`authStore`** não guarda token. Ao abrir o app, ele chama `GET /api/sessao/` para saber se há sessão e guarda só o apelido, o tipo de usuário e `avisoPrivacidadePendente`.
 - **Redefinição de senha encerra todas as sessões** da conta (RF04). O Django já faz isso ao trocar a senha, porque cada sessão guarda um hash derivado da senha e deixa de valer quando ela muda.
-- **Conta suspensa ou removida** (ADR 0004) é mapeada para `is_active = False`. Com isso, o login é recusado e as sessões já abertas deixam de autenticar na próxima requisição.
+- **Conta suspensa** (ADR 0004) é mapeada para `is_active = False`. Com isso, o login é recusado e as sessões já abertas deixam de autenticar na próxima requisição. A conta excluída é apagada (RNF07.4), e as sessões dela são encerradas antes.
 - **PWA e API no mesmo domínio** (`bandejaounb.com.br/` e `bandejaounb.com.br/api/`), para o cookie `SameSite` funcionar sem CORS com credenciais. Era requisito para a escolha de hospedagem (SP-02) e é atendido pela máquina virtual da Azure (Azure for Students), em que o Caddy serve o PWA e encaminha `/api/` ao backend (ADR 0012).
 
 ## Consequências
@@ -49,6 +49,6 @@ A autenticação da API usa a **sessão do Django em cookie**, e não token.
 
 - Requisitos: RF03, RF04, RF05, RNF03, RNF04, RNF05, RI10.
 - `docs/arquitetura/adr/0001-escolha-stack-backend.md` (DRF, autenticação integrada).
-- `docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md` (conta suspensa ou removida).
+- `docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md` (conta suspensa e exclusão de conta).
 - `c4-niveis-3-4-frontend-bandejao.md` (`authStore`, `apiClient`).
 - `c4-nivel-4-cadastro-autenticacao.md` (`LoginService`, `Sessao`).

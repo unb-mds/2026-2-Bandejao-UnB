@@ -2,7 +2,7 @@
 
 
 **Status:** Aceita
-**Data:** 2026-09-27
+**Data:** 2026-09-27 (revisada em 2026-11-14: a exclusão de conta passa a apagar a conta, para atender à LGPD)
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
 ## Contexto
@@ -41,7 +41,8 @@ Esse acesso é usado para:
   matrícula/SIAPE (RNF07, RNF08);
 - ocultar avaliações e suspender contas;
 - tratar matrículas contestadas (L01);
-- atender solicitações de exclusão de conta.
+- atender solicitações de exclusão de conta, que apagam a conta (ver a
+  revisão de 2026-11-14, abaixo).
 
 A equipe já sinalizou a intenção de **automatizar a moderação de rotina no
 futuro**, reservando o acesso direto a casos extremos de rastreamento por
@@ -74,12 +75,59 @@ caminho principal.
   que representam esses estados estão no Nível 4 do banco de dados:
   `AVALIACAO.oculta` (avaliação oculta não aparece nos comentários nem entra
   na nota média e na quantidade; ver o Nível 4 da Avaliação) e
-  `USUARIO.status` (`suspenso` e `removido` não autenticam; ver a ADR 0007).
+  `USUARIO.status` (`suspenso` não autentica; ver a ADR 0007).
 - SQLite em desenvolvimento e MySQL em produção (ADR 0001) significam que os
   procedimentos manuais precisam ser testados no banco de produção, não só no
   local.
 - Quando a moderação de rotina for automatizada, esta ADR deve ser revisada e
   substituída, mantendo o acesso direto apenas como recurso de exceção.
+
+## Revisão de 2026-11-14: a exclusão de conta apaga a conta
+
+**Contexto.** Até aqui, a exclusão de conta só marcava a conta como
+`removido` e guardava a matrícula/SIAPE, o e-mail, o apelido e o hash da
+senha sem prazo, para manter o vínculo das avaliações com o autor (RNF08).
+Pela LGPD, o titular pode pedir a eliminação dos dados tratados com o seu
+consentimento (art. 18, VI), e o cadastro usa o consentimento como base
+legal (aceite do aviso de privacidade). Guardar os dados depois do pedido
+só é permitido nos casos do art. 16 (obrigação legal, pesquisa,
+transferência a terceiro ou uso exclusivo do controlador com os dados
+anonimizados), e nenhum deles cobre a moderação, que precisa identificar o
+autor. Manter os dados sem prazo também contraria o princípio da
+necessidade (art. 6º, III).
+
+Foram consideradas duas saídas:
+- **(A)** guardar só a matrícula/SIAPE ligada às avaliações por um prazo
+  definido, com base no legítimo interesse (art. 7º, IX), e apagar tudo
+  depois do prazo;
+- **(B)** apagar a conta na exclusão e manter as avaliações anônimas.
+
+**Decisão: (B).** O `RemoverContaCommand` apaga os contadores, retira o
+vínculo dos registros de fila, encerra as sessões e **apaga a linha de
+`USUARIO`**. As avaliações continuam publicadas como "usuário removido",
+sem vínculo com a pessoa (`AVALIACAO.usuario_id` vira nulo por
+`ON DELETE SET NULL`). Se a pessoa pedir, a equipe também apaga as
+avaliações dela antes de apagar a conta, porque um comentário pode conter
+algo que a identifique. O status `removido` e a coluna `removido_em` deixam
+de existir (migration da BD-12).
+
+**Consequências.**
+- Nenhum dado pessoal sobra depois da exclusão: a avaliação anônima deixa
+  de ser dado pessoal (art. 12), e mantê-la não precisa de base legal.
+- A moderação continua possível: a equipe ainda oculta uma avaliação
+  abusiva de conta excluída. O que se perde é identificar o autor. Como a
+  conta dele já não existe, não haveria a quem suspender.
+- A pessoa pode voltar a se cadastrar com a mesma matrícula/SIAPE e o mesmo
+  e-mail. Uma matrícula contestada (L01) também se resolve apagando a conta
+  de quem a usou indevidamente.
+- O banco já estava preparado: as avaliações e os registros de fila ficam
+  sem dono (`ON DELETE SET NULL`) e os contadores são apagados junto
+  (`ON DELETE CASCADE`). Como esse comportamento é do ORM do Django, a
+  exclusão é feita pelo `RemoverContaCommand`, nunca por DELETE direto no
+  banco.
+- A opção (A) foi descartada por exigir um prazo novo no Anexo A, um job de
+  limpeza e a demonstração formal do legítimo interesse, sem ganho real para
+  a moderação.
 
 ## Alternativa considerada
 
@@ -91,7 +139,8 @@ futura da moderação de rotina.
 
 ## Relacionadas
 
-- Requisitos: RNF07, RNF08, L01, L02.
+- Requisitos: RNF07 (RNF07.4), RNF08, L01, L02.
+- Lei Geral de Proteção de Dados (Lei nº 13.709/2018): art. 6º, III; art. 7º, IX; art. 12; art. 16; art. 18, VI.
 - `docs/arquitetura/adr/0001-escolha-stack-backend.md` (bancos de dados usados em
   desenvolvimento e produção).
 - `docs/arquitetura/adr/0002-matricula-apelido-extraidos-do-email.md` (origem da matrícula
