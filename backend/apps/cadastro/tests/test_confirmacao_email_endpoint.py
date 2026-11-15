@@ -12,6 +12,7 @@ from unittest import mock
 import pytest
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.db import OperationalError
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -244,3 +245,29 @@ def test_o_link_do_cadastro_confirma_a_conta(
     assert resposta.status_code == 200
     conta = Usuario.objects.get(matricula_siape="251098732")
     assert conta.status == StatusUsuario.ATIVO
+
+
+@pytest.mark.django_db(transaction=True)
+def test_falha_de_banco_ao_criar_o_link_nao_derruba_o_cadastro(hoje_fixo, caplog):
+    """Com commit de verdade, o on_commit roda dentro da requisição.
+
+    Os testes com `django_capture_on_commit_callbacks` rodam o callback depois
+    da resposta, então não pegam uma exceção que sobe depois do COMMIT. Aqui a
+    conta já está gravada: devolver 500 faria a pessoa tentar de novo e
+    receber "já cadastrado".
+    """
+    cliente = APIClient(enforce_csrf_checks=True)
+    resposta_csrf = cliente.get("/api/csrf/")
+    cliente.credentials(HTTP_X_CSRFTOKEN=resposta_csrf.cookies["csrftoken"].value)
+
+    with mock.patch(
+        "apps.cadastro.confirmacao_email_service.Token.objects.create",
+        side_effect=OperationalError("database is locked"),
+    ):
+        resposta = cliente.post("/api/cadastro/", CADASTRO, format="json")
+
+    assert resposta.status_code == 201
+    conta = Usuario.objects.get(matricula_siape="251098732")
+    assert conta.status == StatusUsuario.PENDENTE
+    assert "OperationalError" in caplog.text
+    assert mail.outbox == []

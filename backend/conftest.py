@@ -33,12 +33,25 @@ VARIAVEIS_DO_SETTINGS = [
 ]
 
 
+# Variáveis sem valor padrão em produção (sem DEBUG): o settings não carrega
+# sem elas. Os testes que não tratam delas recebem estes valores.
+OBRIGATORIAS_DE_TESTE = {
+    "SECRET_KEY": "chave-so-para-teste",
+    "URL_DO_PWA": "https://pwa.teste",
+    "EMAIL_HOST": "smtp.teste",
+    "EMAIL_HOST_USER": "usuario-teste",
+    "EMAIL_HOST_PASSWORD": "senha-teste",
+}
+
+
 @pytest.fixture
 def carregar_settings(monkeypatch):
     """Devolve uma função que executa o config/settings.py do zero.
 
     Serve para testar o valor PADRÃO das configurações: o .env do desenvolvedor
-    é ignorado e só as variáveis passadas como argumento existem.
+    é ignorado e só as variáveis passadas como argumento existem, além das
+    obrigatórias em produção (`OBRIGATORIAS_DE_TESTE`). Passe `None` para tirar
+    uma delas, como em `carregar(URL_DO_PWA=None)`.
     O módulo carregado é uma cópia isolada, então o `django.conf.settings`
     usado pelo resto da suíte não é afetado.
     """
@@ -51,9 +64,11 @@ def carregar_settings(monkeypatch):
         )
         for nome in VARIAVEIS_DO_SETTINGS:
             monkeypatch.delenv(nome, raising=False)
-        monkeypatch.setenv("SECRET_KEY", "chave-so-para-teste")
-        for nome, valor in ambiente.items():
-            monkeypatch.setenv(nome, valor)
+        for nome, valor in {**OBRIGATORIAS_DE_TESTE, **ambiente}.items():
+            if valor is None:
+                monkeypatch.delenv(nome, raising=False)
+            else:
+                monkeypatch.setenv(nome, valor)
 
         spec = importlib.util.spec_from_file_location(
             "settings_isolado", CAMINHO_SETTINGS

@@ -12,6 +12,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.management import call_command
+from django.db import OperationalError
 from django.utils import timezone
 
 from apps.cadastro.confirmacao_email_service import ConfirmacaoEmailService
@@ -19,7 +20,7 @@ from apps.cadastro.conta_repository import ContaRepository
 from apps.cadastro.management.commands.excluir_cadastros_pendentes import (
     ExclusaoCadastroPendenteJob,
 )
-from apps.cadastro.models import StatusUsuario, Token
+from apps.cadastro.models import StatusUsuario, TipoToken, Token
 from apps.gamificacao.models import PontuacaoUsuario
 from apps.gamificacao.pontuacao_service import PontuacaoService
 
@@ -136,7 +137,7 @@ def test_o_comando_do_django_roda_o_job(pendente, relogio):
     call_command("excluir_cadastros_pendentes", stdout=saida)
 
     assert not existe(pendente)
-    assert "1" in saida.getvalue()
+    assert saida.getvalue().strip() == "Cadastros pendentes excluídos: 1"
 
 
 def test_a_exclusao_confere_o_prazo_de_novo(pendente):
@@ -147,3 +148,107 @@ def test_a_exclusao_confere_o_prazo_de_novo(pendente):
 
     assert apagou is False
     assert existe(pendente)
+
+
+def test_exatamente_24_horas_depois_ainda_nao_apaga(pendente, relogio):
+    relogio.return_value = INICIO + timedelta(hours=24)
+
+    assert ExclusaoCadastroPendenteJob().executar() == 0
+    assert existe(pendente)
+
+
+def test_token_recente_de_outro_tipo_nao_renova_o_prazo(pendente, relogio):
+    relogio.return_value = INICIO + timedelta(hours=20)
+    Token.objects.create(
+        usuario=pendente,
+        tipo=TipoToken.REDEFINICAO_SENHA,
+        token_hash="f" * 64,
+        expira_em=INICIO + timedelta(hours=21),
+    )
+    relogio.return_value = INICIO + timedelta(hours=25)
+
+    assert ExclusaoCadastroPendenteJob().executar() == 1
+    assert not existe(pendente)
+
+
+def test_reenvio_entre_a_listagem_e_a_exclusao_salva_a_conta(pendente, relogio):
+    """A corrida de verdade: o job listou, a pessoa pediu reenvio, o job apagaria."""
+    relogio.return_value = INICIO + timedelta(hours=25)
+    excluir_de_verdade = ContaRepository.excluir_pendente_expirada
+
+    def reenvia_antes_de_excluir(repositorio, conta, limite):
+        ConfirmacaoEmailService().reenviar(conta)
+        return excluir_de_verdade(repositorio, conta, limite)
+
+    with mock.patch.object(
+        ContaRepository,
+        "excluir_pendente_expirada",
+        autospec=True,
+        side_effect=reenvia_antes_de_excluir,
+    ):
+        excluidas = ExclusaoCadastroPendenteJob().executar()
+
+    assert excluidas == 0
+    assert existe(pendente)
+
+
+def test_confirmacao_entre_a_listagem_e_a_exclusao_salva_a_conta(pendente, relogio):
+    relogio.return_value = INICIO + timedelta(hours=25)
+    excluir_de_verdade = ContaRepository.excluir_pendente_expirada
+
+    def confirma_antes_de_excluir(repositorio, conta, limite):
+        Usuario.objects.filter(pk=conta.pk).update(
+            status=StatusUsuario.ATIVO, email_confirmado=True
+        )
+        return excluir_de_verdade(repositorio, conta, limite)
+
+    with mock.patch.object(
+        ContaRepository,
+        "excluir_pendente_expirada",
+        autospec=True,
+        side_effect=confirma_antes_de_excluir,
+    ):
+        assert ExclusaoCadastroPendenteJob().executar() == 0
+
+    assert existe(pendente)
+
+
+def test_a_exclusao_trava_a_conta_antes_de_conferir(pendente, relogio):
+    """FOR UPDATE: um reenvio concorrente espera o job (vale no MySQL)."""
+    relogio.return_value = INICIO + timedelta(hours=25)
+    limite = INICIO + timedelta(hours=1)
+
+    with mock.patch.object(
+        Usuario.objects,
+        "select_for_update",
+        wraps=Usuario.objects.select_for_update,
+    ) as travar:
+        ContaRepository().excluir_pendente_expirada(pendente, limite)
+
+    travar.assert_called_once()
+
+
+def test_erro_de_banco_numa_conta_nao_para_o_job(db, relogio, caplog):
+    primeira = criar_conta(5)
+    segunda = criar_conta(6)
+    relogio.return_value = INICIO + timedelta(hours=25)
+    excluir_de_verdade = ContaRepository.excluir_pendente_expirada
+
+    def falha_na_primeira(repositorio, conta, limite):
+        if conta.pk == primeira.pk:
+            raise OperationalError("database is locked")
+        return excluir_de_verdade(repositorio, conta, limite)
+
+    with mock.patch.object(
+        ContaRepository,
+        "excluir_pendente_expirada",
+        autospec=True,
+        side_effect=falha_na_primeira,
+    ):
+        excluidas = ExclusaoCadastroPendenteJob().executar()
+
+    assert excluidas == 1
+    assert existe(primeira)
+    assert not existe(segunda)
+    assert "OperationalError" in caplog.text
+    assert "2024000" not in caplog.text

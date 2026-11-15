@@ -7,7 +7,7 @@ Aqui ficam o token (hash, prazo, uso único), o e-mail e o reenvio.
 import hashlib
 import logging
 from datetime import UTC, datetime, timedelta
-from smtplib import SMTPException
+from smtplib import SMTPException, SMTPRecipientsRefused, SMTPResponseException
 from unittest import mock
 
 import pytest
@@ -118,6 +118,94 @@ def test_enviar_link_invalida_os_tokens_anteriores_da_conta(servico, usuario):
         servico.confirmar(antigo)
 
 
+def test_falha_no_smtp_mantem_o_link_anterior_valido(servico, usuario):
+    """Se o e-mail novo não sai, o link que a pessoa já tem continua valendo."""
+    antigo = enviar_e_pegar_token(servico, usuario)
+
+    with mock.patch(
+        "apps.cadastro.confirmacao_email_service.send_mail",
+        side_effect=SMTPException("fora do ar"),
+    ):
+        servico.enviar_link(usuario)
+
+    servico.confirmar(antigo)
+    usuario.refresh_from_db()
+    assert usuario.status == StatusUsuario.ATIVO
+
+
+def test_falha_no_smtp_nao_deixa_token_novo_no_banco(servico, usuario):
+    """O token que não foi entregue não pode renovar o prazo do job (RF02.3)."""
+    enviar_e_pegar_token(servico, usuario)
+
+    with mock.patch(
+        "apps.cadastro.confirmacao_email_service.send_mail",
+        side_effect=SMTPException("fora do ar"),
+    ):
+        servico.enviar_link(usuario)
+
+    assert Token.objects.filter(usuario=usuario).count() == 1
+
+
+def test_erro_que_nao_e_do_envio_nao_e_engolido(servico, usuario):
+    """Um erro de programação tem que aparecer (500 com traceback), não sumir."""
+    with (
+        mock.patch(
+            "apps.cadastro.confirmacao_email_service.send_mail",
+            side_effect=RuntimeError("bug"),
+        ),
+        pytest.raises(RuntimeError),
+    ):
+        servico.enviar_link(usuario)
+
+
+def test_falha_de_rede_tambem_e_tratada(servico, usuario, caplog):
+    """Servidor SMTP fora do ar dá OSError (ConnectionRefusedError, timeout)."""
+    with (
+        mock.patch(
+            "apps.cadastro.confirmacao_email_service.send_mail",
+            side_effect=ConnectionRefusedError("recusado"),
+        ),
+        caplog.at_level(logging.ERROR),
+    ):
+        servico.enviar_link(usuario)
+
+    assert "ConnectionRefusedError" in caplog.text
+
+
+def test_o_log_da_falha_traz_o_codigo_smtp(servico, usuario, caplog):
+    with (
+        mock.patch(
+            "apps.cadastro.confirmacao_email_service.send_mail",
+            side_effect=SMTPResponseException(421, b"servico indisponivel"),
+        ),
+        caplog.at_level(logging.ERROR),
+    ):
+        servico.enviar_link(usuario)
+
+    assert "421" in caplog.text
+
+
+def test_o_log_da_recusa_do_destinatario_nao_traz_o_endereco(servico, usuario, caplog):
+    """`SMTPRecipientsRefused` guarda o endereço recusado dentro da exceção."""
+    recusa = SMTPRecipientsRefused({"202400001@aluno.unb.br": (550, b"nao existe")})
+    with (
+        mock.patch(
+            "apps.cadastro.confirmacao_email_service.send_mail", side_effect=recusa
+        ),
+        caplog.at_level(logging.ERROR),
+    ):
+        servico.enviar_link(usuario)
+
+    assert "SMTPRecipientsRefused" in caplog.text
+    assert "202400001" not in caplog.text
+
+
+def test_o_email_diz_a_validade_do_link(servico, usuario):
+    servico.enviar_link(usuario)
+
+    assert "24 horas" in mail.outbox[0].body
+
+
 def test_falha_no_smtp_nao_levanta_e_vai_para_o_log_sem_token_nem_email(
     servico, usuario, caplog
 ):
@@ -133,8 +221,7 @@ def test_falha_no_smtp_nao_levanta_e_vai_para_o_log_sem_token_nem_email(
     mensagens = " ".join(r.getMessage() for r in caplog.records)
     assert "SMTPException" in mensagens
     assert "202400001" not in mensagens
-    token_hash = Token.objects.get(usuario=usuario).token_hash
-    assert token_hash not in mensagens
+    assert "confirmar-email?token=" not in mensagens
     assert all(r.exc_info is None for r in caplog.records)
 
 
@@ -212,7 +299,13 @@ def test_conta_que_nao_esta_pendente_nao_e_reativada_pelo_link(servico, usuario)
 
 
 def test_confirmar_trava_o_token_com_select_for_update(servico, usuario):
-    """Dois cliques no mesmo link: o segundo espera o primeiro e vê `usado_em`."""
+    """Dois cliques no mesmo link: o segundo espera o primeiro e vê `usado_em`.
+
+    Este teste confere a trava, e não a corrida: o SQLite dos testes ignora o
+    `FOR UPDATE` (ele trava o banco inteiro na escrita). A corrida de verdade só
+    acontece no MySQL de produção. O comportamento de uso único (o segundo
+    clique dá erro) está em `test_token_ja_usado_levanta_erro`.
+    """
     token = enviar_e_pegar_token(servico, usuario)
 
     with mock.patch.object(
@@ -273,5 +366,47 @@ def test_reenviar_para_conta_confirmada_nao_manda_email(servico, usuario):
 
 def test_reenviar_sem_conta_nao_faz_nada(servico, db):
     servico.reenviar(None)
+
+    assert mail.outbox == []
+
+
+def test_matricula_e_token_juntos_vale_a_matricula(servico, usuario):
+    outra = type(usuario).objects.create_user(
+        matricula_siape="202400002",
+        tipo_usuario="estudante",
+        apelido="outra",
+        email_institucional="202400002@aluno.unb.br",
+        aceite_privacidade_em=usuario.aceite_privacidade_em,
+        versao_aviso_aceita="teste",
+        password="senha-forte-123",
+    )
+    token_da_outra = enviar_e_pegar_token(servico, outra)
+
+    conta = servico.conta_para_reenvio(
+        matricula_siape="202400001", token=token_da_outra
+    )
+
+    assert conta == usuario
+
+
+def test_token_de_outro_tipo_nao_acha_conta_para_reenvio(servico, usuario, relogio):
+    Token.objects.create(
+        usuario=usuario,
+        tipo=TipoToken.REDEFINICAO_SENHA,
+        token_hash=hash_de("token-de-senha"),
+        expira_em=AGORA + timedelta(hours=1),
+    )
+
+    assert servico.conta_para_reenvio(token="token-de-senha") is None
+
+
+@pytest.mark.parametrize("status", [StatusUsuario.SUSPENSO, StatusUsuario.REMOVIDO])
+def test_reenviar_para_conta_que_nao_esta_pendente_nao_manda_email(
+    servico, usuario, status
+):
+    usuario.status = status
+    usuario.save()
+
+    servico.reenviar(usuario)
 
     assert mail.outbox == []
