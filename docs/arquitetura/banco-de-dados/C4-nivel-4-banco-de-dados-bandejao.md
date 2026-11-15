@@ -35,13 +35,12 @@ erDiagram
         string email_institucional UK
         string senha_hash "hash, nunca texto plano (RI04/RNF04)"
         boolean email_confirmado "default false"
-        string status "pendente | ativo | suspenso | removido"
+        string status "pendente | ativo | suspenso"
         datetime aceite_privacidade_em
         string versao_aviso_aceita "versão do aviso de privacidade aceita; antiga nas contas anteriores à Release 2"
         datetime criado_em
         int tentativas_login_falhas "default 0"
         datetime bloqueado_ate "nullable"
-        datetime removido_em "nullable"
     }
 
     CAMPUS {
@@ -255,13 +254,12 @@ Conta de acesso ao aplicativo (não a pessoa; glossário: "Usuário").
 | `email_institucional` | EmailField | NOT NULL, **UNIQUE** | `matricula@aluno.unb.br` (estudante) ou `nome@unb.br` (professor/servidor). Único canal de confirmação e recuperação (RF02, RF04, L07). |
 | `senha_hash` | CharField(128) | NOT NULL | Hash da senha (Django `PBKDF2`/`Argon2`); nunca texto plano (RI04, RNF04). |
 | `email_confirmado` | BooleanField | NOT NULL, default `false` | Conta só autentica com `true` (RF02, RF03). |
-| `status` | CharField(20) | NOT NULL, choices, default `pendente` | `pendente` \| `ativo` \| `suspenso` \| `removido` (RNF08 — moderação manual da equipe). |
+| `status` | CharField(20) | NOT NULL, choices, default `pendente` | `pendente` \| `ativo` \| `suspenso` (RNF08 — moderação manual da equipe). Não há `removido`: a exclusão de conta apaga a linha (RNF07.4, revisão da ADR 0004). |
 | `aceite_privacidade_em` | DateTimeField | NOT NULL | Momento em que a pessoa confirmou ciência do aviso de privacidade (RF01); cadastro não se conclui sem isso. Atualizado também quando a pessoa aceita o aviso da Release 2. |
 | `versao_aviso_aceita` | CharField(20) | NOT NULL | Versão do aviso de privacidade aceita. Quem tinha conta antes da Release 2 fica com a versão antiga, o que bloqueia o primeiro check-in até a ciência (RF11, RNF07.1). |
 | `criado_em` | DateTimeField | NOT NULL, auto | Data do cadastro. |
 | `tentativas_login_falhas` | IntegerField | NOT NULL, default `0` | Contador para o bloqueio de login (RF03, Anexo A: 5 tentativas/10 min). Zerado a cada login bem-sucedido ou a cada nova janela de 10 min. |
 | `bloqueado_ate` | DateTimeField | nullable | Fim do bloqueio de 10 minutos (RF03), quando aplicável. |
-| `removido_em` | DateTimeField | nullable | Preenchido pelo `RemoverContaCommand` quando a equipe processa uma exclusão de conta (RNF07); a linha de `USUARIO` **não é apagada**. A partir daqui as avaliações do usuário passam a ser exibidas como "usuário removido" (ver `AVALIACAO.usuario_id`). |
 
 ### `CAMPUS`
 
@@ -342,7 +340,7 @@ Nota e comentário de uma conta sobre uma refeição inteira (RF15).
 | Campo | Tipo | Constraints | Descrição |
 |---|---|---|---|
 | `id` | BigAutoField | PK | Identificador interno do registro. |
-| `usuario_id` | ForeignKey → `USUARIO` | **nullable**, `ON DELETE SET NULL` | Ao excluir a conta, a avaliação permanece, mas passa a ser exibida como "usuário removido" (RNF07), em vez de ser apagada. O `SET NULL` só vale para exclusão física, que não é usada: na exclusão de conta a linha de `USUARIO` fica com `status = removido`, e a avaliação mantém o vínculo (RNF08). |
+| `usuario_id` | ForeignKey → `USUARIO` | **nullable**, `ON DELETE SET NULL` | Ao excluir a conta, a linha de `USUARIO` é apagada e o `SET NULL` deixa a avaliação sem dono: ela permanece, exibida como "usuário removido" (RNF07.4), em vez de ser apagada. O vínculo com a conta (RNF08) vale enquanto a conta existir. |
 | `refeicao_id` | ForeignKey → `REFEICAO` | NOT NULL, `ON DELETE CASCADE` | A avaliação é da refeição inteira (campus + dia + tipo), nunca de um prato (RF15). |
 | `nota` | SmallIntegerField | NOT NULL, **CHECK** `1 <= nota <= 5` | Obrigatória (RF15). |
 | `comentario` | TextField | nullable, **CHECK** `CHAR_LENGTH(comentario) <= 500` (via `Length` do Django) | Opcional (RF15); sanitizado contra XSS na camada de aplicação (RNF04). |
@@ -544,7 +542,7 @@ duas categorias.
 | Matrícula/SIAPE e e-mail nunca expostos a outros usuários | RI10 | **Aplicação**: Serializers de leitura pública de `USUARIO` (ex.: autor de uma avaliação) nunca incluem `matricula_siape` nem `email_institucional` — não é uma constraint de banco, é uma escolha de quais colunas cada Serializer expõe. |
 | Limite de 3 solicitações de redefinição de senha por hora por matrícula/SIAPE | RF04, Anexo A | **Aplicação**: `COUNT` de linhas em `TOKEN` (`tipo = redefinicao_senha`, `usuario_id`, `criado_em` na última hora) antes de criar uma nova. |
 | Bloqueio de login após 5 tentativas em 10 minutos | RF03, Anexo A | **Aplicação**: `USUARIO.tentativas_login_falhas` e `bloqueado_ate`, geridos pela view de login. |
-| Avaliações de conta removida ficam anônimas ("usuário removido") | RNF07 | **Aplicação**: a equipe **não** apaga a linha de `USUARIO`: o `RemoverContaCommand` marca `status = removido` (decisão tomada com o backend) e a exibição mostra "usuário removido". **Banco**: `AVALIACAO.usuario_id` nullable com `ON DELETE SET NULL` cobre só uma eventual exclusão física (e, como `on_delete` é do ORM do Django, não vale para DELETE feito direto no banco). |
+| Avaliações de conta excluída ficam anônimas ("usuário removido") | RNF07.4 | **Aplicação**: o `RemoverContaCommand` apaga a linha de `USUARIO` pelo ORM (LGPD, revisão da ADR 0004), e a exibição mostra "usuário removido" quando `usuario_id` é nulo. **Banco**: `AVALIACAO.usuario_id` nullable com `ON DELETE SET NULL` (como `on_delete` é do ORM do Django, a exclusão não deve ser feita com DELETE direto no banco). |
 | Nenhuma coordenada de localização armazenada | RI09 | **Banco**: ausência deliberada de coluna de latitude/longitude do usuário em qualquer tabela (`CAMPUS.ru_*` e `CAMPUS.centro_*` são do **RU** e do **campus**, não do usuário). |
 | Uma pergunta de saída por check-in | RF21 | **Banco**: `UNIQUE` em `PERGUNTA_SAIDA.checkin_id`. |
 | No máximo uma resposta por tentativa da pergunta | RF21.2 | **Banco**: `UNIQUE (pergunta_id, tentativa)` em `RESPOSTA_SAIDA`. |
@@ -556,8 +554,8 @@ duas categorias.
 | Ranking sem pontos, matrícula nem e-mail; posição só para o próprio usuário | RI10, RI12 | **Aplicação**: serializers públicos. |
 | No máximo 30 Bandejas de Ouro por campus | RN13 | **Aplicação**: no fechamento do semestre. |
 | Só o semestre corrente e o último fechado ficam guardados | RN13, ADR 0011 | **Aplicação**: o fechamento apaga as linhas mais antigas. |
-| Vínculo dos registros de fila retirado em 4 semanas | RNF07.3 | **Aplicação**: tarefa diária `DesvincularRegistrosFilaJob` (cron) e, na exclusão de conta, `RemoverContaCommand` (ambos anulam `usuario_id` explicitamente); **Banco**: `usuario_id` nullable (o `SET NULL` só cobre exclusão física). |
-| Contadores apagados na exclusão de conta, sem apagar a conta | RNF07.4, RNF08 | **Aplicação**: `RemoverContaCommand`; **Banco**: `ON DELETE CASCADE` dos contadores para o caso de exclusão física do cadastro pendente. |
+| Vínculo dos registros de fila retirado em 4 semanas | RNF07.3 | **Aplicação**: tarefa diária `DesvincularRegistrosFilaJob` (cron) e, na exclusão de conta, `RemoverContaCommand` (ambos anulam `usuario_id` explicitamente); **Banco**: `usuario_id` nullable, com `SET NULL` na exclusão da conta. |
+| Contadores apagados na exclusão de conta | RNF07.4 | **Aplicação**: `RemoverContaCommand` (`PontuacaoService.apagarContadores`) antes de apagar a conta; **Banco**: `ON DELETE CASCADE` dos contadores, que também cobre a exclusão do cadastro pendente. |
 | Primeiro check-in só depois da ciência do aviso atualizado | RF11, RNF07.1 | **Aplicação**: compara `USUARIO.versao_aviso_aceita` com a versão em vigor. |
 
 > **Nota sobre a "janela de cooldown de 15 minutos"** citada no rascunho da

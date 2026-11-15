@@ -115,7 +115,9 @@ foi contratado. Só o registro DNS passa a apontar para o IP da VM.
 - A equipe passa a ser responsável pela manutenção da VM: atualizações de
   segurança do sistema, acesso SSH apenas por chave, NSG liberando só as
   portas 22, 80 e 443, e backup diário do banco guardado fora da VM, com o
-  mesmo acesso restrito do banco de produção (ADR 0008).
+  mesmo acesso restrito do banco de produção (ADR 0008). Cada cópia é
+  guardada por 7 dias (Anexo A), para que os dados de uma conta excluída
+  saiam também dos backups (RNF07.4, ADR 0004).
 - O acesso direto da equipe ao banco (ADR 0004) é feito por túnel SSH até a
   VM, com chave SSH individual por membro e usuário de banco individual.
 - A conexão entre a aplicação e o banco não sai da VM, e o acesso da equipe

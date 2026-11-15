@@ -14,6 +14,15 @@ TRADUCOES = {
         "credenciais_invalidas",
         "Matrícula/SIAPE ou senha incorretas.",
     ),
+    # Corpo ilegível: chega antes do serializer, então a view não traduz.
+    "parse_error": (
+        "json_invalido",
+        "O corpo do pedido não é um JSON válido.",
+    ),
+    "unsupported_media_type": (
+        "tipo_de_conteudo_invalido",
+        "Envie o corpo em JSON (Content-Type: application/json).",
+    ),
     "csrf_invalido": (
         "csrf_invalido",
         (
@@ -27,10 +36,11 @@ TRADUCOES = {
 def tratador_de_excecoes(exc, context):
     """Converte erros de mensagem única para `{"codigo", "mensagem"}`.
 
-    - Códigos de TRADUCOES (sem sessão, credenciais, CSRF) usam o texto de lá.
+    - Códigos de TRADUCOES (sem sessão, credenciais, CSRF, corpo ilegível)
+      usam o texto de lá.
     - Exceção levantada com código próprio usa esse código e a mensagem dela:
       `raise PermissionDenied("Confirme seu e-mail.", code="conta_nao_confirmada")`.
-    - O resto (validação, 404, 405...) segue como o DRF devolve. O 422 de
+    - O resto (validação, 404, 405) segue como o DRF devolve. O 422 de
       validação de cada rota fica com a view (BE-05 e seguintes).
     """
     resposta = exception_handler(exc, context)

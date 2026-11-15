@@ -2,9 +2,9 @@
 
 Toda resposta de erro declarada no contrato traz `codigo` (obrigatório) e
 `mensagem`. O handler de `config/excecoes.py` aplica o formato aos erros de
-mensagem única (401, 403 de CSRF e exceções com código próprio). O 400 de
-validação, o 404, o 405 e o 415 ainda saem como o DRF devolve. Também não
-existe um objeto `campos` para os erros de validação.
+mensagem única (401, 403 de CSRF, 400 de JSON malformado, 415 e exceções com
+código próprio). O 400 de validação, o 404 e o 405 ainda saem como o DRF
+devolve. Também não existe um objeto `campos` para os erros de validação.
 """
 
 from rest_framework import serializers

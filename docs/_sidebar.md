@@ -5,6 +5,7 @@
   - [Documento de Requisitos](requisitos/documento-de-requisitos-bandejao.md)
   - [Glossário do domínio](requisitos/CONTEXT-DOMINIO.md)
   - [Backlog do produto](requisitos/backlog.md)
+  - [Aviso de privacidade](requisitos/aviso-de-privacidade.md)
 
 - **Qualidade**
   - [Plano de testes](qualidade/plano-de-testes.md)

@@ -9,6 +9,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.cadastro.autenticacao import CsrfObrigatorio
+from apps.cadastro.cadastro_service import (
+    MENSAGEM_AVISO,
+    MENSAGEM_DADOS,
+    MENSAGEM_SENHA,
+    MENSAGEM_SIAPE,
+    CadastroService,
+)
+from apps.cadastro.erros import ApelidoIndisponivelError, CadastroInvalidoError
+from apps.cadastro.models import MENSAGEM_APELIDO
 from apps.cadastro.serializers import (
     ApelidoIndisponivelSerializer,
     CadastroCriadoSerializer,
@@ -18,6 +27,25 @@ from apps.cadastro.serializers import (
     SessaoSerializer,
 )
 from config.erros import ErroSerializer
+
+# Mensagem do 422 quando o corpo nem passa no serializer. O DRF devolve todos
+# os campos com erro; a ordem abaixo é a prioridade escolhida pelo time para
+# mostrar um só. O {"campo": [...]} do DRF, em inglês, não vai ao front.
+MENSAGENS_DO_SERIALIZER = (
+    ("tipoUsuario", "Escolha se você é aluno, professor ou servidor."),
+    ("aceitePrivacidade", MENSAGEM_AVISO),
+    ("emailInstitucional", "Informe o seu e-mail institucional da UnB."),
+    ("matriculaSiape", MENSAGEM_SIAPE),
+    ("senha", MENSAGEM_SENHA),
+    ("apelido", MENSAGEM_APELIDO),
+)
+
+
+def dados_invalidos(mensagem):
+    return Response(
+        {"codigo": "dados_invalidos", "mensagem": mensagem},
+        status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+    )
 
 
 class CsrfView(APIView):
@@ -47,7 +75,7 @@ class CsrfView(APIView):
 
 
 class CadastroView(APIView):
-    """POST /api/cadastro/ (RF01, Cadastro N4 4a). Lógica na BE-05."""
+    """POST /api/cadastro/ (RF01, Cadastro N4 4a)."""
 
     permission_classes = (AllowAny, CsrfObrigatorio)
 
@@ -61,20 +89,52 @@ class CadastroView(APIView):
                 ApelidoIndisponivelSerializer,
                 description=(
                     "Só professor/servidor: o apelido extraído do e-mail já "
-                    "existe ou é inválido. Reenviar com `apelido`."
+                    "existe ou é inválido. Reenviar com `apelido`. "
+                    "`codigo`: `apelido_indisponivel`."
                 ),
             ),
             422: OpenApiResponse(
                 ErroSerializer,
                 description=(
-                    "Dados rejeitados. Matrícula/SIAPE ou e-mail já usados "
-                    "dão a mesma mensagem, sem dizer qual dos dois (RI01)."
+                    "Dados rejeitados. A mensagem diz o que corrigir, exceto "
+                    "quando o corpo vem fora do formato esperado (mensagem "
+                    "genérica). Matrícula/SIAPE ou e-mail já usados dão a "
+                    "mesma mensagem, sem dizer qual dos dois (RF01.5). "
+                    "`codigo`: `dados_invalidos`."
                 ),
             ),
         },
     )
     def post(self, request):
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        entrada = CadastroEntradaSerializer(data=request.data)
+        if not entrada.is_valid():
+            erros = entrada.errors
+            mensagem = next(
+                (texto for campo, texto in MENSAGENS_DO_SERIALIZER if campo in erros),
+                MENSAGEM_DADOS,
+            )
+            return dados_invalidos(mensagem)
+
+        try:
+            conta = CadastroService().registrar(
+                entrada.validated_data["tipoUsuario"], entrada.para_dados_cadastro()
+            )
+        except ApelidoIndisponivelError as erro:
+            return Response(
+                {
+                    "codigo": "apelido_indisponivel",
+                    "mensagem": erro.mensagem,
+                    "apelidoSugerido": erro.apelido_sugerido,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        except CadastroInvalidoError as erro:
+            return dados_invalidos(erro.mensagem)
+        # O envio do link de confirmação (ConfirmacaoEmailService) vem na BE-06.
+        saida = CadastroCriadoSerializer(
+            {"emailInstitucional": conta.email_institucional, "status": conta.status}
+        )
+        return Response(saida.data, status=status.HTTP_201_CREATED)
 
 
 class ConfirmacaoEmailView(APIView):

@@ -2,30 +2,70 @@
 
 from rest_framework import serializers
 
+from apps.cadastro.dados_cadastro import DadosCadastro
 from apps.cadastro.models import TipoUsuario
 from config.erros import ErroSerializer
+
+
+class TextoEstritoField(serializers.CharField):
+    """CharField que recusa número: `0123456` chegaria como `123456`."""
+
+    def to_internal_value(self, data):
+        if not isinstance(data, str):
+            self.fail("invalid")
+        return super().to_internal_value(data)
+
+
+class BooleanoEstritoField(serializers.BooleanField):
+    """Só o booleano do JSON. `"true"`, `1` ou `"sim"` não valem como aceite."""
+
+    def to_internal_value(self, data):
+        if not isinstance(data, bool):
+            self.fail("invalid", input=data)
+        return data
 
 
 class CadastroEntradaSerializer(serializers.Serializer):
     """Corpo do POST /api/cadastro/ (RF01, Cadastro N4 4a)."""
 
     tipoUsuario = serializers.ChoiceField(choices=TipoUsuario.choices)
-    emailInstitucional = serializers.EmailField()
-    senha = serializers.CharField(min_length=8, write_only=True)
+    # 254: o tamanho da coluna (EmailField do model).
+    emailInstitucional = serializers.EmailField(max_length=254)
+    # Os espaços das pontas fazem parte da senha (o login também os mantém).
+    senha = serializers.CharField(min_length=8, write_only=True, trim_whitespace=False)
+    # Vazio ou null contam como "não veio": o front manda "" nos campos que
+    # o tipo escolhido esconde.
     apelido = serializers.CharField(
         required=False,
+        allow_blank=True,
+        allow_null=True,
         help_text=(
-            "Obrigatório para estudante. Professor/servidor só envia depois "
-            "de um 409 apelido_indisponivel."
+            "Obrigatório para estudante. Professor/servidor pode deixar vazio "
+            "(o apelido sai do e-mail) ou digitar um, como depois de um 409 "
+            "apelido_indisponivel."
         ),
     )
-    matriculaSiape = serializers.CharField(
+    matriculaSiape = TextoEstritoField(
         required=False,
-        help_text="SIAPE de 7 dígitos. Só para professor/servidor.",
+        allow_blank=True,
+        allow_null=True,
+        help_text="SIAPE de 7 dígitos, como texto. Só para professor/servidor.",
     )
-    aceitePrivacidade = serializers.BooleanField(
-        help_text="Ciência do aviso de privacidade (RNF07.1). Precisa ser true.",
+    aceitePrivacidade = BooleanoEstritoField(
+        help_text=(
+            "Ciência do aviso de privacidade (RNF07.1). Precisa ser o booleano true."
+        ),
     )
+
+    def para_dados_cadastro(self) -> DadosCadastro:
+        dados = self.validated_data
+        return DadosCadastro(
+            email_institucional=dados["emailInstitucional"],
+            senha=dados["senha"],
+            aceite_privacidade=dados["aceitePrivacidade"],
+            apelido=dados.get("apelido") or "",
+            matricula_siape=dados.get("matriculaSiape") or "",
+        )
 
 
 class CadastroCriadoSerializer(serializers.Serializer):
@@ -64,7 +104,8 @@ class LoginEntradaSerializer(serializers.Serializer):
     matriculaSiape = serializers.CharField(
         help_text="Matrícula (9 dígitos) ou SIAPE (7 dígitos), no mesmo campo.",
     )
-    senha = serializers.CharField(write_only=True)
+    # Sem cortar os espaços das pontas, como no cadastro.
+    senha = serializers.CharField(write_only=True, trim_whitespace=False)
 
 
 class SessaoSerializer(serializers.Serializer):
