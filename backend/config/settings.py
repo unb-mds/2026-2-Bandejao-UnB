@@ -163,8 +163,67 @@ USE_TZ = True
 STATIC_URL = "static/"
 
 
-# Email
+# Email (ADR 0012, BE-06)
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
+# MAILERS é a configuração de e-mail do Django 6.1; as antigas EMAIL_BACKEND,
+# EMAIL_HOST etc. estão obsoletas (somem no 7.0) e não podem conviver com ela.
+# As variáveis do .env mantêm os nomes conhecidos (EMAIL_HOST...), mas viram
+# o OPTIONS do mailer "default".
+# Em desenvolvimento (DEBUG=True), o e-mail sai no terminal do runserver. Em
+# produção, vai pelo SMTP do Brevo: o EMAIL_HOST vem do painel do Brevo, e o
+# usuário e a senha ficam só no .env do servidor (BD-05). Nos testes, o
+# pytest-django troca o backend pelo de memória (django.core.mail.outbox).
+
+
+def config_sem_padrao_em_producao(nome, padrao_em_desenvolvimento):
+    """Lê a variável do .env; em produção (sem DEBUG) ela é obrigatória.
+
+    Mesmo padrão da SECRET_KEY: esquecer a variável no deploy para o servidor
+    na subida (UndefinedValueError), em vez de ele responder 201 e nunca
+    entregar o link. Com DEBUG, vale o padrão de desenvolvimento.
+    """
+    if DEBUG:
+        return config(nome, default=padrao_em_desenvolvimento)
+    return config(nome)
+
+
+BACKEND_DE_EMAIL_SMTP = "django.core.mail.backends.smtp.EmailBackend"
+BACKEND_DE_EMAIL = config(
+    "EMAIL_BACKEND",
+    default=(
+        "django.core.mail.backends.console.EmailBackend"
+        if DEBUG
+        else BACKEND_DE_EMAIL_SMTP
+    ),
+)
+if BACKEND_DE_EMAIL == BACKEND_DE_EMAIL_SMTP:
+    OPCOES_DE_EMAIL = {
+        "host": config_sem_padrao_em_producao("EMAIL_HOST", "localhost"),
+        "port": config("EMAIL_PORT", default=587, cast=int),
+        "use_tls": config("EMAIL_USE_TLS", default=True, cast=bool),
+        "username": config_sem_padrao_em_producao("EMAIL_HOST_USER", ""),
+        "password": config_sem_padrao_em_producao("EMAIL_HOST_PASSWORD", ""),
+        # Sem esse limite, um SMTP travado prende o worker do Gunicorn.
+        "timeout": 10,
+    }
+else:
+    # Os outros backends (console, memória) não aceitam as opções do SMTP.
+    OPCOES_DE_EMAIL = {}
+
+MAILERS = {
+    "default": {
+        "BACKEND": BACKEND_DE_EMAIL,
+        "OPTIONS": OPCOES_DE_EMAIL,
+    },
+}
+DEFAULT_FROM_EMAIL = config(
+    "DEFAULT_FROM_EMAIL", default="nao-responda@bandejaounb.com.br"
+)
+
+# Endereço do PWA: o link de confirmação de e-mail aponta para a página
+# /confirmar-email dele, e não para a API. Sem padrão em produção: um link
+# para localhost faria todo cadastro expirar e ser apagado em 24 h.
+URL_DO_PWA = config_sem_padrao_em_producao("URL_DO_PWA", "http://localhost:5173")
 
 # Django REST Framework
 # API só em JSON, autenticada pela sessão do Django (ADR 0007).
@@ -223,11 +282,6 @@ CSRF_TRUSTED_ORIGINS = config(
     cast=lambda v: [s.strip() for s in v.split(",") if s.strip()],
 )
 
-MAILERS = {
-    "default": {
-        "BACKEND": "django.core.mail.backends.console.EmailBackend",
-    },
-}
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Bandejão UnB API",
@@ -257,10 +311,31 @@ LOGGING = {
     "filters": {
         "mascara_token": {"()": "config.logs.MascaraTokenDoPath"},
     },
+    "formatters": {
+        # Horário e nível: sem isto, o logging.lastResort do Python mostra só a
+        # mensagem, e não dá para saber quando a falha aconteceu.
+        "padrao": {"format": "{asctime} {levelname} {name}: {message}", "style": "{"},
+    },
     "handlers": {
-        "console": {"class": "logging.StreamHandler"},
+        "console": {"class": "logging.StreamHandler", "formatter": "padrao"},
     },
     "loggers": {
+        # O código do projeto (apps.*): falhas no envio do e-mail e a contagem
+        # do job de exclusão (INFO). Os logs não levam e-mail nem token.
+        "apps": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+        # Falha de um transaction.on_commit(robust=True), como o envio do link
+        # depois do cadastro. Sem esta entrada, o erro cai no console padrão
+        # do Django, que só mostra com DEBUG: em produção sumiria sem rastro.
+        # ERROR: o nível DEBUG deste logger é o SQL de cada consulta.
+        # propagate=False pelo mesmo motivo do django.request, abaixo.
+        "django.db.backends.base": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
         # propagate=False: sem isto, com DEBUG=True o erro sairia duas vezes.
         # Também desliga o mail_admins padrão do Django, que não usamos (não
         # há ADMINS). Se um dia houver, acrescente o handler aqui.

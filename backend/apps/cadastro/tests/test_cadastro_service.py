@@ -330,3 +330,36 @@ def test_senha_guardada_com_os_espacos_das_pontas(servico):
 
     assert conta.check_password("  abcdefg  ")
     assert not conta.check_password("abcdefg")
+
+
+# --- Envio do link de confirmação (BE-06, Cadastro N4 4b) ---------------------
+
+
+@pytest.mark.django_db
+def test_registrar_manda_o_link_depois_do_commit(
+    servico, django_capture_on_commit_callbacks
+):
+    with mock.patch.object(servico.confirmacao_email_service, "enviar_link") as enviar:
+        with django_capture_on_commit_callbacks(execute=False) as callbacks:
+            conta = servico.registrar(TipoUsuario.ESTUDANTE, dados_estudante())
+        # Nada sai antes do commit: se a conta não for gravada, não há e-mail.
+        enviar.assert_not_called()
+        for callback in callbacks:
+            callback()
+
+    enviar.assert_called_once_with(conta)
+
+
+@pytest.mark.django_db
+def test_registrar_recusado_nao_agenda_o_envio(
+    servico, django_capture_on_commit_callbacks
+):
+    with (
+        django_capture_on_commit_callbacks() as callbacks,
+        pytest.raises(CadastroInvalidoError),
+    ):
+        servico.registrar(
+            TipoUsuario.ESTUDANTE, dados_estudante(aceite_privacidade=False)
+        )
+
+    assert callbacks == []

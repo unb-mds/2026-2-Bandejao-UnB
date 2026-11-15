@@ -39,17 +39,18 @@ def test_rota_logada_com_sessao_chega_na_view(usuario, rota, metodo):
     resposta = getattr(cliente, metodo)(rota)
 
     # Chegou na view: não foi barrada por autenticação nem por permissão.
-    # Hoje a view responde 501; depois do BE-05, sem corpo e sem dados no banco,
-    # 2xx, 400 ou 404 também servem.
+    # Sem corpo e sem dados no banco, 2xx, 4xx de validação (422, 410) ou 501
+    # das rotas que ainda não foram implementadas também servem.
     assert resposta.status_code not in (401, 403)
 
 
 @pytest.mark.parametrize(("rota", "metodo"), ROTAS_PUBLICAS)
-def test_rota_publica_responde_sem_login(rota, metodo):
+def test_rota_publica_responde_sem_login(rota, metodo, db):
     """Pega rota pública que perdeu o AllowAny."""
+    # db: a confirmação de e-mail consulta o token no banco (BE-06).
     resposta = getattr(APIClient(), metodo)(rota)
 
     # Chegou na view: não foi barrada por autenticação nem por permissão.
-    # Hoje a view responde 501; depois do BE-05, sem corpo e sem dados no banco,
-    # 2xx, 400 ou 404 também servem.
+    # Sem corpo e sem dados no banco, 2xx, 4xx de validação (422, 410) ou 501
+    # das rotas que ainda não foram implementadas também servem.
     assert resposta.status_code not in (401, 403)

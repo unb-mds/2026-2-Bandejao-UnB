@@ -530,7 +530,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Não veio `matriculaSiape` nem `token`. `codigo`: `dados_invalidos`.'
+          description: 'Corpo inválido: não veio `matriculaSiape` nem `token`, ou
+            um deles veio vazio ou com tipo errado (mesmo que o outro esteja certo).
+            `codigo`: `dados_invalidos`.'
         '403':
           content:
             application/json:
@@ -1113,8 +1115,7 @@ components:
       description: |-
         Corpo do POST /api/reenviar-confirmacao/ (RF02.2, Cadastro N4 4b).
 
-        PROVISÓRIO: a documentação não diz como o back acha a conta. Envie
-        um dos dois campos (confirmar no servidor.js do front).
+        Envie um dos dois campos. Se vierem os dois, vale a `matriculaSiape`.
       properties:
         matriculaSiape:
           type: string
@@ -1123,7 +1124,8 @@ components:
         token:
           type: string
           minLength: 1
-          description: Quem pede o reenvio pela tela do link expirado.
+          description: Quem pede o reenvio pela tela do link expirado. Serve o token
+            de um link já vencido ou já usado.
     ResultadoPontuacao:
       type: object
       description: Bloco `pontos` devolvido por avaliação e check-in (Gamificação

@@ -16,7 +16,12 @@ from apps.cadastro.cadastro_service import (
     MENSAGEM_SIAPE,
     CadastroService,
 )
-from apps.cadastro.erros import ApelidoIndisponivelError, CadastroInvalidoError
+from apps.cadastro.confirmacao_email_service import ConfirmacaoEmailService
+from apps.cadastro.erros import (
+    ApelidoIndisponivelError,
+    CadastroInvalidoError,
+    TokenExpiradoOuInvalidoError,
+)
 from apps.cadastro.models import MENSAGEM_APELIDO
 from apps.cadastro.serializers import (
     ApelidoIndisponivelSerializer,
@@ -39,6 +44,11 @@ MENSAGENS_DO_SERIALIZER = (
     ("senha", MENSAGEM_SENHA),
     ("apelido", MENSAGEM_APELIDO),
 )
+
+MENSAGEM_TOKEN_INVALIDO = (
+    "Este link de confirmação é inválido, expirou ou já foi usado. Peça um novo link."
+)
+MENSAGEM_REENVIO_SEM_DADOS = "Informe a matrícula/SIAPE ou abra o link recebido."
 
 
 def dados_invalidos(mensagem):
@@ -130,7 +140,6 @@ class CadastroView(APIView):
             )
         except CadastroInvalidoError as erro:
             return dados_invalidos(erro.mensagem)
-        # O envio do link de confirmação (ConfirmacaoEmailService) vem na BE-06.
         saida = CadastroCriadoSerializer(
             {"emailInstitucional": conta.email_institucional, "status": conta.status}
         )
@@ -171,8 +180,19 @@ class ConfirmacaoEmailView(APIView):
         },
     )
     def post(self, request, token):
-        # Só contrato: a lógica (ConfirmacaoEmailService) vem na BE-06.
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        try:
+            ConfirmacaoEmailService().confirmar(token)
+        except TokenExpiradoOuInvalidoError:
+            # Montado aqui, e não por APIException: com o código padrão, o
+            # tratador de exceções devolveria {"detail": ...} (BE-06, 7.2).
+            return Response(
+                {
+                    "codigo": "token_invalido_ou_expirado",
+                    "mensagem": MENSAGEM_TOKEN_INVALIDO,
+                },
+                status=status.HTTP_410_GONE,
+            )
+        return Response(status=status.HTTP_200_OK)
 
 
 class ReenvioConfirmacaoView(APIView):
@@ -196,15 +216,26 @@ class ReenvioConfirmacaoView(APIView):
             422: OpenApiResponse(
                 ErroSerializer,
                 description=(
-                    "Não veio `matriculaSiape` nem `token`. "
-                    "`codigo`: `dados_invalidos`."
+                    "Corpo inválido: não veio `matriculaSiape` nem `token`, "
+                    "ou um deles veio vazio ou com tipo errado (mesmo que o "
+                    "outro esteja certo). `codigo`: `dados_invalidos`."
                 ),
             ),
         },
     )
     def post(self, request):
-        # Só contrato: a lógica (ConfirmacaoEmailService) vem na BE-06.
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        entrada = ReenvioConfirmacaoEntradaSerializer(data=request.data)
+        if not entrada.is_valid():
+            return dados_invalidos(MENSAGEM_REENVIO_SEM_DADOS)
+
+        servico = ConfirmacaoEmailService()
+        conta = servico.conta_para_reenvio(
+            matricula_siape=entrada.validated_data.get("matriculaSiape"),
+            token=entrada.validated_data.get("token"),
+        )
+        servico.reenviar(conta)
+        # Sempre a mesma resposta, exista ou não a conta (RF02.2).
+        return Response(status=status.HTTP_200_OK)
 
 
 class SessaoView(APIView):
