@@ -1,19 +1,49 @@
-"""Tratador de exceções do DRF no formato de erro do projeto (BE-03, 3.4)."""
+"""Tratador de exceções do DRF no formato de erro do projeto (BE-03, 3.4, #112)."""
 
-from rest_framework.exceptions import NotAuthenticated
+from rest_framework.exceptions import APIException
 from rest_framework.views import exception_handler
+
+# Código padrão do DRF (ou da exceção do projeto) -> (codigo, mensagem).
+TRADUCOES = {
+    "not_authenticated": (
+        "nao_autenticado",
+        "É preciso entrar na conta para continuar.",
+    ),
+    # Mensagem genérica de propósito: não diz se errou a matrícula ou a senha.
+    "authentication_failed": (
+        "credenciais_invalidas",
+        "Matrícula/SIAPE ou senha incorretas.",
+    ),
+    "csrf_invalido": (
+        "csrf_invalido",
+        (
+            "Não foi possível confirmar a origem do pedido. "
+            "Recarregue a página e tente de novo."
+        ),
+    ),
+}
 
 
 def tratador_de_excecoes(exc, context):
-    """Converte o erro de "sem sessão" para `{"codigo": "nao_autenticado"}`.
+    """Converte erros de mensagem única para `{"codigo", "mensagem"}`.
 
-    Os demais erros padrão (400, 403, 404) seguem como o DRF os devolve.
-    Convertê-los para o formato do projeto fica como pendência da BE-05.
+    - Códigos de TRADUCOES (sem sessão, credenciais, CSRF) usam o texto de lá.
+    - Exceção levantada com código próprio usa esse código e a mensagem dela:
+      `raise PermissionDenied("Confirme seu e-mail.", code="conta_nao_confirmada")`.
+    - O resto (validação, 404, 405...) segue como o DRF devolve. O 422 de
+      validação de cada rota fica com a view (BE-05 e seguintes).
     """
     resposta = exception_handler(exc, context)
-    if resposta is not None and isinstance(exc, NotAuthenticated):
-        resposta.data = {
-            "codigo": "nao_autenticado",
-            "mensagem": "É preciso entrar na conta para continuar.",
-        }
+    if resposta is None or not isinstance(exc, APIException):
+        return resposta
+    codigo = exc.get_codes()
+    if not isinstance(codigo, str):
+        return resposta
+    if codigo in TRADUCOES:
+        codigo, mensagem = TRADUCOES[codigo]
+    elif codigo != exc.default_code:
+        mensagem = str(exc.detail)
+    else:
+        return resposta
+    resposta.data = {"codigo": codigo, "mensagem": mensagem}
     return resposta

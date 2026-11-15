@@ -6,6 +6,7 @@ from apps.cadastro.views import (
     AceiteAvisoPrivacidadeView,
     CadastroView,
     ConfirmacaoEmailView,
+    CsrfView,
     ReenvioConfirmacaoView,
     SessaoView,
 )
@@ -13,6 +14,8 @@ from apps.cadastro.views import (
 app_name = "cadastro"
 
 urlpatterns = [
+    # Cookie csrftoken para as escritas feitas antes do login
+    path("csrf/", CsrfView.as_view(), name="csrf"),
     path("cadastro/", CadastroView.as_view(), name="cadastro"),
     # <str:token>: o token do link enviado por e-mail
     path(

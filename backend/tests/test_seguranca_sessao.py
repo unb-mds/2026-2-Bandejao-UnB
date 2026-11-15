@@ -99,6 +99,22 @@ def test_secure_pode_ser_forcado_pelo_env(carregar_settings):
     assert forcado.CSRF_COOKIE_SECURE is True
 
 
+def test_https_do_proxy_reconhecido_por_padrao_em_producao(carregar_settings):
+    # O Caddy encerra o HTTPS (ADR 0012); sem isso o login dá 403 por origem.
+    padrao = carregar_settings()
+    assert padrao.SECURE_PROXY_SSL_HEADER == ("HTTP_X_FORWARDED_PROTO", "https")
+
+
+def test_https_do_proxy_desligado_em_desenvolvimento(carregar_settings):
+    dev = carregar_settings(DEBUG="True")
+    assert dev.SECURE_PROXY_SSL_HEADER is None
+
+
+def test_https_do_proxy_pode_ser_desligado_pelo_env(carregar_settings):
+    sem_proxy = carregar_settings(ATRAS_DE_PROXY_HTTPS="False")
+    assert sem_proxy.SECURE_PROXY_SSL_HEADER is None
+
+
 def test_allowed_hosts_ignora_itens_vazios(carregar_settings):
     padrao = carregar_settings(ALLOWED_HOSTS="a.com, ,b.com,")
     assert padrao.ALLOWED_HOSTS == ["a.com", "b.com"]

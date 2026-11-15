@@ -25,6 +25,8 @@ ENDPOINTS_V1 = [
     ("/api/sessao/", "get"),
     ("/api/sessao/", "delete"),
     ("/api/privacidade/aceite/", "post"),
+    # Entrega o cookie csrftoken antes do login (#112).
+    ("/api/csrf/", "get"),
     ("/api/cardapio/", "get"),
     ("/api/campi/", "get"),
     ("/api/avaliacoes/", "post"),
