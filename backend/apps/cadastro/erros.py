@@ -1,8 +1,9 @@
-"""Erros do cadastro (Cadastro N4 4a).
+"""Erros do cadastro (Cadastro N4 4a e 4b).
 
-A `CadastroView` traduz cada um para o contrato:
+As views traduzem cada um para o contrato:
 - `CadastroInvalidoError` (e as duplicidades) -> 422 `dados_invalidos`;
-- `ApelidoIndisponivelError` -> 409 `apelido_indisponivel` com `apelidoSugerido`.
+- `ApelidoIndisponivelError` -> 409 `apelido_indisponivel` com `apelidoSugerido`;
+- `TokenExpiradoOuInvalidoError` -> 410 `token_invalido_ou_expirado`.
 """
 
 # RF01.5 com a decisão do contrato: matrícula/SIAPE e e-mail repetidos dão a
@@ -39,3 +40,11 @@ class ApelidoIndisponivelError(Exception):
         super().__init__(mensagem)
         self.mensagem = mensagem
         self.apelido_sugerido = apelido_sugerido
+
+
+class TokenExpiradoOuInvalidoError(Exception):
+    """Link de confirmação inexistente, expirado ou já usado (RF02.1).
+
+    Os três casos dão o mesmo erro de propósito: quem tenta adivinhar um token
+    não descobre se acertou um que já venceu.
+    """

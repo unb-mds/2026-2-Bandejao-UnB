@@ -84,18 +84,25 @@ class ApelidoIndisponivelSerializer(ErroSerializer):
 class ReenvioConfirmacaoEntradaSerializer(serializers.Serializer):
     """Corpo do POST /api/reenviar-confirmacao/ (RF02.2, Cadastro N4 4b).
 
-    PROVISÓRIO: a documentação não diz como o back acha a conta. Envie
-    um dos dois campos (confirmar no servidor.js do front).
+    Envie um dos dois campos. Se vierem os dois, vale a `matriculaSiape`.
     """
 
-    matriculaSiape = serializers.CharField(
+    matriculaSiape = TextoEstritoField(
         required=False,
         help_text="Quem pede o reenvio pela tela de login (conta não confirmada).",
     )
     token = serializers.CharField(
         required=False,
-        help_text="Quem pede o reenvio pela tela do link expirado.",
+        help_text=(
+            "Quem pede o reenvio pela tela do link expirado. Serve o token de "
+            "um link já vencido ou já usado."
+        ),
     )
+
+    def validate(self, dados):
+        if not dados.get("matriculaSiape") and not dados.get("token"):
+            raise serializers.ValidationError("Informe matriculaSiape ou token.")
+        return dados
 
 
 class LoginEntradaSerializer(serializers.Serializer):

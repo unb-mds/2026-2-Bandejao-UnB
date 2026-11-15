@@ -158,8 +158,53 @@ USE_TZ = True
 STATIC_URL = "static/"
 
 
-# Email
+# Email (ADR 0012, BE-06)
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
+# MAILERS é a configuração de e-mail do Django 6.1; as antigas EMAIL_BACKEND,
+# EMAIL_HOST etc. estão obsoletas (somem no 7.0) e não podem conviver com ela.
+# As variáveis do .env mantêm os nomes conhecidos (EMAIL_HOST...), mas viram
+# o OPTIONS do mailer "default".
+# Em desenvolvimento (DEBUG=True), o e-mail sai no terminal do runserver. Em
+# produção, vai pelo SMTP do Brevo: o EMAIL_HOST vem do painel do Brevo, e o
+# usuário e a senha ficam só no .env do servidor (BD-05). Nos testes, o
+# pytest-django troca o backend pelo de memória (django.core.mail.outbox).
+
+BACKEND_DE_EMAIL_SMTP = "django.core.mail.backends.smtp.EmailBackend"
+BACKEND_DE_EMAIL = config(
+    "EMAIL_BACKEND",
+    default=(
+        "django.core.mail.backends.console.EmailBackend"
+        if DEBUG
+        else BACKEND_DE_EMAIL_SMTP
+    ),
+)
+if BACKEND_DE_EMAIL == BACKEND_DE_EMAIL_SMTP:
+    OPCOES_DE_EMAIL = {
+        "host": config("EMAIL_HOST", default="localhost"),
+        "port": config("EMAIL_PORT", default=587, cast=int),
+        "use_tls": config("EMAIL_USE_TLS", default=True, cast=bool),
+        "username": config("EMAIL_HOST_USER", default=""),
+        "password": config("EMAIL_HOST_PASSWORD", default=""),
+        # Sem esse limite, um SMTP travado prende o worker do Gunicorn.
+        "timeout": 10,
+    }
+else:
+    # Os outros backends (console, memória) não aceitam as opções do SMTP.
+    OPCOES_DE_EMAIL = {}
+
+MAILERS = {
+    "default": {
+        "BACKEND": BACKEND_DE_EMAIL,
+        "OPTIONS": OPCOES_DE_EMAIL,
+    },
+}
+DEFAULT_FROM_EMAIL = config(
+    "DEFAULT_FROM_EMAIL", default="nao-responda@bandejaounb.com.br"
+)
+
+# Endereço do PWA: o link de confirmação de e-mail aponta para a página
+# /confirmar-email dele, e não para a API.
+URL_DO_PWA = config("URL_DO_PWA", default="http://localhost:5173")
 
 # Django REST Framework
 # API só em JSON, autenticada pela sessão do Django (ADR 0007).
@@ -218,11 +263,6 @@ CSRF_TRUSTED_ORIGINS = config(
     cast=lambda v: [s.strip() for s in v.split(",") if s.strip()],
 )
 
-MAILERS = {
-    "default": {
-        "BACKEND": "django.core.mail.backends.console.EmailBackend",
-    },
-}
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Bandejão UnB API",

@@ -24,6 +24,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.cadastro.apelido_resolver import MENSAGEM_APELIDO_EM_USO, ApelidoResolver
+from apps.cadastro.confirmacao_email_service import ConfirmacaoEmailService
 from apps.cadastro.conta_repository import ContaRepository
 from apps.cadastro.dados_cadastro import DadosCadastro
 from apps.cadastro.erros import (
@@ -70,6 +71,7 @@ class CadastroService:
         self.conta_repository = ContaRepository()
         self.apelido_resolver = ApelidoResolver(self.conta_repository)
         self.pontuacao_service = PontuacaoService()
+        self.confirmacao_email_service = ConfirmacaoEmailService()
         self.validacoes_por_tipo = {
             TipoUsuario.ESTUDANTE: self._validar_estudante,
             TipoUsuario.PROFESSOR_SERVIDOR: self._validar_professor_servidor,
@@ -78,6 +80,7 @@ class CadastroService:
     def registrar(self, tipo_usuario: TipoUsuario, dados: DadosCadastro) -> Usuario:
         """Cria a conta `pendente` e os contadores dela, na mesma transação.
 
+        Depois do commit, manda o link de confirmação (RF02, Cadastro N4 4b).
         Levanta `CadastroInvalidoError` (422) ou `ApelidoIndisponivelError` (409).
         """
         if dados.aceite_privacidade is not True:
@@ -121,6 +124,11 @@ class CadastroService:
                     versao_aviso_aceita=AvisoPrivacidadeConfig.versao_atual,
                 )
                 self.pontuacao_service.inicializar_conta(conta)
+                # on_commit: o e-mail só sai se a conta for gravada. Uma falha
+                # do SMTP não desfaz o cadastro (a pessoa pede o reenvio).
+                transaction.on_commit(
+                    lambda: self.confirmacao_email_service.enviar_link(conta)
+                )
         except IntegrityError as exc:
             self._classificar_corrida(
                 exc,
