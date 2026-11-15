@@ -161,10 +161,23 @@ def log_de_requisicoes():
 
 
 def test_erro_5xx_vai_para_o_log_em_producao(log_de_requisicoes):
-    """Sem o LOGGING, com DEBUG=False um 5xx não aparece em lugar nenhum."""
-    # As views ainda sem lógica respondem 501 (o login vem na BE-07).
-    APIClient().post("/api/sessao/", {}, format="json")
+    """Sem o LOGGING, com DEBUG=False um 5xx não aparece em lugar nenhum.
 
+    O erro é provocado de propósito: com a BE-07, o login responde 4xx, e o
+    `django.request` só registra 5xx.
+    """
+    cliente = APIClient(raise_request_exception=False)
+    with mock.patch(
+        "apps.cadastro.views.LoginService.autenticar",
+        side_effect=RuntimeError("falhou"),
+    ):
+        resposta = cliente.post(
+            "/api/sessao/",
+            {"matriculaSiape": "202400001", "senha": "senha-forte-123"},
+            format="json",
+        )
+
+    assert resposta.status_code == 500
     assert any("/api/sessao/" in m for m in log_de_requisicoes)
 
 

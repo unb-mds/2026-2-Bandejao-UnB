@@ -38,3 +38,15 @@ def test_conta_pendente_tambem_conta_como_existente(conta):
     """RF01.5: a unicidade vale para conta confirmada ou pendente."""
     assert conta.status == "pendente"
     assert ContaRepository().existe_email(conta.email_institucional)
+
+
+def test_salvar_grava_so_os_campos_pedidos(conta):
+    """Uma cópia velha da conta não desfaz o que outra requisição gravou."""
+    get_user_model().objects.filter(pk=conta.pk).update(status="ativo")
+    conta.versao_aviso_aceita = "2026-12-01"
+
+    ContaRepository().salvar(conta, campos=["versao_aviso_aceita"])
+
+    conta.refresh_from_db()
+    assert conta.versao_aviso_aceita == "2026-12-01"
+    assert conta.status == "ativo"
