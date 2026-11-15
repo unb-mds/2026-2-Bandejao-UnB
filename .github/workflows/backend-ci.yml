@@ -101,6 +101,14 @@ jobs:
       - name: Instalar dependências Python
         run: python -m pip install -r requirements-ci-mysql.txt
 
+      - name: Auditar dependências
+        run: pip-audit -r requirements-ci-mysql.txt
+
+      - name: Validar backend MySQL
+        run: >-
+          python manage.py shell -c
+          "from django.db import connection; assert connection.vendor == 'mysql', f'Backend incorreto: {connection.vendor}'"
+
       - name: Conferir migrations pendentes
         run: python manage.py makemigrations --check --dry-run
 
@@ -108,7 +116,4 @@ jobs:
         run: python manage.py migrate --noinput
 
       - name: Executar testes no MySQL
-        run: python -m pytest --cov=apps --cov-branch --cov-fail-under=70
-
-      - name: Auditar dependências
-        run: pip-audit -r requirements-ci-mysql.txt
+        run: python -m pytest -rs --cov=apps --cov-branch --cov-fail-under=70
