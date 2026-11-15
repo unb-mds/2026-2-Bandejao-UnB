@@ -53,8 +53,7 @@ MENSAGEM_MATRICULA_FORMATO = (
     "A matrícula de estudante deve ter exatamente 9 dígitos numéricos."
 )
 MENSAGEM_MATRICULA_PREFIXO = (
-    "Os 3 primeiros dígitos da matrícula não correspondem a um semestre de "
-    "ingresso válido."
+    "Os 2 primeiros dígitos da matrícula não correspondem a um ano de ingresso válido."
 )
 MENSAGEM_MATRICULA_SEQUENCIA = "Matrícula inválida. Confira os dígitos informados."
 MENSAGEM_SIAPE = "A matrícula funcional/SIAPE deve ter exatamente 7 dígitos numéricos."

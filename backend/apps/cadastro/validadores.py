@@ -18,29 +18,17 @@ FORMATO_SIAPE = re.compile(r"[0-9]{7}")
 EMAIL_ESTUDANTE = re.compile(r"[^@\s]+@aluno\.unb\.br", re.IGNORECASE)
 EMAIL_PROFESSOR_SERVIDOR = re.compile(r"[^@\s]+@unb\.br", re.IGNORECASE)
 
-# Primeiro código de semestre aceito: 2010, 1º semestre (Anexo A).
-PRIMEIRO_PREFIXO = 101
+# Primeiro ano aceito no prefixo da matrícula: 2010 (Anexo A, L10).
+PRIMEIRO_ANO = 10
 TAMANHO_MINIMO_SENHA = 8
-
-
-def codigo_semestre(dia: date) -> int:
-    """Código de ano/semestre do dia (ex.: 262 no 2º semestre de 2026).
-
-    Aproximação: usa o semestre do calendário (janeiro a junho, julho a
-    dezembro), e não o calendário letivo da UnB, e o dia vem de
-    `timezone.localdate()` com `TIME_ZONE = "UTC"`. Na virada, um prefixo novo
-    pode ser aceito algumas horas antes ou depois.
-    """
-    semestre = 1 if dia.month <= 6 else 2
-    return (dia.year % 100) * 10 + semestre
 
 
 class MatriculaValidator:
     """Matrícula de Estudante: três checagens independentes (RN01, RF01.3)."""
 
     def __init__(self, hoje: date | None = None):
-        # A janela de prefixos é recalculada pela data: um semestre novo é
-        # aceito sem mudar código. `hoje` existe para os testes.
+        # O ano máximo é recalculado pela data: o ano novo é aceito sem mudar
+        # código. `hoje` existe para os testes.
         self.hoje = hoje
 
     def validar_formato(self, matricula: str) -> bool:
@@ -48,12 +36,18 @@ class MatriculaValidator:
         return bool(FORMATO_MATRICULA.fullmatch(matricula))
 
     def validar_prefixo_ano_semestre(self, matricula: str) -> bool:
-        """3 primeiros dígitos entre 101 e o semestre corrente, 3º dígito 1 ou 2."""
-        prefixo = matricula[:3]
-        if not re.fullmatch(r"[0-9]{2}[12]", prefixo):
+        """Os 2 primeiros dígitos são um ano de 2010 até o ano corrente.
+
+        O nome é o do Nível 4, mas só o ano é conferido: o 3º dígito (semestre)
+        é 1 ou 2 na graduação, sem confirmação para os outros níveis de ensino
+        (ADR 0002, L16). O dia vem de `timezone.localdate()`, então a virada de
+        ano segue o `TIME_ZONE` do projeto.
+        """
+        ano = matricula[:2]
+        if not re.fullmatch(r"[0-9]{2}", ano):
             return False
         hoje = self.hoje or timezone.localdate()
-        return PRIMEIRO_PREFIXO <= int(prefixo) <= codigo_semestre(hoje)
+        return PRIMEIRO_ANO <= int(ano) <= hoje.year % 100
 
     def validar_sequencia_digitos(self, matricula: str) -> bool:
         """Rejeita os 6 dígitos finais todos iguais ou em sequência de passo 1.

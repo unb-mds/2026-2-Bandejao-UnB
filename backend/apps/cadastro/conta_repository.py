@@ -1,7 +1,8 @@
 """Acesso às contas no cadastro (Cadastro N4 4a).
 
-Só o que a BE-05 usa. `buscar_por_identificador` (login, BE-07) e
-`excluir_pendente_expirada` (job do RF02, BE-06) entram nas issues delas.
+Só o que a BE-05 usa. `buscar_por_identificador` (login, BE-07),
+`excluir_pendente_expirada` (job do RF02, BE-06) e `excluir` (exclusão de
+conta, BD-12) entram nas issues delas.
 """
 
 from django.contrib.auth import get_user_model
