@@ -62,7 +62,7 @@ Várias partes juntas, com banco ou com a API simulada.
 | | Backend | Frontend |
 |---|---|---|
 | Alvo | View + serializer + serviço + model + banco, pelo `APIClient` do DRF. Transações, constraints (`UNIQUE`, `CHECK`) e `select_for_update` | Store + `apiClient` + servidor simulado (`services/mock/`). Roteador + guardas + `authStore` |
-| Ferramenta | `pytest-django` com SQLite em todo PR e **MySQL 8** quando há migration (BD-02) | `vitest` |
+| Ferramenta | `pytest-django` com SQLite e **MySQL 8.4** em todos os PRs para `develop` e `main` (BD-02) | `vitest` |
 | Quando | Todo PR | Todo PR |
 
 ### 3.3 Interface
@@ -230,10 +230,23 @@ Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR par
 |---|---|---|
 | `lint` | `ruff check .` e `ruff format --check .` | Sim |
 | `testes` | `pytest --cov --cov-branch` com SQLite; depois `coverage report --include=<módulos críticos> --fail-under=70` | Sim |
-| `testes-mysql` | Mesma suíte com MySQL 8 `utf8mb4` e READ COMMITTED (BD-02). Obrigatório quando há migration | Sim, quando roda |
+| `testes-mysql` | Mesma suíte com MySQL 8.4 `utf8mb4`, collation `utf8mb4_0900_ai_ci` e isolamento explícito READ COMMITTED (BD-02). Executado em todos os PRs para `develop` e `main`, inclusive os que não alteram migrations | Sim, obrigatório na `develop` |
 | `contrato` | `manage.py spectacular --validate` e comparação com o contrato do repositório | Sim |
 | `seguranca` | `bandit -r apps -lll` (falha em severidade alta), Semgrep, `pip-audit` | Sim |
 | `mutacao` | `mutmut run` nos arquivos críticos alterados; falha abaixo de 50% | Sim, quando roda |
+
+**Garantias do job MySQL (BD-02):**
+
+- O job `testes-mysql` executa em todos os PRs para `develop` e `main`, sem filtro por arquivos de migration. Na `develop`, o check é obrigatório.
+- Após instalar as dependências e antes de executar migrations, o job verifica se o backend carregado pelo Django é realmente `mysql`. Se carregar SQLite, a execução falha, inclusive quando `DB_ENGINE` estiver ausente ou incorreto.
+- O job confere migrations pendentes com `makemigrations --check --dry-run`, aplica as migrations do zero e executa a suíte completa com a meta de cobertura.
+- O teste de configuração usa a fixture `carregar_settings`, isolada do `.env` local, para conferir os valores explícitos de charset, isolamento e collation do banco de testes.
+- O teste com conexão real verifica MySQL 8.4, os charsets do banco e da conexão, a collation do banco e o isolamento da sessão.
+- Os motivos de testes ignorados aparecem no relatório com `pytest -rs`.
+- A auditoria de `requirements-ci-mysql.txt`, incluindo o driver MySQL, acontece antes das migrations e dos testes.
+- A evidência de aceite inclui um PR de prova com migration executando os jobs SQLite e MySQL. Esse PR de prova é fechado sem merge.
+
+**Decisão sobre collation (BD-02):** o banco de testes MySQL mantém `utf8mb4_0900_ai_ci`, que ignora diferenças de acentos e maiúsculas/minúsculas nas comparações. Assim, `"Açúcar"` e `"acucar"` são considerados iguais: inserir ambos em `Marcador.nome`, que possui restrição de unicidade, provoca `IntegrityError` no MySQL. No SQLite, com a comparação padrão desse campo, os dois valores podem coexistir. Essa diferença entre os bancos é conhecida e fica documentada; a collation do MySQL é mantida.
 
 ### 5.2 `frontend-ci.yml` (FE-02, FE-17)
 
