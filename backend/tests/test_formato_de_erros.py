@@ -168,10 +168,20 @@ def test_erro_5xx_vai_para_o_log_em_producao(log_de_requisicoes):
     assert any("/api/sessao/" in m for m in log_de_requisicoes)
 
 
-def test_log_nao_mostra_o_token_da_confirmacao_de_email(log_de_requisicoes):
-    """Quem lê o log não pode confirmar a conta de outra pessoa."""
-    APIClient().post("/api/confirmar-email/token-secreto/", {}, format="json")
+def test_log_nao_mostra_o_token_da_confirmacao_de_email(log_de_requisicoes, db):
+    """Quem lê o log não pode confirmar a conta de outra pessoa.
 
+    O `django.request` só registra 5xx: o erro é provocado de propósito, porque
+    um link inválido dá 410 e não chega ao log.
+    """
+    cliente = APIClient(raise_request_exception=False)
+    with mock.patch(
+        "apps.cadastro.views.ConfirmacaoEmailService.confirmar",
+        side_effect=RuntimeError("falhou"),
+    ):
+        resposta = cliente.post("/api/confirmar-email/token-secreto/", format="json")
+
+    assert resposta.status_code == 500
     assert log_de_requisicoes
     assert any("/api/confirmar-email/" in m for m in log_de_requisicoes)
     assert not any("token-secreto" in m for m in log_de_requisicoes)

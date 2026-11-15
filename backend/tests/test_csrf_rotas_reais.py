@@ -99,7 +99,8 @@ def test_escrita_publica_com_token_errado_da_403(rota, metodo):
 
 
 @pytest.mark.parametrize(("rota", "metodo"), ESCRITAS_PUBLICAS)
-def test_escrita_publica_com_token_chega_na_view(cliente_com_token, rota, metodo):
+def test_escrita_publica_com_token_chega_na_view(cliente_com_token, rota, metodo, db):
+    # db: a confirmação de e-mail consulta o token no banco (BE-06).
     resposta = getattr(cliente_com_token, metodo)(rota, {}, format="json")
 
     # Chegou na view: não foi barrada pelo CSRF nem pela autenticação.

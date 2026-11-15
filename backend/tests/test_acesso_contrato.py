@@ -45,8 +45,9 @@ def test_rota_logada_com_sessao_chega_na_view(usuario, rota, metodo):
 
 
 @pytest.mark.parametrize(("rota", "metodo"), ROTAS_PUBLICAS)
-def test_rota_publica_responde_sem_login(rota, metodo):
+def test_rota_publica_responde_sem_login(rota, metodo, db):
     """Pega rota pública que perdeu o AllowAny."""
+    # db: a confirmação de e-mail consulta o token no banco (BE-06).
     resposta = getattr(APIClient(), metodo)(rota)
 
     # Chegou na view: não foi barrada por autenticação nem por permissão.
