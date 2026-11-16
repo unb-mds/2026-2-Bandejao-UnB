@@ -20,12 +20,11 @@ class AvisoPrivacidadeService:
         """Grava a versão atual do aviso e a hora do servidor.
 
         Se a conta já aceitou a versão atual, nada muda: a hora do primeiro
-        aceite é a prova do consentimento (RNF07.1).
+        aceite é a prova do consentimento (RNF07.1). Quem confere é o banco,
+        e não a conta em memória, que pode estar velha (duplo clique).
         """
-        if not conta.aviso_privacidade_pendente():
-            return
-        conta.versao_aviso_aceita = AvisoPrivacidadeConfig.versao_atual
-        conta.aceite_privacidade_em = agora
-        self.conta_repository.salvar(
-            conta, campos=["versao_aviso_aceita", "aceite_privacidade_em"]
-        )
+        versao = AvisoPrivacidadeConfig.versao_atual
+        if self.conta_repository.registrar_aceite_se_pendente(conta, versao, agora):
+            # Mantém a conta em memória igual ao banco.
+            conta.versao_aviso_aceita = versao
+            conta.aceite_privacidade_em = agora
