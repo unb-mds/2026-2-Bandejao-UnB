@@ -192,7 +192,8 @@ describe('401 avisa que a sessão acabou', () => {
     fetchFalso.mockReturnValueOnce(
       respostaJson(403, {
         codigo: 'csrf_invalido',
-        mensagem: 'Não foi possível confirmar a origem do pedido. Recarregue a página e tente de novo.',
+        mensagem:
+          'Não foi possível confirmar a origem do pedido. Recarregue a página e tente de novo.',
       }),
     )
 

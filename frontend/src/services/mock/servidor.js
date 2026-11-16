@@ -264,7 +264,12 @@ function reenviarConfirmacao({ matriculaSiape, token }, agora) {
 // ─── Sessão (/api/sessao/: POST entra, GET quem sou, DELETE sai) ──────────
 
 function entrar({ matriculaSiape, senha }, agora) {
-  if (typeof matriculaSiape !== 'string' || typeof senha !== 'string' || !matriculaSiape || !senha) {
+  if (
+    typeof matriculaSiape !== 'string' ||
+    typeof senha !== 'string' ||
+    !matriculaSiape ||
+    !senha
+  ) {
     return dadosInvalidos('Informe a matrícula/SIAPE e a senha.')
   }
   const chave = matriculaSiape.trim()
