@@ -24,3 +24,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação: `pytest` com 779 testes passando e cobertura de 97,68%, `ruff`, `bandit`, `makemigrations --check` e `spectacular --validate --fail-on-warn` rodados localmente; resultado do CI (incluindo `testes-mysql`) no PR.
 - Revisão humana: [revisão e recheck por AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/128#pullrequestreview-XXXXXXX), com merge autorizado após os ajustes.
 - Situação: ajustes da revisão aplicados; aguardando nova revisão antes do merge.
+
+## #110 — `makemigrations --check` no CI do backend
+
+- PR: PR da #110 (link a preencher após a abertura).
+- Ferramenta: Claude (Anthropic).
+- Apoio: teste `test_models_e_migrations_estao_sincronizados` em `backend/tests/test_estrutura.py`, nota no plano de testes (seção 5.1) e PR de prova.
+- TDD: o teste já passa na `develop` ("No changes detected"); a falha foi comprovada localmente mudando `Campus.nome` sem migration e no [PR de prova #130](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/130), fechado sem merge.
+- Validação: `pytest` com 780 testes passando e cobertura de 97,67%, `ruff` e `makemigrations --check` rodados localmente; resultado do CI no PR.
+- Revisão humana: pendente.
+- Situação: aguardando revisão.
