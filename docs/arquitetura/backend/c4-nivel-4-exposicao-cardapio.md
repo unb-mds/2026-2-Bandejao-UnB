@@ -283,6 +283,18 @@ classDiagram
 
 ### Notas do diagrama (4b)
 
+- **O que entra em cada tarefa.** O diagrama mostra o desenho completo da
+  Release 2. Na v1 (BE-08), `GET /api/campi/` publica só `id` e `nome`, e a
+  `LocalizacaoCampusConfig` tem só `campi()`. `centro` e `raioDeteccaoMetros`
+  (com `centro()` e `raioDeteccaoMetros()`) entram com a detecção de campus,
+  que é o EXTRA 3 (BE-E3), como diz o item 7 da seção 3 do backlog.
+- **Cache.** A resposta vai com `Cache-Control: private, no-cache` e um
+  `ETag` que é o SHA-256 do JSON publicado. O navegador guarda a lista e
+  confere a cada uso: se nada mudou, o servidor responde 304 sem corpo.
+  É `private` porque, para quem está logado, a resposta leva o `Set-Cookie`
+  da sessão (ADR 0007), que um cache compartilhado não pode guardar. Como o
+  `ETag` vem só do que é publicado, mudar o raio ou as coordenadas não muda o
+  `ETag`; os campos da BE-E3, quando entrarem, mudam.
 - **`GET /api/campi/` publica o que o PWA precisa para detectar o campus no
   aparelho (RF20.1, ADR 0009; combinado entre backend e frontend).** É público, não depende de login
   e devolve, para cada campus, id, nome, centro e raio de detecção:
