@@ -73,6 +73,30 @@ def test_registrar_de_novo_mantem_a_hora_do_primeiro_aceite(usuario):
     assert usuario.aceite_privacidade_em == AGORA
 
 
+def test_dois_aceites_simultaneos_mantem_a_hora_do_primeiro(usuario):
+    """Duplo clique: as duas requisições leem a conta ainda pendente.
+
+    Cada uma tem a sua cópia da conta (`request.user`), as duas com a versão
+    antiga. Só o primeiro aceite pode gravar a hora (revisão do #127).
+    """
+    primeira = type(usuario).objects.get(pk=usuario.pk)
+    segunda = type(usuario).objects.get(pk=usuario.pk)
+    servico = AvisoPrivacidadeService()
+
+    servico.registrar_ciencia(primeira, AGORA)
+    servico.registrar_ciencia(segunda, AGORA + timedelta(seconds=1))
+
+    usuario.refresh_from_db()
+    assert usuario.aceite_privacidade_em == AGORA
+
+
+def test_registrar_ciencia_atualiza_a_conta_em_memoria(usuario):
+    AvisoPrivacidadeService().registrar_ciencia(usuario, AGORA)
+
+    assert usuario.aviso_privacidade_pendente() is False
+    assert usuario.aceite_privacidade_em == AGORA
+
+
 def test_registrar_ciencia_grava_so_os_campos_do_aviso(usuario):
     """Não sobrescreve o resto da conta com uma cópia velha da memória."""
     type(usuario).objects.filter(pk=usuario.pk).update(status="suspenso")
