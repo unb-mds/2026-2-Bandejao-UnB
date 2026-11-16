@@ -38,3 +38,38 @@ def test_conta_pendente_tambem_conta_como_existente(conta):
     """RF01.5: a unicidade vale para conta confirmada ou pendente."""
     assert conta.status == "pendente"
     assert ContaRepository().existe_email(conta.email_institucional)
+
+
+def test_registrar_aceite_se_pendente_grava_versao_e_hora(conta):
+    agora = timezone.now()
+
+    gravou = ContaRepository().registrar_aceite_se_pendente(conta, "2026-12-01", agora)
+
+    assert gravou is True
+    conta.refresh_from_db()
+    assert conta.versao_aviso_aceita == "2026-12-01"
+    assert conta.aceite_privacidade_em == agora
+
+
+def test_registrar_aceite_se_pendente_nao_regrava_a_mesma_versao(conta):
+    """A conferência e a escrita são um UPDATE só: a cópia velha não importa."""
+    primeiro = timezone.now()
+    copia_velha = get_user_model().objects.get(pk=conta.pk)
+    ContaRepository().registrar_aceite_se_pendente(conta, "2026-12-01", primeiro)
+
+    gravou = ContaRepository().registrar_aceite_se_pendente(
+        copia_velha, "2026-12-01", timezone.now()
+    )
+
+    assert gravou is False
+    conta.refresh_from_db()
+    assert conta.aceite_privacidade_em == primeiro
+
+
+def test_registrar_aceite_se_pendente_grava_so_os_campos_do_aviso(conta):
+    get_user_model().objects.filter(pk=conta.pk).update(status="ativo")
+
+    ContaRepository().registrar_aceite_se_pendente(conta, "2026-12-01", timezone.now())
+
+    conta.refresh_from_db()
+    assert conta.status == "ativo"

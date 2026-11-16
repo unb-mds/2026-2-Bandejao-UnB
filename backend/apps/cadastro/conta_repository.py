@@ -1,7 +1,7 @@
-"""Acesso às contas no cadastro (Cadastro N4 4a e 4b).
+"""Acesso às contas no cadastro (Cadastro N4 4a, 4b, 4c e 4d).
 
-Só o que a BE-05 e a BE-06 usam. `salvar` e o uso de `buscar_por_identificador`
-no login (BE-07) e `excluir` (exclusão de conta, BD-12) entram nas issues delas.
+Só o que a BE-05, a BE-06 e a BE-07 usam. `salvar` e `excluir` (exclusão de
+conta, BD-12) entram nas issues que precisarem deles.
 """
 
 from datetime import datetime
@@ -46,9 +46,31 @@ class ContaRepository:
             .values_list("apelido_normalizado", flat=True)
         )
 
-    def buscar_por_identificador(self, identificador: str):
-        """A conta da matrícula/SIAPE, ou None se não houver."""
-        return get_user_model().objects.filter(matricula_siape=identificador).first()
+    def buscar_por_identificador(self, identificador: str, travar: bool = False):
+        """A conta da matrícula/SIAPE, ou None se não houver.
+
+        `travar=True` (só dentro de `transaction.atomic`) trava a linha até o
+        fim da transação, como o login faz para contar as tentativas.
+        """
+        contas = get_user_model().objects.filter(matricula_siape=identificador)
+        if travar:
+            contas = contas.select_for_update()
+        return contas.first()
+
+    def registrar_aceite_se_pendente(self, conta, versao: str, agora: datetime) -> bool:
+        """Grava a versão do aviso e a hora, só se a conta ainda não aceitou essa versão.
+
+        A conferência e a escrita são um UPDATE só no banco: com dois pedidos
+        simultâneos (duplo clique), só o primeiro grava a hora, mesmo que os
+        dois tenham lido a conta ainda pendente. Diz se gravou.
+        """
+        atualizadas = (
+            get_user_model()
+            .objects.filter(pk=conta.pk)
+            .exclude(versao_aviso_aceita=versao)
+            .update(versao_aviso_aceita=versao, aceite_privacidade_em=agora)
+        )
+        return atualizadas > 0
 
     def pendentes_expiradas(self, limite: datetime):
         """Contas pendentes cujo último link de confirmação saiu antes de `limite`.

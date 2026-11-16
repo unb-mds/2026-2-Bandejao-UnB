@@ -138,7 +138,7 @@ direitos do titular é a seguinte:
 
 | Tratamento | Interesse da equipe | Dado tratado (só o necessário, art. 10, §1º) | Por que não prevalecem os direitos do titular |
 |---|---|---|---|
-| Dados de segurança da conta (tentativas de login erradas e bloqueio) | Impedir que alguém descubra a senha de outra pessoa por tentativa e erro (RF03.2) | Um contador e um horário de fim do bloqueio, ligados à conta | Protege o próprio titular; o dado é zerado a cada login certo ou nova janela de 10 minutos e some com a conta |
+| Dados de segurança da conta (tentativas de login erradas e bloqueio) | Impedir que alguém descubra a senha de outra pessoa por tentativa e erro (RF03.2) | Um contador, o horário da primeira falha da janela e o horário de fim do bloqueio, ligados à conta | Protege o próprio titular; o dado é zerado a cada login certo ou nova janela de 10 minutos e some com a conta |
 | Cookies necessários (sessão e CSRF) | Manter a pessoa logada e impedir pedidos falsificados por outros sites (ADR 0007, #112) | Identificador de sessão e token aleatório, sem dado pessoal no cookie | Sem eles o aplicativo não funciona; não há publicidade nem rastreamento entre sites; a sessão dura 14 dias e termina no "Sair" |
 | Registros técnicos do servidor | Diagnosticar falhas e se defender de ataques | Data, hora, página e, se o servidor registrar, endereço IP; nunca o corpo de cadastro e login nem o token da confirmação de e-mail | Acesso só da equipe nomeada (ADR 0008); o titular é informado no aviso; o prazo de guarda desses registros deve ser definido junto com a configuração do servidor |
 

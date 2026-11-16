@@ -40,6 +40,7 @@ erDiagram
         string versao_aviso_aceita "versão do aviso de privacidade aceita; antiga nas contas anteriores à Release 2"
         datetime criado_em
         int tentativas_login_falhas "default 0"
+        datetime primeira_falha_login_em "nullable"
         datetime bloqueado_ate "nullable"
     }
 
@@ -259,6 +260,7 @@ Conta de acesso ao aplicativo (não a pessoa; glossário: "Usuário").
 | `versao_aviso_aceita` | CharField(20) | NOT NULL | Versão do aviso de privacidade aceita. Quem tinha conta antes da Release 2 fica com a versão antiga, o que bloqueia o primeiro check-in até a ciência (RF11, RNF07.1). |
 | `criado_em` | DateTimeField | NOT NULL, auto | Data do cadastro. |
 | `tentativas_login_falhas` | IntegerField | NOT NULL, default `0` | Contador para o bloqueio de login (RF03, Anexo A: 5 tentativas/10 min). Zerado a cada login bem-sucedido ou a cada nova janela de 10 min. |
+| `primeira_falha_login_em` | DateTimeField | nullable | Primeira falha da janela atual de 10 minutos (BE-07, #97). Uma falha depois de `primeira_falha_login_em` + 10 min começa uma janela nova. Nulo depois de um login bem-sucedido. |
 | `bloqueado_ate` | DateTimeField | nullable | Fim do bloqueio de 10 minutos (RF03), quando aplicável. |
 
 ### `CAMPUS`
@@ -541,7 +543,7 @@ duas categorias.
 | Senha nunca em texto plano | RI04, RNF04 | **Aplicação**: Django `AbstractBaseUser`/hashers cuidam do hash antes de qualquer `INSERT`/`UPDATE`; o banco só enxerga o hash. |
 | Matrícula/SIAPE e e-mail nunca expostos a outros usuários | RI10 | **Aplicação**: Serializers de leitura pública de `USUARIO` (ex.: autor de uma avaliação) nunca incluem `matricula_siape` nem `email_institucional` — não é uma constraint de banco, é uma escolha de quais colunas cada Serializer expõe. |
 | Limite de 3 solicitações de redefinição de senha por hora por matrícula/SIAPE | RF04, Anexo A | **Aplicação**: `COUNT` de linhas em `TOKEN` (`tipo = redefinicao_senha`, `usuario_id`, `criado_em` na última hora) antes de criar uma nova. |
-| Bloqueio de login após 5 tentativas em 10 minutos | RF03, Anexo A | **Aplicação**: `USUARIO.tentativas_login_falhas` e `bloqueado_ate`, geridos pela view de login. |
+| Bloqueio de login após 5 tentativas em 10 minutos | RF03, Anexo A | **Aplicação**: `USUARIO.tentativas_login_falhas`, `primeira_falha_login_em` e `bloqueado_ate`, geridos pelo `TentativaLoginTracker` (chamado pelo `LoginService`, com a linha travada por `select_for_update`). |
 | Avaliações de conta excluída ficam anônimas ("usuário removido") | RNF07.4 | **Aplicação**: o `RemoverContaCommand` apaga a linha de `USUARIO` pelo ORM (LGPD, revisão da ADR 0004), e a exibição mostra "usuário removido" quando `usuario_id` é nulo. **Banco**: `AVALIACAO.usuario_id` nullable com `ON DELETE SET NULL` (como `on_delete` é do ORM do Django, a exclusão não deve ser feita com DELETE direto no banco). |
 | Nenhuma coordenada de localização armazenada | RI09 | **Banco**: ausência deliberada de coluna de latitude/longitude do usuário em qualquer tabela (`CAMPUS.ru_*` e `CAMPUS.centro_*` são do **RU** e do **campus**, não do usuário). |
 | Uma pergunta de saída por check-in | RF21 | **Banco**: `UNIQUE` em `PERGUNTA_SAIDA.checkin_id`. |

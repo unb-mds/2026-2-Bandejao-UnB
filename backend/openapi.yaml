@@ -600,7 +600,8 @@ paths:
       description: 'Matrícula (9 dígitos) ou SIAPE (7 dígitos) no mesmo campo. O servidor
         grava o cookie de sessão (HttpOnly) e o `csrftoken`. Um 401 aqui é senha ou
         matrícula errada, não sessão expirada: a tela de login mostra a mensagem do
-        erro (o `authStore` já está vazio, então limpá-lo de novo não causa problema).'
+        erro (o `authStore` já está vazio, então limpá-lo de novo não causa problema).
+        O login troca o `csrftoken`: leia o cookie de novo antes da próxima escrita.'
       summary: Entra na conta (login)
       tags:
       - cadastro
@@ -636,13 +637,22 @@ paths:
             (RF02.2). `codigo`: `conta_nao_confirmada`. O front oferece reenviar o
             link. Ou: Token CSRF ausente ou inválido: pegue o cookie em `GET /api/csrf/`
             e mande o valor no cabeçalho `X-CSRFToken`. `codigo`: `csrf_invalido`.'
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Corpo inválido (falta `matriculaSiape` ou `senha`, ou um deles
+            não é texto) ou identificador que não tem 9 nem 7 dígitos (RN01). Não
+            conta como tentativa. `codigo`: `dados_invalidos`.'
         '429':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
           description: '5 tentativas malsucedidas em 10 minutos: bloqueado por 10
-            minutos (RF03.2). `codigo`: `login_bloqueado`.'
+            minutos (RF03.2). A 5ª falha já responde 429. A mensagem diz quantos minutos
+            faltam, e o cabeçalho `Retry-After`, quantos segundos. `codigo`: `login_bloqueado`.'
     delete:
       operationId: sessao_destroy
       description: |-

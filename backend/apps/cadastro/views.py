@@ -1,14 +1,19 @@
 """Views do app cadastro."""
 
+import math
+
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.cadastro.autenticacao import CsrfObrigatorio
+from apps.cadastro.aviso_privacidade_service import AvisoPrivacidadeService
 from apps.cadastro.cadastro_service import (
     MENSAGEM_AVISO,
     MENSAGEM_DADOS,
@@ -20,8 +25,13 @@ from apps.cadastro.confirmacao_email_service import ConfirmacaoEmailService
 from apps.cadastro.erros import (
     ApelidoIndisponivelError,
     CadastroInvalidoError,
+    ContaNaoConfirmadaError,
+    CredenciaisInvalidasError,
+    IdentificadorInvalidoError,
+    LoginBloqueadoError,
     TokenExpiradoOuInvalidoError,
 )
+from apps.cadastro.login_service import LoginService
 from apps.cadastro.models import MENSAGEM_APELIDO
 from apps.cadastro.serializers import (
     ApelidoIndisponivelSerializer,
@@ -31,6 +41,7 @@ from apps.cadastro.serializers import (
     ReenvioConfirmacaoEntradaSerializer,
     SessaoSerializer,
 )
+from apps.cadastro.sessoes_da_conta import SessoesDaConta
 from config.erros import ErroSerializer
 
 # Mensagem do 422 quando o corpo nem passa no serializer. O DRF devolve todos
@@ -49,6 +60,10 @@ MENSAGEM_TOKEN_INVALIDO = (
     "Este link de confirmação é inválido, expirou ou já foi usado. Peça um novo link."
 )
 MENSAGEM_REENVIO_SEM_DADOS = "Informe a matrícula/SIAPE ou abra o link recebido."
+MENSAGEM_LOGIN_SEM_DADOS = "Informe a matrícula/SIAPE e a senha."
+MENSAGEM_CONTA_NAO_CONFIRMADA = (
+    "Confirme seu e-mail antes de entrar. Se o link venceu, peça um novo."
+)
 
 
 def dados_invalidos(mensagem):
@@ -258,7 +273,9 @@ class SessaoView(APIView):
             "O servidor grava o cookie de sessão (HttpOnly) e o `csrftoken`. "
             "Um 401 aqui é senha ou matrícula errada, não sessão expirada: "
             "a tela de login mostra a mensagem do erro (o `authStore` já "
-            "está vazio, então limpá-lo de novo não causa problema)."
+            "está vazio, então limpá-lo de novo não causa problema). "
+            "O login troca o `csrftoken`: leia o cookie de novo antes da "
+            "próxima escrita."
         ),
         tags=["cadastro"],
         request=LoginEntradaSerializer,
@@ -280,18 +297,51 @@ class SessaoView(APIView):
                     "O front oferece reenviar o link."
                 ),
             ),
+            422: OpenApiResponse(
+                ErroSerializer,
+                description=(
+                    "Corpo inválido (falta `matriculaSiape` ou `senha`, ou "
+                    "um deles não é texto) ou identificador que não tem 9 "
+                    "nem 7 dígitos (RN01). Não conta como tentativa. "
+                    "`codigo`: `dados_invalidos`."
+                ),
+            ),
             429: OpenApiResponse(
                 ErroSerializer,
                 description=(
                     "5 tentativas malsucedidas em 10 minutos: bloqueado por "
-                    "10 minutos (RF03.2). `codigo`: `login_bloqueado`."
+                    "10 minutos (RF03.2). A 5ª falha já responde 429. A "
+                    "mensagem diz quantos minutos faltam, e o cabeçalho "
+                    "`Retry-After`, quantos segundos. `codigo`: `login_bloqueado`."
                 ),
             ),
         },
     )
     def post(self, request):
-        # Só contrato: a lógica (LoginService) vem na BE-07.
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        entrada = LoginEntradaSerializer(data=request.data)
+        if not entrada.is_valid():
+            return dados_invalidos(MENSAGEM_LOGIN_SEM_DADOS)
+
+        try:
+            conta = LoginService().autenticar(
+                entrada.validated_data["matriculaSiape"],
+                entrada.validated_data["senha"],
+            )
+        except IdentificadorInvalidoError as erro:
+            return dados_invalidos(erro.mensagem)
+        except CredenciaisInvalidasError:
+            # A mensagem genérica fica no TRADUCOES de config/excecoes.py, e o
+            # DRF põe o cabeçalho WWW-Authenticate do 401.
+            raise AuthenticationFailed from None
+        except ContaNaoConfirmadaError:
+            raise PermissionDenied(
+                MENSAGEM_CONTA_NAO_CONFIRMADA, code="conta_nao_confirmada"
+            ) from None
+        except LoginBloqueadoError as erro:
+            return self._bloqueado(erro.segundos_restantes)
+
+        SessoesDaConta().abrir(request, conta)
+        return Response(self._sessao(conta))
 
     @extend_schema(
         summary="Quem sou eu (sessão atual)",
@@ -309,7 +359,7 @@ class SessaoView(APIView):
         },
     )
     def get(self, request):
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        return Response(self._sessao(request.user))
 
     @extend_schema(
         summary="Sai da conta (logout)",
@@ -323,7 +373,30 @@ class SessaoView(APIView):
         },
     )
     def delete(self, request):
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        SessoesDaConta().encerrar_atual(request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _sessao(self, conta):
+        """Só apelido, tipo e aviso pendente: nunca matrícula/SIAPE nem e-mail (RI10)."""
+        return SessaoSerializer(
+            {
+                "apelido": conta.apelido,
+                "tipo": conta.tipo_usuario,
+                "avisoPrivacidadePendente": conta.aviso_privacidade_pendente(),
+            }
+        ).data
+
+    def _bloqueado(self, segundos_restantes):
+        # Montado aqui: o Throttled do DRF acrescentaria um texto em inglês.
+        minutos = math.ceil(segundos_restantes / 60)
+        return Response(
+            {
+                "codigo": "login_bloqueado",
+                "mensagem": f"Muitas tentativas. Tente de novo em {minutos} min.",
+            },
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+            headers={"Retry-After": str(segundos_restantes)},
+        )
 
 
 class AceiteAvisoPrivacidadeView(APIView):
@@ -349,5 +422,6 @@ class AceiteAvisoPrivacidadeView(APIView):
         },
     )
     def post(self, request):
-        # Só contrato: a lógica (AvisoPrivacidadeService) vem na BE-07.
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        # Hora do servidor: o corpo, se vier, é ignorado.
+        AvisoPrivacidadeService().registrar_ciencia(request.user, timezone.now())
+        return Response(status=status.HTTP_204_NO_CONTENT)

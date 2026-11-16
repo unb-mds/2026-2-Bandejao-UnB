@@ -180,6 +180,7 @@ class TestCriacaoDeConta:
         assert usuario.status == StatusUsuario.PENDENTE
         assert usuario.email_confirmado is False
         assert usuario.tentativas_login_falhas == 0
+        assert usuario.primeira_falha_login_em is None
         assert usuario.bloqueado_ate is None
         assert usuario.removido_em is None
 
