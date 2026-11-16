@@ -10,6 +10,7 @@ lê do `settings.py` (duração da sessão, fuso) continuam lá, e a classe só 
 expõe, para o número do Anexo A não ficar escrito em dois lugares.
 """
 
+from datetime import time
 from typing import Final
 
 
@@ -23,3 +24,11 @@ class AvisoPrivacidadeConfig:
     # Igual à "Versão" de docs/requisitos/aviso-de-privacidade.md (DOC-03).
     # Um teste falha se as duas ficarem diferentes.
     versao_atual: Final = "2026-11-14"
+
+
+class HorariosRefeicaoConfig:
+    """Intervalos do Anexo A; dias e refeições servidos vêm do PDF."""
+
+    horario_cafe: Final = (time(7, 0), time(9, 30))
+    horario_almoco: Final = (time(11, 0), time(14, 30))
+    horario_jantar: Final = (time(17, 0), time(19, 30))
