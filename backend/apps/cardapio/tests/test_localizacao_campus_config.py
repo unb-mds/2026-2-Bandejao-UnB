@@ -15,7 +15,7 @@ pytestmark = pytest.mark.django_db
 
 
 def criar_campus(nome, **kwargs):
-    """Campus com os 7 campos NOT NULL preenchidos."""
+    """Campus com todos os campos obrigatórios preenchidos."""
     dados = {
         "nome": nome,
         "ru_latitude": Decimal("-15.763100"),
