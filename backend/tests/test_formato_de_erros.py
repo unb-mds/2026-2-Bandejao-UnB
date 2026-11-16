@@ -24,7 +24,7 @@ from rest_framework.exceptions import (
 from rest_framework.test import APIClient
 
 from apps.cadastro.autenticacao import CsrfInvalido
-from config.excecoes import erro_500, tratador_de_excecoes
+from config.excecoes import erro_404, erro_500, tratador_de_excecoes
 
 
 def _tratar(exc):
@@ -173,6 +173,31 @@ def test_rota_inexistente_da_api_da_404_em_json():
     assert resposta.status_code == 404
     assert resposta["Content-Type"] == "application/json"
     assert resposta.json()["codigo"] == "nao_encontrado"
+
+
+def test_api_sem_a_barra_final_da_404_em_json():
+    resposta = APIClient().get("/api")
+
+    assert resposta.status_code == 404
+    assert resposta.json()["codigo"] == "nao_encontrado"
+
+
+def test_rota_que_so_comeca_com_api_segue_em_html():
+    resposta = APIClient().get("/apis/")
+
+    assert resposta.status_code == 404
+    assert resposta["Content-Type"].startswith("text/html")
+
+
+def test_404_da_api_servida_num_subcaminho_sai_em_json():
+    """Com `FORCE_SCRIPT_NAME`, o `path` ganha o prefixo; o `path_info`, não."""
+    requisicao = RequestFactory().get("/api/x/", SCRIPT_NAME="/backend")
+
+    resposta = erro_404(requisicao, Http404())
+
+    assert requisicao.path == "/backend/api/x/"
+    assert resposta.status_code == 404
+    assert resposta["Content-Type"] == "application/json"
 
 
 def test_rota_inexistente_fora_da_api_segue_em_html():
