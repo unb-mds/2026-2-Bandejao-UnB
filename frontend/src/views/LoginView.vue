@@ -1,11 +1,10 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { USANDO_SIMULACAO } from '@/services/apiClient'
-import { CONTA_DEMO } from '@/services/mock/banco'
 import CabecalhoFormulario from '@/components/CabecalhoFormulario.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import CampoSenha from '@/components/CampoSenha.vue'
@@ -17,15 +16,25 @@ const auth = useAuthStore()
 const avaliacoes = useAvaliacoesStore()
 const preferencias = usePreferenciasStore()
 
-const email = ref('')
+const matriculaSiape = ref('')
 const senha = ref('')
 const enviando = ref(false)
 const erro = ref('')
 const naoConfirmado = ref(false)
 const reenvio = ref(null)
+/** Conta de demonstração: só em desenvolvimento, sem levar o simulado ao build. */
+const contaDemo = ref(null)
+if (import.meta.env.DEV && USANDO_SIMULACAO) {
+  import('@/services/mock/banco').then(({ CONTA_DEMO }) => (contaDemo.value = CONTA_DEMO))
+}
+
+// Matrícula (9 dígitos) ou SIAPE (7): só números.
+watch(matriculaSiape, (valor) => {
+  matriculaSiape.value = valor.replace(/\D/g, '')
+})
 
 const podeEnviar = computed(
-  () => Boolean(email.value) && senha.value.length >= 1 && !enviando.value,
+  () => Boolean(matriculaSiape.value) && senha.value.length >= 1 && !enviando.value,
 )
 
 /** Depois do login: volta à tela que pediu o login, ou segue para a Início (RF03). */
@@ -45,12 +54,12 @@ async function entrar() {
   naoConfirmado.value = false
   reenvio.value = null
   try {
-    await auth.entrar(email.value, senha.value)
+    await auth.entrar(matriculaSiape.value, senha.value)
     avaliacoes.limparCache()
     seguirAposLogin()
   } catch (falha) {
     erro.value = falha.message
-    naoConfirmado.value = falha.codigo === 'email_nao_confirmado'
+    naoConfirmado.value = falha.codigo === 'conta_nao_confirmada'
   } finally {
     enviando.value = false
   }
@@ -58,7 +67,7 @@ async function entrar() {
 
 async function reenviarConfirmacao() {
   try {
-    reenvio.value = await auth.reenviarConfirmacao(email.value)
+    reenvio.value = await auth.reenviarConfirmacao({ matriculaSiape: matriculaSiape.value })
   } catch (falha) {
     erro.value = falha.message
   }
@@ -69,27 +78,24 @@ async function reenviarConfirmacao() {
   <div class="tela">
     <CabecalhoFormulario
       titulo="Entrar"
-      subtitulo="Use seu e-mail institucional UnB"
+      subtitulo="Use sua matrícula ou SIAPE"
       :voltar-para="{ name: 'boas-vindas' }"
     />
 
     <form class="conteudo sem-barra pilha-4" novalidate @submit.prevent="entrar">
       <CampoTexto
-        v-model="email"
-        rotulo="E-mail institucional"
-        type="email"
-        inputmode="email"
+        v-model="matriculaSiape"
+        rotulo="Matrícula ou SIAPE"
+        inputmode="numeric"
+        maxlength="9"
         autocomplete="username"
-        placeholder="matricula@aluno.unb.br"
+        placeholder="9 dígitos (aluno) ou 7 (SIAPE)"
       />
 
       <CampoSenha v-model="senha" />
 
       <div class="esqueci">
-        <RouterLink
-          :to="{ name: 'recuperar-senha', query: email ? { email } : {} }"
-          class="link-destaque"
-        >
+        <RouterLink :to="{ name: 'recuperar-senha' }" class="link-destaque">
           Esqueci a senha
         </RouterLink>
       </div>
@@ -105,7 +111,7 @@ async function reenviarConfirmacao() {
           Reenviar link de confirmação
         </button>
       </div>
-      <p v-if="reenvio" class="mensagem mensagem--sucesso" role="status">{{ reenvio.detail }}</p>
+      <p v-if="reenvio" class="mensagem mensagem--sucesso" role="status">{{ reenvio.mensagem }}</p>
       <LinkSimulado :link="reenvio?.linkSimulado" rotulo="Abrir link de confirmação recebido" />
 
       <button type="submit" class="botao botao--primario" :disabled="!podeEnviar">
@@ -119,9 +125,9 @@ async function reenviarConfirmacao() {
         <RouterLink :to="{ name: 'cadastro' }" class="link-forte">Criar conta</RouterLink>
       </p>
 
-      <p v-if="USANDO_SIMULACAO" class="demo">
-        Demonstração: entre com <strong>{{ CONTA_DEMO.email }}</strong> e a senha
-        <strong>{{ CONTA_DEMO.senha }}</strong
+      <p v-if="contaDemo" class="demo">
+        Demonstração: entre com a matrícula <strong>{{ contaDemo.matricula }}</strong> e a senha
+        <strong>{{ contaDemo.senha }}</strong
         >, ou crie uma conta nova.
       </p>
     </form>
