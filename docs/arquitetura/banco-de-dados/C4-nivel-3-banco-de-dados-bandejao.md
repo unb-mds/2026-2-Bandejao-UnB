@@ -102,6 +102,7 @@ erDiagram
   (RF06: "a legenda do arquivo contém exatamente os 10 marcadores
   conhecidos"), povoada por uma migration de dados (fixture), não pelo
   usuário final nem pela leitura do PDF.
+- **Disponibilidade da confirmação por campus (BD-03):** `CAMPUS.confirmacao_ativa` permite manter o campus cadastrado mesmo quando a localização do RU ainda não está disponível para confirmação. A fixture inicial desativa essa confirmação na FAL. Os campos e os valores provisórios são detalhados no Nível 4 e no README das fixtures.
 
 ---
 

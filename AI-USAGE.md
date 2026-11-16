@@ -17,10 +17,16 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BD-03 — Fixtures e inicialização da pontuação
 
+- PR: [#129 — Fixtures e inicialização da pontuação](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/129).
 - Ferramenta: ChatGPT.
-- Apoio: elaboração dos testes, fixture dos marcadores e data migration de inicialização da pontuação.
-- TDD das fixtures: falha inicial pela ausência das fixtures; o teste dos dez marcadores passou após a implementação.
-- TDD da migration: falha inicial pela ausência de `0002_inicializar_pontuacao_usuarios`; os dois testes passaram após a implementação.
-- Validação local parcial em SQLite: 743 testes passaram, 2 falharam pela ausência da fixture `campi` e 1 foi ignorado por ser específico de MySQL; cobertura de 97,62%.
-- Dados dos RUs: em levantamento pela equipe; coordenadas e raios ainda não recebidos.
-- Pendências: fixture dos cinco campi, suíte completa verde, validação em MySQL e revisão humana.
+- Apoio: elaboração dos testes, fixtures de campi e marcadores, data migration de inicialização da pontuação, campo de disponibilidade da confirmação e atualização da documentação.
+- TDD: etapas vermelhas registradas pela ausência das fixtures, da data migration e do campo `confirmacao_ativa`, antes das respectivas implementações.
+- Validação específica atual em SQLite: 7 testes passaram, cobrindo carga e recarga das fixtures, disponibilidade da confirmação por campus, inicialização da pontuação, preservação de contadores existentes e reaplicação da migration sem duplicações.
+- Dados dos campi: coordenadas aproximadas fornecidas pela equipe a partir de mapas, arredondadas para seis casas decimais e ainda sem validação em campo.
+- Raios provisórios: 150 m para Darcy Ribeiro, Ceilândia, Gama e Planaltina, definidos pela equipe e sujeitos à validação do BD-06.
+- Fazenda Água Limpa: a coordenada disponível representa a fazenda, não o RU. A fixture registra `confirmacao_ativa = false` e os dois raios iguais a zero, indicando indisponibilidade.
+- Detecção de campus: os campos `centro_*` e `raio_deteccao_metros` repetem provisoriamente os valores cadastrados para confirmação, até a definição dos parâmetros no BD-E3.
+- Integração com a BE-09: o serviço de confirmação deverá verificar `confirmacao_ativa` antes de calcular a distância e recusar a confirmação quando o campo for falso. O BD-03 registra essa configuração e não implementa o endpoint de check-in.
+- Evidências: histórico de commits, descrição e execuções do CI vinculadas ao PR #129.
+- Validação completa local em SQLite: 747 testes passaram, 1 foi ignorado por ser específico de MySQL; cobertura de 97,62%.
+- Pendências: validar a nova versão no MySQL pelo CI e concluir a revisão humana.

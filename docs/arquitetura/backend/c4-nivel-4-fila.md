@@ -136,7 +136,7 @@ classDiagram
   CheckinService --> ConfirmacaoLocalizacaoService : 3. confirma localização
   ConfirmacaoLocalizacaoService --> DistanciaGeografica : calcula distância ao RU
   ConfirmacaoLocalizacaoService --> LocalizacaoRUConfig : lê centro e raio
-  ConfirmacaoLocalizacaoService ..> LocalizacaoNaoConfirmadaError : lança se fora do raio
+  ConfirmacaoLocalizacaoService ..> LocalizacaoNaoConfirmadaError : lança se desativada ou fora do raio
   ConfirmacaoLocalizacaoService ..> Coordenadas : usa e descarta
   CheckinService --> CheckinRepository : 4. registra tentativa / salva check-in
   CheckinService --> Checkin : cria, se confirmado
@@ -241,6 +241,7 @@ classDiagram
   RU. O Anexo A exige que o raio do Darcy Ribeiro exclua o Restaurante
   Executivo (RI08); isso só pode ser validado com as coordenadas reais dos
   dois locais, e vale registrar o valor escolhido junto com essa justificativa.
+- **Confirmação desativada por campus (BD-03):** antes de calcular a distância, `ConfirmacaoLocalizacaoService.confirmar` deve verificar `Campus.confirmacao_ativa`. Quando for `false`, deve recusar a localização com `LocalizacaoNaoConfirmadaError`, correspondente a `localizacao_nao_confirmada`, sem registrar check-in confirmado nem conceder pontos. Um raio zero representa indisponibilidade e nunca autoriza confirmação por coincidência de coordenadas. Essa regra deverá ser implementada na BE-09; no BD-03, o campo e a fixture registram a configuração.
 - **IDs inteiros (decidido com o time de banco de dados).** `id`, `contaId` e as demais referências são
   inteiros autoincrementais, como no banco.
 
