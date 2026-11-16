@@ -50,6 +50,9 @@ def tratador_de_excecoes(exc, context):
       404 e 405) usam o texto de lá.
     - Exceção levantada com código próprio usa esse código e a mensagem dela:
       `raise PermissionDenied("Confirme seu e-mail.", code="conta_nao_confirmada")`.
+      No 404 de rota com parâmetro, use `code=` (`refeicao_nao_encontrada`): sem
+      ele, o `NotFound` e o `get_object_or_404` saem como `nao_encontrado`, com
+      a mensagem genérica.
     - O resto (validação, 403 sem código próprio) segue como o DRF devolve.
       O 422 de validação de cada rota fica com a view (BE-05 e seguintes).
     """
@@ -79,7 +82,10 @@ ERRO_INTERNO = (
 
 
 def _e_da_api(request):
-    return request.path.startswith("/api/")
+    # path_info: sem o prefixo do FORCE_SCRIPT_NAME, se o backend for servido
+    # num subcaminho.
+    caminho = request.path_info
+    return caminho == "/api" or caminho.startswith("/api/")
 
 
 def erro_404(request, exception):
