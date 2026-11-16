@@ -41,6 +41,7 @@ class Campus(models.Model):
     ru_latitude = models.DecimalField(max_digits=9, decimal_places=6)
     ru_longitude = models.DecimalField(max_digits=9, decimal_places=6)
     raio_confirmacao_metros = models.IntegerField()
+    confirmacao_ativa = models.BooleanField(default=True)
     centro_latitude = models.DecimalField(max_digits=9, decimal_places=6)
     centro_longitude = models.DecimalField(max_digits=9, decimal_places=6)
     raio_deteccao_metros = models.IntegerField()
