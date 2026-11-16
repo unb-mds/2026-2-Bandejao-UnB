@@ -10,7 +10,7 @@ lê do `settings.py` (duração da sessão, fuso) continuam lá, e a classe só 
 expõe, para o número do Anexo A não ficar escrito em dois lugares.
 """
 
-from datetime import date, time
+from datetime import date, time, timedelta
 from typing import Final
 
 from django.conf import settings
@@ -74,3 +74,13 @@ class ParametrosSessaoConfig:
     """Duração da sessão definida no settings, conforme a ADR 0007."""
 
     duracao_segundos: Final = settings.SESSION_COOKIE_AGE
+
+
+class ParametrosCadastroConfig:
+    """Parâmetros do Anexo A para matrícula, confirmação de e-mail e login."""
+
+    primeiro_ano_matricula: Final = 10
+    validade_confirmacao_email: Final = timedelta(hours=24)
+    login_max_tentativas: Final = 5
+    login_janela: Final = timedelta(minutes=10)
+    login_bloqueio: Final = timedelta(minutes=10)
