@@ -37,7 +37,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## #121 — Formato de erro no 404, no 405 e no 500
 
-- PR: a abrir.
+- PR: [#132 — formato de erro no 404, no 405 e no 500, e API em pt-br](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/132).
 - Ferramenta: Claude (Anthropic).
 - Apoio: testes em `backend/tests/test_formato_de_erros.py`, traduções `nao_encontrado` e `metodo_nao_permitido` no tratador (`backend/config/excecoes.py`), `handler404` e `handler500` em JSON para `/api/`, `LANGUAGE_CODE = "pt-br"` e docstring de `backend/config/erros.py`.
 - TDD: testes no commit `test`, antes da implementação; 8 dos testes novos falharam na `develop` (404 e 405 sem `codigo`, `Http404` do Django, rota inexistente da API em HTML, 500 em HTML e 403 padrão em inglês).
