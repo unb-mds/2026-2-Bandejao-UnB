@@ -148,8 +148,17 @@ paths:
   /api/campi/:
     get:
       operationId: campi_list
-      description: Só `id` e `nome`. O raio do RU nunca é publicado.
+      description: 'Só `id` e `nome`, em ordem de `id`. O raio do RU nunca é publicado.
+        A resposta leva um `ETag` e `Cache-Control: private, no-cache`: o navegador
+        guarda a lista e manda o `ETag` de volta em `If-None-Match`. Se a lista não
+        mudou, a resposta é 304, sem corpo.'
       summary: Lista os campi
+      parameters:
+      - in: header
+        name: If-None-Match
+        schema:
+          type: string
+        description: '`ETag` de uma resposta anterior. O navegador manda sozinho.'
       tags:
       - cardapio
       security:
@@ -157,6 +166,15 @@ paths:
       - {}
       responses:
         '200':
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Muda só quando um `id` ou um `nome` da lista muda.
+            Cache-Control:
+              schema:
+                type: string
+              description: Sempre `private, no-cache`.
           content:
             application/json:
               schema:
@@ -164,6 +182,17 @@ paths:
                 items:
                   $ref: '#/components/schemas/CampusPublico'
           description: ''
+        '304':
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Muda só quando um `id` ou um `nome` da lista muda.
+            Cache-Control:
+              schema:
+                type: string
+              description: Sempre `private, no-cache`.
+          description: Lista igual à do `If-None-Match`. Sem corpo.
   /api/cardapio/:
     get:
       operationId: cardapio_retrieve
