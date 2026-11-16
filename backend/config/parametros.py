@@ -13,6 +13,8 @@ expõe, para o número do Anexo A não ficar escrito em dois lugares.
 from datetime import date, time
 from typing import Final
 
+from django.conf import settings
+
 
 class AvisoPrivacidadeConfig:
     """Versão do aviso de privacidade em vigor (RF11, RNF07.1, Cadastro N4 4a e 4d).
@@ -66,3 +68,9 @@ class ParametrosGamificacaoConfig:
     # Preencher com datas confirmadas pela equipe no calendário acadêmico.
     # Sem data configurada, o período do ranking permanece aberto (RN12).
     datas_termino_semestre: Final[dict[str, date]] = {}
+
+
+class ParametrosSessaoConfig:
+    """Duração da sessão definida no settings, conforme a ADR 0007."""
+
+    duracao_segundos: Final = settings.SESSION_COOKIE_AGE
