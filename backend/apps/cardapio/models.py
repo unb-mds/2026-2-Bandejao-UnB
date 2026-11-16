@@ -35,7 +35,7 @@ class TipoAlerta(models.TextChoices):
 class Campus(models.Model):
     """Um dos 5 campi com RU. Povoado por fixture (BD-03), nunca pelo usuário."""
 
-    nome = models.CharField(max_length=50, unique=True)
+    nome = models.CharField(max_length=50, unique=False)
     # O Nível 4 não fixa a precisão das coordenadas: 9 dígitos com 6 casas
     # decimais dão cerca de 0,1 m, mais que o suficiente para o raio do GPS.
     ru_latitude = models.DecimalField(max_digits=9, decimal_places=6)
