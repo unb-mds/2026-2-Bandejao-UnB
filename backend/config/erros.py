@@ -2,9 +2,11 @@
 
 Toda resposta de erro declarada no contrato traz `codigo` (obrigatório) e
 `mensagem`. O handler de `config/excecoes.py` aplica o formato aos erros de
-mensagem única (401, 403 de CSRF, 400 de JSON malformado, 415 e exceções com
-código próprio). O 400 de validação, o 404 e o 405 ainda saem como o DRF
-devolve. Também não existe um objeto `campos` para os erros de validação.
+mensagem única (401, 403 de CSRF, 400 de JSON malformado, 404, 405, 415 e
+exceções com código próprio). O `handler404` e o `handler500` de lá fazem o
+mesmo em `/api/` com a rota inexistente (`nao_encontrado`) e o erro inesperado
+(`erro_interno`, sem o traceback). O 400 de validação ainda sai como o DRF
+devolve, e não existe um objeto `campos` para os erros de validação.
 """
 
 from rest_framework import serializers
