@@ -28,11 +28,16 @@ def test_models_e_migrations_estao_sincronizados():
     try:
         call_command("makemigrations", "--check", "--dry-run", stdout=saida)
     except SystemExit:
-        pytest.fail(
-            "Model alterado sem a migration correspondente. "
-            "Rode `python manage.py makemigrations` e commite o arquivo.\n"
-            + saida.getvalue()
-        )
+        faltando = saida.getvalue()
+    else:
+        return
+    # Fora do except e sem pytrace, para a falha não vir com o traceback do
+    # makemigrations na frente da migration que falta.
+    pytest.fail(
+        "Model alterado sem a migration correspondente. "
+        "Rode `python manage.py makemigrations` e commite o arquivo.\n" + faltando,
+        pytrace=False,
+    )
 
 
 @pytest.mark.parametrize("nome", APPS_ANTIGOS)
