@@ -374,7 +374,7 @@ classDiagram
     +existeMatriculaOuSiape(identificador: str) bool
     +existeEmail(email: str) bool
     +buscarPorIdentificador(identificador: str, travar: bool) Conta
-    +salvar(conta: Conta, campos: list~str~) Conta
+    +salvar(conta: Conta) Conta
     +excluirPendenteExpirada(conta: Conta) void
     +excluir(conta: Conta) void
   }
@@ -464,7 +464,14 @@ classDiagram
   simultâneas não virarem uma. A janela começa na primeira falha (não
   desliza), a 5ª falha da janela já responde 429 `login_bloqueado` (como o
   simulado do front, #119), com `Retry-After` em segundos, e tentativas
-  durante o bloqueio não o estendem. Um acerto zera tudo, inclusive o de uma
+  durante o bloqueio não o estendem.
+  - **Rajada na virada da janela (comportamento esperado, não é bug).**
+    Como a janela é fixa, 4 falhas no fim de uma janela e mais 4 no começo da
+    seguinte somam 8 falhas em poucos segundos sem 429. A média de longo
+    prazo não muda (cerca de 4 tentativas a cada 10 minutos), e é o que o
+    dicionário do banco descreve ("zerado a cada nova janela de 10 min"). Uma
+    janela deslizante exigiria guardar o horário de cada falha (ou ir para o
+    cache da #123), o que não compensa agora (revisão do #127). Um acerto zera tudo, inclusive o de uma
   conta pendente (senha certa não é tentativa malsucedida).
 - **Limitação aceita: o 429 só existe para conta que existe.** Uma
   matrícula/SIAPE sem conta não tem onde guardar a contagem e nunca bloqueia,
@@ -534,8 +541,9 @@ classDiagram
   class ContaRepository {
     +existeMatriculaOuSiape(identificador: str) bool
     +existeEmail(email: str) bool
-    +buscarPorIdentificador(identificador: str) Conta
-    +salvar(conta: Conta, campos: list~str~) Conta
+    +buscarPorIdentificador(identificador: str, travar: bool) Conta
+    +salvar(conta: Conta) Conta
+    +registrarAceiteSePendente(conta: Conta, versao: str, agora: datetime) bool
     +excluirPendenteExpirada(conta: Conta) void
     +excluir(conta: Conta) void
   }
@@ -566,7 +574,7 @@ classDiagram
   Conta --> TipoUsuario : tem
   AceiteAvisoPrivacidadeView --> AvisoPrivacidadeService : registrarCiencia()
   AvisoPrivacidadeService --> AvisoPrivacidadeConfig : lê versão atual
-  AvisoPrivacidadeService --> ContaRepository : grava versão aceita
+  AvisoPrivacidadeService --> ContaRepository : grava versão aceita, se pendente
   Conta ..> AvisoPrivacidadeConfig : compara versão (pendente?)
 ```
 
@@ -596,7 +604,10 @@ classDiagram
   `versao_aviso_aceita` com `AvisoPrivacidadeConfig.versaoAtual`. O
   `registrarCiencia` ignora o corpo da requisição (versão e hora são as do
   servidor) e não faz nada se a conta já aceitou a versão atual: a hora do
-  primeiro aceite é a prova do consentimento.
+  primeiro aceite é a prova do consentimento. A conferência e a escrita são um
+  `UPDATE` condicional só (`ContaRepository.registrarAceiteSePendente`): num
+  duplo clique, as duas requisições leem a conta pendente, mas só a primeira
+  grava a hora (revisão do #127).
 
   `avisoPrivacidadePendente()` é um método do model, para que a Fila o leia
   como lê os outros dados da `Conta`, sem chamar este componente. Uma versão
