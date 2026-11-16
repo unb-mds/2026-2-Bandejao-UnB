@@ -14,3 +14,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação dos ajustes do review: [CI aprovado no commit 62f0e67](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/43730856149).
 - Revisão humana: [revisão dos ajustes por AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/124#pullrequestreview-5911855469), com merge autorizado após as correções finais.
 - Situação: observações finais registradas neste ajuste; conferir os checks do último commit antes do merge.
+
+## BD-03 — Fixtures e inicialização da pontuação
+
+- Ferramenta: ChatGPT.
+- Apoio: elaboração dos testes, fixture dos marcadores e data migration de inicialização da pontuação.
+- TDD das fixtures: falha inicial pela ausência das fixtures; o teste dos dez marcadores passou após a implementação.
+- TDD da migration: falha inicial pela ausência de `0002_inicializar_pontuacao_usuarios`; os dois testes passaram após a implementação.
+- Validação local parcial em SQLite: 743 testes passaram, 2 falharam pela ausência da fixture `campi` e 1 foi ignorado por ser específico de MySQL; cobertura de 97,62%.
+- Dados dos RUs: em levantamento pela equipe; coordenadas e raios ainda não recebidos.
+- Pendências: fixture dos cinco campi, suíte completa verde, validação em MySQL e revisão humana.
