@@ -149,16 +149,20 @@ paths:
     get:
       operationId: campi_list
       description: 'Só `id` e `nome`, em ordem de `id`. O raio do RU nunca é publicado.
-        A resposta leva um `ETag` e `Cache-Control: private, no-cache`: o navegador
-        guarda a lista e manda o `ETag` de volta em `If-None-Match`. Se a lista não
-        mudou, a resposta é 304, sem corpo.'
+        A resposta leva um `ETag` e `Cache-Control: private, no-cache`. Com um `fetch`
+        comum, o navegador guarda a lista, manda o `If-None-Match` sozinho e entrega
+        o corpo guardado quando nada mudou. Quem mandar o `If-None-Match` à mão (com
+        uma cópia no `localStorage`, por exemplo) recebe o 304 sem corpo e usa a própria
+        cópia. Só o `If-None-Match` é tratado: `If-Match`, `If-Modified-Since` e `If-Unmodified-Since`
+        são ignorados.'
       summary: Lista os campi
       parameters:
       - in: header
         name: If-None-Match
         schema:
           type: string
-        description: '`ETag` de uma resposta anterior. O navegador manda sozinho.'
+        description: Um ou mais `ETag` de respostas anteriores, ou `*`. Comparação
+          fraca.
       tags:
       - cardapio
       security:
@@ -170,7 +174,9 @@ paths:
             ETag:
               schema:
                 type: string
-              description: Muda só quando um `id` ou um `nome` da lista muda.
+              description: SHA-256 dos bytes do corpo do 200. Muda quando a lista
+                publicada muda (campus incluído ou removido, `id` ou `nome` alterado).
+                Não muda com o raio de confirmação nem com as coordenadas do RU.
             Cache-Control:
               schema:
                 type: string
@@ -187,12 +193,15 @@ paths:
             ETag:
               schema:
                 type: string
-              description: Muda só quando um `id` ou um `nome` da lista muda.
+              description: SHA-256 dos bytes do corpo do 200. Muda quando a lista
+                publicada muda (campus incluído ou removido, `id` ou `nome` alterado).
+                Não muda com o raio de confirmação nem com as coordenadas do RU.
             Cache-Control:
               schema:
                 type: string
               description: Sempre `private, no-cache`.
-          description: Lista igual à do `If-None-Match`. Sem corpo.
+          description: Algum `ETag` do `If-None-Match` bate com o da lista atual (ou
+            veio `*`). Sem corpo.
   /api/cardapio/:
     get:
       operationId: cardapio_retrieve
