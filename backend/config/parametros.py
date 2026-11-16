@@ -10,7 +10,7 @@ lê do `settings.py` (duração da sessão, fuso) continuam lá, e a classe só 
 expõe, para o número do Anexo A não ficar escrito em dois lugares.
 """
 
-from datetime import time
+from datetime import date, time
 from typing import Final
 
 
@@ -50,3 +50,19 @@ class ParametrosFilaConfig:
     min_tempos_espera: Final = 3
     min_dias_espera: Final = 2
     retencao_semanas: Final = 4
+
+
+class ParametrosGamificacaoConfig:
+    """Parâmetros de pontuação, sequência, patentes e ranking do Anexo A."""
+
+    pontos_checkin: Final = 10
+    pontos_resposta_saida: Final = 15
+    pontos_avaliacao: Final = 5
+    min_dias_semana: Final = 3
+    bonus_semana: Final = 20
+    limiares_patente: Final = (0, 150, 450, 900, 1500)
+    tamanho_ranking: Final = 10
+
+    # Preencher com datas confirmadas pela equipe no calendário acadêmico.
+    # Sem data configurada, o período do ranking permanece aberto (RN12).
+    datas_termino_semestre: Final[dict[str, date]] = {}
