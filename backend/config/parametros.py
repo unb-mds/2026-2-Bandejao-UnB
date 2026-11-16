@@ -32,3 +32,21 @@ class HorariosRefeicaoConfig:
     horario_cafe: Final = (time(7, 0), time(9, 30))
     horario_almoco: Final = (time(11, 0), time(14, 30))
     horario_jantar: Final = (time(17, 0), time(19, 30))
+
+
+class ParametrosFilaConfig:
+    """Parâmetros do Anexo A usados pela fila e sua retenção."""
+
+    primeira_pergunta_min: Final = 15
+    repeticao_min: Final = 10
+    expiracao_min: Final = 60
+    ponto_medio_ate5_min: Final = 2.5
+    ponto_medio5a10_min: Final = 7.5
+
+    faixa_minutos: Final = 15
+    janela_semanas: Final = 4
+    min_dias_distintos: Final = 3
+    cortes: Final = (25, 50, 75)
+    min_tempos_espera: Final = 3
+    min_dias_espera: Final = 2
+    retencao_semanas: Final = 4
