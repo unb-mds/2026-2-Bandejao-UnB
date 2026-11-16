@@ -29,4 +29,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Integração com a BE-09: o serviço de confirmação deverá verificar `confirmacao_ativa` antes de calcular a distância e recusar a confirmação quando o campo for falso. O BD-03 registra essa configuração e não implementa o endpoint de check-in.
 - Evidências: histórico de commits, descrição e execuções do CI vinculadas ao PR #129.
 - Validação completa local em SQLite: 747 testes passaram, 1 foi ignorado por ser específico de MySQL; cobertura de 97,62%.
-- Pendências: validar a nova versão no MySQL pelo CI e concluir a revisão humana.
+- Validação no CI do commit `aa142db`: SQLite com 747 testes aprovados e 1 ignorado; MySQL 8.4 com 748 testes aprovados; cobertura de 97,62% nos dois bancos. Os quatro jobs foram aprovados.
+- Evidência da validação: [execução verde do Backend CI](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/43911808889).
+- Revisão humana: pendente, incluindo o checklist de testes gerados por IA do Plano de Testes.
+- Antes do merge: conferir os checks do último commit.

@@ -58,7 +58,6 @@ erDiagram
         string prefixo_arquivo_pdf "início do nome do PDF (ADR 0014)"
     }
 
-**Dados provisórios do BD-03:** as coordenadas iniciais foram fornecidas pela equipe a partir de mapas, arredondadas para seis casas decimais e ainda dependem da validação em campo do BD-06. Os quatro RUs com ponto identificado usam provisoriamente 150 m. Na FAL, o ponto representa a fazenda, não o RU; a fixture registra `confirmacao_ativa = false` e os dois raios iguais a zero, indicando indisponibilidade. Os campos `centro_*` repetem provisoriamente `ru_*`. A origem e as limitações estão em `backend/apps/cardapio/fixtures/README.md`.
 
     REFEICAO {
         int id PK
@@ -281,6 +280,8 @@ Um dos 5 campi com RU; tabela de apoio povoada por fixture.
 | `raio_deteccao_metros` | IntegerField | NOT NULL, fixture (Anexo A) | Raio de detecção do campus no aparelho (ADR 0009); diferente do raio de confirmação do check-in. Publicado em `GET /api/campi/` junto com as colunas `centro_*`. |
 | `rotulo_pagina_ru` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Nome do campus no título do bloco da página de cardápios do RU ("Cardápio <rótulo>"), usado pelo Leitor para achar o PDF do campus. A comparação ignora acentos, maiúsculas e espaços extras, e a ordem dos blocos na página não é usada (ADR 0014). Não é publicado na API. |
 | `prefixo_arquivo_pdf` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Início esperado do nome do PDF do campus (`Darcy-Ribeiro`, `Ceilandia`, `Gama`, `Planaltina`, `Fazenda`). Confere que o link do bloco é mesmo daquele campus, ignorando acentos, maiúsculas e os sufixos `-1`, `-2` (ADR 0014). Não é publicado na API. |
+
+**Dados provisórios do BD-03:** as coordenadas iniciais foram fornecidas pela equipe a partir de mapas, arredondadas para seis casas decimais e ainda dependem da validação em campo do BD-06. Os quatro RUs com ponto identificado usam provisoriamente 150 m. Na FAL, o ponto representa a fazenda, não o RU; a fixture registra `confirmacao_ativa = false` e os dois raios iguais a zero, indicando indisponibilidade. Os campos `centro_*` repetem provisoriamente `ru_*`. A origem e as limitações estão em `backend/apps/cardapio/fixtures/README.md`.
 
 ### `REFEICAO`
 
