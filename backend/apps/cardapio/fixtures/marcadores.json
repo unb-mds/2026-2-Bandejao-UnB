@@ -1,0 +1,52 @@
+[
+  {
+    "model": "cardapio.marcador",
+    "pk": 1,
+    "fields": {"nome": "cogumelo"}
+  },
+  {
+    "model": "cardapio.marcador",
+    "pk": 2,
+    "fields": {"nome": "leite_e_derivados"}
+  },
+  {
+    "model": "cardapio.marcador",
+    "pk": 3,
+    "fields": {"nome": "mel"}
+  },
+  {
+    "model": "cardapio.marcador",
+    "pk": 4,
+    "fields": {"nome": "pimenta"}
+  },
+  {
+    "model": "cardapio.marcador",
+    "pk": 5,
+    "fields": {"nome": "soja"}
+  },
+  {
+    "model": "cardapio.marcador",
+    "pk": 6,
+    "fields": {"nome": "trigo_gluten"}
+  },
+  {
+    "model": "cardapio.marcador",
+    "pk": 7,
+    "fields": {"nome": "amendoim"}
+  },
+  {
+    "model": "cardapio.marcador",
+    "pk": 8,
+    "fields": {"nome": "oleaginosa"}
+  },
+  {
+    "model": "cardapio.marcador",
+    "pk": 9,
+    "fields": {"nome": "ovo"}
+  },
+  {
+    "model": "cardapio.marcador",
+    "pk": 10,
+    "fields": {"nome": "suino"}
+  }
+]
