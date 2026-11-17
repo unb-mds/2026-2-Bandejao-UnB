@@ -663,6 +663,9 @@ Os nomes das classes seguem os diagramas; no Python, os atributos usam
 | `login_max_tentativas` | 5 | `TentativaLoginTracker` |
 | `login_janela` | 10 minutos | `TentativaLoginTracker` |
 | `login_bloqueio` | 10 minutos | `TentativaLoginTracker` |
+| `validade_redefinicao_senha` | 1 hora | `RecuperacaoSenhaService` — consumo previsto |
+| `redefinicao_max_solicitacoes` | 3 | `SolicitacaoRedefinicaoTracker` — consumo previsto |
+| `redefinicao_janela` | 1 hora | `SolicitacaoRedefinicaoTracker` — consumo previsto |
 
 O limite superior do ano da matrícula continua sendo calculado a partir
 da data atual no fuso do projeto; o terceiro dígito não é validado.
