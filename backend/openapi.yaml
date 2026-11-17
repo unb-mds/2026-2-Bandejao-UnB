@@ -301,6 +301,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/CheckinRegistrado'
           description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Corpo fora do formato, campus ou refeição inexistente, ou
+            coordenada fora da faixa. Não conta como tentativa. `codigo`: `dados_invalidos`.'
         '401':
           content:
             application/json:

@@ -2,6 +2,7 @@
 
 from rest_framework import serializers
 
+from apps.cardapio.models import Campus, TipoRefeicao
 from apps.gamificacao.serializers import ResultadoPontuacaoSerializer
 
 
@@ -20,6 +21,18 @@ class CheckinEntradaSerializer(serializers.Serializer):
         help_text='Um de "cafe", "almoco" ou "jantar".',
     )
     coordenadas = CoordenadasSerializer()
+
+    def validate_campus(self, valor):
+        """Troca o id pelo `Campus` (BE-09). Id inexistente é dado inválido."""
+        campus = Campus.objects.filter(pk=valor).first()
+        if campus is None:
+            raise serializers.ValidationError("Campus inexistente.")
+        return campus
+
+    def validate_tipoRefeicao(self, valor):
+        if valor not in TipoRefeicao.values:
+            raise serializers.ValidationError("Refeição inexistente.")
+        return valor
 
 
 class CheckinSerializer(serializers.Serializer):
