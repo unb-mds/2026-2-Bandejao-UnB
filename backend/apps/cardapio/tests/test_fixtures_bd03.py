@@ -50,6 +50,7 @@ def test_fixture_campi_carrega_cinco_campi_com_ids_fixos():
         assert campus.raio_confirmacao_metros == raio
         assert campus.confirmacao_ativa is ativa
 
+        # Valores provisórios do BD-03; serão revistos no BD-E3.
         assert campus.centro_latitude == campus.ru_latitude
         assert campus.centro_longitude == campus.ru_longitude
         assert campus.raio_deteccao_metros == raio

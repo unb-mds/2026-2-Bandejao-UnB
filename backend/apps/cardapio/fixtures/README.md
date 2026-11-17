@@ -11,6 +11,8 @@ python manage.py loaddata campi marcadores
 
 As fixtures usam IDs fixos. Recarregá-las atualiza os registros desses IDs sem criar novas cópias. Os IDs dos campi não devem ser alterados após o deploy, pois o PWA pode guardá-los no aparelho.
 
+Recarregar as fixtures sobrescreve os campos presentes nos arquivos para os IDs correspondentes. Ajustes manuais de coordenadas, raios ou `confirmacao_ativa` voltam aos valores da fixture. Portanto, os valores validados no BD-06 também devem ser atualizados em `campi.json` antes de uma nova carga.
+
 ## Campi e confirmação de localização
 
 As coordenadas de `campi.json` foram fornecidas pela equipe a partir de um levantamento aproximado em mapas. Foram arredondadas para seis casas decimais e ainda não foram validadas em campo.

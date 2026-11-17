@@ -21,18 +21,20 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Ferramenta: ChatGPT.
 - Apoio: elaboração dos testes, fixtures de campi e marcadores, data migration de inicialização da pontuação, campo de disponibilidade da confirmação e atualização da documentação.
 - TDD: etapas vermelhas registradas pela ausência das fixtures, da data migration e do campo `confirmacao_ativa`, antes das respectivas implementações.
-- Validação específica atual em SQLite: 7 testes passaram, cobrindo carga e recarga das fixtures, disponibilidade da confirmação por campus, inicialização da pontuação, preservação de contadores existentes e reaplicação da migration sem duplicações.
+- Validação específica após o review em SQLite: 16 testes do BD-03 aprovados, além de 7 testes de estrutura e sincronização dos models.
+- TDD dos ajustes: 8 testes falharam por ausência de `IntegrityError` antes das constraints; após a implementação, os 11 testes de disponibilidade e invariantes dos raios passaram.
 - Dados dos campi: coordenadas aproximadas fornecidas pela equipe a partir de mapas, arredondadas para seis casas decimais e ainda sem validação em campo.
 - Raios provisórios: 150 m para Darcy Ribeiro, Ceilândia, Gama e Planaltina, definidos pela equipe e sujeitos à validação do BD-06.
 - Fazenda Água Limpa: a coordenada disponível representa a fazenda, não o RU. A fixture registra `confirmacao_ativa = false` e os dois raios iguais a zero, indicando indisponibilidade.
 - Detecção de campus: os campos `centro_*` e `raio_deteccao_metros` repetem provisoriamente os valores cadastrados para confirmação, até a definição dos parâmetros no BD-E3.
 - Integração com a BE-09: o serviço de confirmação deverá verificar `confirmacao_ativa` antes de calcular a distância e recusar a confirmação quando o campo for falso. O BD-03 registra essa configuração e não implementa o endpoint de check-in.
 - Evidências: histórico de commits, descrição e execuções do CI vinculadas ao PR #129.
-- Validação completa local em SQLite: 747 testes passaram, 1 foi ignorado por ser específico de MySQL; cobertura de 97,62%.
+- Validação completa local anterior aos ajustes do review, em SQLite: 747 testes passaram, 1 foi ignorado por ser específico de MySQL; cobertura de 97,62%.
+- Validação completa local após os ajustes do review, em SQLite: 807 testes aprovados, 1 ignorado por ser específico de MySQL; cobertura de 97,67%.
 - Validação no CI do commit `aa142db`: SQLite com 747 testes aprovados e 1 ignorado; MySQL 8.4 com 748 testes aprovados; cobertura de 97,62% nos dois bancos. Os quatro jobs foram aprovados.
 - Evidência da validação: [execução verde do Backend CI](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/43911808889).
-- Revisão humana: [review de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/129#issuecomment-6924252533), com parecer de aprovação com ajustes; correções em andamento.
-- Situação: integração com a develop e tratamento dos ajustes do review em andamento; validar a versão final localmente e no CI antes do merge.
+- Revisão humana: [review de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/129#issuecomment-6924252533), com parecer de aprovação com ajustes; ajustes aplicados, aguardando nova conferência.
+- Situação: integração com a develop concluída, ajustes do review aplicados e validação completa local aprovada. Pendentes o CI atualizado e a nova conferência humana antes do merge.
 
 ## BE-08 — Lista de campi (`GET /api/campi/`)
 
@@ -63,4 +65,3 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação: `pytest` com 791 testes passando (depois dos ajustes da revisão) e cobertura de 97,67%, `ruff`, `bandit`, `manage.py check`, `makemigrations --check` e `spectacular --validate --fail-on-warn` (contrato sem mudança, inclusive depois da troca para `pt-br`) rodados localmente; resultado do CI no PR.
 - Revisão humana: [revisão de Poviovsky](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/132#pullrequestreview-5927752431), aprovada com duas sugestões no registro (o vermelho do commit `test` e esta situação) e observações (`get_object_or_404`, `/api` sem a barra, `path_info`), aplicadas nos ajustes da revisão.
 - Situação: `pt-br` adotado e [registrado na #121](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/121#issuecomment-6929024596); ajustes da revisão aplicados.
-
