@@ -13,7 +13,9 @@
  * - Um 401 avisa quem se registrou em `definirAoPerderSessao` (o authStore,
  *   que se limpa). Um 403 `csrf_invalido` não desloga ninguém.
  * - Converte qualquer falha em `ApiError`, com `status`, `codigo` e a
- *   `mensagem` do contrato (`{ codigo, mensagem }`).
+ *   `mensagem` do contrato (`{ codigo, mensagem }`). Sem `mensagem`, usa uma
+ *   em português pelo status (nunca o `detail` em inglês do DRF). As telas
+ *   mostram erros com `mensagemDeErro`.
  *
  * O servidor simulado (src/services/mock) só existe em desenvolvimento e nos
  * testes: no build de produção `import.meta.env.DEV` é `false` e o Vite
@@ -25,8 +27,26 @@ const URL_BASE = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/$/, '')
 export const USANDO_SIMULACAO = import.meta.env.DEV && import.meta.env.VITE_USE_MOCK !== 'false'
 
 const METODOS_DE_ESCRITA = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
-const MENSAGEM_SEM_CONEXAO = 'Não foi possível conectar ao servidor. Verifique sua internet.'
 const MENSAGEM_GENERICA = 'Algo deu errado. Tente novamente em instantes.'
+
+/**
+ * Mensagem para o usuário quando a resposta não traz `mensagem` (o backend
+ * sempre traz desde o #132; sobram erros de fora da API e o `detail` do DRF).
+ * O `detail` em si fica só em `ApiError.dados`.
+ */
+const MENSAGENS_POR_STATUS = {
+  0: 'Não foi possível conectar ao servidor. Verifique sua internet.',
+  401: 'É preciso entrar na conta para continuar.',
+  403: 'Você não tem permissão para fazer isso.',
+  404: 'Não encontramos o que você pediu.',
+  429: 'Muitos pedidos seguidos. Tente de novo mais tarde.',
+}
+
+function mensagemPorStatus(status) {
+  if (MENSAGENS_POR_STATUS[status]) return MENSAGENS_POR_STATUS[status]
+  if (status >= 500) return 'O servidor está com problemas. Tente de novo em instantes.'
+  return MENSAGEM_GENERICA
+}
 
 export class ApiError extends Error {
   /**
@@ -34,13 +54,23 @@ export class ApiError extends Error {
    * @param {object} [dados] corpo da resposta de erro (`{ codigo, mensagem, ... }`)
    */
   constructor(status, dados = {}) {
-    // `detail`: erro que não passou pelo tratador do backend (ex.: 404 ou 405 do DRF).
-    super(dados.mensagem ?? dados.detail ?? MENSAGEM_GENERICA)
+    super(dados.mensagem ?? mensagemPorStatus(status))
     this.name = 'ApiError'
     this.status = status
     this.codigo = dados.codigo ?? null
     this.dados = dados
   }
+}
+
+/**
+ * O que as telas mostram num `catch`. Erro da API: a mensagem dele. Qualquer
+ * outro (ex.: um `TypeError` de programação) vira a mensagem genérica, em vez
+ * de texto em inglês na tela, e vai para o console.
+ */
+export function mensagemDeErro(falha) {
+  if (falha instanceof ApiError) return falha.message
+  console.error(falha)
+  return MENSAGEM_GENERICA
 }
 
 let aoPerderSessao = null
@@ -60,13 +90,26 @@ function lerCookie(nome) {
 /** Pedido de `GET /api/csrf/` em andamento: escritas simultâneas esperam o mesmo. */
 let pedidoCsrf = null
 
-async function garantirCookieCsrf(transporte) {
-  if (lerCookie('csrftoken')) return
-  pedidoCsrf ??= transporte({
+async function buscarCookieCsrf(transporte) {
+  const resposta = await transporte({
     metodo: 'GET',
     caminho: '/csrf/',
     cabecalhos: { Accept: 'application/json' },
-  }).finally(() => {
+  })
+  if (resposta.status < 200 || resposta.status >= 300) {
+    throw new ApiError(resposta.status, resposta.dados ?? {})
+  }
+  if (!lerCookie('csrftoken')) {
+    throw new ApiError(resposta.status, {
+      codigo: 'csrf_indisponivel',
+      mensagem: 'Não foi possível preparar o envio. Recarregue a página e tente de novo.',
+    })
+  }
+}
+
+async function garantirCookieCsrf(transporte) {
+  if (lerCookie('csrftoken')) return
+  pedidoCsrf ??= buscarCookieCsrf(transporte).finally(() => {
     pedidoCsrf = null
   })
   await pedidoCsrf
@@ -82,17 +125,36 @@ function montarCabecalhos(metodo, corpo) {
   return cabecalhos
 }
 
+const semConexao = () => new ApiError(0, { codigo: 'sem_conexao', mensagem: mensagemPorStatus(0) })
+
 async function requisitarHttp({ metodo, caminho, corpo, cabecalhos }) {
   const opcoes = { method: metodo, headers: cabecalhos, credentials: 'same-origin' }
   if (corpo !== undefined) opcoes.body = JSON.stringify(corpo)
 
   let resposta
+  let texto
   try {
     resposta = await fetch(`${URL_BASE}${caminho}`, opcoes)
+    // Dentro do mesmo try: a conexão também pode cair no meio do corpo.
+    texto = await resposta.text()
   } catch {
-    throw new ApiError(0, { codigo: 'sem_conexao', mensagem: MENSAGEM_SEM_CONEXAO })
+    throw semConexao()
   }
-  return { status: resposta.status, dados: await lerJson(resposta) }
+
+  if (!texto) return { status: resposta.status, dados: null }
+  try {
+    return { status: resposta.status, dados: JSON.parse(texto) }
+  } catch {
+    // Sucesso com corpo que não é JSON (ex.: o index.html do PWA quando a URL
+    // da API está errada) não pode passar como "deu certo".
+    if (resposta.ok) {
+      throw new ApiError(resposta.status, {
+        codigo: 'resposta_invalida',
+        mensagem: MENSAGEM_GENERICA,
+      })
+    }
+    return { status: resposta.status, dados: null }
+  }
 }
 
 async function requisitarSimulado(pedido) {
@@ -103,15 +165,6 @@ async function requisitarSimulado(pedido) {
     return tratarRequisicaoSimulada(pedido)
   }
   throw new Error('Servidor simulado indisponível em produção.')
-}
-
-async function lerJson(resposta) {
-  const texto = await resposta.text()
-  try {
-    return texto ? JSON.parse(texto) : null
-  } catch {
-    return null
-  }
 }
 
 /**

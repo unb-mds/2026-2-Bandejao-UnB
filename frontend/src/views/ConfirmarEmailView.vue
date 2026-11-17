@@ -6,6 +6,7 @@ import CabecalhoFormulario from '@/components/CabecalhoFormulario.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
 import LinkSimulado from '@/components/LinkSimulado.vue'
+import { mensagemDeErro } from '@/services/apiClient'
 
 /**
  * Confirmação de e-mail (RF02), com dois pontos de entrada:
@@ -22,7 +23,9 @@ const token = computed(() => (typeof route.query.token === 'string' ? route.quer
 const email = typeof route.query.email === 'string' ? route.query.email : ''
 const matriculaSiape = ref('')
 
-// estado: 'pendente' | 'confirmando' | 'confirmado' | 'invalido'
+// estado: 'pendente' | 'confirmando' | 'confirmado' | 'invalido' | 'falhou'
+// 'invalido' só com `token_invalido_ou_expirado`. Outros erros (sem conexão,
+// 5xx, 429) vão para 'falhou', que oferece tentar de novo: o link pode ainda valer.
 const estado = ref(token.value ? 'confirmando' : 'pendente')
 const linkSimulado = ref(window.history.state?.linkSimulado ?? '')
 const reenvio = ref('')
@@ -36,23 +39,21 @@ const podeReenviar = computed(
   () => !reenviando.value && (estado.value === 'invalido' || Boolean(matriculaSiape.value)),
 )
 
+async function confirmar(valor) {
+  if (!valor) return
+  estado.value = 'confirmando'
+  erro.value = ''
+  try {
+    await auth.confirmarEmail(valor)
+    estado.value = 'confirmado'
+  } catch (falha) {
+    erro.value = mensagemDeErro(falha)
+    estado.value = falha.codigo === 'token_invalido_ou_expirado' ? 'invalido' : 'falhou'
+  }
+}
+
 // Observa o token (e não só a montagem): o link simulado reabre esta mesma tela.
-watch(
-  token,
-  async (valor) => {
-    if (!valor) return
-    estado.value = 'confirmando'
-    erro.value = ''
-    try {
-      await auth.confirmarEmail(valor)
-      estado.value = 'confirmado'
-    } catch (falha) {
-      erro.value = falha.message
-      estado.value = 'invalido'
-    }
-  },
-  { immediate: true },
-)
+watch(token, confirmar, { immediate: true })
 
 async function reenviar() {
   if (!podeReenviar.value) return
@@ -67,7 +68,7 @@ async function reenviar() {
     reenvio.value = resposta.mensagem
     linkSimulado.value = resposta.linkSimulado ?? ''
   } catch (falha) {
-    erro.value = falha.message
+    erro.value = mensagemDeErro(falha)
   } finally {
     reenviando.value = false
   }
@@ -86,6 +87,15 @@ async function reenviar() {
       <p v-if="estado === 'confirmando'" class="carregando" role="status">
         Confirmando seu e-mail…
       </p>
+
+      <template v-else-if="estado === 'falhou'">
+        <p class="mensagem mensagem--erro" role="alert">
+          {{ erro }} Não conseguimos confirmar agora.
+        </p>
+        <button type="button" class="botao botao--primario" @click="confirmar(token)">
+          Tentar de novo
+        </button>
+      </template>
 
       <template v-else-if="estado === 'confirmado'">
         <div class="destaque destaque--sucesso">

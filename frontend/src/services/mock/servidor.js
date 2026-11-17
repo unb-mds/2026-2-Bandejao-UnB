@@ -39,17 +39,24 @@ const LIMITE_TENTATIVAS_LOGIN = 5
 const JANELA_BLOQUEIO_LOGIN = 10 * MINUTO
 const LIMITE_RECUPERACOES_POR_HORA = 3
 const METODOS_DE_ESCRITA = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+/** Limites por IP do backend (`LimiteDeTaxaConfig`, #123). Aqui, "IP" = este navegador. */
+const LIMITES_POR_IP = { cadastro: 40, reenvio: 10, login: 60 }
+const LIMITE_REENVIOS_POR_CONTA = 3
 
-/** Estado volátil (some ao recarregar), como no servidor real após reinício. */
-const sessoes = new Map() // id da sessão → id do usuário (django_session)
+/**
+ * Estado volátil, só do simulado: some ao recarregar a página. No Django, a
+ * sessão (django_session), o bloqueio do login (`bloqueado_ate`) e os
+ * contadores de limite ficam no banco.
+ */
+const sessoes = new Map() // id da sessão → id do usuário
 const tentativasLogin = new Map() // matrícula/SIAPE → [instantes das falhas]
 const bloqueiosLogin = new Map() // matrícula/SIAPE → instante de fim do bloqueio
 const pedidosRecuperacao = new Map() // e-mail → [instantes]
+const pedidosPorRota = new Map() // rota com limite → [instantes]
+const reenviosPorConta = new Map() // id do usuário → [instantes]
 
 /** "Cookie HttpOnly" sessionid deste navegador: o JavaScript da página não o lê. */
 let cookieSessao = null
-/** Valor do csrftoken que o servidor gravou por último. */
-let csrfAtual = null
 
 const ok = (dados, status = 200) => ({ status, dados })
 const erro = (status, codigo, mensagem, extra = {}) => ({
@@ -65,15 +72,35 @@ const csrfInvalido = () =>
 const naoAutenticado = () =>
   erro(401, 'nao_autenticado', 'É preciso entrar na conta para continuar.')
 
+const limiteExcedido = () =>
+  erro(429, 'limite_excedido', 'Muitos pedidos seguidos. Tente de novo mais tarde.')
+
+/** 32 caracteres alfanuméricos, como o segredo do CSRF do Django. */
 function gerarToken() {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const aleatorio = () =>
+    globalThis.crypto?.randomUUID?.().replaceAll('-', '') ??
+    Array.from({ length: 32 }, () => Math.floor(Math.random() * 36).toString(36)).join('')
+  return aleatorio()
+}
+
+function lerCookieCsrf() {
+  if (typeof document === 'undefined') return null
+  const par = document.cookie.split('; ').find((item) => item.startsWith('csrftoken='))
+  return par ? decodeURIComponent(par.slice('csrftoken='.length)) || null : null
 }
 
 function gravarCookieCsrf(valor) {
-  csrfAtual = valor
   if (typeof document !== 'undefined') {
     document.cookie = `csrftoken=${encodeURIComponent(valor)}; path=/; SameSite=Lax`
   }
+}
+
+/** Conta o pedido na janela de 1 hora e diz se passou do limite. */
+function passouDoLimite(mapa, chave, limite, agora) {
+  const recentes = (mapa.get(chave) ?? []).filter((t) => agora - t < HORA)
+  recentes.push(agora)
+  mapa.set(chave, recentes)
+  return recentes.length > limite
 }
 
 const normalizarEmail = (email = '') => String(email).trim().toLowerCase()
@@ -182,7 +209,7 @@ function cadastrar(corpo, agora) {
   const emailNormalizado = normalizarEmail(emailInstitucional)
   const { usuarios } = banco.estado
   if (usuarios.some((u) => u.email === emailNormalizado || u.identificador === identificador)) {
-    // Mensagem única, sem revelar qual dos dois já existe (RI01).
+    // Mensagem única, sem revelar qual dos dois já existe (RF01.5).
     return dadosInvalidos('Matrícula/SIAPE ou e-mail já cadastrados.')
   }
 
@@ -255,6 +282,10 @@ function reenviarConfirmacao({ matriculaSiape, token }, agora) {
   // Como o backend: 200 sem corpo, exista ou não uma conta pendente (RF02.2).
   // Só o `linkSimulado` do modo demonstração aparece quando há o que reenviar.
   if (usuario && !usuario.confirmado) {
+    // Limite por conta: silencioso, responde igual sem mandar outro link (#123).
+    if (passouDoLimite(reenviosPorConta, usuario.id, LIMITE_REENVIOS_POR_CONTA, agora)) {
+      return ok(null)
+    }
     usuario.ultimoEnvio = agora.toISOString() // renova o prazo de 24h (RF02)
     return ok({ linkSimulado: criarLink('confirmacao', usuario, VALIDADE_CONFIRMACAO, agora) })
   }
@@ -510,21 +541,27 @@ function avaliar(corpo, agora) {
 
 function gravarCsrfSeFaltar() {
   // Como o `get_token` do Django: mantém o token que já existe.
-  if (!csrfAtual) gravarCookieCsrf(gerarToken())
+  if (!tokenCsrfValido(lerCookieCsrf())) gravarCookieCsrf(gerarToken())
   return ok(null, 204)
 }
 
+// Terceiro item: nome do limite por IP da rota (LIMITES_POR_IP), se houver.
 const ROTAS = [
   ['GET', /^\/csrf\/$/, () => gravarCsrfSeFaltar()],
-  ['POST', /^\/cadastro\/$/, ({ corpo, agora }) => cadastrar(corpo, agora)],
+  ['POST', /^\/cadastro\/$/, ({ corpo, agora }) => cadastrar(corpo, agora), 'cadastro'],
   [
     'POST',
     /^\/confirmar-email\/([^/]+)\/$/,
     ({ agora }, [token]) => confirmarEmail(decodeURIComponent(token), agora),
   ],
-  ['POST', /^\/reenviar-confirmacao\/$/, ({ corpo, agora }) => reenviarConfirmacao(corpo, agora)],
+  [
+    'POST',
+    /^\/reenviar-confirmacao\/$/,
+    ({ corpo, agora }) => reenviarConfirmacao(corpo, agora),
+    'reenvio',
+  ],
   ['GET', /^\/sessao\/$/, () => quemSou()],
-  ['POST', /^\/sessao\/$/, ({ corpo, agora }) => entrar(corpo, agora)],
+  ['POST', /^\/sessao\/$/, ({ corpo, agora }) => entrar(corpo, agora), 'login'],
   ['DELETE', /^\/sessao\/$/, () => sair()],
   ['POST', /^\/recuperar-senha\/$/, ({ corpo, agora }) => solicitarRecuperacao(corpo, agora)],
   ['POST', /^\/redefinir-senha\/$/, ({ corpo, agora }) => redefinirSenha(corpo, agora)],
@@ -536,13 +573,17 @@ const ROTAS = [
 
 const ATRASO_MS = import.meta.env.MODE === 'test' ? 0 : 250
 
+const tokenCsrfValido = (valor) => /^[A-Za-z0-9]{32}([A-Za-z0-9]{32})?$/.test(valor ?? '')
+
 /**
  * Como o backend (`CsrfObrigatorio`, #112): toda escrita cobra o CSRF, com ou
- * sem sessão. Leituras passam direto.
+ * sem sessão, e leituras passam direto. Como no Django, compara o cabeçalho
+ * com o cookie, sem guardar nada em memória: o cookie sobrevive ao F5.
  */
 function csrfRecusado(metodo, cabecalhos) {
   if (!METODOS_DE_ESCRITA.has(metodo)) return false
-  return !csrfAtual || cabecalhos['X-CSRFToken'] !== csrfAtual
+  const cookie = lerCookieCsrf()
+  return !tokenCsrfValido(cookie) || cabecalhos['X-CSRFToken'] !== cookie
 }
 
 export async function tratarRequisicaoSimulada({ metodo, caminho, corpo, cabecalhos = {} }) {
@@ -553,13 +594,17 @@ export async function tratarRequisicaoSimulada({ metodo, caminho, corpo, cabecal
 
   const url = new URL(caminho, 'http://simulado')
   const parametros = Object.fromEntries(url.searchParams)
-  for (const [verbo, padrao, tratar] of ROTAS) {
+  for (const [verbo, padrao, tratar, limite] of ROTAS) {
     const encontrado = verbo === metodo && padrao.exec(url.pathname)
     if (!encontrado) continue
+    // Mesma ordem do DRF: primeiro o CSRF, depois o limite de taxa.
     if (csrfRecusado(metodo, cabecalhos)) return csrfInvalido()
+    if (limite && passouDoLimite(pedidosPorRota, limite, LIMITES_POR_IP[limite], agora)) {
+      return limiteExcedido()
+    }
     return tratar({ corpo: structuredClone(corpo ?? {}), parametros, agora }, encontrado.slice(1))
   }
-  return erro(404, 'rota_nao_encontrada', 'Rota não encontrada.')
+  return erro(404, 'nao_encontrado', 'O recurso pedido não existe.')
 }
 
 /** Ganchos para os testes. */
@@ -577,8 +622,9 @@ export function reiniciarSimulacao() {
   tentativasLogin.clear()
   bloqueiosLogin.clear()
   pedidosRecuperacao.clear()
+  pedidosPorRota.clear()
+  reenviosPorConta.clear()
   cookieSessao = null
-  csrfAtual = null
   if (typeof document !== 'undefined') {
     document.cookie = 'csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'
   }

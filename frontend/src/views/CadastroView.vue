@@ -7,6 +7,7 @@ import CabecalhoFormulario from '@/components/CabecalhoFormulario.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import CampoSenha from '@/components/CampoSenha.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
+import { mensagemDeErro } from '@/services/apiClient'
 
 /**
  * Cadastro em duas etapas (RF01): primeiro o tipo de usuário, depois os
@@ -78,7 +79,7 @@ async function criarConta() {
       state: { linkSimulado: resposta.linkSimulado ?? null },
     })
   } catch (falha) {
-    erro.value = falha.message
+    erro.value = mensagemDeErro(falha)
     // Apelido extraído do e-mail indisponível: o formulário ganha o campo de apelido (C4 4b).
     if (falha.codigo === 'apelido_indisponivel') {
       pedirApelido.value = true

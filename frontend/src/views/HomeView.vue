@@ -75,9 +75,16 @@ function abrirCardapioDeHoje() {
 
 async function sair() {
   menuAberto.value = false
-  await auth.sair()
-  avaliacoes.limparCache()
-  if (tipoHoje.value) avaliacoes.carregar(alvoHoje.value)
+  try {
+    await auth.sair()
+  } catch (falha) {
+    // A store já foi limpa; o erro só fica registrado.
+    console.error(falha)
+  } finally {
+    // Sem isto, as avaliações do usuário anterior continuariam na tela.
+    avaliacoes.limparCache()
+    if (tipoHoje.value) avaliacoes.carregar(alvoHoje.value)
+  }
 }
 </script>
 

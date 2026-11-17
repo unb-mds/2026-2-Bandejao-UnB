@@ -106,16 +106,17 @@ todas sob `/api`:
 | Método e rota | Corpo | Respostas |
 |---|---|---|
 | `GET /csrf/` | — | `204`, grava o cookie `csrftoken` (o `apiClient` chama sozinho antes da primeira escrita) |
-| `POST /cadastro/` | `{ tipoUsuario: estudante\|professor_servidor, emailInstitucional, senha, apelido?, matriculaSiape?, aceitePrivacidade }` | `201 { emailInstitucional, status: "pendente" }`, `409 { codigo: apelido_indisponivel, apelidoSugerido }`, `422 dados_invalidos` |
+| `POST /cadastro/` | `{ tipoUsuario: estudante\|professor_servidor, emailInstitucional, senha, apelido?, matriculaSiape?, aceitePrivacidade }` | `201 { emailInstitucional, status: "pendente" }`, `409 { codigo: apelido_indisponivel, apelidoSugerido }`, `422 dados_invalidos`, `429 limite_excedido` (40/h por IP) |
 | `POST /confirmar-email/{token}/` | — | `200`, `410 token_invalido_ou_expirado` |
-| `POST /reenviar-confirmacao/` | `{ matriculaSiape }` ou `{ token }` | `200` sem corpo (sempre igual), `422 dados_invalidos` |
-| `POST /sessao/` (login) | `{ matriculaSiape, senha }` | `200 { apelido, tipo, avisoPrivacidadePendente }`, `401 credenciais_invalidas`, `403 conta_nao_confirmada`, `422 dados_invalidos`, `429 login_bloqueado` |
+| `POST /reenviar-confirmacao/` | `{ matriculaSiape }` ou `{ token }` | `200` sem corpo (sempre igual; acima de 3 links/h por conta, não manda outro), `422 dados_invalidos`, `429 limite_excedido` (10/h por IP) |
+| `POST /sessao/` (login) | `{ matriculaSiape, senha }` | `200 { apelido, tipo, avisoPrivacidadePendente }`, `401 credenciais_invalidas`, `403 conta_nao_confirmada`, `422 dados_invalidos`, `429 login_bloqueado` (conta) ou `limite_excedido` (60/h por IP) |
 | `GET /sessao/` (quem sou) | — | `200 { apelido, tipo, avisoPrivacidadePendente }`, `401 nao_autenticado` |
 | `DELETE /sessao/` (logout) | — | `204`, `401 nao_autenticado` |
 
 Qualquer rota logada sem sessão responde `401 { codigo: "nao_autenticado" }`. Toda escrita,
 com ou sem sessão, sem o `X-CSRFToken` certo responde `403 { codigo: "csrf_invalido" }` (não
-desloga).
+desloga). Erro sem `mensagem` (ex.: o `detail` em inglês do DRF) aparece com uma mensagem em
+português pelo status; as telas mostram erros com `mensagemDeErro(falha)`.
 
 Ainda no formato do MVP no simulado (entram no contrato nas tarefas FE-08, FE-09 e FE-E2):
 `GET /cardapio/{campus}/`, `GET /avaliacoes/?campus&data&refeicao`,

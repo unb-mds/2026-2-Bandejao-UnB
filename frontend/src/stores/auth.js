@@ -32,10 +32,15 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
-  /** DELETE /api/sessao/ */
+  /**
+   * DELETE /api/sessao/. Um 401 quer dizer que a sessão já tinha acabado no
+   * servidor: para quem clicou em "Sair", deu certo do mesmo jeito.
+   */
   async function sair() {
     try {
       await apiClient.delete('/sessao/')
+    } catch (falha) {
+      if (falha.status !== 401) throw falha
     } finally {
       limpar()
     }

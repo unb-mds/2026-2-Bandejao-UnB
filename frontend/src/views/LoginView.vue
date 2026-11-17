@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
 import { usePreferenciasStore } from '@/stores/preferencias'
-import { USANDO_SIMULACAO } from '@/services/apiClient'
+import { USANDO_SIMULACAO, mensagemDeErro } from '@/services/apiClient'
 import CabecalhoFormulario from '@/components/CabecalhoFormulario.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import CampoSenha from '@/components/CampoSenha.vue'
@@ -58,7 +58,7 @@ async function entrar() {
     avaliacoes.limparCache()
     seguirAposLogin()
   } catch (falha) {
-    erro.value = falha.message
+    erro.value = mensagemDeErro(falha)
     naoConfirmado.value = falha.codigo === 'conta_nao_confirmada'
   } finally {
     enviando.value = false
@@ -69,7 +69,7 @@ async function reenviarConfirmacao() {
   try {
     reenvio.value = await auth.reenviarConfirmacao({ matriculaSiape: matriculaSiape.value })
   } catch (falha) {
-    erro.value = falha.message
+    erro.value = mensagemDeErro(falha)
   }
 }
 </script>

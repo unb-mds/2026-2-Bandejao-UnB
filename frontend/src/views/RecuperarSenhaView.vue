@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import CabecalhoFormulario from '@/components/CabecalhoFormulario.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import LinkSimulado from '@/components/LinkSimulado.vue'
+import { mensagemDeErro } from '@/services/apiClient'
 
 /**
  * Recuperação de senha (RF04). A resposta é sempre a mesma, exista ou não
@@ -26,7 +27,7 @@ async function solicitar() {
   try {
     resposta.value = await auth.solicitarRecuperacao(email.value)
   } catch (falha) {
-    erro.value = falha.message
+    erro.value = mensagemDeErro(falha)
   } finally {
     enviando.value = false
   }
