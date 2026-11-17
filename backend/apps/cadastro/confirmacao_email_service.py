@@ -33,10 +33,6 @@ from config.parametros import ParametrosCadastroConfig
 
 logger = logging.getLogger(__name__)
 
-# Compatibilidade com os imports existentes; o valor vem da configuração.
-# O serviço e o job consultam ParametrosCadastroConfig diretamente.
-VALIDADE_DO_LINK = ParametrosCadastroConfig.validade_confirmacao_email
-
 ASSUNTO = "Confirme seu e-mail no Bandejão UnB"
 CORPO = """Olá, {apelido}!
 

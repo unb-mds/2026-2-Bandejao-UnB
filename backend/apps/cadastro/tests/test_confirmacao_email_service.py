@@ -14,11 +14,11 @@ import pytest
 from django.core import mail
 
 from apps.cadastro.confirmacao_email_service import (
-    VALIDADE_DO_LINK,
     ConfirmacaoEmailService,
 )
 from apps.cadastro.erros import TokenExpiradoOuInvalidoError
 from apps.cadastro.models import StatusUsuario, TipoToken, Token
+from config.parametros import ParametrosCadastroConfig
 
 AGORA = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
 
@@ -103,7 +103,7 @@ def test_o_link_vale_24_horas(servico, usuario, relogio):
     servico.enviar_link(usuario)
 
     salvo = Token.objects.get(usuario=usuario)
-    assert VALIDADE_DO_LINK == timedelta(hours=24)
+    assert ParametrosCadastroConfig.validade_confirmacao_email == timedelta(hours=24)
     assert salvo.criado_em == AGORA
     assert salvo.expira_em == AGORA + timedelta(hours=24)
 
@@ -241,7 +241,11 @@ def test_token_valido_confirma_a_conta(servico, usuario):
 
 def test_token_um_segundo_antes_de_expirar_ainda_confirma(servico, usuario, relogio):
     token = enviar_e_pegar_token(servico, usuario)
-    relogio.return_value = AGORA + VALIDADE_DO_LINK - timedelta(seconds=1)
+    relogio.return_value = (
+        AGORA
+        + ParametrosCadastroConfig.validade_confirmacao_email
+        - timedelta(seconds=1)
+    )
 
     servico.confirmar(token)
 
@@ -251,7 +255,7 @@ def test_token_um_segundo_antes_de_expirar_ainda_confirma(servico, usuario, relo
 
 def test_token_expirado_levanta_erro(servico, usuario, relogio):
     token = enviar_e_pegar_token(servico, usuario)
-    relogio.return_value = AGORA + VALIDADE_DO_LINK
+    relogio.return_value = AGORA + ParametrosCadastroConfig.validade_confirmacao_email
 
     with pytest.raises(TokenExpiradoOuInvalidoError):
         servico.confirmar(token)
