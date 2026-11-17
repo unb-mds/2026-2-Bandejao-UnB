@@ -49,11 +49,11 @@ erDiagram
         string nome UK "Darcy Ribeiro | Ceilandia | Gama | Planaltina | Fazenda Agua Limpa"
         decimal ru_latitude
         decimal ru_longitude
-        int raio_confirmacao_metros "confirmação do check-in (RF12)"
+        int raio_confirmacao_metros "confirmação do check-in (RF12); CHECK >= 0, > 0 se confirmacao_ativa"
         boolean confirmacao_ativa "default true; false: aplicação deve recusar (BE-09)"
         decimal centro_latitude
         decimal centro_longitude
-        int raio_deteccao_metros "detecção do campus no aparelho (ADR 0009)"
+        int raio_deteccao_metros "detecção do campus no aparelho (ADR 0009); CHECK >= 0"
         string rotulo_pagina_ru "título do bloco na página do RU (ADR 0014)"
         string prefixo_arquivo_pdf "início do nome do PDF (ADR 0014)"
     }
@@ -273,10 +273,10 @@ Um dos 5 campi com RU; tabela de apoio povoada por fixture.
 | `id` | BigAutoField | PK | Identificador interno do registro. |
 | `nome` | CharField(50) | NOT NULL, **UNIQUE** | Um dos 5 campi com RU (glossário): Darcy Ribeiro, Ceilândia, Gama, Planaltina, Fazenda Água Limpa. Povoado por fixture; não é criado pelo usuário. |
 | `ru_latitude` / `ru_longitude` | DecimalField | NOT NULL, fixture (Anexo A) | Coordenadas do RU, usadas apenas na conferência de GPS do check-in (RF12). O raio do Darcy Ribeiro deve excluir o Restaurante Executivo. |
-| `raio_confirmacao_metros` | IntegerField | NOT NULL, CHECK `>= 0`; positivo quando `confirmacao_ativa = true` | Raio de confirmação do check-in por GPS (RF12), medido a partir do RU e lido pela `LocalizacaoRUConfig` da Fila. Zero é permitido somente com confirmação desativada. |
+| `raio_confirmacao_metros` | IntegerField | NOT NULL, CHECK `>= 0` (`campus_raios_nao_negativos`); positivo quando `confirmacao_ativa = true` (`campus_confirmacao_ativa_exige_raio_positivo`) | Raio de confirmação do check-in por GPS (RF12), medido a partir do RU e lido pela `LocalizacaoRUConfig` da Fila. Zero é permitido somente com confirmação desativada. |
 | `confirmacao_ativa` | BooleanField | NOT NULL, default `true` | Disponibilidade da confirmação de localização do campus. Quando `false`, a aplicação deve recusar a confirmação antes de calcular a distância. Na fixture inicial, a FAL recebe `false`. Campo interno, não publicado na lista de campi da v1. |
 | `centro_latitude` / `centro_longitude` | DecimalField | NOT NULL, fixture (Anexo A) | Centro usado pela `LocalizacaoCampusConfig` na detecção do campus (ADR 0009). Na v1, `GET /api/campi/` publica somente `id` e `nome`; estas coordenadas não são expostas nessa resposta. |
-| `raio_deteccao_metros` | IntegerField | NOT NULL, CHECK `>= 0`, fixture (Anexo A) | Raio usado na detecção do campus (ADR 0009), com finalidade distinta da confirmação do check-in. Na v1, não é publicado em `GET /api/campi/`. |
+| `raio_deteccao_metros` | IntegerField | NOT NULL, CHECK `>= 0` (`campus_raios_nao_negativos`), fixture (Anexo A) | Raio usado na detecção do campus (ADR 0009), com finalidade distinta da confirmação do check-in. Na v1, não é publicado em `GET /api/campi/`. |
 | `rotulo_pagina_ru` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Nome do campus no título do bloco da página de cardápios do RU ("Cardápio <rótulo>"), usado pelo Leitor para achar o PDF do campus. A comparação ignora acentos, maiúsculas e espaços extras, e a ordem dos blocos na página não é usada (ADR 0014). Não é publicado na API. |
 | `prefixo_arquivo_pdf` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Início esperado do nome do PDF do campus (`Darcy-Ribeiro`, `Ceilandia`, `Gama`, `Planaltina`, `Fazenda`). Confere que o link do bloco é mesmo daquele campus, ignorando acentos, maiúsculas e os sufixos `-1`, `-2` (ADR 0014). Não é publicado na API. |
 

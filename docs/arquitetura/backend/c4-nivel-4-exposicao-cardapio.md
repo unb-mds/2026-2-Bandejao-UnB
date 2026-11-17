@@ -336,8 +336,10 @@ classDiagram
   os valores do Anexo A, que separa o que é do campus do que é do RU:
   - `LocalizacaoCampusConfig` lê `centro_latitude`, `centro_longitude` e
     `raio_deteccao_metros` (detecção, ADR 0009);
-  - `LocalizacaoRUConfig`, na Fila, lê `ru_latitude`, `ru_longitude` e
-    `raio_confirmacao_metros` (confirmação do check-in, RF12).
+  - `LocalizacaoRUConfig`, na Fila, lê `ru_latitude`, `ru_longitude`,
+    `raio_confirmacao_metros` e `confirmacao_ativa` (confirmação do
+    check-in, RF12). Com `confirmacao_ativa = false`, a confirmação é
+    recusada antes do cálculo de distância (BD-03 / BE-09).
 - **A conta de distância existe nos dois lados**, no PWA (detecção) e na
   `DistanciaGeografica` da Fila (confirmação do check-in). Os dois devem usar
   a mesma fórmula e os mesmos casos de teste, com as coordenadas reais dos
