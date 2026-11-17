@@ -84,3 +84,6 @@ class ParametrosCadastroConfig:
     login_max_tentativas: Final = 5
     login_janela: Final = timedelta(minutes=10)
     login_bloqueio: Final = timedelta(minutes=10)
+    validade_redefinicao_senha: Final = timedelta(hours=1)
+    redefinicao_max_solicitacoes: Final = 3
+    redefinicao_janela: Final = timedelta(hours=1)
