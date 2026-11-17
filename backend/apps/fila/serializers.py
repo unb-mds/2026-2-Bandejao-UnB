@@ -16,23 +16,14 @@ class CoordenadasSerializer(serializers.Serializer):
 class CheckinEntradaSerializer(serializers.Serializer):
     """Corpo do POST /api/checkins/ (RF11, RF12, Fila N4 4a)."""
 
-    campus = serializers.IntegerField(help_text="Id do campus (o de GET /api/campi/).")
-    tipoRefeicao = serializers.CharField(
-        help_text='Um de "cafe", "almoco" ou "jantar".',
+    # Devolve o `Campus`; id inexistente é dado inválido. A mensagem do DRF
+    # repete o id, mas a view responde com a mensagem fixa de `dados_invalidos`.
+    campus = serializers.PrimaryKeyRelatedField(
+        queryset=Campus.objects.all(),
+        help_text="Id do campus (o de GET /api/campi/).",
     )
+    tipoRefeicao = serializers.ChoiceField(choices=TipoRefeicao.choices)
     coordenadas = CoordenadasSerializer()
-
-    def validate_campus(self, valor):
-        """Troca o id pelo `Campus` (BE-09). Id inexistente é dado inválido."""
-        campus = Campus.objects.filter(pk=valor).first()
-        if campus is None:
-            raise serializers.ValidationError("Campus inexistente.")
-        return campus
-
-    def validate_tipoRefeicao(self, valor):
-        if valor not in TipoRefeicao.values:
-            raise serializers.ValidationError("Refeição inexistente.")
-        return valor
 
 
 class CheckinSerializer(serializers.Serializer):

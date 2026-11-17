@@ -24,6 +24,11 @@ class CheckinRepository:
         `existe_checkin`; a segunda bate no UNIQUE e vira
         `CheckinDuplicadoError`. Quem chama abre a `transaction.atomic()`: a
         `IntegrityError` desfaz só aquele bloco.
+
+        Toda `IntegrityError` vira duplicidade porque o UNIQUE é a única
+        constraint de CHECKIN que um pedido válido consegue violar. Se entrar
+        outra (um `CheckConstraint`, por exemplo), separe os casos aqui, senão
+        a violação dela grava uma tentativa com o motivo errado.
         """
         try:
             checkin.save(force_insert=True)
