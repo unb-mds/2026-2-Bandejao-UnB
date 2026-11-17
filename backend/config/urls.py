@@ -9,3 +9,6 @@ urlpatterns = [
     path("api/", include("apps.fila.urls")),
     path("api/", include("apps.gamificacao.urls")),
 ]
+
+handler404 = "config.excecoes.erro_404"
+handler500 = "config.excecoes.erro_500"

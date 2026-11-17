@@ -138,6 +138,13 @@ paths:
             o corpo vem fora do formato esperado (mensagem genérica). Matrícula/SIAPE
             ou e-mail já usados dão a mesma mensagem, sem dizer qual dos dois (RF01.5).
             `codigo`: `dados_invalidos`.'
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Pedidos demais do mesmo IP. O cabeçalho `Retry-After` diz
+            quantos segundos esperar. `codigo`: `limite_excedido`.'
         '403':
           content:
             application/json:
@@ -148,8 +155,21 @@ paths:
   /api/campi/:
     get:
       operationId: campi_list
-      description: Só `id` e `nome`. O raio do RU nunca é publicado.
+      description: 'Só `id` e `nome`, em ordem de `id`. O raio do RU nunca é publicado.
+        A resposta leva um `ETag` e `Cache-Control: private, no-cache`. Com um `fetch`
+        comum, o navegador guarda a lista, manda o `If-None-Match` sozinho e entrega
+        o corpo guardado quando nada mudou. Quem mandar o `If-None-Match` à mão (com
+        uma cópia no `localStorage`, por exemplo) recebe o 304 sem corpo e usa a própria
+        cópia. Só o `If-None-Match` é tratado: `If-Match`, `If-Modified-Since` e `If-Unmodified-Since`
+        são ignorados.'
       summary: Lista os campi
+      parameters:
+      - in: header
+        name: If-None-Match
+        schema:
+          type: string
+        description: Um ou mais `ETag` de respostas anteriores, ou `*`. Comparação
+          fraca.
       tags:
       - cardapio
       security:
@@ -157,6 +177,17 @@ paths:
       - {}
       responses:
         '200':
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: SHA-256 dos bytes do corpo do 200. Muda quando a lista
+                publicada muda (campus incluído ou removido, `id` ou `nome` alterado).
+                Não muda com o raio de confirmação nem com as coordenadas do RU.
+            Cache-Control:
+              schema:
+                type: string
+              description: Sempre `private, no-cache`.
           content:
             application/json:
               schema:
@@ -164,6 +195,20 @@ paths:
                 items:
                   $ref: '#/components/schemas/CampusPublico'
           description: ''
+        '304':
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: SHA-256 dos bytes do corpo do 200. Muda quando a lista
+                publicada muda (campus incluído ou removido, `id` ou `nome` alterado).
+                Não muda com o raio de confirmação nem com as coordenadas do RU.
+            Cache-Control:
+              schema:
+                type: string
+              description: Sempre `private, no-cache`.
+          description: Algum `ETag` do `If-None-Match` bate com o da lista atual (ou
+            veio `*`). Sem corpo.
   /api/cardapio/:
     get:
       operationId: cardapio_retrieve
@@ -256,6 +301,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/CheckinRegistrado'
           description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Corpo fora do formato, campus ou refeição inexistente, ou
+            coordenada fora da faixa. Não conta como tentativa. `codigo`: `dados_invalidos`.'
         '401':
           content:
             application/json:
@@ -533,6 +585,13 @@ paths:
           description: 'Corpo inválido: não veio `matriculaSiape` nem `token`, ou
             um deles veio vazio ou com tipo errado (mesmo que o outro esteja certo).
             `codigo`: `dados_invalidos`.'
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Pedidos demais do mesmo IP. O cabeçalho `Retry-After` diz
+            quantos segundos esperar. `codigo`: `limite_excedido`.'
         '403':
           content:
             application/json:
@@ -652,7 +711,9 @@ paths:
                 $ref: '#/components/schemas/Erro'
           description: '5 tentativas malsucedidas em 10 minutos: bloqueado por 10
             minutos (RF03.2). A 5ª falha já responde 429. A mensagem diz quantos minutos
-            faltam, e o cabeçalho `Retry-After`, quantos segundos. `codigo`: `login_bloqueado`.'
+            faltam, e o cabeçalho `Retry-After`, quantos segundos. `codigo`: `login_bloqueado`.
+            Ou: pedidos demais do mesmo IP (`codigo`: `limite_excedido`, também com
+            `Retry-After`).'
     delete:
       operationId: sessao_destroy
       description: |-
@@ -927,9 +988,7 @@ components:
           type: integer
           description: Id do campus (o de GET /api/campi/).
         tipoRefeicao:
-          type: string
-          minLength: 1
-          description: Um de "cafe", "almoco" ou "jantar".
+          $ref: '#/components/schemas/TipoRefeicaoEnum'
         coordenadas:
           $ref: '#/components/schemas/CoordenadasRequest'
       required:
@@ -1205,6 +1264,16 @@ components:
       - apelido
       - avisoPrivacidadePendente
       - tipo
+    TipoRefeicaoEnum:
+      enum:
+      - cafe
+      - almoco
+      - jantar
+      type: string
+      description: |-
+        * `cafe` - Café da manhã
+        * `almoco` - Almoço
+        * `jantar` - Jantar
     TipoUsuarioEnum:
       enum:
       - estudante

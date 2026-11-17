@@ -8,7 +8,9 @@ import re
 from datetime import date
 from pathlib import Path
 
-from config.parametros import AvisoPrivacidadeConfig
+import pytest
+
+from config.parametros import AvisoPrivacidadeConfig, LimiteDeTaxaConfig
 
 TEXTO_DO_AVISO = (
     Path(__file__).resolve().parents[2]
@@ -42,3 +44,36 @@ def test_versao_atual_e_a_do_texto_do_aviso():
 
     assert versao_do_texto, f"{TEXTO_DO_AVISO} sem a linha **Versão:**"
     assert versao_do_texto.group(1) == AvisoPrivacidadeConfig.versao_atual
+
+
+# --- LimiteDeTaxaConfig (#123) --------------------------------------------------
+
+LIMITES = ("cadastro_por_ip", "reenvio_por_ip", "reenvio_por_conta", "login_por_ip")
+
+
+@pytest.mark.parametrize("nome", LIMITES)
+def test_limite_de_taxa_tem_o_formato_do_drf(nome):
+    """Só a primeira letra da unidade conta: "5/mes" vira 5 por MINUTO, sem
+    erro; "5/10m" quebra com KeyError (500 no primeiro pedido).
+
+    Por isso só valem as unidades inteiras, sem número antes delas.
+    """
+    valor = getattr(LimiteDeTaxaConfig, nome)
+
+    assert re.fullmatch(r"\d+/(second|minute|hour|day)", valor), valor
+
+
+@pytest.mark.parametrize("nome", LIMITES)
+def test_limite_de_taxa_e_positivo(nome):
+    numero = int(getattr(LimiteDeTaxaConfig, nome).split("/")[0])
+
+    assert numero > 0
+
+
+def test_por_que_o_formato_importa():
+    """Os dois jeitos de errar o texto, no leitor do próprio DRF (#123)."""
+    from apps.cadastro.limite_de_taxa import ler_limite
+
+    assert ler_limite("5/mes") == (5, 60)
+    with pytest.raises(KeyError):
+        ler_limite("5/10m")

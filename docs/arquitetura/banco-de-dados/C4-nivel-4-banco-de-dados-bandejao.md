@@ -49,10 +49,11 @@ erDiagram
         string nome UK "Darcy Ribeiro | Ceilandia | Gama | Planaltina | Fazenda Agua Limpa"
         decimal ru_latitude
         decimal ru_longitude
-        int raio_confirmacao_metros "confirmação do check-in (RF12)"
+        int raio_confirmacao_metros "confirmação do check-in (RF12); CHECK >= 0, > 0 se confirmacao_ativa"
+        boolean confirmacao_ativa "default true; false: aplicação deve recusar (BE-09)"
         decimal centro_latitude
         decimal centro_longitude
-        int raio_deteccao_metros "detecção do campus no aparelho (ADR 0009)"
+        int raio_deteccao_metros "detecção do campus no aparelho (ADR 0009); CHECK >= 0"
         string rotulo_pagina_ru "título do bloco na página do RU (ADR 0014)"
         string prefixo_arquivo_pdf "início do nome do PDF (ADR 0014)"
     }
@@ -272,11 +273,16 @@ Um dos 5 campi com RU; tabela de apoio povoada por fixture.
 | `id` | BigAutoField | PK | Identificador interno do registro. |
 | `nome` | CharField(50) | NOT NULL, **UNIQUE** | Um dos 5 campi com RU (glossário): Darcy Ribeiro, Ceilândia, Gama, Planaltina, Fazenda Água Limpa. Povoado por fixture; não é criado pelo usuário. |
 | `ru_latitude` / `ru_longitude` | DecimalField | NOT NULL, fixture (Anexo A) | Coordenadas do RU, usadas apenas na conferência de GPS do check-in (RF12). O raio do Darcy Ribeiro deve excluir o Restaurante Executivo. |
-| `raio_confirmacao_metros` | IntegerField | NOT NULL, fixture (Anexo A) | Raio de confirmação do check-in por GPS (RF12), medido a partir do RU. As colunas `ru_*` e este raio são lidos pela `LocalizacaoRUConfig` da Fila. |
-| `centro_latitude` / `centro_longitude` | DecimalField | NOT NULL, fixture (Anexo A) | Centro do campus, usado na detecção do campus no aparelho (ADR 0009). Publicado em `GET /api/campi/` e lido pela `LocalizacaoCampusConfig` da Exposição do Cardápio. |
-| `raio_deteccao_metros` | IntegerField | NOT NULL, fixture (Anexo A) | Raio de detecção do campus no aparelho (ADR 0009); diferente do raio de confirmação do check-in. Publicado em `GET /api/campi/` junto com as colunas `centro_*`. |
+| `raio_confirmacao_metros` | IntegerField | NOT NULL, CHECK `>= 0` (`campus_raios_nao_negativos`); positivo quando `confirmacao_ativa = true` (`campus_confirmacao_ativa_exige_raio_positivo`) | Raio de confirmação do check-in por GPS (RF12), medido a partir do RU e lido pela `LocalizacaoRUConfig` da Fila. Zero é permitido somente com confirmação desativada. |
+| `confirmacao_ativa` | BooleanField | NOT NULL, default `true` | Disponibilidade da confirmação de localização do campus. Quando `false`, a aplicação deve recusar a confirmação antes de calcular a distância. Na fixture inicial, a FAL recebe `false`. Campo interno, não publicado na lista de campi da v1. |
+| `centro_latitude` / `centro_longitude` | DecimalField | NOT NULL, fixture (Anexo A) | Centro usado pela `LocalizacaoCampusConfig` na detecção do campus (ADR 0009). Na v1, `GET /api/campi/` publica somente `id` e `nome`; estas coordenadas não são expostas nessa resposta. |
+| `raio_deteccao_metros` | IntegerField | NOT NULL, CHECK `>= 0` (`campus_raios_nao_negativos`), fixture (Anexo A) | Raio usado na detecção do campus (ADR 0009), com finalidade distinta da confirmação do check-in. Na v1, não é publicado em `GET /api/campi/`. |
 | `rotulo_pagina_ru` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Nome do campus no título do bloco da página de cardápios do RU ("Cardápio <rótulo>"), usado pelo Leitor para achar o PDF do campus. A comparação ignora acentos, maiúsculas e espaços extras, e a ordem dos blocos na página não é usada (ADR 0014). Não é publicado na API. |
 | `prefixo_arquivo_pdf` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Início esperado do nome do PDF do campus (`Darcy-Ribeiro`, `Ceilandia`, `Gama`, `Planaltina`, `Fazenda`). Confere que o link do bloco é mesmo daquele campus, ignorando acentos, maiúsculas e os sufixos `-1`, `-2` (ADR 0014). Não é publicado na API. |
+
+**Dados provisórios do BD-03:** as coordenadas iniciais foram fornecidas pela equipe a partir de mapas, arredondadas para seis casas decimais e ainda dependem da validação em campo do BD-06. Os quatro RUs com ponto identificado usam provisoriamente 150 m. Na FAL, o ponto representa a fazenda, não o RU; a fixture registra `confirmacao_ativa = false` e os dois raios iguais a zero, indicando indisponibilidade. Os campos `centro_*` repetem provisoriamente `ru_*`, e `raio_deteccao_metros` repete `raio_confirmacao_metros`, até a definição dos parâmetros de detecção no BD-E3. A origem e as limitações estão em `backend/apps/cardapio/fixtures/README.md`.
+
+**Campos previstos para o Leitor:** `rotulo_pagina_ru` e `prefixo_arquivo_pdf` fazem parte da arquitetura da ADR 0014, mas não são implementados pelo BD-03 nem estão na fixture atual. A implementação correspondente deverá preencher valores distintos para os cinco campi existentes antes de impor `NOT NULL` e `UNIQUE`; um único valor padrão não atende à unicidade.
 
 ### `REFEICAO`
 
@@ -324,7 +330,7 @@ Tabela de apoio com os 10 marcadores fixos do cardápio (RF06).
 | Campo | Tipo | Constraints | Descrição |
 |---|---|---|---|
 | `id` | BigAutoField | PK | Identificador interno do registro. |
-| `nome` | CharField(30) | NOT NULL, **UNIQUE** | Um dos 10 valores fixos do glossário: cogumelo, leite_e_derivados, mel, pimenta, soja, trigo_gluten, amendoim, oleaginosa, ovo, suino. Povoado por fixture/migration de dados; RF06 valida que a legenda do PDF contém exatamente estes 10. |
+| `nome` | CharField(30) | NOT NULL, **UNIQUE** | Um dos 10 valores fixos do glossário: cogumelo, leite_e_derivados, mel, pimenta, soja, trigo_gluten, amendoim, oleaginosa, ovo, suino. Povoado pela fixture `marcadores.json`, carregada com `loaddata`; RF06 valida que a legenda do PDF contém exatamente estes 10. |
 
 ### `PRATO_MARCADOR` (associativa)
 
@@ -533,7 +539,10 @@ duas categorias.
 | Um check-in **confirmado** por usuário por refeição ("mesma refeição" = campus + tipo + data), sem cooldown de tempo adicional (o primeiro check-in confirmado já esgota a possibilidade de novo check-in naquela refeição, o que cobre RI03: "não computar mais de um check-in do mesmo usuário para a mesma refeição no mesmo dia") — **confirmado com a equipe em 26/09/2026**: não haverá regra contra tentativas repetidas em sequência, e o check-in confirmado já entra no cálculo da previsão de pico (RF13) | RF11, RI03 | **Banco**: `UNIQUE (usuario_id, campus_id, tipo_refeicao, data)` em `CHECKIN`, que guarda só os confirmados (decisão 2). As tentativas, inclusive as *rejeitadas* (RF12), vão para `TENTATIVA_CHECKIN`, sem UNIQUE; por isso não é preciso um índice único parcial ("somente quando `resultado = confirmado`"), que não é portátil entre SQLite e MySQL (ver seção de migração). |
 | Refeição não pode ser avaliada antes de começar, nem em outro dia, nem depois de 23h59 para edição | RF15 | **Aplicação**: depende da data/hora corrente, não é expressável como constraint estática de banco. |
 | Check-in só entre início e fim da refeição | RF11 | **Aplicação**: idem — depende de `now()` comparado ao horário de início e fim do `tipo_refeicao` no Anexo A (configuração). O check-in não consulta `REFEICAO`, para funcionar mesmo se a leitura do PDF falhar. |
-| Confirmação de check-in por GPS dentro do raio do **RU** | RF12 | **Aplicação**: cálculo de distância acontece na view, com `CAMPUS.ru_latitude`/`ru_longitude` e `CAMPUS.raio_confirmacao_metros` (diferente do raio de detecção do campus, `raio_deteccao_metros`); coordenadas do dispositivo **não são persistidas** (RI09) — não há coluna para elas em nenhuma tabela. |
+| Confirmação de check-in por GPS dentro do raio do **RU** | RF12 | **Aplicação**: `ConfirmacaoLocalizacaoService` calcula a distância usando as coordenadas do RU e o raio obtidos pela `LocalizacaoRUConfig`. Coordenadas do dispositivo não são persistidas (RI09). Implementação prevista na BE-09. |
+| Raios de confirmação e detecção não negativos | BD-03 | **Banco**: `campus_raios_nao_negativos` exige os dois raios `>= 0`. |
+| Confirmação ativa exige raio positivo | BD-03 | **Banco**: `campus_confirmacao_ativa_exige_raio_positivo` exige `confirmacao_ativa = false` ou `raio_confirmacao_metros > 0`. |
+| Campus com confirmação desativada não confirma localização | BD-03 / BE-09 | **Aplicação**: `ConfirmacaoLocalizacaoService` consulta `LocalizacaoRUConfig.confirmacaoAtiva(campus)` e recusa antes de calcular a distância. Implementação prevista na BE-09. |
 | Uma refeição por campus/dia/tipo | Decorre de RF06/RF07 | **Banco**: `UNIQUE (campus_id, data, tipo)` em `REFEICAO`. |
 | Exatamente 10 marcadores conhecidos | RF06 | **Banco**: `MARCADOR` populada por fixture com exatamente 10 linhas; a leitura do PDF só referencia marcadores já existentes na tabela, nunca cria um novo marcador dinamicamente — um ícone fora desses 10 vira `ALERTA_LEITURA_CARDAPIO` (`legenda_invalida`), não uma nova linha em `MARCADOR`. |
 | Cada PDF é associado ao campus pelo nome no título da página do RU, nunca pela ordem dos blocos | ADR 0014 | **Banco**: `UNIQUE` em `CAMPUS.rotulo_pagina_ru` e em `CAMPUS.prefixo_arquivo_pdf`, para dois campi não disputarem o mesmo bloco. **Aplicação**: `CardapioDownloader.localizarPDFs` compara o título com o rótulo e confere o nome do arquivo pelo prefixo. |

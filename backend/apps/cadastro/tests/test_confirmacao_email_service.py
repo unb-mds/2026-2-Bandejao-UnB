@@ -14,11 +14,11 @@ import pytest
 from django.core import mail
 
 from apps.cadastro.confirmacao_email_service import (
-    VALIDADE_DO_LINK,
     ConfirmacaoEmailService,
 )
 from apps.cadastro.erros import TokenExpiradoOuInvalidoError
 from apps.cadastro.models import StatusUsuario, TipoToken, Token
+from config.parametros import ParametrosCadastroConfig
 
 AGORA = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
 
@@ -103,7 +103,7 @@ def test_o_link_vale_24_horas(servico, usuario, relogio):
     servico.enviar_link(usuario)
 
     salvo = Token.objects.get(usuario=usuario)
-    assert VALIDADE_DO_LINK == timedelta(hours=24)
+    assert ParametrosCadastroConfig.validade_confirmacao_email == timedelta(hours=24)
     assert salvo.criado_em == AGORA
     assert salvo.expira_em == AGORA + timedelta(hours=24)
 
@@ -116,6 +116,17 @@ def test_enviar_link_invalida_os_tokens_anteriores_da_conta(servico, usuario):
     assert Token.objects.get(token_hash=hash_de(novo)).usado_em is None
     with pytest.raises(TokenExpiradoOuInvalidoError):
         servico.confirmar(antigo)
+
+
+def test_enviar_link_diz_se_o_email_saiu(servico, usuario):
+    """O reenvio só gasta a vaga do limite por conta quando o e-mail sai (#123)."""
+    assert servico.enviar_link(usuario) is True
+
+    with mock.patch(
+        "apps.cadastro.confirmacao_email_service.send_mail",
+        side_effect=SMTPException("fora do ar"),
+    ):
+        assert servico.enviar_link(usuario) is False
 
 
 def test_falha_no_smtp_mantem_o_link_anterior_valido(servico, usuario):
@@ -241,7 +252,11 @@ def test_token_valido_confirma_a_conta(servico, usuario):
 
 def test_token_um_segundo_antes_de_expirar_ainda_confirma(servico, usuario, relogio):
     token = enviar_e_pegar_token(servico, usuario)
-    relogio.return_value = AGORA + VALIDADE_DO_LINK - timedelta(seconds=1)
+    relogio.return_value = (
+        AGORA
+        + ParametrosCadastroConfig.validade_confirmacao_email
+        - timedelta(seconds=1)
+    )
 
     servico.confirmar(token)
 
@@ -251,7 +266,7 @@ def test_token_um_segundo_antes_de_expirar_ainda_confirma(servico, usuario, relo
 
 def test_token_expirado_levanta_erro(servico, usuario, relogio):
     token = enviar_e_pegar_token(servico, usuario)
-    relogio.return_value = AGORA + VALIDADE_DO_LINK
+    relogio.return_value = AGORA + ParametrosCadastroConfig.validade_confirmacao_email
 
     with pytest.raises(TokenExpiradoOuInvalidoError):
         servico.confirmar(token)

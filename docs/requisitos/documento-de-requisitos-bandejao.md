@@ -811,6 +811,8 @@ Valores ajustáveis pela equipe sem alterar os requisitos.
 | Validade do link de redefinição de senha | 1 hora | RF04.2 |
 | Limite de solicitações de redefinição | 3 por hora por matrícula/SIAPE | RF04.1 |
 | Bloqueio de login | 5 tentativas em 10 minutos, bloqueio de 10 minutos | RF03.2 |
+| Limite de pedidos por IP | Cadastro: 40 por hora; reenvio do link: 10 por hora; login: 60 por hora | RF01, RF02.2, RF03 (#123) |
+| Limite de reenvios do link por conta | 3 por hora (os pedidos a mais respondem igual, sem e-mail) | RF02.2 (#123) |
 | Duração da sessão | 14 dias, renovada a cada uso; encerrada antes pelo "Sair" (RF03.3) ou pela redefinição de senha (RF04.2) | RF03.1, RF03.3 (ADR 0007) |
 | Intervalo de anos do prefixo da matrícula de estudante | Dinâmico: de `10` (2010) até os 2 últimos dígitos do ano corrente do sistema (ex.: `26` em 2026), recalculado automaticamente a cada ano. O 3º dígito não é conferido (L16) | RN01 (RF01.3) |
 | Pontos por check-in confirmado | 10 pontos | RN09 (RF24.1) |

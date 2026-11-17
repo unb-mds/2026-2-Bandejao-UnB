@@ -74,7 +74,7 @@ classDiagram
   }
   class CheckinDuplicadoError
   class ConfirmacaoLocalizacaoService {
-    +confirmar(campus: Campus, coordenadas: Coordenadas) bool
+    +confirmar(campus: Campus, coordenadas: Coordenadas) void
   }
   class DistanciaGeografica {
     +metros(a: Coordenadas, b: Coordenadas) float
@@ -87,6 +87,7 @@ classDiagram
   class LocalizacaoNaoConfirmadaError
   class LocalizacaoRUConfig {
     <<lê CAMPUS, valores do Anexo A>>
+    +confirmacaoAtiva(campus: Campus) bool
     +centro(campus: Campus) Coordenadas
     +raioMetros(campus: Campus) int
   }
@@ -135,8 +136,8 @@ classDiagram
   CheckinRepository ..> CheckinDuplicadoError : lança se já existe (RI03)
   CheckinService --> ConfirmacaoLocalizacaoService : 3. confirma localização
   ConfirmacaoLocalizacaoService --> DistanciaGeografica : calcula distância ao RU
-  ConfirmacaoLocalizacaoService --> LocalizacaoRUConfig : lê centro e raio
-  ConfirmacaoLocalizacaoService ..> LocalizacaoNaoConfirmadaError : lança se fora do raio
+  ConfirmacaoLocalizacaoService --> LocalizacaoRUConfig : lê disponibilidade, centro e raio
+  ConfirmacaoLocalizacaoService ..> LocalizacaoNaoConfirmadaError : lança se desativada ou fora do raio
   ConfirmacaoLocalizacaoService ..> Coordenadas : usa e descarta
   CheckinService --> CheckinRepository : 4. registra tentativa / salva check-in
   CheckinService --> Checkin : cria, se confirmado
@@ -241,8 +242,29 @@ classDiagram
   RU. O Anexo A exige que o raio do Darcy Ribeiro exclua o Restaurante
   Executivo (RI08); isso só pode ser validado com as coordenadas reais dos
   dois locais, e vale registrar o valor escolhido junto com essa justificativa.
+- **Contrato da confirmação de localização (BD-03 / BE-09):** `ConfirmacaoLocalizacaoService.confirmar` retorna sem valor (`None` em Python) quando a localização é confirmada e lança `LocalizacaoNaoConfirmadaError`, correspondente a `localizacao_nao_confirmada`, quando a confirmação está desativada ou a localização está fora do raio. O serviço consulta a disponibilidade por `LocalizacaoRUConfig.confirmacaoAtiva(campus)`, que lê `Campus.confirmacao_ativa`, antes de calcular a distância. Centro e raio também são obtidos pela configuração. Uma confirmação recusada não registra check-in confirmado nem concede pontos. O banco impede raios negativos e exige raio de confirmação positivo quando a confirmação está ativa. Raios zero com confirmação desativada representam indisponibilidade e nunca autorizam confirmação por coincidência de coordenadas. A implementação desse fluxo pertence à BE-09; o BD-03 fornece os dados, as constraints e o contrato documentado.
 - **IDs inteiros (decidido com o time de banco de dados).** `id`, `contaId` e as demais referências são
   inteiros autoincrementais, como no banco.
+- **Implementação da BE-09 (#136).** O que a v1 entrega e o que fica para
+  depois, em relação ao diagrama:
+  - Corpo fora do formato, campus ou refeição inexistente e coordenada fora
+    da faixa (latitude entre -90 e 90, longitude entre -180 e 180) dão `400`
+    com `"codigo": "dados_invalidos"`, antes do passo 0. Não é tentativa e
+    nada é gravado. A mensagem é fixa, para não repetir um valor enviado
+    (RI09).
+  - O horário é comparado em Brasília, com início e fim do Anexo A inclusive
+    (`HorariosRefeicaoConfig`); a `data` do check-in e da tentativa é o dia de
+    Brasília. O raio também é inclusivo: a borda conta como dentro.
+  - O passo 6 (pergunta de saída) e o `perguntaDevidaEm` são da BE-E1, e o
+    `bonusSemana` fica fora da v1 (contrato da BE-03). O 201 da v1 é
+    `{"checkin": {...}, "pontos": {"total", "contribuicao", "avaliacaoLiberada"}}`.
+  - O passo 5 chama `PontuacaoService.registrar_contribuicao` na mesma
+    transação. Até a BE-14, é uma versão mínima que não grava nada e devolve
+    zero ponto (com `total` 0 o PWA não mostra o aviso, RF24.2). A BE-14
+    implementa a regra sem mudar a assinatura.
+  - A `TentativaCheckin` confirmada entra na mesma transação do check-in e
+    da pontuação: se a pontuação falhar, nenhuma das três é gravada e a
+    pessoa recebe `500` e tenta de novo.
 
 ## Nível 4b — Pergunta de saída da fila
 

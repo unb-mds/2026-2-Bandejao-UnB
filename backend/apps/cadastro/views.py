@@ -31,6 +31,11 @@ from apps.cadastro.erros import (
     LoginBloqueadoError,
     TokenExpiradoOuInvalidoError,
 )
+from apps.cadastro.limite_de_taxa import (
+    LimiteCadastroPorIP,
+    LimiteLoginPorIP,
+    LimiteReenvioPorIP,
+)
 from apps.cadastro.login_service import LoginService
 from apps.cadastro.models import MENSAGEM_APELIDO
 from apps.cadastro.serializers import (
@@ -63,6 +68,16 @@ MENSAGEM_REENVIO_SEM_DADOS = "Informe a matrícula/SIAPE ou abra o link recebido
 MENSAGEM_LOGIN_SEM_DADOS = "Informe a matrícula/SIAPE e a senha."
 MENSAGEM_CONTA_NAO_CONFIRMADA = (
     "Confirme seu e-mail antes de entrar. Se o link venceu, peça um novo."
+)
+
+
+# 429 do limite por IP (#123), igual no cadastro e no reenvio.
+LIMITE_EXCEDIDO = OpenApiResponse(
+    ErroSerializer,
+    description=(
+        "Pedidos demais do mesmo IP. O cabeçalho `Retry-After` "
+        "diz quantos segundos esperar. `codigo`: `limite_excedido`."
+    ),
 )
 
 
@@ -103,6 +118,8 @@ class CadastroView(APIView):
     """POST /api/cadastro/ (RF01, Cadastro N4 4a)."""
 
     permission_classes = (AllowAny, CsrfObrigatorio)
+    # Limite por IP (#123): segura a criação em massa de contas pendentes.
+    throttle_classes = (LimiteCadastroPorIP,)
 
     @extend_schema(
         summary="Cria uma conta pendente",
@@ -128,6 +145,7 @@ class CadastroView(APIView):
                     "`codigo`: `dados_invalidos`."
                 ),
             ),
+            429: LIMITE_EXCEDIDO,
         },
     )
     def post(self, request):
@@ -215,6 +233,9 @@ class ReenvioConfirmacaoView(APIView):
 
     # Público: quem pede o reenvio ainda não consegue entrar.
     permission_classes = (AllowAny, CsrfObrigatorio)
+    # Limite por IP (#123). O por conta fica no ConfirmacaoEmailService e é
+    # silencioso: um 429 só para conta que existe revelaria que ela existe.
+    throttle_classes = (LimiteReenvioPorIP,)
 
     @extend_schema(
         summary="Pede um novo link de confirmação de e-mail",
@@ -236,6 +257,7 @@ class ReenvioConfirmacaoView(APIView):
                     "outro esteja certo). `codigo`: `dados_invalidos`."
                 ),
             ),
+            429: LIMITE_EXCEDIDO,
         },
     )
     def post(self, request):
@@ -265,6 +287,13 @@ class SessaoView(APIView):
             # Sem sessão, mas cobrando o CSRF: fecha o login CSRF (#112).
             return [AllowAny(), CsrfObrigatorio()]
         return super().get_permissions()
+
+    def get_throttles(self):
+        # Só o login tem limite por IP (#123): o GET (que o PWA chama a cada
+        # abertura) e o DELETE ficam livres, como no get_permissions acima.
+        if self.request.method == "POST":
+            return [LimiteLoginPorIP()]
+        return []
 
     @extend_schema(
         summary="Entra na conta (login)",
@@ -312,7 +341,9 @@ class SessaoView(APIView):
                     "5 tentativas malsucedidas em 10 minutos: bloqueado por "
                     "10 minutos (RF03.2). A 5ª falha já responde 429. A "
                     "mensagem diz quantos minutos faltam, e o cabeçalho "
-                    "`Retry-After`, quantos segundos. `codigo`: `login_bloqueado`."
+                    "`Retry-After`, quantos segundos. `codigo`: `login_bloqueado`. "
+                    "Ou: pedidos demais do mesmo IP (`codigo`: `limite_excedido`, "
+                    "também com `Retry-After`)."
                 ),
             ),
         },
