@@ -299,6 +299,46 @@ def test_falha_ao_gravar_o_contador_do_ip_vai_para_o_log(
     assert IP_A not in erros[0].getMessage()
 
 
+def test_falha_na_segunda_gravacao_do_ip_tambem_vai_para_o_log(
+    cliente, limite, relogio, caplog
+):
+    """A linha antiga continua na tabela: conferir só se a chave existe deixaria
+    o contador congelado em silêncio a partir do 2º pedido."""
+    limite("login_por_ip")
+    pedir(cliente, ROTA_SESSAO)
+    relogio.return_value = AGORA + timedelta(seconds=5)
+
+    with (
+        mock.patch(
+            "django.core.cache.backends.db.DatabaseCache.set", return_value=None
+        ),
+        caplog.at_level(logging.ERROR, logger="apps.cadastro.limite_de_taxa"),
+    ):
+        pedir(cliente, ROTA_SESSAO)
+
+    erros = [r.getMessage() for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(erros) == 1
+    assert "login_por_ip" in erros[0]
+
+
+def test_gravar_aceita_o_horario_de_um_pedido_simultaneo():
+    """Dois pedidos no mesmo instante gravam listas quase iguais (guia 9.6):
+    a do outro, lida de volta, não é falha. Uma lista velha é."""
+    from apps.cadastro.limite_de_taxa import gravar
+
+    cache_falso = mock.Mock()
+    agora = AGORA.timestamp()
+
+    cache_falso.get.return_value = [agora - 0.5]
+    assert gravar(cache_falso, "chave", [agora], 3600) is True
+
+    cache_falso.get.return_value = [agora - 5, agora - 60]
+    assert gravar(cache_falso, "chave", [agora, agora - 5], 3600) is False
+
+    cache_falso.get.return_value = None
+    assert gravar(cache_falso, "chave", [agora], 3600) is False
+
+
 @pytest.mark.parametrize(("rota", "nome"), ROTAS)
 def test_pedido_normal_nao_gera_log_de_erro_do_limite(
     cliente, limite, relogio, caplog, rota, nome
@@ -520,6 +560,31 @@ def test_falha_ao_gravar_o_contador_da_conta_vai_para_o_log(
     assert len(erros) == 1
     assert str(conta.pk) in erros[0]
     assert "202400001" not in erros[0]
+
+
+def test_falha_na_segunda_gravacao_da_conta_tambem_vai_para_o_log(
+    cliente, limite, relogio, caplog
+):
+    limite("reenvio_por_conta")
+    conta = criar_conta()
+    corpo = {"matriculaSiape": "202400001"}
+    pedir(cliente, ROTA_REENVIO, corpo=corpo)
+    relogio.return_value = AGORA + timedelta(seconds=5)
+
+    with (
+        mock.patch("apps.cadastro.limite_de_taxa.cache.set", return_value=None),
+        caplog.at_level(logging.ERROR, logger="apps.cadastro.limite_de_taxa"),
+    ):
+        pedir(cliente, ROTA_REENVIO, ip=IP_B, corpo=corpo)
+
+    # O patch vale para o cache inteiro: o contador por IP também avisa.
+    erros = [
+        r.getMessage()
+        for r in caplog.records
+        if r.levelno == logging.ERROR and "da conta" in r.getMessage()
+    ]
+    assert len(erros) == 1
+    assert str(conta.pk) in erros[0]
 
 
 def test_limite_de_uma_conta_nao_atinge_outra(cliente, limite, relogio):
