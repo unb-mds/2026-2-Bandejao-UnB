@@ -8,6 +8,11 @@ Skills utilizadas pelo grupo, padronizadas nesta pasta para referência da disci
 - **grilling** — conduz uma sessão de perguntas para testar/aprofundar um plano ou decisão.
 - **domain-modeling** — apoia a construção do modelo de domínio do projeto (terminologia, CONTEXT.md, ADRs).
 - **grill-with-docs** — combina a dinâmica de perguntas com a geração de documentação (ADRs e glossário).
+- **c4-architecture** — gera e atualiza os diagramas C4 (Mermaid) da pasta `docs/arquitetura/`.
+- **pr-review-toolkit** — plugin de revisão de PR (`/pr-review-toolkit:review-pr`) com agentes para código, testes, tratamento de erros, comentários, tipos e simplificação.
+- **review-status** — mostra as branches e os PRs de correção de revisão em aberto.
+
+Como, quando e em quais partes do projeto cada skill é usada: veja [`USO-DAS-SKILLS.md`](USO-DAS-SKILLS.md).
 
 ## ⚠️ Dependência entre skills
 
