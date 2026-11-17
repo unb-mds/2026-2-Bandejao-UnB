@@ -342,3 +342,38 @@ na exclusão de conta [chamada Python]"| fila
 - **App Fila e App Gamificação são da Release 2**, que é a entrega final do
   projeto (o MVP já foi entregue). Dentro da Fila, só o nível de fila
   "agora" (RF14) continua no Backlog.
+
+## Parâmetros compartilhados — BD-04
+
+O módulo `backend/config/parametros.py` centraliza os parâmetros do Anexo A
+em classes de configuração. Não constitui um novo componente do backend.
+
+| Classe | Responsabilidade |
+|---|---|
+| `HorariosRefeicaoConfig` | Intervalos de café, almoço e jantar; dias e refeições servidos vêm do PDF |
+| `ParametrosFilaConfig` | Previsão, perguntas de saída, espera estimada e retenção |
+| `ParametrosGamificacaoConfig` | Pontuação, sequência, patentes, tamanho do ranking e datas de término dos semestres |
+| `ParametrosSessaoConfig` | Expõe `settings.SESSION_COOKIE_AGE` |
+| `AvisoPrivacidadeConfig` | Versão do aviso em vigor |
+| `ParametrosCadastroConfig` | Ano mínimo da matrícula, confirmação de e-mail, bloqueio de login e recuperação de senha |
+| `ParametrosLeitorConfig` | Expõe a URL do settings; intervalo de verificação e prazo de alerta de cardápio não publicado |
+| `ParametrosBackupConfig` | Intervalo entre backups e prazo de retenção |
+| `ParametrosLocalizacaoConfig` | Intervalo para nova detecção, tempo limite da leitura e parâmetros ainda indefinidos |
+
+A URL da página do RU é definida uma única vez em
+`settings.URL_PAGINA_CARDAPIO`. A `FonteCardapioConfig` do leitor deverá
+consumir essa configuração e consultar os rótulos e prefixos de `CAMPUS`,
+conforme a ADR 0014. A BD-04 não implementa essa consulta.
+
+As datas de término dos semestres permanecem sem entradas até a equipe
+confirmá-las no calendário acadêmico. Precisão mínima e idade máxima da
+posição permanecem `None`, pois o Anexo A ainda não define seus valores.
+`None` representa uma pendência e não dispensa validação de localização.
+
+Coordenadas, raios, rótulos e prefixos por campus pertencem aos dados de
+`CAMPUS`, e não são duplicados neste módulo.
+
+Disponibilizar os parâmetros não implementa os serviços que ainda não
+existem, não agenda tarefas e não transmite configurações automaticamente
+ao front-end. Os respectivos consumidores deverão lê-los nas suas tarefas.
+A Bandeja de Ouro permanece fora do escopo da Release 2, conforme o backlog.

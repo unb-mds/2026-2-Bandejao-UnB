@@ -67,6 +67,7 @@ Toda a documentação fica na pasta [`docs/`](docs/) e é publicada automaticame
 | **Qualidade** | [Plano de testes](docs/qualidade/plano-de-testes.md) |
 | **Gestão do projeto** | [Atas de reunião](docs/atas-reunioes/README.md) · [Reviews de sprint](docs/reviews-sprints/README.md) |
 | **Estudos** | [Resumos semanais da equipe](docs/estudos/) |
+| **Skills de IA** | [Como e quando o grupo usa cada skill](SKILLS/USO-DAS-SKILLS.md) · [Lista das skills](SKILLS/README.md) |
 | **Design** | [Double Diamond no Figma](https://www.figma.com/board/acRlPdHQYnCuHXr8dEDaF7/Template-MDS--c%C3%B3pia-limpa---c%C3%B3pia-) (cópia local em [`double-diamond/`](double-diamond/)) |
 
 ### Como o site é publicado

@@ -11,6 +11,8 @@ from itertools import pairwise
 
 from django.utils import timezone
 
+from config.parametros import ParametrosCadastroConfig
+
 # [0-9] em vez de \d: \d aceitaria dígitos de outros alfabetos ("２", "٣").
 # `fullmatch` evita o `$`, que aceitaria uma quebra de linha no fim.
 FORMATO_MATRICULA = re.compile(r"[0-9]{9}")
@@ -18,8 +20,6 @@ FORMATO_SIAPE = re.compile(r"[0-9]{7}")
 EMAIL_ESTUDANTE = re.compile(r"[^@\s]+@aluno\.unb\.br", re.IGNORECASE)
 EMAIL_PROFESSOR_SERVIDOR = re.compile(r"[^@\s]+@unb\.br", re.IGNORECASE)
 
-# Primeiro ano aceito no prefixo da matrícula: 2010 (Anexo A, L10).
-PRIMEIRO_ANO = 10
 TAMANHO_MINIMO_SENHA = 8
 
 
@@ -47,7 +47,11 @@ class MatriculaValidator:
         if not re.fullmatch(r"[0-9]{2}", ano):
             return False
         hoje = self.hoje or timezone.localdate()
-        return PRIMEIRO_ANO <= int(ano) <= hoje.year % 100
+        return (
+            ParametrosCadastroConfig.primeiro_ano_matricula
+            <= int(ano)
+            <= hoje.year % 100
+        )
 
     def validar_sequencia_digitos(self, matricula: str) -> bool:
         """Rejeita os 6 dígitos finais todos iguais ou em sequência de passo 1.

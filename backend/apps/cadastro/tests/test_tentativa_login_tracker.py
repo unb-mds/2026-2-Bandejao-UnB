@@ -13,6 +13,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from apps.cadastro.tentativa_login_tracker import TentativaLoginTracker
+from config.parametros import ParametrosCadastroConfig
 
 AGORA = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
 
@@ -48,9 +49,9 @@ def falhar(tracker, conta, vezes):
 
 
 def test_parametros_do_anexo_a():
-    assert TentativaLoginTracker.MAX_TENTATIVAS == 5
-    assert TentativaLoginTracker.JANELA == timedelta(minutes=10)
-    assert TentativaLoginTracker.BLOQUEIO == timedelta(minutes=10)
+    assert ParametrosCadastroConfig.login_max_tentativas == 5
+    assert ParametrosCadastroConfig.login_janela == timedelta(minutes=10)
+    assert ParametrosCadastroConfig.login_bloqueio == timedelta(minutes=10)
 
 
 def test_conta_nova_nao_esta_bloqueada(tracker, usuario, relogio):
