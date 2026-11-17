@@ -255,7 +255,10 @@ REST_FRAMEWORK = {
     # último do X-Forwarded-For (o que o Caddy acrescentou); o resto da lista
     # foi o cliente quem mandou e não vale. Sem proxy (runserver), vale o
     # REMOTE_ADDR. Nunca deixe None: o DRF usaria o cabeçalho inteiro, e quem
-    # o forja escolhe o próprio "IP". Os limites ficam nas views
+    # o forja escolhe o próprio "IP". O 1 supõe que o Caddy é o ÚNICO proxy na
+    # frente do Gunicorn: se a Azure (ou outro balanceador) entrar antes dele,
+    # o último endereço passa a ser o desse proxy, e todos os pedidos contam
+    # como um IP só. Nesse caso, o número tem que subir junto. Os limites ficam nas views
     # (throttle_classes), e não num DEFAULT_THROTTLE_CLASSES: o padrão valeria
     # também para o cardápio e o GET /api/sessao/, que o PWA chama a cada
     # abertura.
@@ -267,12 +270,15 @@ REST_FRAMEWORK = {
 # workers do Gunicorn (o LocMemCache, padrão do Django, conta cada worker
 # separado). A tabela não é model: é criada pela migration 0003 do cadastro.
 # MAX_ENTRIES: o padrão é 300; passou disso, o Django apaga um terço das
-# chaves, e os contadores sumiriam antes da hora.
+# chaves, inclusive contadores válidos, e quem enchesse a tabela zeraria os
+# limites dos outros. 100 mil linhas é bem mais do que o RU gera numa hora (cada
+# linha é um IP ou uma conta por rota, e o IPv6 conta pela faixa /64), e as
+# linhas são pequenas (um hash e uma lista de horários).
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
         "LOCATION": "cache_bandejao",
-        "OPTIONS": {"MAX_ENTRIES": 10000},
+        "OPTIONS": {"MAX_ENTRIES": 100_000},
     }
 }
 

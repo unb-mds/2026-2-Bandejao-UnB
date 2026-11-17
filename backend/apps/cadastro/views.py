@@ -342,7 +342,8 @@ class SessaoView(APIView):
                     "10 minutos (RF03.2). A 5ª falha já responde 429. A "
                     "mensagem diz quantos minutos faltam, e o cabeçalho "
                     "`Retry-After`, quantos segundos. `codigo`: `login_bloqueado`. "
-                    "Ou: pedidos demais do mesmo IP, `codigo`: `limite_excedido`."
+                    "Ou: pedidos demais do mesmo IP (`codigo`: `limite_excedido`, "
+                    "também com `Retry-After`)."
                 ),
             ),
         },

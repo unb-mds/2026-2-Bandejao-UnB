@@ -36,7 +36,7 @@ TRADUCOES = {
     # Limite de taxa por IP (#123). O DRF já põe o `Retry-After` em segundos.
     "throttled": (
         "limite_excedido",
-        "Muitos pedidos seguidos. Tente de novo em alguns minutos.",
+        "Muitos pedidos seguidos. Tente de novo mais tarde.",
     ),
     "csrf_invalido": (
         "csrf_invalido",

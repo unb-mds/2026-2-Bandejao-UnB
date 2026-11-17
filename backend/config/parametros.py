@@ -33,8 +33,9 @@ class LimiteDeTaxaConfig:
     `limite_excedido`; o limite por conta do reenvio é silencioso (RF02.2).
 
     Formato do DRF: "<número>/<unidade>", com unidade second, minute, hour ou
-    day. Só a primeira letra da unidade conta: "5/10m" vira 5 por MINUTO, sem
-    erro. Um teste em tests/test_parametros.py confere o formato.
+    day. Só a primeira letra da unidade conta: "5/mes" vira 5 por MINUTO, sem
+    erro; "5/10m" quebra com KeyError (500 no primeiro pedido). Um teste em
+    tests/test_parametros.py confere o formato.
 
     Os números não são menores porque a rede Wi-Fi da UnB sai por poucos IPs
     (NAT): uma turma inteira se cadastrando conta como um IP só. Os nomes dos

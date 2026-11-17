@@ -266,6 +266,15 @@ def test_ipv4_dentro_do_ipv6_conta_como_o_ipv4(cliente, limite, relogio):
     assert pedir(cliente, ROTA_SESSAO, ip="::ffff:200.130.1.11").status_code != 429
 
 
+def test_valor_que_nao_e_ip_tambem_tem_limite(cliente, limite, relogio):
+    """Um cabeçalho estranho não quebra a rota nem escapa do limite."""
+    limite("login_por_ip")
+    for _ in range(3):
+        pedir(cliente, ROTA_SESSAO, ip="desconhecido")
+
+    assert_limite_excedido(pedir(cliente, ROTA_SESSAO, ip="desconhecido"))
+
+
 def test_falha_ao_gravar_o_contador_do_ip_vai_para_o_log(
     cliente, limite, relogio, caplog
 ):
