@@ -74,7 +74,7 @@ classDiagram
   }
   class CheckinDuplicadoError
   class ConfirmacaoLocalizacaoService {
-    +confirmar(campus: Campus, coordenadas: Coordenadas) bool
+    +confirmar(campus: Campus, coordenadas: Coordenadas) void
   }
   class DistanciaGeografica {
     +metros(a: Coordenadas, b: Coordenadas) float
@@ -87,6 +87,7 @@ classDiagram
   class LocalizacaoNaoConfirmadaError
   class LocalizacaoRUConfig {
     <<lê CAMPUS, valores do Anexo A>>
+    +confirmacaoAtiva(campus: Campus) bool
     +centro(campus: Campus) Coordenadas
     +raioMetros(campus: Campus) int
   }
@@ -135,8 +136,8 @@ classDiagram
   CheckinRepository ..> CheckinDuplicadoError : lança se já existe (RI03)
   CheckinService --> ConfirmacaoLocalizacaoService : 3. confirma localização
   ConfirmacaoLocalizacaoService --> DistanciaGeografica : calcula distância ao RU
-  ConfirmacaoLocalizacaoService --> LocalizacaoRUConfig : lê centro e raio
-  ConfirmacaoLocalizacaoService ..> LocalizacaoNaoConfirmadaError : lança se fora do raio
+  ConfirmacaoLocalizacaoService --> LocalizacaoRUConfig : lê disponibilidade, centro e raio
+  ConfirmacaoLocalizacaoService ..> LocalizacaoNaoConfirmadaError : lança se desativada ou fora do raio
   ConfirmacaoLocalizacaoService ..> Coordenadas : usa e descarta
   CheckinService --> CheckinRepository : 4. registra tentativa / salva check-in
   CheckinService --> Checkin : cria, se confirmado
@@ -241,6 +242,7 @@ classDiagram
   RU. O Anexo A exige que o raio do Darcy Ribeiro exclua o Restaurante
   Executivo (RI08); isso só pode ser validado com as coordenadas reais dos
   dois locais, e vale registrar o valor escolhido junto com essa justificativa.
+- **Contrato da confirmação de localização (BD-03 / BE-09):** `ConfirmacaoLocalizacaoService.confirmar` retorna sem valor (`None` em Python) quando a localização é confirmada e lança `LocalizacaoNaoConfirmadaError`, correspondente a `localizacao_nao_confirmada`, quando a confirmação está desativada ou a localização está fora do raio. O serviço consulta a disponibilidade por `LocalizacaoRUConfig.confirmacaoAtiva(campus)`, que lê `Campus.confirmacao_ativa`, antes de calcular a distância. Centro e raio também são obtidos pela configuração. Uma confirmação recusada não registra check-in confirmado nem concede pontos. O banco impede raios negativos e exige raio de confirmação positivo quando a confirmação está ativa. Raios zero com confirmação desativada representam indisponibilidade e nunca autorizam confirmação por coincidência de coordenadas. A implementação desse fluxo pertence à BE-09; o BD-03 fornece os dados, as constraints e o contrato documentado.
 - **IDs inteiros (decidido com o time de banco de dados).** `id`, `contaId` e as demais referências são
   inteiros autoincrementais, como no banco.
 

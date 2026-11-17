@@ -1,0 +1,72 @@
+[
+  {
+    "model": "cardapio.campus",
+    "pk": 1,
+    "fields": {
+      "nome": "Darcy Ribeiro",
+      "ru_latitude": "-15.764203",
+      "ru_longitude": "-47.870251",
+      "raio_confirmacao_metros": 150,
+      "confirmacao_ativa": true,
+      "centro_latitude": "-15.764203",
+      "centro_longitude": "-47.870251",
+      "raio_deteccao_metros": 150
+    }
+  },
+  {
+    "model": "cardapio.campus",
+    "pk": 2,
+    "fields": {
+      "nome": "Ceilândia",
+      "ru_latitude": "-15.844288",
+      "ru_longitude": "-48.099944",
+      "raio_confirmacao_metros": 150,
+      "confirmacao_ativa": true,
+      "centro_latitude": "-15.844288",
+      "centro_longitude": "-48.099944",
+      "raio_deteccao_metros": 150
+    }
+  },
+  {
+    "model": "cardapio.campus",
+    "pk": 3,
+    "fields": {
+      "nome": "Gama",
+      "ru_latitude": "-15.989493",
+      "ru_longitude": "-48.044024",
+      "raio_confirmacao_metros": 150,
+      "confirmacao_ativa": true,
+      "centro_latitude": "-15.989493",
+      "centro_longitude": "-48.044024",
+      "raio_deteccao_metros": 150
+    }
+  },
+  {
+    "model": "cardapio.campus",
+    "pk": 4,
+    "fields": {
+      "nome": "Planaltina",
+      "ru_latitude": "-15.600701",
+      "ru_longitude": "-47.659890",
+      "raio_confirmacao_metros": 150,
+      "confirmacao_ativa": true,
+      "centro_latitude": "-15.600701",
+      "centro_longitude": "-47.659890",
+      "raio_deteccao_metros": 150
+    }
+  },
+  {
+    "model": "cardapio.campus",
+    "pk": 5,
+    "fields": {
+      "nome": "Fazenda Água Limpa",
+      "ru_latitude": "-15.940559",
+      "ru_longitude": "-47.940424",
+      "raio_confirmacao_metros": 0,
+      "confirmacao_ativa": false,
+      "centro_latitude": "-15.940559",
+      "centro_longitude": "-47.940424",
+      "raio_deteccao_metros": 0
+    }
+  }
+]
