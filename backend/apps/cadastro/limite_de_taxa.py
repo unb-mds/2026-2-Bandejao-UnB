@@ -36,18 +36,25 @@ def ler_limite(valor: str) -> tuple[int, int]:
     return SimpleRateThrottle.parse_rate(None, valor)
 
 
-def gravar(cache_usado, chave, valor, segundos) -> bool:
-    """Grava no cache e diz se a chave ficou lá.
+def gravar(cache_usado, chave, valor, segundos, folga=1.0) -> bool:
+    """Grava no cache e diz se o horário deste pedido chegou lá.
 
     O `set` do DatabaseCache engole o DatabaseError (lock, banco fora) para
     não derrubar quem chama, e devolve None dando certo ou não: o retorno não
     diz nada. Sem conferir, uma falha na tabela do cache desligaria o limite
     em silêncio. Por isso, a leitura de volta (um SELECT a mais por pedido).
-    Confere só se a chave existe, e não o valor: outro pedido no mesmo
-    instante pode ter gravado a lista dele (guia 9.6), e isso não é falha.
+
+    Não basta a chave existir: a partir do 2º pedido da janela, a linha antiga
+    continua lá mesmo se o `set` falhou, e o contador ficaria congelado. Por
+    isso confere se a lista lida tem um horário tão recente quanto o deste
+    pedido (`valor[0]`, o mais novo). A `folga` (em segundos) é para a corrida
+    de dois pedidos no mesmo instante (guia 9.6): a lista do outro, com um
+    horário quase igual, não é falha. O preço é que uma falha a menos de 1 s
+    do pedido anterior passa sem log, o que basta para um limite de abuso.
     """
     cache_usado.set(chave, valor, segundos)
-    return cache_usado.get(chave) is not None
+    lido = cache_usado.get(chave)
+    return bool(lido) and max(lido) >= valor[0] - folga
 
 
 class LimitePorIP(SimpleRateThrottle):
