@@ -29,6 +29,7 @@ from django.utils import timezone
 
 from apps.cadastro.conta_repository import ContaRepository
 from apps.cadastro.erros import TokenExpiradoOuInvalidoError
+from apps.cadastro.limite_de_taxa import LimiteReenvioPorConta
 from apps.cadastro.models import StatusUsuario, TipoToken, Token, Usuario
 
 logger = logging.getLogger(__name__)
@@ -187,10 +188,17 @@ class ConfirmacaoEmailService:
 
         Quem chama responde igual em todos os casos (RF02.2): assim a rota não
         revela quais contas existem nem quais já foram confirmadas.
+
+        A conta que passou do limite de reenvios (`LimiteDeTaxaConfig`, #123)
+        também não recebe e-mail, e a resposta continua a mesma: um 429 aqui
+        revelaria que a conta existe. O primeiro link, do cadastro, não passa
+        por este limite (sai pelo `enviar_link` direto).
         """
         if conta is None:
             return
         if conta.status != StatusUsuario.PENDENTE or conta.email_confirmado:
+            return
+        if not LimiteReenvioPorConta().permite(conta):
             return
         self.enviar_link(conta)
 

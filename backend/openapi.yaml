@@ -138,6 +138,13 @@ paths:
             o corpo vem fora do formato esperado (mensagem genérica). Matrícula/SIAPE
             ou e-mail já usados dão a mesma mensagem, sem dizer qual dos dois (RF01.5).
             `codigo`: `dados_invalidos`.'
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Pedidos demais do mesmo IP. O cabeçalho `Retry-After` diz
+            quantos segundos esperar. `codigo`: `limite_excedido`.'
         '403':
           content:
             application/json:
@@ -571,6 +578,13 @@ paths:
           description: 'Corpo inválido: não veio `matriculaSiape` nem `token`, ou
             um deles veio vazio ou com tipo errado (mesmo que o outro esteja certo).
             `codigo`: `dados_invalidos`.'
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Pedidos demais do mesmo IP. O cabeçalho `Retry-After` diz
+            quantos segundos esperar. `codigo`: `limite_excedido`.'
         '403':
           content:
             application/json:
@@ -690,7 +704,8 @@ paths:
                 $ref: '#/components/schemas/Erro'
           description: '5 tentativas malsucedidas em 10 minutos: bloqueado por 10
             minutos (RF03.2). A 5ª falha já responde 429. A mensagem diz quantos minutos
-            faltam, e o cabeçalho `Retry-After`, quantos segundos. `codigo`: `login_bloqueado`.'
+            faltam, e o cabeçalho `Retry-After`, quantos segundos. `codigo`: `login_bloqueado`.
+            Ou: pedidos demais do mesmo IP, `codigo`: `limite_excedido`.'
     delete:
       operationId: sessao_destroy
       description: |-
