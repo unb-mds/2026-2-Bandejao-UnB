@@ -14,8 +14,8 @@ from django.core.management.base import BaseCommand
 from django.db import DatabaseError
 from django.utils import timezone
 
-from apps.cadastro.confirmacao_email_service import VALIDADE_DO_LINK
 from apps.cadastro.conta_repository import ContaRepository
+from config.parametros import ParametrosCadastroConfig
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class ExclusaoCadastroPendenteJob:
 
     def executar(self) -> int:
         """Apaga as contas pendentes expiradas e devolve quantas foram."""
-        limite = timezone.now() - VALIDADE_DO_LINK
+        limite = timezone.now() - ParametrosCadastroConfig.validade_confirmacao_email
         excluidas = 0
         # Lista antes de apagar (apagar no meio de um cursor aberto dá problema
         # no SQLite). Uma conta por vez, cada uma na própria transação: a

@@ -152,7 +152,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # própria no tratador (config/excecoes.py) não chegam ao usuário em inglês.
 LANGUAGE_CODE = "pt-br"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "America/Sao_Paulo"
 
 USE_I18N = True
 
@@ -384,3 +384,6 @@ LOGGING = {
         },
     },
 }
+
+# Fonte do cardápio (Anexo A, ADR 0014).
+URL_PAGINA_CARDAPIO = "https://ru.unb.br/cardapio-refeitorio/"

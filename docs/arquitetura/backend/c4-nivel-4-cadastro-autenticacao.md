@@ -348,9 +348,6 @@ classDiagram
     +registrarTentativa(conta: Conta, sucesso: bool) void
     +estaBloqueado(conta: Conta) bool
     +segundosRestantes(conta: Conta) int
-    -MAX_TENTATIVAS: int = 5
-    -JANELA: timedelta = 10min
-    -BLOQUEIO: timedelta = 10min
   }
   class IdentificadorInvalidoError
   class ContaNaoConfirmadaError
@@ -366,7 +363,15 @@ classDiagram
   }
   class ParametrosSessaoConfig {
     <<Anexo A>>
-    +duracaoDias: int = 14
+    +duracaoSegundos: int
+  }
+  class ParametrosCadastroConfig {
+    <<Anexo A>>
+    +primeiroAnoMatricula: int
+    +validadeConfirmacaoEmail: timedelta
+    +loginMaxTentativas: int
+    +loginJanela: timedelta
+    +loginBloqueio: timedelta
   }
   class RecuperacaoSenhaService {
     +solicitar(identificador: str) void
@@ -433,6 +438,7 @@ classDiagram
   RecuperacaoSenhaService ..> EmailSvc : envia link [SMTP]
   RecuperacaoSenhaService --> SessoesDaConta : encerra todas, ao redefinir
   ContaRepository ..> Conta : grava/lê
+  TentativaLoginTracker --> ParametrosCadastroConfig : lê limites e duração
 ```
 
 ### Notas do diagrama (4c)
@@ -665,3 +671,37 @@ classDiagram
   avaliações dela antes de apagar a conta. O comando chama os outros
   componentes, em vez de apagar as tabelas deles direto, para que cada um
   continue sendo o único dono dos próprios dados.
+
+## Configuração compartilhada dos parâmetros — BD-04
+
+As classes de configuração ficam em `backend/config/parametros.py`.
+Os nomes das classes seguem os diagramas; no Python, os atributos usam
+`snake_case`.
+
+`ParametrosCadastroConfig` centraliza os seguintes valores do Anexo A:
+
+| Atributo Python | Valor inicial | Consumidor |
+|---|---|---|
+| `primeiro_ano_matricula` | `10` (2010) | `MatriculaValidator` |
+| `validade_confirmacao_email` | 24 horas | `ConfirmacaoEmailService` e `ExclusaoCadastroPendenteJob` |
+| `login_max_tentativas` | 5 | `TentativaLoginTracker` |
+| `login_janela` | 10 minutos | `TentativaLoginTracker` |
+| `login_bloqueio` | 10 minutos | `TentativaLoginTracker` |
+| `validade_redefinicao_senha` | 1 hora | `RecuperacaoSenhaService` — consumo previsto |
+| `redefinicao_max_solicitacoes` | 3 | `SolicitacaoRedefinicaoTracker` — consumo previsto |
+| `redefinicao_janela` | 1 hora | `SolicitacaoRedefinicaoTracker` — consumo previsto |
+
+O limite superior do ano da matrícula continua sendo calculado a partir
+da data atual no fuso do projeto; o terceiro dígito não é validado.
+A validade configurada determina a expiração dos novos tokens, o prazo
+informado no e-mail e o limite consultado pelo job de exclusão de pendentes.
+
+`VALIDADE_DO_LINK` permanece como alias de compatibilidade para os imports
+existentes. O serviço e o job leem `ParametrosCadastroConfig` diretamente.
+
+`ParametrosSessaoConfig.duracao_segundos` expõe
+`settings.SESSION_COOKIE_AGE`, sem duplicar o valor. O Django continua
+responsável pela sessão, com duração padrão de 14 dias e renovação a
+cada uso, conforme a ADR 0007.
+
+O projeto usa `USE_TZ = True` e `TIME_ZONE = "America/Sao_Paulo"`.
