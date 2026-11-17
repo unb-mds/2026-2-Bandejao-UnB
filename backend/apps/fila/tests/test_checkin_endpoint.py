@@ -11,8 +11,10 @@ import pytest
 from rest_framework.test import APIClient
 
 from apps.fila.janela_checkin_validator import JanelaCheckinValidator
-from apps.fila.models import Checkin, TentativaCheckin
+from apps.fila.models import Checkin, MotivoRejeicao, TentativaCheckin
 from apps.fila.tests.apoio import RU_DARCY, ao_norte
+from apps.fila.views import MENSAGENS_RECUSA
+from tests.rotas_do_contrato import gerar_schema
 
 ROTA = "/api/checkins/"
 # 12h07 em Brasília: dentro do almoço.
@@ -154,6 +156,30 @@ def test_fora_do_raio_da_422(logado, darcy):
     assert not Checkin.objects.exists()
 
 
+def test_todo_motivo_de_recusa_tem_mensagem():
+    """Motivo novo sem mensagem quebraria o 422 (viraria 500, revisão do #154).
+
+    O `fora_do_horario` monta a mensagem com a janela da refeição.
+    """
+    com_mensagem_propria = {MotivoRejeicao.FORA_DO_HORARIO}
+    assert set(MotivoRejeicao.values) - com_mensagem_propria <= set(MENSAGENS_RECUSA)
+
+
+# --- Contrato ----------------------------------------------------------------
+
+
+def test_contrato_publica_os_valores_de_tipo_refeicao():
+    """O front lê as refeições aceitas no `enum`, e não na descrição (revisão do #154)."""
+    schema = gerar_schema()
+    campo = schema["components"]["schemas"]["CheckinEntradaRequest"]["properties"][
+        "tipoRefeicao"
+    ]
+    if "$ref" in campo:
+        campo = schema["components"]["schemas"][campo["$ref"].rsplit("/", 1)[-1]]
+
+    assert campo["enum"] == ["cafe", "almoco", "jantar"]
+
+
 # --- 400: corpo fora do formato ----------------------------------------------
 
 
@@ -221,21 +247,26 @@ def digitos(valor):
 
 
 @pytest.mark.parametrize(
-    "dados, agora",
+    "latitude, longitude, agora",
     [
-        (lambda c: coordenada_marcada(c), AGORA),
-        (lambda c: coordenada_marcada(c), FORA_DO_HORARIO),
-        (lambda c: coordenada_marcada(c, latitude=-15.9641234), AGORA),
-        (lambda c: coordenada_marcada(c, latitude=95.7641234), AGORA),
+        (LAT_MARCADA, LNG_MARCADA, AGORA),
+        (LAT_MARCADA, LNG_MARCADA, FORA_DO_HORARIO),
+        # ~22 km ao sul do RU do Darcy: fora do raio.
+        (-15.9641234, LNG_MARCADA, AGORA),
+        # Fora da faixa: cai no 400.
+        (95.7641234, LNG_MARCADA, AGORA),
     ],
     ids=["confirmado", "fora-do-horario", "fora-do-raio", "invalida"],
 )
 def test_coordenadas_nao_vao_para_o_log_nem_para_o_banco(
-    logado, darcy, log, dados, agora
+    logado, darcy, log, latitude, longitude, agora
 ):
-    resposta = postar(logado, dados(darcy), agora=agora)
+    resposta = postar(
+        logado, coordenada_marcada(darcy, latitude, longitude), agora=agora
+    )
 
-    lat, lng = digitos(LAT_MARCADA), digitos(LNG_MARCADA)
+    # Os dígitos procurados são os da posição enviada neste caso (revisão do #154).
+    lat, lng = digitos(latitude), digitos(longitude)
     assert lat not in log.text
     assert lng not in log.text
     assert lat not in resposta.content.decode()
