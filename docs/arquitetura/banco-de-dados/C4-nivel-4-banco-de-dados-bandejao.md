@@ -49,11 +49,11 @@ erDiagram
         string nome UK "Darcy Ribeiro | Ceilandia | Gama | Planaltina | Fazenda Agua Limpa"
         decimal ru_latitude
         decimal ru_longitude
-        int raio_confirmacao_metros "confirmação do check-in (RF12)"
+        int raio_confirmacao_metros "confirmação do check-in (RF12); CHECK >= 0, > 0 se ativa"
         boolean confirmacao_ativa "default true; false: aplicação deve recusar (BE-09)"
         decimal centro_latitude
         decimal centro_longitude
-        int raio_deteccao_metros "detecção do campus no aparelho (ADR 0009)"
+        int raio_deteccao_metros "detecção do campus no aparelho (ADR 0009); CHECK >= 0"
         string rotulo_pagina_ru "título do bloco na página do RU (ADR 0014)"
         string prefixo_arquivo_pdf "início do nome do PDF (ADR 0014)"
     }
