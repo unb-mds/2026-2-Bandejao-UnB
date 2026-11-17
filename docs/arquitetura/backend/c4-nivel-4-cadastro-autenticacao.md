@@ -127,6 +127,10 @@ classDiagram
   class AvisoPrivacidadeConfig {
     +versaoAtual: str
   }
+  class ParametrosCadastroConfig {
+    <<Anexo A>>
+    +primeiroAnoMatricula: int
+  }
 
   CadastroView --> CadastroService : registrar()
   IdentificadorExtractor <|.. EstudanteIdentificadorExtractor
@@ -134,6 +138,7 @@ classDiagram
   IdentificadorExtractor --> IdentificadorExtraido : produz
   CadastroService --> IdentificadorExtractor : escolhe estratégia por TipoUsuario
   CadastroService --> MatriculaValidator : valida (Estudante)
+  MatriculaValidator --> ParametrosCadastroConfig : lê o ano mínimo do prefixo
   CadastroService --> SiapeValidator : valida (Professor/Servidor)
   CadastroService --> EmailInstitucionalValidator : valida formato
   CadastroService --> ApelidoResolver : resolve/valida apelido
@@ -178,6 +183,8 @@ classDiagram
   O método do prefixo mantém o nome `validarPrefixoAnoSemestre`, mas só
   confere o ano: o 3º dígito (semestre) não é conferido, porque o formato
   dos outros níveis de ensino não foi confirmado (L16, ADR 0002).
+  O ano mínimo vem de `ParametrosCadastroConfig.primeiroAnoMatricula`
+  (BD-04); o ano corrente, de `timezone.localdate()`, no fuso do projeto.
   Métodos separados tornam cada regra testável isoladamente com casos de
   borda próprios, sem depender de montar uma matrícula "válida no resto"
   só para testar uma das três checagens.
@@ -242,6 +249,10 @@ classDiagram
   class ExclusaoCadastroPendenteJob {
     +executar() int
   }
+  class ParametrosCadastroConfig {
+    <<Anexo A>>
+    +validadeConfirmacaoEmail: timedelta
+  }
   class EmailSvc["Serviço de E-mail (externo)"] {
     <<external>>
   }
@@ -271,6 +282,8 @@ classDiagram
   ConfirmacaoEmailService --> Conta : marca confirmada (ORM)
   ConfirmacaoEmailService ..> EmailSvc : envia link [SMTP]
   ExclusaoCadastroPendenteJob --> ContaRepository : exclui pendentes expiradas
+  ConfirmacaoEmailService --> ParametrosCadastroConfig : lê a validade do link
+  ExclusaoCadastroPendenteJob --> ParametrosCadastroConfig : lê a validade para o limite
   ContaRepository ..> Conta : grava/lê
 ```
 
@@ -372,6 +385,9 @@ classDiagram
     +loginMaxTentativas: int
     +loginJanela: timedelta
     +loginBloqueio: timedelta
+    +validadeRedefinicaoSenha: timedelta
+    +redefinicaoMaxSolicitacoes: int
+    +redefinicaoJanela: timedelta
   }
   class RecuperacaoSenhaService {
     +solicitar(identificador: str) void
@@ -386,7 +402,6 @@ classDiagram
   }
   class SolicitacaoRedefinicaoTracker {
     +podeSolicitar(identificador: str) bool
-    -MAX_POR_HORA: int = 3
   }
   class PasswordHasher {
     +hash(senha: str) str
@@ -419,7 +434,7 @@ classDiagram
   }
 
   SessaoView --> LoginService : autenticar(), no POST
-  SessaoView --> SessoesDaConta : abrir(), no POST; encerrarAtual(), no DELETE
+  SessaoView --> SessoesDaConta : abrir(), no POST, e encerrarAtual(), no DELETE
   SessaoView ..> Conta : lê apelido, tipo e aviso pendente, no GET
   SolicitarRecuperacaoSenhaView --> RecuperacaoSenhaService : solicitar()
   RedefinirSenhaView --> RecuperacaoSenhaService : redefinir()
@@ -431,7 +446,7 @@ classDiagram
   LoginService ..> CredenciaisInvalidasError : lança em erro (mensagem genérica)
   LoginService ..> LoginBloqueadoError : lança se bloqueado
   SessoesDaConta --> ParametrosSessaoConfig : lê duração
-  RecuperacaoSenhaService --> SolicitacaoRedefinicaoTracker : limita 3/hora
+  RecuperacaoSenhaService --> SolicitacaoRedefinicaoTracker : limita solicitações por janela
   RecuperacaoSenhaService --> TokenRedefinicaoSenha : gera/consome
   RecuperacaoSenhaService --> ContaRepository : busca conta / atualiza senha
   RecuperacaoSenhaService --> PasswordHasher : gera hash da nova senha
@@ -439,10 +454,19 @@ classDiagram
   RecuperacaoSenhaService --> SessoesDaConta : encerra todas, ao redefinir
   ContaRepository ..> Conta : grava/lê
   TentativaLoginTracker --> ParametrosCadastroConfig : lê limites e duração
+  RecuperacaoSenhaService ..> ParametrosCadastroConfig : lerá a validade do token
+  SolicitacaoRedefinicaoTracker ..> ParametrosCadastroConfig : lerá máximo e janela
 ```
 
 ### Notas do diagrama (4c)
 
+- **Setas para `ParametrosCadastroConfig`: cheia já existe, tracejada é
+  consumo previsto (BD-04).** O `TentativaLoginTracker` já lê o máximo de
+  tentativas, a janela e o bloqueio. A recuperação de senha ainda não foi
+  implementada: quando for, o `RecuperacaoSenhaService` lerá
+  `validadeRedefinicaoSenha` e o `SolicitacaoRedefinicaoTracker` lerá
+  `redefinicaoMaxSolicitacoes` e `redefinicaoJanela`, em vez de números
+  fixos no código. Os três valores já estão na configuração.
 - **Dois limites no login, dois códigos (#123).** O `TentativaLoginTracker`
   bloqueia a **conta** que errou a senha 5 vezes (429 `login_bloqueado`). O
   `LimiteLoginPorIP` limita o **IP** que mandou pedidos demais, certos ou
@@ -691,16 +715,24 @@ Os nomes das classes seguem os diagramas; no Python, os atributos usam
 | `redefinicao_max_solicitacoes` | 3 | `SolicitacaoRedefinicaoTracker` — consumo previsto |
 | `redefinicao_janela` | 1 hora | `SolicitacaoRedefinicaoTracker` — consumo previsto |
 
+Os diagramas 4a, 4b e 4c mostram, cada um, só os atributos de
+`ParametrosCadastroConfig` lidos pelas classes daquele diagrama. A tabela
+acima é a lista completa.
+
 O limite superior do ano da matrícula continua sendo calculado a partir
 da data atual no fuso do projeto; o terceiro dígito não é validado.
 A validade configurada determina a expiração dos novos tokens, o prazo
 informado no e-mail e o limite consultado pelo job de exclusão de pendentes.
 
-`VALIDADE_DO_LINK` permanece como alias de compatibilidade para os imports
-existentes. O serviço e o job leem `ParametrosCadastroConfig` diretamente.
+Os atributos de `ParametrosCadastroConfig` são lidos na classe, no momento
+da chamada (`ParametrosCadastroConfig.validade_confirmacao_email`). Nenhum
+consumidor guarda o valor numa constante do próprio módulo.
 
-`ParametrosSessaoConfig.duracao_segundos` expõe
-`settings.SESSION_COOKIE_AGE`, sem duplicar o valor. O Django continua
+`ParametrosSessaoConfig().duracao_segundos` é uma propriedade de instância
+que lê `settings.SESSION_COOKIE_AGE` a cada acesso, sem duplicar o valor.
+Por isso acompanha `override_settings` nos testes, sem recarregar o módulo
+com `reload`. Os parênteses são obrigatórios: pela classe, sem instância, o
+acesso devolve o objeto `property`, e não o número. O Django continua
 responsável pela sessão, com duração padrão de 14 dias e renovação a
 cada uso, conforme a ADR 0007.
 
