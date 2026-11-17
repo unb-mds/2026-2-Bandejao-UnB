@@ -13,6 +13,7 @@ fazer 60 pedidos. O relógio é o `django.utils.timezone.now` (mesmo mock do
 
 import logging
 from datetime import UTC, datetime, timedelta
+from smtplib import SMTPException
 from unittest import mock
 
 import pytest
@@ -159,6 +160,20 @@ def test_depois_da_janela_o_pedido_passa_de_novo(cliente, limite, relogio, rota,
 
 
 @pytest.mark.parametrize(("rota", "nome"), ROTAS)
+def test_no_meio_da_janela_o_limite_continua_valendo(
+    cliente, limite, relogio, rota, nome
+):
+    """Pega uma janela que encolheu (ex.: 300 s do tempo padrão do cache)."""
+    limite(nome)
+    for _ in range(3):
+        pedir(cliente, rota)
+
+    relogio.return_value = AGORA + timedelta(minutes=59)
+
+    assert_limite_excedido(pedir(cliente, rota))
+
+
+@pytest.mark.parametrize(("rota", "nome"), ROTAS)
 def test_ips_diferentes_tem_contadores_separados(cliente, limite, relogio, rota, nome):
     limite(nome)
     for _ in range(3):
@@ -215,6 +230,78 @@ def test_o_ip_nao_fica_em_claro_na_chave_do_cache(cliente, limite, relogio):
         chaves = [linha[0] for linha in cursor.fetchall()]
     assert chaves
     assert not any(IP_A in chave for chave in chaves)
+
+
+def test_ipv6_da_mesma_faixa_64_divide_o_contador(cliente, limite, relogio):
+    """Trocar o fim do endereço IPv6 não dá um contador novo (guia 9.5)."""
+    limite("login_por_ip")
+    for ip in (
+        "2804:14c:5b:1::1",
+        "2804:14c:5b:1::2",
+        "2804:14c:5b:1:abcd:ef01:2345:6789",
+    ):
+        pedir(cliente, ROTA_SESSAO, ip=ip)
+
+    assert_limite_excedido(pedir(cliente, ROTA_SESSAO, ip="2804:14c:5b:1::ffff"))
+
+
+def test_ipv6_de_faixas_64_diferentes_tem_contadores_separados(
+    cliente, limite, relogio
+):
+    limite("login_por_ip")
+    for _ in range(3):
+        pedir(cliente, ROTA_SESSAO, ip="2804:14c:5b:1::1")
+    assert_limite_excedido(pedir(cliente, ROTA_SESSAO, ip="2804:14c:5b:1::1"))
+
+    assert pedir(cliente, ROTA_SESSAO, ip="2804:14c:5b:2::1").status_code != 429
+
+
+def test_ipv4_dentro_do_ipv6_conta_como_o_ipv4(cliente, limite, relogio):
+    """`::ffff:1.2.3.4` é o IPv4 1.2.3.4, e não a faixa /64 de todo o IPv4."""
+    limite("login_por_ip")
+    for _ in range(3):
+        pedir(cliente, ROTA_SESSAO, ip="::ffff:200.130.1.10")
+    assert_limite_excedido(pedir(cliente, ROTA_SESSAO, ip=IP_A))
+
+    assert pedir(cliente, ROTA_SESSAO, ip="::ffff:200.130.1.11").status_code != 429
+
+
+def test_falha_ao_gravar_o_contador_do_ip_vai_para_o_log(
+    cliente, limite, relogio, caplog
+):
+    """O DatabaseCache engole o DatabaseError: sem log, o limite estaria
+    desligado em silêncio."""
+    limite("login_por_ip")
+    with (
+        # Como o DatabaseCache faz com um DatabaseError: não grava e devolve
+        # None (o set não repassa o False do _base_set).
+        mock.patch(
+            "django.core.cache.backends.db.DatabaseCache.set", return_value=None
+        ),
+        caplog.at_level(logging.ERROR, logger="apps.cadastro.limite_de_taxa"),
+    ):
+        resposta = pedir(cliente, ROTA_SESSAO)
+
+    # O pedido segue (o limite não pode derrubar o login), mas fica no log.
+    assert resposta.status_code != 429
+    erros = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(erros) == 1
+    assert "login_por_ip" in erros[0].getMessage()
+    assert IP_A not in erros[0].getMessage()
+
+
+@pytest.mark.parametrize(("rota", "nome"), ROTAS)
+def test_pedido_normal_nao_gera_log_de_erro_do_limite(
+    cliente, limite, relogio, caplog, rota, nome
+):
+    """O `set` do DatabaseCache devolve None até quando grava: conferir o retorno
+    dele daria um falso alarme a cada pedido."""
+    limite(nome)
+    criar_conta()
+    with caplog.at_level(logging.WARNING, logger="apps.cadastro.limite_de_taxa"):
+        pedir(cliente, rota, corpo={"matriculaSiape": "202400001"})
+
+    assert caplog.records == []
 
 
 # --- IP atrás do proxy (Caddy) ---------------------------------------------------
@@ -348,6 +435,84 @@ def test_depois_da_janela_a_conta_volta_a_receber_o_link(cliente, limite, relogi
     assert len(mail.outbox) == 2
 
 
+def test_no_meio_da_janela_a_conta_continua_sem_link(cliente, limite, relogio):
+    """Com `cache.incr`, a janela de 1 hora viraria 5 minutos, e isto falharia."""
+    limite("reenvio_por_conta", "1/hour")
+    criar_conta()
+    pedir(cliente, ROTA_REENVIO, corpo={"matriculaSiape": "202400001"})
+
+    relogio.return_value = AGORA + timedelta(minutes=10)
+    pedir(cliente, ROTA_REENVIO, ip=IP_B, corpo={"matriculaSiape": "202400001"})
+
+    assert len(mail.outbox) == 1
+
+
+def test_falha_no_smtp_nao_gasta_a_vaga_do_reenvio(cliente, limite, relogio):
+    """Brevo fora do ar: a pessoa tenta 3 vezes e, quando ele volta, recebe o link."""
+    limite("reenvio_por_conta")
+    criar_conta()
+    with mock.patch(
+        "apps.cadastro.confirmacao_email_service.send_mail",
+        side_effect=SMTPException("fora do ar"),
+    ):
+        for final in range(3):
+            resposta = pedir(
+                cliente,
+                ROTA_REENVIO,
+                ip=f"200.130.3.{final}",
+                corpo={"matriculaSiape": "202400001"},
+            )
+            assert resposta.status_code == 200
+    assert mail.outbox == []
+
+    pedir(cliente, ROTA_REENVIO, ip=IP_B, corpo={"matriculaSiape": "202400001"})
+
+    assert len(mail.outbox) == 1
+
+
+def test_envios_que_sairam_continuam_contando_depois_de_uma_falha(
+    cliente, limite, relogio
+):
+    limite("reenvio_por_conta", "2/hour")
+    criar_conta()
+    corpo = {"matriculaSiape": "202400001"}
+    pedir(cliente, ROTA_REENVIO, corpo=corpo)
+    with mock.patch(
+        "apps.cadastro.confirmacao_email_service.send_mail",
+        side_effect=SMTPException("fora do ar"),
+    ):
+        pedir(cliente, ROTA_REENVIO, ip=IP_B, corpo=corpo)
+    for final in range(3):
+        pedir(cliente, ROTA_REENVIO, ip=f"200.130.4.{final}", corpo=corpo)
+
+    # O 1º saiu, o 2º falhou, só o 3º cabe: 2 no total.
+    assert len(mail.outbox) == 2
+
+
+def test_falha_ao_gravar_o_contador_da_conta_vai_para_o_log(
+    cliente, limite, relogio, caplog
+):
+    limite("reenvio_por_conta")
+    conta = criar_conta()
+    with (
+        mock.patch("apps.cadastro.limite_de_taxa.cache.set", return_value=False),
+        caplog.at_level(logging.ERROR, logger="apps.cadastro.limite_de_taxa"),
+    ):
+        resposta = pedir(cliente, ROTA_REENVIO, corpo={"matriculaSiape": "202400001"})
+
+    assert resposta.status_code == 200
+    assert len(mail.outbox) == 1
+    # O patch vale para o cache inteiro: o contador por IP também avisa.
+    erros = [
+        r.getMessage()
+        for r in caplog.records
+        if r.levelno == logging.ERROR and "da conta" in r.getMessage()
+    ]
+    assert len(erros) == 1
+    assert str(conta.pk) in erros[0]
+    assert "202400001" not in erros[0]
+
+
 def test_limite_de_uma_conta_nao_atinge_outra(cliente, limite, relogio):
     limite("reenvio_por_conta", "1/hour")
     criar_conta(matricula="202400001")
@@ -409,7 +574,9 @@ def test_cache_e_compartilhado_entre_os_workers():
 def test_cache_cabe_os_contadores_sem_apagar_antes_da_hora():
     opcoes = settings_do_django.CACHES["default"].get("OPTIONS", {})
 
-    assert opcoes.get("MAX_ENTRIES", 300) >= 10000
+    # Passou do MAX_ENTRIES, o Django apaga um terço das chaves, inclusive
+    # contadores válidos: quem enche a tabela zera os limites dos outros.
+    assert opcoes.get("MAX_ENTRIES", 300) >= 100_000
 
 
 def test_a_tabela_do_cache_existe_depois_do_migrate(db):

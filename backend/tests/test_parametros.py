@@ -53,7 +53,8 @@ LIMITES = ("cadastro_por_ip", "reenvio_por_ip", "reenvio_por_conta", "login_por_
 
 @pytest.mark.parametrize("nome", LIMITES)
 def test_limite_de_taxa_tem_o_formato_do_drf(nome):
-    """O DRF lê só a primeira letra da unidade: "5/10m" viraria 5 por MINUTO.
+    """Só a primeira letra da unidade conta: "5/mes" vira 5 por MINUTO, sem
+    erro; "5/10m" quebra com KeyError (500 no primeiro pedido).
 
     Por isso só valem as unidades inteiras, sem número antes delas.
     """
@@ -67,3 +68,12 @@ def test_limite_de_taxa_e_positivo(nome):
     numero = int(getattr(LimiteDeTaxaConfig, nome).split("/")[0])
 
     assert numero > 0
+
+
+def test_por_que_o_formato_importa():
+    """Os dois jeitos de errar o texto, no leitor do próprio DRF (#123)."""
+    from apps.cadastro.limite_de_taxa import ler_limite
+
+    assert ler_limite("5/mes") == (5, 60)
+    with pytest.raises(KeyError):
+        ler_limite("5/10m")
