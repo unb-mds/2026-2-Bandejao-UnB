@@ -470,7 +470,9 @@ describe('limite de taxa por IP (429 limite_excedido, #123)', () => {
 
   it('reenvio de confirmação: 10 por hora', async () => {
     for (let i = 0; i < 10; i++) {
-      expect((await post('/reenviar-confirmacao/', { matriculaSiape: '251000001' })).status).toBe(200)
+      expect((await post('/reenviar-confirmacao/', { matriculaSiape: '251000001' })).status).toBe(
+        200,
+      )
     }
     const excedido = await post('/reenviar-confirmacao/', { matriculaSiape: '251000001' })
     expect(excedido.status).toBe(429)

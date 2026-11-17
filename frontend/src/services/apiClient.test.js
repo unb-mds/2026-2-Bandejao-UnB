@@ -305,7 +305,10 @@ describe('401 avisa que a sessão acabou', () => {
 
 describe('mensagemDeErro (o que as telas mostram)', () => {
   it('ApiError: a mensagem do servidor', () => {
-    const falha = new ApiError(403, { codigo: 'conta_nao_confirmada', mensagem: 'Confirme seu e-mail.' })
+    const falha = new ApiError(403, {
+      codigo: 'conta_nao_confirmada',
+      mensagem: 'Confirme seu e-mail.',
+    })
     expect(mensagemDeErro(falha)).toBe('Confirme seu e-mail.')
   })
 
