@@ -15,19 +15,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Revisão humana: [revisão dos ajustes por AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/124#pullrequestreview-5911855469), com merge autorizado após as correções finais.
 - Situação: observações finais registradas neste ajuste; conferir os checks do último commit antes do merge.
 
-## BD-04 — Parâmetros do Anexo A
-
-- Issue: #90.
-- Branch: `feature/bd-04-parametros-anexo-a`; PR ainda não aberto.
-- Ferramenta: ChatGPT.
-- Apoio: consulta da issue, requisitos e arquitetura; elaboração de testes e configurações; refatoração dos consumidores de cadastro; atualização da documentação e orientação pelo CMD.
-- TDD: testes executados e registrados em commits antes das respectivas implementações. Exemplos: fuso (`9a9b151` → `0339bb8`), horários (`293121a` → `1c9e19d`), login (`b1858d7` → `368e61f`) e confirmação/exclusão de pendentes (`608dc1c` → `20e8b9b`).
-- Validação local: após integrar a develop em aaaeb0d, suíte completa em SQLite com 844 testes aprovados e 1 ignorado, específico de MySQL; cobertura de apps incluindo branches exibida como 98%; Ruff check e format check aprovados. Testes de configuração e consumo verificaram também valores temporariamente alterados.
-- Parâmetros pendentes: datas de término dos semestres sem entradas; precisão mínima e idade máxima da posição sem valores definidos. Nenhum valor foi inventado.
-- Limites: configurações disponibilizadas para consumidores futuros não implementam endpoints, tarefas agendadas ou integração com o front-end.
-- CI e MySQL: validação desta branch ainda pendente.
-- Revisão humana: pendente revisão por outra frente, incluindo o checklist de testes gerados por IA do Plano de Testes.
-
 ## BE-08 — Lista de campi (`GET /api/campi/`)
 
 - PR: [#128 — BE-08: lista de campi](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/128).
@@ -57,3 +44,19 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação: `pytest` com 791 testes passando (depois dos ajustes da revisão) e cobertura de 97,67%, `ruff`, `bandit`, `manage.py check`, `makemigrations --check` e `spectacular --validate --fail-on-warn` (contrato sem mudança, inclusive depois da troca para `pt-br`) rodados localmente; resultado do CI no PR.
 - Revisão humana: [revisão de Poviovsky](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/132#pullrequestreview-5927752431), aprovada com duas sugestões no registro (o vermelho do commit `test` e esta situação) e observações (`get_object_or_404`, `/api` sem a barra, `path_info`), aplicadas nos ajustes da revisão.
 - Situação: `pt-br` adotado e [registrado na #121](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/121#issuecomment-6929024596); ajustes da revisão aplicados.
+
+## BD-04 — Parâmetros do Anexo A
+
+- PR: [#134 — Parâmetros do Anexo A](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/134). Issue: #90.
+- Ferramenta: ChatGPT.
+- Apoio: consulta dos requisitos e arquitetura, elaboração de testes, centralização das configurações, refatoração dos consumidores de cadastro e tratamento da revisão pelo CMD.
+- TDD inicial: testes antes das implementações. Exemplos: fuso (`9a9b151` → `0339bb8`), horários (`293121a` → `1c9e19d`), login (`b1858d7` → `368e61f`), confirmação/exclusão de pendentes (`608dc1c` → `20e8b9b`) e parâmetros complementares (`1fe2daf` → `fdc1bce`).
+- Validação inicial: após integrar a develop em `aaaeb0d`, SQLite com 844 testes aprovados e 1 ignorado, específico de MySQL. Cobertura de `apps`, incluindo branches, exibida como 98%; esse relatório não mede `config/`. Ruff check e format check aprovados.
+- CI inicial: [Backend CI aprovado no commit 25e07d5](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/44001699240), incluindo SQLite, MySQL, lint e segurança.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/134#issuecomment-6937768384), com sugestões de documentação, leitura dinâmica dos settings, remoção do alias e testes adicionais.
+- TDD da revisão: testes sem reload em `e667609`, com duas falhas pelos valores fixados no import; implementação em `4abd9b8`. Os 56 testes selecionados passaram após a correção.
+- Outros ajustes: alias de validade removido em `360febc`, com 36 testes aprovados; regressões da virada do ano e bordas configuradas do login em `cf81770`, com 10 testes aprovados. Essas regressões passaram desde a inclusão, pois verificam comportamentos já existentes.
+- Parâmetros pendentes: datas de término dos semestres sem entradas; precisão mínima e idade máxima da posição sem valores definidos. Nenhum valor foi inventado.
+- Limites: disponibilizar parâmetros não implementa endpoints, agendamentos ou integração com o front-end. A mudança de fuso altera o comportamento das datas locais; a classificação do PR deve refletir isso.
+- Arquitetura: ajustes da revisão reservados ao Álvaro, para acompanhamento em issue exclusiva da BD-04. Os arquivos de arquitetura não foram alterados nesta rodada.
+- Situação: ajustes de código e registro da revisão em andamento; validação final, novo CI e recheck humano pendentes.

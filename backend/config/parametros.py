@@ -1,13 +1,15 @@
-"""Classes de configuração dos valores do Anexo A (BD-04, #90).
+"""Configuração dos parâmetros do Anexo A (BD-04, #90).
 
-Os nomes das classes são os dos Níveis 4; os atributos ficam em snake_case
-(`versao_atual` para `versaoAtual`). Uso:
+As classes de configuração compartilhadas ficam neste módulo, com atributos
+em snake_case. Exemplo:
 `from config.parametros import AvisoPrivacidadeConfig`.
 
-A BE-05 cria o arquivo só com o `AvisoPrivacidadeConfig`. A BD-04 acrescenta
-as outras classes aqui mesmo, sem criar outro módulo. Valores que o Django já
-lê do `settings.py` (duração da sessão, fuso) continuam lá, e a classe só os
-expõe, para o número do Anexo A não ficar escrito em dois lugares.
+Valores usados diretamente pelo Django permanecem no settings.
+ParametrosSessaoConfig().duracao_segundos e
+ParametrosLeitorConfig().url_pagina consultam os settings a cada acesso.
+
+O fuso é definido por TIME_ZONE no settings.
+Configurações que consultam CAMPUS permanecem nos respectivos apps.
 """
 
 from datetime import date, time, timedelta

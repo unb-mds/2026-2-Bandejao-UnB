@@ -1,7 +1,8 @@
 """TentativaLoginTracker: bloqueio do login por tentativas (RF03.2, Cadastro N4 4c).
 
-O contador e o início da janela ficam na própria conta. Os limites e a
-duração do bloqueio vêm de ParametrosCadastroConfig (Anexo A).
+A janela é fixa e começa na primeira falha. Uma falha a partir do término
+da janela inicia uma nova contagem. Um acerto zera a contagem, o início da
+janela e o bloqueio. Os limites vêm de ParametrosCadastroConfig (Anexo A).
 
 Quem chama (o LoginService) trava a linha da conta (select_for_update)
 antes, para duas tentativas simultâneas não contarem como uma só.
