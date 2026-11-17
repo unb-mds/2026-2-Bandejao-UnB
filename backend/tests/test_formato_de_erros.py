@@ -1,4 +1,4 @@
-"""Formato de erro `{codigo, mensagem}` do tratador de exceções (#112).
+"""Formato de erro `{codigo, mensagem}` do tratador de exceções (#112, #121).
 
 O front decide pelo `codigo`, nunca só pelo status: 401 de "sem sessão" e de
 "senha errada" precisam de códigos diferentes, e o 403 de CSRF não pode se
@@ -9,6 +9,8 @@ import logging
 from unittest import mock
 
 import pytest
+from django.http import Http404
+from django.test import RequestFactory
 from rest_framework.exceptions import (
     AuthenticationFailed,
     MethodNotAllowed,
@@ -22,7 +24,7 @@ from rest_framework.exceptions import (
 from rest_framework.test import APIClient
 
 from apps.cadastro.autenticacao import CsrfInvalido
-from config.excecoes import tratador_de_excecoes
+from config.excecoes import erro_404, erro_500, tratador_de_excecoes
 
 
 def _tratar(exc):
@@ -119,6 +121,121 @@ def test_content_type_errado_no_cadastro_da_415(db):
     assert resposta.json()["codigo"] == "tipo_de_conteudo_invalido"
 
 
+@pytest.mark.parametrize(
+    ("exc", "status", "codigo"),
+    [
+        (NotFound(), 404, "nao_encontrado"),
+        (MethodNotAllowed("PUT"), 405, "metodo_nao_permitido"),
+    ],
+)
+def test_404_e_405_vem_no_formato_do_projeto(exc, status, codigo):
+    resposta = _tratar(exc)
+
+    assert resposta.status_code == status
+    assert set(resposta.data) == {"codigo", "mensagem"}
+    assert resposta.data["codigo"] == codigo
+
+
+def test_http404_do_django_vira_nao_encontrado_sem_o_texto_em_ingles():
+    """O `get_object_or_404` levanta `Http404`, que o DRF troca por `NotFound`."""
+    resposta = _tratar(Http404("No Campus matches the given query."))
+
+    assert resposta.status_code == 404
+    assert resposta.data["codigo"] == "nao_encontrado"
+    assert "matches" not in resposta.data["mensagem"]
+
+
+def test_not_found_com_codigo_proprio_usa_esse_codigo():
+    """Caminho das rotas com parâmetro: `refeicao_nao_encontrada` (contrato)."""
+    resposta = _tratar(
+        NotFound("Refeição inexistente.", code="refeicao_nao_encontrada")
+    )
+
+    assert resposta.status_code == 404
+    assert resposta.data == {
+        "codigo": "refeicao_nao_encontrada",
+        "mensagem": "Refeição inexistente.",
+    }
+
+
+def test_metodo_errado_numa_rota_real_da_405_com_allow(db):
+    resposta = APIClient().put("/api/campi/", format="json")
+
+    assert resposta.status_code == 405
+    assert resposta.json()["codigo"] == "metodo_nao_permitido"
+    assert "GET" in resposta["Allow"]
+
+
+def test_rota_inexistente_da_api_da_404_em_json():
+    """Sem rota, o 404 sai do Django, antes do DRF: precisa do `handler404`."""
+    resposta = APIClient().get("/api/rota-que-nao-existe/")
+
+    assert resposta.status_code == 404
+    assert resposta["Content-Type"] == "application/json"
+    assert resposta.json()["codigo"] == "nao_encontrado"
+
+
+def test_api_sem_a_barra_final_da_404_em_json():
+    resposta = APIClient().get("/api")
+
+    assert resposta.status_code == 404
+    assert resposta.json()["codigo"] == "nao_encontrado"
+
+
+def test_rota_que_so_comeca_com_api_segue_em_html():
+    resposta = APIClient().get("/apis/")
+
+    assert resposta.status_code == 404
+    assert resposta["Content-Type"].startswith("text/html")
+
+
+def test_404_da_api_servida_num_subcaminho_sai_em_json():
+    """Com `FORCE_SCRIPT_NAME`, o `path` ganha o prefixo; o `path_info`, não."""
+    requisicao = RequestFactory().get("/api/x/", SCRIPT_NAME="/backend")
+
+    resposta = erro_404(requisicao, Http404())
+
+    assert requisicao.path == "/backend/api/x/"
+    assert resposta.status_code == 404
+    assert resposta["Content-Type"] == "application/json"
+
+
+def test_rota_inexistente_fora_da_api_segue_em_html():
+    """O admin e o resto do site continuam com a página padrão do Django."""
+    resposta = APIClient().get("/rota-que-nao-existe/")
+
+    assert resposta.status_code == 404
+    assert resposta["Content-Type"].startswith("text/html")
+
+
+def test_erro_inesperado_na_api_da_500_em_json_sem_o_traceback():
+    """Sem isso, o front recebe a página HTML "Server Error (500)"."""
+    cliente = APIClient(raise_request_exception=False)
+    with mock.patch(
+        "apps.cadastro.views.LoginService.autenticar",
+        side_effect=RuntimeError("detalhe-interno"),
+    ):
+        resposta = cliente.post(
+            "/api/sessao/",
+            {"matriculaSiape": "202400001", "senha": "senha-forte-123"},
+            format="json",
+        )
+
+    assert resposta.status_code == 500
+    assert resposta["Content-Type"] == "application/json"
+    assert resposta.json()["codigo"] == "erro_interno"
+    assert set(resposta.json()) == {"codigo", "mensagem"}
+    assert b"detalhe-interno" not in resposta.content
+    assert b"Traceback" not in resposta.content
+
+
+def test_erro_inesperado_fora_da_api_segue_em_html():
+    resposta = erro_500(RequestFactory().get("/admin/"))
+
+    assert resposta.status_code == 500
+    assert resposta["Content-Type"].startswith("text/html")
+
+
 def test_excecao_que_nao_e_do_drf_segue_para_o_django():
     assert _tratar(ValueError("erro")) is None
 
@@ -128,8 +245,6 @@ def test_excecao_que_nao_e_do_drf_segue_para_o_django():
     [
         (ValidationError({"senha": ["Muito curta."]}), 400),
         (ValidationError("Mensagem única."), 400),
-        (NotFound(), 404),
-        (MethodNotAllowed("PUT"), 405),
         (PermissionDenied(), 403),
     ],
 )
@@ -142,6 +257,16 @@ def test_erro_com_codigo_padrao_segue_como_o_drf_devolve(exc, status):
 
     assert resposta.status_code == status
     assert "codigo" not in resposta.data
+
+
+def test_mensagem_padrao_do_drf_sai_em_portugues():
+    """`LANGUAGE_CODE = "pt-br"` (#121): o que não tem tradução própria, como
+    o 403 sem código, não chega ao usuário em inglês."""
+    resposta = _tratar(PermissionDenied())
+
+    assert resposta.status_code == 403
+    assert "permission" not in str(resposta.data["detail"])
+    assert "permissão" in str(resposta.data["detail"])
 
 
 @pytest.fixture

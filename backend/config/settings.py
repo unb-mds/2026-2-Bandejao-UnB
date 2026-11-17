@@ -148,7 +148,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
 
-LANGUAGE_CODE = "en-us"
+# pt-br (#121): as mensagens padrão do Django e do DRF que não têm tradução
+# própria no tratador (config/excecoes.py) não chegam ao usuário em inglês.
+LANGUAGE_CODE = "pt-br"
 
 TIME_ZONE = "America/Sao_Paulo"
 

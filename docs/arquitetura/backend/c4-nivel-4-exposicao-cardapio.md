@@ -283,7 +283,32 @@ classDiagram
 
 ### Notas do diagrama (4b)
 
-- **`GET /api/campi/` publica o que o PWA precisa para detectar o campus no
+- **O que entra em cada tarefa.** O diagrama mostra o desenho completo da
+  Release 2. Na v1 (BE-08), `GET /api/campi/` publica só `id` e `nome`, e a
+  `LocalizacaoCampusConfig` tem só `campi()`. `centro` e `raioDeteccaoMetros`
+  (com `centro()` e `raioDeteccaoMetros()`) entram com a detecção de campus,
+  que é o EXTRA 3 (BE-E3), como diz o item 7 da seção 3 do backlog.
+- **Cache.** A resposta vai com `Cache-Control: private, no-cache` e um
+  `ETag` forte, que é o SHA-256 dos bytes do corpo: a view renderiza o JSON
+  uma vez só e usa os mesmos bytes no hash e na resposta. O navegador guarda
+  a lista e confere a cada uso: se nada mudou, o servidor responde 304 sem
+  corpo. Com um `fetch` comum, quem manda o `If-None-Match` é o navegador, e
+  o JavaScript recebe o corpo guardado como um 200. Se o PWA mandar o
+  `If-None-Match` à mão, com a cópia do `localStorage` (C4 do front), recebe
+  o 304 sem corpo e usa a própria cópia. É `private` porque, para quem está
+  logado, a resposta leva o `Set-Cookie` da sessão (ADR 0007), e um cache
+  compartilhado não deve guardá-la nem repassá-la a outra pessoa. Como o
+  corpo só tem o que é publicado, mudar o raio ou as coordenadas não muda o
+  `ETag`; incluir ou remover um campus, mudar um nome e, depois, os campos da
+  BE-E3 mudam.
+- **Só o `If-None-Match` é tratado.** `If-Match`, `If-Modified-Since` e
+  `If-Unmodified-Since` são ignorados, e a resposta é 200. O
+  `get_conditional_response` do Django foi descartado porque avalia essas
+  condições e devolveria um 412 cru, sem o corpo `{codigo, mensagem}` e fora
+  do contrato. A tabela `CAMPUS` vazia (deploy sem a fixture da BD-03)
+  responde `200 []` e deixa um aviso no log.
+- **No desenho completo (Release 2, a partir da BE-E3), `GET /api/campi/`
+  publica o que o PWA precisa para detectar o campus no
   aparelho (RF20.1, ADR 0009; combinado entre backend e frontend).** É público, não depende de login
   e devolve, para cada campus, id, nome, centro e raio de detecção:
 
