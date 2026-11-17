@@ -18,6 +18,7 @@ from rest_framework.exceptions import (
     NotFound,
     ParseError,
     PermissionDenied,
+    Throttled,
     UnsupportedMediaType,
     ValidationError,
 )
@@ -267,6 +268,17 @@ def test_mensagem_padrao_do_drf_sai_em_portugues():
     assert resposta.status_code == 403
     assert "permission" not in str(resposta.data["detail"])
     assert "permissão" in str(resposta.data["detail"])
+
+
+def test_throttled_vira_limite_excedido_com_retry_after():
+    """Limite de taxa por IP (#123): sem a tradução, sairia `{"detail": ...}`."""
+    resposta = _tratar(Throttled(wait=30))
+
+    assert resposta.status_code == 429
+    assert set(resposta.data) == {"codigo", "mensagem"}
+    assert resposta.data["codigo"] == "limite_excedido"
+    assert resposta.data["mensagem"]
+    assert resposta["Retry-After"] == "30"
 
 
 @pytest.fixture
