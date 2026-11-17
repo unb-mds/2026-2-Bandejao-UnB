@@ -112,6 +112,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Ferramenta: Claude (Anthropic), com a skill `c4-architecture`.
 - Apoio: sugestões 3 e 4 da [segunda revisão do PR #129](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/129#issuecomment-6937610684): CHECKs de `raio_confirmacao_metros` e `raio_deteccao_metros` no erDiagram do Nível 4 do banco e `confirmacao_ativa` na lista de campos lidos pela `LocalizacaoRUConfig`, no Nível 4 da exposição do cardápio.
 - TDD: não se aplica (só documentação).
-- Validação: anotações conferidas com as constraints `campus_raios_nao_negativos` e `campus_confirmacao_ativa_exige_raio_positivo` do model e da migration `0003`, e com `LocalizacaoRUConfig.confirmacaoAtiva(campus)` do Nível 4 da Fila; erDiagram renderizado sem erro no Mermaid 11.4.1.
-- Revisão humana: pendente.
-- Situação: aguardando revisão.
+- Validação: anotações conferidas com as constraints `campus_raios_nao_negativos` e `campus_confirmacao_ativa_exige_raio_positivo` do model e da migration `0003`, e com `LocalizacaoRUConfig.confirmacaoAtiva(campus)` do Nível 4 da Fila; diagramas dos dois documentos renderizados sem erro no Mermaid 10.9.3 (versão usada pelo docsify) e no 11.4.1.
+- Revisão humana: [revisão de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/152#pullrequestreview-5943164631), sem bloqueio, com um ponto importante e quatro sugestões. Aplicadas: `> 0 se confirmacao_ativa` no erDiagram e nomes das constraints na tabela de campos de `CAMPUS`. Sem mudança: o `classDiagram` da exposição do cardápio não tem `LocalizacaoRUConfig` (ela só aparece no Nível 4 da Fila, que já tem `confirmacaoAtiva`); o formato "descrição; CHECK" segue o restante do erDiagram; `Closes` é o padrão dos PRs do grupo.
+- Situação: ajustes da revisão aplicados e `develop` integrada; aguardando nova revisão.
