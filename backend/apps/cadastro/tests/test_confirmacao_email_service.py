@@ -118,6 +118,17 @@ def test_enviar_link_invalida_os_tokens_anteriores_da_conta(servico, usuario):
         servico.confirmar(antigo)
 
 
+def test_enviar_link_diz_se_o_email_saiu(servico, usuario):
+    """O reenvio só gasta a vaga do limite por conta quando o e-mail sai (#123)."""
+    assert servico.enviar_link(usuario) is True
+
+    with mock.patch(
+        "apps.cadastro.confirmacao_email_service.send_mail",
+        side_effect=SMTPException("fora do ar"),
+    ):
+        assert servico.enviar_link(usuario) is False
+
+
 def test_falha_no_smtp_mantem_o_link_anterior_valido(servico, usuario):
     """Se o e-mail novo não sai, o link que a pessoa já tem continua valendo."""
     antigo = enviar_e_pegar_token(servico, usuario)

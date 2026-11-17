@@ -95,3 +95,27 @@ def usuario(db):
         versao_aviso_aceita="teste",
         password="senha-forte-123",
     )
+
+
+@pytest.fixture(autouse=True)
+def cache_limpo(request):
+    """Cada teste com banco começa com o cache vazio (contadores do limite, #123).
+
+    Hoje a tabela do cache em banco já é desfeita junto com a transação de cada
+    teste, mas isso não vale para os testes `transaction=True` (o `flush` não
+    limpa a tabela, que não é model) nem se o cache um dia mudar de backend.
+    Só roda nos testes que usam o banco: os outros não podem tocar nele.
+    """
+    usa_banco = request.node.get_closest_marker("django_db") or any(
+        nome in request.fixturenames
+        for nome in ("db", "transactional_db", "django_db_reset_sequences")
+    )
+    if usa_banco:
+        from django.core.cache import cache
+
+        transacional = "transactional_db" in request.fixturenames or (
+            (marcador := request.node.get_closest_marker("django_db"))
+            and marcador.kwargs.get("transaction")
+        )
+        request.getfixturevalue("transactional_db" if transacional else "db")
+        cache.clear()

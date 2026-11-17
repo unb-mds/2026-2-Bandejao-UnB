@@ -227,6 +227,10 @@ DEFAULT_FROM_EMAIL = config(
 # para localhost faria todo cadastro expirar e ser apagado em 24 h.
 URL_DO_PWA = config_sem_padrao_em_producao("URL_DO_PWA", "http://localhost:5173")
 
+# Proxy (ADR 0012): em produção o Caddy fica na frente do Gunicorn. Usado no
+# SECURE_PROXY_SSL_HEADER (sessão e CSRF, abaixo) e no NUM_PROXIES.
+ATRAS_DE_PROXY = config("ATRAS_DE_PROXY_HTTPS", default=not DEBUG, cast=bool)
+
 # Django REST Framework
 # API só em JSON, autenticada pela sessão do Django (ADR 0007).
 
@@ -247,6 +251,35 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.JSONParser",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Limite de taxa (#123): de onde vem o IP. Atrás do Caddy, o IP real é o
+    # último do X-Forwarded-For (o que o Caddy acrescentou); o resto da lista
+    # foi o cliente quem mandou e não vale. Sem proxy (runserver), vale o
+    # REMOTE_ADDR. Nunca deixe None: o DRF usaria o cabeçalho inteiro, e quem
+    # o forja escolhe o próprio "IP". O 1 supõe que o Caddy é o ÚNICO proxy na
+    # frente do Gunicorn: se a Azure (ou outro balanceador) entrar antes dele,
+    # o último endereço passa a ser o desse proxy, e todos os pedidos contam
+    # como um IP só. Nesse caso, o número tem que subir junto. Os limites ficam nas views
+    # (throttle_classes), e não num DEFAULT_THROTTLE_CLASSES: o padrão valeria
+    # também para o cardápio e o GET /api/sessao/, que o PWA chama a cada
+    # abertura.
+    "NUM_PROXIES": 1 if ATRAS_DE_PROXY else 0,
+}
+
+
+# Cache em banco (#123): os contadores do limite de taxa valem para todos os
+# workers do Gunicorn (o LocMemCache, padrão do Django, conta cada worker
+# separado). A tabela não é model: é criada pela migration 0003 do cadastro.
+# MAX_ENTRIES: o padrão é 300; passou disso, o Django apaga um terço das
+# chaves, inclusive contadores válidos, e quem enchesse a tabela zeraria os
+# limites dos outros. 100 mil linhas é bem mais do que o RU gera numa hora (cada
+# linha é um IP ou uma conta por rota, e o IPv6 conta pela faixa /64), e as
+# linhas são pequenas (um hash e uma lista de horários).
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "cache_bandejao",
+        "OPTIONS": {"MAX_ENTRIES": 100_000},
+    }
 }
 
 
@@ -273,7 +306,9 @@ CSRF_HEADER_NAME = "HTTP_X_CSRFTOKEN"
 # `Origin: https://...` do navegador não confere e todo login e cadastro dá
 # 403 de CSRF. Só é seguro porque o Gunicorn não fica exposto: o Caddy sempre
 # regrava o X-Forwarded-Proto. O .env pode desligar.
-if config("ATRAS_DE_PROXY_HTTPS", default=not DEBUG, cast=bool):
+# A mesma variável decide de onde vem o IP do limite de taxa (#123): veja o
+# NUM_PROXIES no REST_FRAMEWORK. ATRAS_DE_PROXY é lido lá em cima, antes dele.
+if ATRAS_DE_PROXY:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 else:
     SECURE_PROXY_SSL_HEADER = None

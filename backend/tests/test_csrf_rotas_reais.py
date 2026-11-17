@@ -133,13 +133,16 @@ def test_motivo_do_csrf_recusado_vai_para_o_log_sem_o_path(caplog):
 
 
 def test_login_atras_do_proxy_https_passa_na_checagem_de_origem(
-    settings, cliente_com_token
+    settings, cliente_com_token, db
 ):
     """O Caddy encerra o HTTPS e encaminha em HTTP (ADR 0012).
 
     O navegador manda `Origin: https://...`. Sem SECURE_PROXY_SSL_HEADER, o
     Django acha que a requisição é HTTP, a origem não confere e todo login dá
     403 só em produção.
+
+    `db`: o limite de taxa do login (#123) consulta o cache em banco antes da
+    view.
     """
     settings.SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
