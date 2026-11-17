@@ -46,6 +46,24 @@ class Campus(models.Model):
     centro_longitude = models.DecimalField(max_digits=9, decimal_places=6)
     raio_deteccao_metros = models.IntegerField()
 
+    class Meta:
+        constraints = (
+            models.CheckConstraint(
+                condition=(
+                    models.Q(raio_confirmacao_metros__gte=0)
+                    & models.Q(raio_deteccao_metros__gte=0)
+                ),
+                name="campus_raios_nao_negativos",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(confirmacao_ativa=False)
+                    | models.Q(raio_confirmacao_metros__gt=0)
+                ),
+                name="campus_confirmacao_ativa_exige_raio_positivo",
+            ),
+        )
+
     def __str__(self):
         return self.nome
 
