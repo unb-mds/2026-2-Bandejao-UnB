@@ -9,8 +9,8 @@ Skills utilizadas pelo grupo, padronizadas nesta pasta para referência da disci
 - **domain-modeling** — apoia a construção do modelo de domínio do projeto (terminologia, CONTEXT.md, ADRs).
 - **grill-with-docs** — combina a dinâmica de perguntas com a geração de documentação (ADRs e glossário).
 - **c4-architecture** — gera e atualiza os diagramas C4 (Mermaid) da pasta `docs/arquitetura/`.
-- **pr-review-toolkit** — plugin de revisão de PR (`/pr-review-toolkit:review-pr`) com agentes para código, testes, tratamento de erros, comentários, tipos e simplificação.
-- **review-status** — mostra as branches e os PRs de correção de revisão em aberto.
+- **pr-review-toolkit** — plugin de revisão de PR (`/pr-review-toolkit:review-pr`) com agentes para código, testes, tratamento de erros, comentários, tipos e simplificação. Cópia da versão 1.0.1 (17/11/2026), só para referência; para usar, instale o plugin do marketplace oficial.
+- **review-status** — mostra as branches e os PRs de correção de revisão em aberto (requer o plugin review-to-pr, que não está nesta pasta).
 
 Como, quando e em quais partes do projeto cada skill é usada: veja [`USO-DAS-SKILLS.md`](USO-DAS-SKILLS.md).
 

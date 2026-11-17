@@ -77,7 +77,7 @@ As skills acompanham as etapas de um item do backlog:
   - `code-simplifier`: simplifica o código sem mudar o comportamento
 - **Quando:** antes de abrir um PR (sobre o `git diff` da branch) e ao revisar o PR de um colega. Também depois dos ajustes da revisão, antes do recheck.
 - **Onde:** código do `backend/` (Django/DRF) e do `frontend/` (Vue 3), testes, `openapi.yaml` e documentação alterados no PR.
-- **Como:** rode `/pr-review-toolkit:review-pr` na branch do PR. Para focar em uma parte, passe o aspecto: `tests`, `errors`, `comments`, `types`, `code` ou `simplify`. A revisão por IA **não substitui a revisão humana** exigida no DoD. Os achados aceitos viram commits "(revisão do #N)" e o uso é registrado no `AI-USAGE.md`.
+- **Como:** rode `/pr-review-toolkit:review-pr` na branch do PR. Para focar em uma parte, passe o aspecto: `tests`, `errors`, `comments`, `types`, `code` ou `simplify`. A revisão por IA **não substitui a revisão humana** exigida no DoD. Os achados aceitos viram commits `tipo(escopo): ajustes da revisão … (#N)` e o uso é registrado no `AI-USAGE.md`.
 - **Instalação:** os arquivos estão em `pr-review-toolkit/` só para referência. Para usar, instale o plugin `pr-review-toolkit` do marketplace oficial (`claude-plugins-official`) no Claude Code.
 
 ### review-status

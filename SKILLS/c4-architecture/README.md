@@ -1,5 +1,7 @@
 # C4 Architecture Skill
 
+> Origem: [softaworks/agent-toolkit](https://github.com/softaworks/agent-toolkit) (licença MIT, ver [`LICENSE`](LICENSE)), copiado em 17/11/2026.
+
 Generate software architecture documentation using C4 model diagrams in Mermaid syntax.
 
 ## Purpose
