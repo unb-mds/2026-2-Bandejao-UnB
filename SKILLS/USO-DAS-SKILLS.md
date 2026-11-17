@@ -89,5 +89,5 @@ As skills acompanham as etapas de um item do backlog:
 
 ## Observações
 
-- Para uma skill funcionar, o arquivo precisa se chamar `SKILL.md` dentro da pasta da skill. Os arquivos `Review-status/SKILL(1).md` e `c4-architecture/SKILL(2).md` precisam ser renomeados para `SKILL.md` antes de serem copiados para `.claude/skills/`.
+- Para uma skill funcionar, o arquivo precisa se chamar `SKILL.md` dentro da pasta da skill. Ao adicionar uma skill nova nesta pasta, mantenha esse nome.
 - Toda skill usada em um PR deve aparecer na entrada do PR no `AI-USAGE.md`, no campo **Ferramenta** ou **Apoio**.
