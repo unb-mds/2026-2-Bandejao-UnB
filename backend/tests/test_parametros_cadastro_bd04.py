@@ -1,4 +1,4 @@
-"""Parâmetros do Anexo A já utilizados pelo cadastro e pelo login."""
+"""Parâmetros do cadastro e autenticação definidos no Anexo A."""
 
 from datetime import timedelta
 
@@ -15,6 +15,9 @@ from config import parametros
         ("login_max_tentativas", 5),
         ("login_janela", timedelta(minutes=10)),
         ("login_bloqueio", timedelta(minutes=10)),
+        ("validade_redefinicao_senha", timedelta(hours=1)),
+        ("redefinicao_max_solicitacoes", 3),
+        ("redefinicao_janela", timedelta(hours=1)),
     ],
 )
 def test_parametros_do_cadastro_correspondem_ao_anexo_a(atributo, esperado):
