@@ -19,7 +19,6 @@ import hashlib
 import logging
 import secrets
 import smtplib
-from datetime import timedelta
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -30,13 +29,13 @@ from django.utils import timezone
 from apps.cadastro.conta_repository import ContaRepository
 from apps.cadastro.erros import TokenExpiradoOuInvalidoError
 from apps.cadastro.models import StatusUsuario, TipoToken, Token, Usuario
+from config.parametros import ParametrosCadastroConfig
 
 logger = logging.getLogger(__name__)
 
-# Anexo A, "Validade do link de confirmação de e-mail": 24 horas. Vale também
-# para o prazo da exclusão do cadastro pendente (RF02.3). Fica aqui até a BD-04
-# (#90) decidir em qual classe de `config/parametros.py` ele entra.
-VALIDADE_DO_LINK = timedelta(hours=24)
+# Compatibilidade com os imports existentes; o valor vem da configuração.
+# O serviço e o job consultam ParametrosCadastroConfig diretamente.
+VALIDADE_DO_LINK = ParametrosCadastroConfig.validade_confirmacao_email
 
 ASSUNTO = "Confirme seu e-mail no Bandejão UnB"
 CORPO = """Olá, {apelido}!
@@ -62,7 +61,7 @@ class ConfirmacaoEmailService:
         self.conta_repository = ContaRepository()
 
     def enviar_link(self, conta: Usuario) -> None:
-        """Gera um link novo (24 h) e manda para o e-mail institucional.
+        """Gera um link com a validade configurada e envia ao e-mail institucional.
 
         A ordem importa, como trocar a fechadura só depois de entregar a chave
         nova: primeiro grava o token novo, depois manda o e-mail e, só se ele
@@ -74,19 +73,20 @@ class ConfirmacaoEmailService:
         para o log (sem token e sem e-mail) e não sobe para quem chamou. Erros
         de banco e de programação sobem normalmente.
         """
+        validade = ParametrosCadastroConfig.validade_confirmacao_email
         token = secrets.token_urlsafe(32)
         # Monta a mensagem antes do envio: um erro aqui é bug e tem que subir.
         corpo = CORPO.format(
             apelido=conta.apelido,
             link=self._link_do_pwa(token),
-            horas=int(VALIDADE_DO_LINK.total_seconds() // 3600),
+            horas=int(validade.total_seconds() // 3600),
         )
         agora = timezone.now()
         novo = Token.objects.create(
             usuario=conta,
             tipo=TipoToken.CONFIRMACAO_EMAIL,
             token_hash=hash_do_token(token),
-            expira_em=agora + VALIDADE_DO_LINK,
+            expira_em=agora + validade,
         )
 
         try:
