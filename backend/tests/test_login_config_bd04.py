@@ -59,3 +59,31 @@ def test_login_aplica_duracao_de_bloqueio_configurada(monkeypatch, conta):
     TentativaLoginTracker().registrar_tentativa(conta, sucesso=False)
 
     assert conta.bloqueado_ate == AGORA + timedelta(minutes=30)
+
+
+def test_login_nao_bloqueia_antes_do_limite_configurado(monkeypatch, conta):
+    monkeypatch.setattr(ParametrosCadastroConfig, "login_max_tentativas", 3)
+    conta.tentativas_login_falhas = 1
+    tracker = TentativaLoginTracker()
+
+    tracker.registrar_tentativa(conta, sucesso=False)
+
+    assert conta.tentativas_login_falhas == 2
+    assert conta.bloqueado_ate is None
+
+    tracker.registrar_tentativa(conta, sucesso=False)
+
+    assert conta.tentativas_login_falhas == 3
+    assert conta.bloqueado_ate == AGORA + ParametrosCadastroConfig.login_bloqueio
+
+
+def test_login_reinicia_contagem_na_borda_exata_da_janela(monkeypatch, conta):
+    monkeypatch.setattr(ParametrosCadastroConfig, "login_janela", timedelta(minutes=2))
+    conta.tentativas_login_falhas = 4
+    conta.primeira_falha_login_em = AGORA - timedelta(minutes=2)
+
+    TentativaLoginTracker().registrar_tentativa(conta, sucesso=False)
+
+    assert conta.tentativas_login_falhas == 1
+    assert conta.primeira_falha_login_em == AGORA
+    assert conta.bloqueado_ate is None
