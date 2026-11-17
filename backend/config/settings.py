@@ -347,3 +347,6 @@ LOGGING = {
         },
     },
 }
+
+# Fonte do cardápio (Anexo A, ADR 0014).
+URL_PAGINA_CARDAPIO = "https://ru.unb.br/cardapio-refeitorio/"

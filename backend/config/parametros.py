@@ -87,3 +87,31 @@ class ParametrosCadastroConfig:
     validade_redefinicao_senha: Final = timedelta(hours=1)
     redefinicao_max_solicitacoes: Final = 3
     redefinicao_janela: Final = timedelta(hours=1)
+
+
+class ParametrosLeitorConfig:
+    """Parâmetros da fonte e da verificação do cardápio, conforme o Anexo A."""
+
+    url_pagina: Final = settings.URL_PAGINA_CARDAPIO
+    intervalo_verificacao: Final = timedelta(hours=3)
+    # Convenção de date.weekday(): segunda-feira = 0.
+    dia_alerta_nao_publicado: Final = 0
+    horario_alerta_nao_publicado: Final = time(12, 0)
+
+
+class ParametrosBackupConfig:
+    """Periodicidade e retenção dos backups definidas no Anexo A."""
+
+    retencao: Final = timedelta(days=7)
+    intervalo: Final = timedelta(days=1)
+
+
+class ParametrosLocalizacaoConfig:
+    """Parâmetros de localização; valores pendentes exigem definição da equipe."""
+
+    tempo_nova_deteccao: Final = timedelta(minutes=30)
+    tempo_limite_leitura: Final = timedelta(seconds=5)
+
+    # None representa parâmetro ainda não definido, nunca validação dispensada.
+    precisao_minima_metros: Final[float | None] = None
+    idade_maxima_posicao: Final[timedelta | None] = None
