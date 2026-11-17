@@ -301,6 +301,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/CheckinRegistrado'
           description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Corpo fora do formato, campus ou refeição inexistente, ou
+            coordenada fora da faixa. Não conta como tentativa. `codigo`: `dados_invalidos`.'
         '401':
           content:
             application/json:
@@ -981,9 +988,7 @@ components:
           type: integer
           description: Id do campus (o de GET /api/campi/).
         tipoRefeicao:
-          type: string
-          minLength: 1
-          description: Um de "cafe", "almoco" ou "jantar".
+          $ref: '#/components/schemas/TipoRefeicaoEnum'
         coordenadas:
           $ref: '#/components/schemas/CoordenadasRequest'
       required:
@@ -1259,6 +1264,16 @@ components:
       - apelido
       - avisoPrivacidadePendente
       - tipo
+    TipoRefeicaoEnum:
+      enum:
+      - cafe
+      - almoco
+      - jantar
+      type: string
+      description: |-
+        * `cafe` - Café da manhã
+        * `almoco` - Almoço
+        * `jantar` - Jantar
     TipoUsuarioEnum:
       enum:
       - estudante

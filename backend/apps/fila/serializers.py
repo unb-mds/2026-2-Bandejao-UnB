@@ -2,6 +2,7 @@
 
 from rest_framework import serializers
 
+from apps.cardapio.models import Campus, TipoRefeicao
 from apps.gamificacao.serializers import ResultadoPontuacaoSerializer
 
 
@@ -15,10 +16,13 @@ class CoordenadasSerializer(serializers.Serializer):
 class CheckinEntradaSerializer(serializers.Serializer):
     """Corpo do POST /api/checkins/ (RF11, RF12, Fila N4 4a)."""
 
-    campus = serializers.IntegerField(help_text="Id do campus (o de GET /api/campi/).")
-    tipoRefeicao = serializers.CharField(
-        help_text='Um de "cafe", "almoco" ou "jantar".',
+    # Devolve o `Campus`; id inexistente é dado inválido. A mensagem do DRF
+    # repete o id, mas a view responde com a mensagem fixa de `dados_invalidos`.
+    campus = serializers.PrimaryKeyRelatedField(
+        queryset=Campus.objects.all(),
+        help_text="Id do campus (o de GET /api/campi/).",
     )
+    tipoRefeicao = serializers.ChoiceField(choices=TipoRefeicao.choices)
     coordenadas = CoordenadasSerializer()
 
 
