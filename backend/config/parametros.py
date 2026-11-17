@@ -73,7 +73,9 @@ class ParametrosGamificacaoConfig:
 class ParametrosSessaoConfig:
     """Duração da sessão definida no settings, conforme a ADR 0007."""
 
-    duracao_segundos: Final = settings.SESSION_COOKIE_AGE
+    @property
+    def duracao_segundos(self) -> int:
+        return settings.SESSION_COOKIE_AGE
 
 
 class ParametrosCadastroConfig:
@@ -92,11 +94,14 @@ class ParametrosCadastroConfig:
 class ParametrosLeitorConfig:
     """Parâmetros da fonte e da verificação do cardápio, conforme o Anexo A."""
 
-    url_pagina: Final = settings.URL_PAGINA_CARDAPIO
     intervalo_verificacao: Final = timedelta(hours=3)
     # Convenção de date.weekday(): segunda-feira = 0.
     dia_alerta_nao_publicado: Final = 0
     horario_alerta_nao_publicado: Final = time(12, 0)
+
+    @property
+    def url_pagina(self) -> str:
+        return settings.URL_PAGINA_CARDAPIO
 
 
 class ParametrosBackupConfig:
