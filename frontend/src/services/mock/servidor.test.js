@@ -288,6 +288,35 @@ describe('CSRF (ADR 0007, #112)', () => {
     }
   })
 
+  it('depois de um F5, o cookie que ficou no navegador continua valendo', async () => {
+    await entrarComDemo()
+    const cookieAntesDoF5 = csrf()
+
+    // F5: o módulo do simulado é carregado de novo (estado em memória zerado),
+    // mas o cookie csrftoken continua no navegador, como no Django.
+    vi.resetModules()
+    const recarregado = await import('./servidor')
+    const resposta = await recarregado.tratarRequisicaoSimulada({
+      metodo: 'POST',
+      caminho: '/reenviar-confirmacao/',
+      corpo: { matriculaSiape: '251000001' },
+      cabecalhos: { 'X-CSRFToken': cookieAntesDoF5 },
+    })
+
+    expect(resposta.status).toBe(200)
+  })
+
+  it('o cabeçalho precisa ser igual ao cookie', async () => {
+    await get('/csrf/')
+    const resposta = await tratarRequisicaoSimulada({
+      metodo: 'POST',
+      caminho: '/reenviar-confirmacao/',
+      corpo: { matriculaSiape: '251000001' },
+      cabecalhos: { 'X-CSRFToken': 'outro-valor' },
+    })
+    expect(resposta.status).toBe(403)
+  })
+
   it('o login troca o csrftoken: o valor antigo deixa de valer', async () => {
     await get('/csrf/')
     const antes = csrf()
@@ -420,5 +449,55 @@ describe('avaliações (RF15)', () => {
   it('refeição que ainda não começou não tem avaliações', async () => {
     const { dados } = await get('/avaliacoes/?campus=gama&data=2026-09-28&refeicao=jantar')
     expect(dados).toMatchObject({ quantidade: 0, media: null, avaliacoes: [] })
+  })
+})
+
+describe('limite de taxa por IP (429 limite_excedido, #123)', () => {
+  const LIMITE = {
+    codigo: 'limite_excedido',
+    mensagem: 'Muitos pedidos seguidos. Tente de novo mais tarde.',
+  }
+
+  it('cadastro: 40 por hora', async () => {
+    for (let i = 0; i < 40; i++) expect((await post('/cadastro/', {})).status).toBe(422)
+    const excedido = await post('/cadastro/', {})
+    expect(excedido.status).toBe(429)
+    expect(excedido.dados).toEqual(LIMITE)
+
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 61 * 60 * 1000))
+    expect((await post('/cadastro/', {})).status).toBe(422)
+  })
+
+  it('reenvio de confirmação: 10 por hora', async () => {
+    for (let i = 0; i < 10; i++) {
+      expect((await post('/reenviar-confirmacao/', { matriculaSiape: '251000001' })).status).toBe(200)
+    }
+    const excedido = await post('/reenviar-confirmacao/', { matriculaSiape: '251000001' })
+    expect(excedido.status).toBe(429)
+    expect(excedido.dados).toEqual(LIMITE)
+  })
+
+  it('login: 60 por hora, contando também os pedidos inválidos', async () => {
+    for (let i = 0; i < 60; i++) expect((await entrar('12345', 'x')).status).toBe(422)
+    const excedido = await entrarComDemo()
+    expect(excedido.status).toBe(429)
+    expect(excedido.dados).toEqual(LIMITE)
+  })
+
+  it('reenvio por conta: depois de 3 links na hora, responde 200 sem mandar outro', async () => {
+    await post('/cadastro/', {
+      tipoUsuario: 'estudante',
+      emailInstitucional: '241987650@aluno.unb.br',
+      senha: 'senhaforte',
+      apelido: 'novo_aluno',
+      aceitePrivacidade: true,
+    })
+    for (let i = 0; i < 3; i++) {
+      const reenvio = await post('/reenviar-confirmacao/', { matriculaSiape: '241987650' })
+      expect(reenvio.dados.linkSimulado).toEqual(expect.any(String))
+    }
+    const quarto = await post('/reenviar-confirmacao/', { matriculaSiape: '241987650' })
+    expect(quarto.status).toBe(200)
+    expect(quarto.dados).toBeNull()
   })
 })

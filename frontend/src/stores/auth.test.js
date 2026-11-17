@@ -101,6 +101,36 @@ describe('authStore com o servidor simulado', () => {
     expect(falha.codigo).toBe('nao_autenticado')
   })
 
+  it('sair com a sessão já expirada (401) resolve e limpa a store', async () => {
+    const auth = useAuthStore()
+    await auth.entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    simulacao.expirarSessao()
+
+    await expect(auth.sair()).resolves.toBeUndefined()
+
+    expect(auth.estaAutenticado).toBe(false)
+  })
+
+  it('sair com outro erro (ex.: 403 de CSRF) rejeita, mas limpa a store', async () => {
+    const auth = useAuthStore()
+    await auth.entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    document.cookie = 'csrftoken=token-velho; path=/'
+
+    const falha = await auth.sair().catch((e) => e)
+
+    expect(falha.codigo).toBe('csrf_invalido')
+    expect(auth.estaAutenticado).toBe(false)
+  })
+
+  it('reenvio sem conta pendente: 200 sem corpo, só a mensagem do front', async () => {
+    const auth = useAuthStore()
+
+    const reenvio = await auth.reenviarConfirmacao({ matriculaSiape: '251000001' })
+
+    expect(reenvio.mensagem).toMatch(/novo link de confirmação/)
+    expect(reenvio.linkSimulado).toBeUndefined()
+  })
+
   it('login com senha errada mostra o codigo do contrato', async () => {
     const auth = useAuthStore()
     const falha = await auth.entrar(CONTA_DEMO.matricula, 'errada123').catch((e) => e)

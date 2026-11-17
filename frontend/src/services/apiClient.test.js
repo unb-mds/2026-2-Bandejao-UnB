@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, criarApiClient, definirAoPerderSessao } from './apiClient'
+import { ApiError, criarApiClient, definirAoPerderSessao, mensagemDeErro } from './apiClient'
 
 /**
  * Testes do apiClient falando HTTP de verdade (com o `fetch` trocado por um
@@ -102,15 +102,53 @@ describe('CSRF nas escritas', () => {
 
   it('escritas ao mesmo tempo, sem cookie, pedem o /api/csrf/ uma vez só', async () => {
     apagarCookieCsrf()
-    fetchFalso.mockImplementationOnce(() => {
-      document.cookie = 'csrftoken=vindo-do-servidor; path=/'
-      return Promise.resolve(new Response(null, { status: 204 }))
-    })
+    // O cookie só chega quando a resposta do /csrf/ volta, depois das duas
+    // escritas já terem começado: sem o pedido compartilhado, cada uma
+    // chamaria o /csrf/ por conta própria.
+    let responderCsrf
+    fetchFalso.mockImplementationOnce(
+      () =>
+        new Promise((resolver) => {
+          responderCsrf = () => {
+            document.cookie = 'csrftoken=vindo-do-servidor; path=/'
+            resolver(new Response(null, { status: 204 }))
+          }
+        }),
+    )
 
-    await Promise.all([cliente.post('/cadastro/', {}), cliente.post('/sessao/', {})])
+    const escritas = Promise.all([cliente.post('/cadastro/', {}), cliente.post('/sessao/', {})])
+    await new Promise((resolver) => setTimeout(resolver, 0))
+    responderCsrf()
+    await escritas
 
-    const pedidosCsrf = fetchFalso.mock.calls.filter(([url]) => url === '/api/csrf/')
-    expect(pedidosCsrf).toHaveLength(1)
+    const urls = fetchFalso.mock.calls.map(([url]) => url)
+    expect(urls.filter((url) => url === '/api/csrf/')).toHaveLength(1)
+    const escritasFeitas = fetchFalso.mock.calls.filter(([url]) => url !== '/api/csrf/')
+    expect(escritasFeitas).toHaveLength(2)
+    for (const [, opcoes] of escritasFeitas) {
+      expect(opcoes.headers['X-CSRFToken']).toBe('vindo-do-servidor')
+    }
+  })
+
+  it('se o GET /api/csrf/ falhar, a escrita não é enviada', async () => {
+    apagarCookieCsrf()
+    fetchFalso.mockReturnValueOnce(Promise.resolve(new Response('<html>', { status: 500 })))
+
+    const falha = await cliente.post('/cadastro/', {}).catch((e) => e)
+
+    expect(falha).toBeInstanceOf(ApiError)
+    expect(falha.status).toBe(500)
+    expect(fetchFalso.mock.calls.map(([url]) => url)).toEqual(['/api/csrf/'])
+  })
+
+  it('se o GET /api/csrf/ não gravar o cookie, a escrita não é enviada', async () => {
+    apagarCookieCsrf()
+    fetchFalso.mockReturnValueOnce(Promise.resolve(new Response(null, { status: 204 })))
+
+    const falha = await cliente.post('/cadastro/', {}).catch((e) => e)
+
+    expect(falha.codigo).toBe('csrf_indisponivel')
+    expect(fetchFalso.mock.calls.map(([url]) => url)).toEqual(['/api/csrf/'])
   })
 
   it('com o cookie já gravado, não pede /api/csrf/ de novo', async () => {
@@ -122,6 +160,50 @@ describe('CSRF nas escritas', () => {
     apagarCookieCsrf()
     await cliente.get('/sessao/')
     expect(fetchFalso.mock.calls.map(([url]) => url)).toEqual(['/api/sessao/'])
+  })
+})
+
+describe('corpo da requisição e da resposta', () => {
+  it('escrita com corpo manda JSON com Content-Type', async () => {
+    await cliente.post('/sessao/', { matriculaSiape: '231034567', senha: 'x' })
+    const { opcoes, cabecalhos } = ultimaChamada()
+    expect(opcoes.body).toBe(JSON.stringify({ matriculaSiape: '231034567', senha: 'x' }))
+    expect(cabecalhos['Content-Type']).toBe('application/json')
+  })
+
+  it('pedido sem corpo não manda body nem Content-Type', async () => {
+    await cliente.get('/sessao/')
+    const { opcoes, cabecalhos } = ultimaChamada()
+    expect(opcoes).not.toHaveProperty('body')
+    expect(cabecalhos).not.toHaveProperty('Content-Type')
+  })
+
+  it('2xx com corpo vazio devolve null (ex.: reenvio de confirmação)', async () => {
+    fetchFalso.mockReturnValueOnce(Promise.resolve(new Response('', { status: 200 })))
+    expect(await cliente.post('/reenviar-confirmacao/', { token: 'x' })).toBeNull()
+  })
+
+  it('2xx com corpo que não é JSON vira erro resposta_invalida (ex.: index.html)', async () => {
+    fetchFalso.mockReturnValueOnce(
+      Promise.resolve(new Response('<!doctype html><html></html>', { status: 200 })),
+    )
+
+    const falha = await cliente.post('/sessao/', {}).catch((e) => e)
+
+    expect(falha).toBeInstanceOf(ApiError)
+    expect(falha.codigo).toBe('resposta_invalida')
+    expect(falha.status).toBe(200)
+  })
+
+  it('conexão cortada no meio do corpo vira sem_conexao', async () => {
+    const resposta = new Response('{"apelido":', { status: 200 })
+    resposta.text = () => Promise.reject(new TypeError('network error'))
+    fetchFalso.mockReturnValueOnce(Promise.resolve(resposta))
+
+    const falha = await cliente.get('/sessao/').catch((e) => e)
+
+    expect(falha).toBeInstanceOf(ApiError)
+    expect(falha.codigo).toBe('sem_conexao')
   })
 })
 
@@ -151,12 +233,28 @@ describe('erro com codigo', () => {
     expect(falha.dados.apelidoSugerido).toBe('maria1')
   })
 
-  it('erro sem corpo JSON vira mensagem genérica, sem codigo', async () => {
+  it('erro sem corpo JSON (ex.: página do proxy) vira mensagem pelo status, sem codigo', async () => {
     fetchFalso.mockReturnValueOnce(Promise.resolve(new Response('<html>', { status: 502 })))
     const falha = await cliente.get('/sessao/').catch((e) => e)
     expect(falha.status).toBe(502)
     expect(falha.codigo).toBeNull()
-    expect(falha.message).toMatch(/algo deu errado/i)
+    expect(falha.message).toBe('O servidor está com problemas. Tente de novo em instantes.')
+  })
+
+  it('erro só com `detail` (inglês do DRF) mostra mensagem em português pelo status', async () => {
+    fetchFalso.mockReturnValueOnce(respostaJson(404, { detail: 'Not found.' }))
+
+    const falha = await cliente.post('/recuperar-senha/', {}).catch((e) => e)
+
+    expect(falha.message).toBe('Não encontramos o que você pediu.')
+    expect(falha.codigo).toBeNull()
+    expect(falha.dados.detail).toBe('Not found.')
+  })
+
+  it('429 sem mensagem pede para esperar', async () => {
+    fetchFalso.mockReturnValueOnce(respostaJson(429, { detail: 'Request was throttled.' }))
+    const falha = await cliente.post('/cadastro/', {}).catch((e) => e)
+    expect(falha.message).toBe('Muitos pedidos seguidos. Tente de novo mais tarde.')
   })
 
   it('sem conexão vira status 0 com codigo sem_conexao', async () => {
@@ -202,5 +300,22 @@ describe('401 avisa que a sessão acabou', () => {
     expect(aoPerder).not.toHaveBeenCalled()
     expect(falha.status).toBe(403)
     expect(falha.codigo).toBe('csrf_invalido')
+  })
+})
+
+describe('mensagemDeErro (o que as telas mostram)', () => {
+  it('ApiError: a mensagem do servidor', () => {
+    const falha = new ApiError(403, { codigo: 'conta_nao_confirmada', mensagem: 'Confirme seu e-mail.' })
+    expect(mensagemDeErro(falha)).toBe('Confirme seu e-mail.')
+  })
+
+  it('erro de programação (TypeError): mensagem genérica e registro no console', () => {
+    const console = vi.spyOn(globalThis.console, 'error').mockImplementation(() => {})
+    const falha = new TypeError("Cannot read properties of null (reading 'mensagem')")
+
+    expect(mensagemDeErro(falha)).toBe('Algo deu errado. Tente novamente em instantes.')
+    expect(console).toHaveBeenCalledWith(falha)
+
+    console.mockRestore()
   })
 })
