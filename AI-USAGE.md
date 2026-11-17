@@ -78,7 +78,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## #135 — Ajustes finais de arquitetura do BD-03
 
-- PR: PR desta tarefa, vinculado à [#135](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/135).
+- PR: [#152 — CHECKs de CAMPUS no erDiagram e confirmacao_ativa na LocalizacaoRUConfig](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/152).
 - Ferramenta: Claude (Anthropic), com a skill `c4-architecture`.
 - Apoio: sugestões 3 e 4 da [segunda revisão do PR #129](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/129#issuecomment-6937610684): CHECKs de `raio_confirmacao_metros` e `raio_deteccao_metros` no erDiagram do Nível 4 do banco e `confirmacao_ativa` na lista de campos lidos pela `LocalizacaoRUConfig`, no Nível 4 da exposição do cardápio.
 - TDD: não se aplica (só documentação).
