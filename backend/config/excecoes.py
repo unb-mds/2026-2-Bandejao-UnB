@@ -33,6 +33,11 @@ TRADUCOES = {
         "metodo_nao_permitido",
         "Esta rota não aceita esse método.",
     ),
+    # Limite de taxa por IP (#123). O DRF já põe o `Retry-After` em segundos.
+    "throttled": (
+        "limite_excedido",
+        "Muitos pedidos seguidos. Tente de novo mais tarde.",
+    ),
     "csrf_invalido": (
         "csrf_invalido",
         (
@@ -47,7 +52,7 @@ def tratador_de_excecoes(exc, context):
     """Converte erros de mensagem única para `{"codigo", "mensagem"}`.
 
     - Códigos de TRADUCOES (sem sessão, credenciais, CSRF, corpo ilegível,
-      404 e 405) usam o texto de lá.
+      404, 405 e limite de taxa) usam o texto de lá.
     - Exceção levantada com código próprio usa esse código e a mensagem dela:
       `raise PermissionDenied("Confirme seu e-mail.", code="conta_nao_confirmada")`.
       No 404 de rota com parâmetro, use `code=` (`refeicao_nao_encontrada`): sem

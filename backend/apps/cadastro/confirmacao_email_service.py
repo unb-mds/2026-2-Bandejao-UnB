@@ -29,6 +29,7 @@ from django.utils import timezone
 
 from apps.cadastro.conta_repository import ContaRepository
 from apps.cadastro.erros import TokenExpiradoOuInvalidoError
+from apps.cadastro.limite_de_taxa import LimiteReenvioPorConta
 from apps.cadastro.models import StatusUsuario, TipoToken, Token, Usuario
 
 logger = logging.getLogger(__name__)
@@ -61,8 +62,12 @@ class ConfirmacaoEmailService:
     def __init__(self):
         self.conta_repository = ContaRepository()
 
-    def enviar_link(self, conta: Usuario) -> None:
+    def enviar_link(self, conta: Usuario) -> bool:
         """Gera um link novo (24 h) e manda para o e-mail institucional.
+
+        Devolve True se o e-mail saiu e False se o envio falhou (o reenvio
+        usa isso para só gastar a vaga do limite por conta quando o link
+        chegou, #123).
 
         A ordem importa, como trocar a fechadura só depois de entregar a chave
         nova: primeiro grava o token novo, depois manda o e-mail e, só se ele
@@ -101,7 +106,7 @@ class ConfirmacaoEmailService:
             # OSError cobre a rede: conexão recusada, timeout, erro de TLS.
             novo.delete()
             self._registrar_falha_no_envio(conta, exc)
-            return
+            return False
 
         # Só os links mais antigos que o novo (pk menor): se dois reenvios
         # correrem juntos, o mais recente sobrevive, e não os dois morrem.
@@ -111,6 +116,7 @@ class ConfirmacaoEmailService:
             usado_em__isnull=True,
             pk__lt=novo.pk,
         ).update(usado_em=agora)
+        return True
 
     def _registrar_falha_no_envio(self, conta: Usuario, exc: Exception) -> None:
         """Log da falha sem dados pessoais.
@@ -187,12 +193,24 @@ class ConfirmacaoEmailService:
 
         Quem chama responde igual em todos os casos (RF02.2): assim a rota não
         revela quais contas existem nem quais já foram confirmadas.
+
+        A conta que passou do limite de reenvios (`LimiteDeTaxaConfig`, #123)
+        também não recebe e-mail, e a resposta continua a mesma: um 429 aqui
+        revelaria que a conta existe. Só os envios que saíram contam. O
+        primeiro link, do cadastro, não passa por este limite (sai pelo
+        `enviar_link` direto).
         """
         if conta is None:
             return
         if conta.status != StatusUsuario.PENDENTE or conta.email_confirmado:
             return
-        self.enviar_link(conta)
+        limite = LimiteReenvioPorConta()
+        if not limite.permite(conta):
+            return
+        # A vaga só é gasta se o e-mail saiu: com o SMTP fora, a pessoa pode
+        # tentar de novo quando ele voltar.
+        if self.enviar_link(conta):
+            limite.registrar(conta)
 
     def _link_do_pwa(self, token: str) -> str:
         """O link abre a página `/confirmar-email` do PWA, e não a API.

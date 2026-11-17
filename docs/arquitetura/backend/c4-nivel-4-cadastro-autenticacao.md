@@ -292,8 +292,25 @@ classDiagram
   é pelo ORM, para os tokens e a `PontuacaoUsuario` irem junto (`CASCADE`).
 - **Sem teto absoluto (pendente).** Como cada reenvio renova o prazo, uma conta
   pendente pode ficar viva para sempre se alguém pedir reenvio a cada menos de
-  24 h. O limite de pedidos fica na #123; um teto (por exemplo, `criado_em` + N
-  dias) ainda precisa ser decidido pelo grupo e registrado no Anexo A.
+  24 h. O limite de pedidos da #123 (3 links por hora por conta) não resolve
+  isso, porque um reenvio por dia já basta; um teto (por exemplo, `criado_em` +
+  N dias) ainda precisa ser decidido pelo grupo e registrado no Anexo A.
+- **Limite de taxa (#123).** `POST /api/cadastro/` e
+  `POST /api/reenviar-confirmacao/` têm limite por IP (`LimiteCadastroPorIP` e
+  `LimiteReenvioPorIP`, subclasses de `LimitePorIP` em
+  `apps/cadastro/limite_de_taxa.py`): acima dele, 429 `limite_excedido` com
+  `Retry-After`. O reenvio tem também um limite por conta
+  (`LimiteReenvioPorConta`, chamado no `reenviar()`), que é silencioso: a conta
+  que passou dele não recebe outro e-mail, mas a resposta continua 200
+  (RF02.2). Só conta o envio que saiu: o `enviar_link` diz se o e-mail foi, e
+  só então a vaga é registrada, para uma queda do SMTP não deixar a pessoa uma
+  hora sem link. O link do cadastro não passa por esse limite. Os números
+  ficam no `LimiteDeTaxaConfig` (Anexo A), e os contadores, no cache em banco
+  (tabela `cache_bandejao`, criada pela migration 0003 do cadastro), que vale
+  para todos os workers do Gunicorn. Atrás do Caddy, o IP é o último endereço
+  do `X-Forwarded-For` (`NUM_PROXIES`, que segue o `ATRAS_DE_PROXY_HTTPS` e
+  supõe o Caddy como único proxy), e o IPv6 conta pela faixa /64. Uma falha ao
+  gravar um contador não derruba o pedido, mas vai para o log.
 - **Token.** O `TokenConfirmacao` é o model `Token` com
   `tipo = confirmacao_email`: o campo `usado` é a coluna `usado_em`, e o
   `token` em claro só existe no e-mail (o banco guarda o SHA-256).
@@ -419,6 +436,13 @@ classDiagram
 ```
 
 ### Notas do diagrama (4c)
+
+- **Dois limites no login, dois códigos (#123).** O `TentativaLoginTracker`
+  bloqueia a **conta** que errou a senha 5 vezes (429 `login_bloqueado`). O
+  `LimiteLoginPorIP` limita o **IP** que mandou pedidos demais, certos ou
+  errados (429 `limite_excedido`), e segura quem testa uma senha em muitas
+  contas. Os dois mandam `Retry-After`, e o front decide pelo `codigo`. Só o
+  `POST` tem limite por IP: o `GET` e o `DELETE` da sessão ficam livres.
 
 - **Sessão do Django em cookie, não token (ADR 0007).** O login
   (`POST /api/sessao/`) abre uma sessão guardada em `django_session`, com

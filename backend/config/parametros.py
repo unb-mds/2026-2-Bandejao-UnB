@@ -23,3 +23,31 @@ class AvisoPrivacidadeConfig:
     # Igual à "Versão" de docs/requisitos/aviso-de-privacidade.md (DOC-03).
     # Um teste falha se as duas ficarem diferentes.
     versao_atual: Final = "2026-11-14"
+
+
+class LimiteDeTaxaConfig:
+    """Limites de taxa das rotas públicas que criam conta ou mandam e-mail (#123).
+
+    Como a catraca do RU: cada IP (ou conta) tem um contador por rota, que
+    zera quando a janela passa. Acima do limite, o IP recebe 429
+    `limite_excedido`; o limite por conta do reenvio é silencioso (RF02.2).
+
+    Formato do DRF: "<número>/<unidade>", com unidade second, minute, hour ou
+    day. Só a primeira letra da unidade conta: "5/mes" vira 5 por MINUTO, sem
+    erro; "5/10m" quebra com KeyError (500 no primeiro pedido). Um teste em
+    tests/test_parametros.py confere o formato.
+
+    Os números não são menores porque a rede Wi-Fi da UnB sai por poucos IPs
+    (NAT): uma turma inteira se cadastrando conta como um IP só. Os nomes dos
+    atributos são os `scope` das classes de `apps/cadastro/limite_de_taxa.py`.
+    """
+
+    # Segura a criação em massa de contas pendentes com matrícula alheia.
+    cadastro_por_ip: Final = "40/hour"
+    # Segura o disparo de e-mail em massa e protege a cota diária do Brevo.
+    reenvio_por_ip: Final = "10/hour"
+    # Mesmo número da redefinição de senha no Anexo A: protege a caixa de
+    # e-mail da vítima mesmo com IPs diferentes.
+    reenvio_por_conta: Final = "3/hour"
+    # Segura o password spraying (uma senha em muitas contas).
+    login_por_ip: Final = "60/hour"
