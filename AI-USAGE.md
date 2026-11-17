@@ -31,10 +31,10 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Evidências: histórico de commits, descrição e execuções do CI vinculadas ao PR #129.
 - Validação completa local anterior aos ajustes do review, em SQLite: 747 testes passaram, 1 foi ignorado por ser específico de MySQL; cobertura de 97,62%.
 - Validação completa local após os ajustes do review, em SQLite: 807 testes aprovados, 1 ignorado por ser específico de MySQL; cobertura de 97,67%.
-- Validação no CI do commit `aa142db`: SQLite com 747 testes aprovados e 1 ignorado; MySQL 8.4 com 748 testes aprovados; cobertura de 97,62% nos dois bancos. Os quatro jobs foram aprovados.
-- Evidência da validação: [execução verde do Backend CI](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/43911808889).
-- Revisão humana: [review de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/129#issuecomment-6924252533), com parecer de aprovação com ajustes; ajustes aplicados, aguardando nova conferência.
-- Situação: integração com a develop concluída, ajustes do review aplicados e validação completa local aprovada. Pendentes o CI atualizado e a nova conferência humana antes do merge.
+- Validação no CI do commit `e8f3c87`: SQLite com 807 testes aprovados e 1 ignorado; MySQL 8.4 com 808 testes aprovados; cobertura de 97,67% nos dois bancos. Os quatro jobs foram aprovados.
+- Evidência da validação: [execução verde dos ajustes do review](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/43990867511).
+- Revisão humana: [segunda revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/129#issuecomment-6937610684), com os ajustes obrigatórios conferidos e merge aprovado; [aprovação formal](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/129#pullrequestreview-5932481529).
+- Situação: aprovado para merge na segunda revisão. As sugestões remanescentes são opcionais; conferir os checks do último commit antes do merge.
 
 ## BE-08 — Lista de campi (`GET /api/campi/`)
 
