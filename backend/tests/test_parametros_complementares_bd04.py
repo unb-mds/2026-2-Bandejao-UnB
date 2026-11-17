@@ -4,6 +4,7 @@ from datetime import time, timedelta
 
 import pytest
 from django.conf import settings
+from django.test import override_settings
 
 from config import parametros
 
@@ -49,10 +50,12 @@ def test_url_da_pagina_do_cardapio_definida_no_settings():
 
 
 def test_parametros_do_leitor_expoem_url_do_settings():
-    configuracao = getattr(parametros, "ParametrosLeitorConfig", None)
+    configuracao = parametros.ParametrosLeitorConfig()
+    url_original = settings.URL_PAGINA_CARDAPIO
 
-    assert configuracao is not None, (
-        "ParametrosLeitorConfig deve existir em config.parametros"
-    )
-    assert hasattr(settings, "URL_PAGINA_CARDAPIO")
-    assert getattr(configuracao, "url_pagina", None) == settings.URL_PAGINA_CARDAPIO
+    assert configuracao.url_pagina == url_original
+
+    with override_settings(URL_PAGINA_CARDAPIO="https://example.com/cardapios/"):
+        assert configuracao.url_pagina == "https://example.com/cardapios/"
+
+    assert configuracao.url_pagina == url_original
