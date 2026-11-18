@@ -163,6 +163,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = "static/"
+# Pasta onde o collectstatic junta o CSS e o JS do admin. Em produção, o
+# Caddy serve esses arquivos em /static/ (BD-05).
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
 # Email (ADR 0012, BE-06)
