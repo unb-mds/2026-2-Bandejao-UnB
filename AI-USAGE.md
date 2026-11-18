@@ -143,7 +143,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BD-05 — Docker e publicação
 
-- PR: link a acrescentar depois da abertura.
+- PR: [#157 — BD-05: Docker e publicação](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/157).
 - Ferramenta: Claude (Anthropic).
 - Apoio: `backend/Dockerfile` e `entrypoint.sh` (Gunicorn, espera do MySQL, `migrate` e `collectstatic`), `requirements-prod.txt`, `frontend/Dockerfile` (build do PWA na imagem do Caddy), `Caddyfile`, `docker-compose.yml`, `STATIC_ROOT` no `settings.py`, instruções em `docs/deploy/deploy-producao.md` e primeiro deploy na VM.
 - TDD: não se aplica (infraestrutura de deploy, sem código de aplicação); os testes de settings e e-mail ficam no PR da dupla do banco.
