@@ -1,0 +1,83 @@
+# Produção do Bandejão (BD-05, ADR 0012): Caddy (HTTPS + PWA), backend Django
+# (Gunicorn) e MySQL 8, na VM da Azure. Instruções em
+# docs/deploy/deploy-producao.md.
+#
+# Os valores vêm do arquivo .env, na mesma pasta deste arquivo, que só existe
+# na VM e nunca vai para o Git.
+
+name: bandejao
+
+# Sem limite, o log de cada container cresce até encher o disco da VM.
+x-logs: &logs
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?defina no .env}
+      # Na primeira subida (volume vazio), a imagem cria o banco e o usuário
+      # da aplicação com acesso total a ele. Os scripts de db/init/ rodam
+      # depois disso e podem ajustar as permissões e criar o usuário da
+      # equipe (ADR 0008).
+      MYSQL_DATABASE: ${DB_NAME:?defina no .env}
+      MYSQL_USER: ${DB_USER:?defina no .env}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?defina no .env}
+    volumes:
+      - mysql_dados:/var/lib/mysql
+      # Só rodam na primeira subida, com o volume vazio.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      # Arquivos .cnf (charset, isolamento).
+      - ./db/conf.d:/etc/mysql/conf.d:ro
+    # Sem "ports": o banco só é acessível pela rede interna do Compose. A
+    # equipe entra por túnel SSH (ADR 0004).
+    healthcheck:
+      # Pelo 127.0.0.1 (TCP), e não pelo socket: durante a primeira subida a
+      # imagem roda um MySQL temporário sem rede, que não deve contar como
+      # pronto.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    logging: *logs
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    # Todas as variáveis do .env chegam ao Django com o mesmo nome.
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - estaticos_django:/app/staticfiles
+    # Sem "ports": só o Caddy fala com o Gunicorn.
+    logging: *logs
+
+  caddy:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - estaticos_django:/srv/django/static:ro
+      # Certificados do Let's Encrypt. Não apague: o Let's Encrypt limita
+      # quantos certificados o mesmo domínio pode pedir por semana.
+      - caddy_dados:/data
+      - caddy_config:/config
+    logging: *logs
+
+volumes:
+  mysql_dados:
+  estaticos_django:
+  caddy_dados:
+  caddy_config:
