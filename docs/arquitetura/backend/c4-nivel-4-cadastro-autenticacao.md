@@ -127,10 +127,6 @@ classDiagram
   class AvisoPrivacidadeConfig {
     +versaoAtual: str
   }
-  class ParametrosCadastroConfig {
-    <<Anexo A>>
-    +primeiroAnoMatricula: int
-  }
 
   CadastroView --> CadastroService : registrar()
   IdentificadorExtractor <|.. EstudanteIdentificadorExtractor
@@ -138,7 +134,6 @@ classDiagram
   IdentificadorExtractor --> IdentificadorExtraido : produz
   CadastroService --> IdentificadorExtractor : escolhe estratégia por TipoUsuario
   CadastroService --> MatriculaValidator : valida (Estudante)
-  MatriculaValidator --> ParametrosCadastroConfig : lê o ano mínimo do prefixo
   CadastroService --> SiapeValidator : valida (Professor/Servidor)
   CadastroService --> EmailInstitucionalValidator : valida formato
   CadastroService --> ApelidoResolver : resolve/valida apelido
@@ -185,6 +180,9 @@ classDiagram
   dos outros níveis de ensino não foi confirmado (L16, ADR 0002).
   O ano mínimo vem de `ParametrosCadastroConfig.primeiroAnoMatricula`
   (BD-04); o ano corrente, de `timezone.localdate()`, no fuso do projeto.
+  A `ParametrosCadastroConfig` fica fora deste diagrama para manter o limite
+  de 20 elementos; o consumo aparece na tabela de parâmetros do fim do
+  documento.
   Métodos separados tornam cada regra testável isoladamente com casos de
   borda próprios, sem depender de montar uma matrícula "válida no resto"
   só para testar uma das três checagens.
@@ -445,7 +443,7 @@ classDiagram
   LoginService ..> ContaNaoConfirmadaError : lança se conta pendente
   LoginService ..> CredenciaisInvalidasError : lança em erro (mensagem genérica)
   LoginService ..> LoginBloqueadoError : lança se bloqueado
-  SessoesDaConta --> ParametrosSessaoConfig : lê duração
+  SessoesDaConta ..> ParametrosSessaoConfig : duração aplicada pelo Django (SESSION_COOKIE_AGE)
   RecuperacaoSenhaService --> SolicitacaoRedefinicaoTracker : limita solicitações por janela
   RecuperacaoSenhaService --> TokenRedefinicaoSenha : gera/consome
   RecuperacaoSenhaService --> ContaRepository : busca conta / atualiza senha
@@ -477,7 +475,11 @@ classDiagram
 - **Sessão do Django em cookie, não token (ADR 0007).** O login
   (`POST /api/sessao/`) abre uma sessão guardada em `django_session`, com
   cookie `HttpOnly`, `Secure` e `SameSite=Lax`, de 14 dias e renovada a cada
-  uso (`ParametrosSessaoConfig`, Anexo A). `SessoesDaConta` representa o
+  uso (`ParametrosSessaoConfig`, Anexo A). A seta para a
+  `ParametrosSessaoConfig` é tracejada porque quem aplica a duração é o
+  próprio Django, lendo `SESSION_COOKIE_AGE` do settings: a
+  `ParametrosSessaoConfig` só expõe o valor para quem precisar mostrá-lo, e
+  a `SessoesDaConta` só chama `login()`/`logout()`. `SessoesDaConta` representa o
   mecanismo do Django (`django.contrib.sessions`); não é uma tabela própria
   do projeto. As requisições que alteram estado mandam o token CSRF do
   Django num cabeçalho.

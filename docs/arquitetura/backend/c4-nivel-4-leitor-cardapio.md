@@ -427,6 +427,12 @@ classDiagram
   `intervaloVerificacao` (3 horas) é a periodicidade do cron do SO, que fica
   fora do diagrama (BD-07). Assim, a URL
   e o prazo ficam num lugar só, e o que é de cada campus fica no banco.
+- **As classes do Leitor entram na BE-12.** O diagrama inteiro é o projeto
+  da BE-12: a `FonteCardapioConfig` e o `LeitorCardapioService` ainda não
+  existem no código, e as setas cheias para a `ParametrosLeitorConfig`
+  mostram o consumo previsto. Aqui não vale a convenção do Cadastro 4c
+  (cheia já existe, tracejada é previsto), que é só das setas para a
+  `ParametrosCadastroConfig`.
 - **`FonteCardapio` é a tabela `FONTE_CARDAPIO`**, com uma linha por campus
   e semana, criada na primeira leitura com sucesso daquela semana. Depois
   disso, `verificadoEm` é atualizado a cada execução que acha o link, e
