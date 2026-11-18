@@ -140,3 +140,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Ajustes da revisão (08e8406): `ParametrosCadastroConfig` e a seta do `MatriculaValidator` retiradas do 4a de Cadastro, que voltou ao limite de 20 elementos (o ano mínimo segue nas notas e na tabela de parâmetros); seta `SessoesDaConta ..> ParametrosSessaoConfig` tracejada no 4c, com a nota de que quem aplica a duração é o Django (`SESSION_COOKIE_AGE`); nota no Leitor 4c de que as classes entram na BE-12 e de que a convenção cheia/tracejada do Cadastro 4c não vale ali. [Resposta à revisão](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/155#issuecomment-6978749760).
 - Validação após os ajustes: os 8 diagramas dos três documentos passam no `mermaid.parse` do Mermaid 10.9.3, sem erro.
 - Situação: revisão aprovada; pronto para o merge.
+
+## BD-05 — Docker e publicação
+
+- PR: link a acrescentar depois da abertura.
+- Ferramenta: Claude (Anthropic).
+- Apoio: `backend/Dockerfile` e `entrypoint.sh` (Gunicorn, espera do MySQL, `migrate` e `collectstatic`), `requirements-prod.txt`, `frontend/Dockerfile` (build do PWA na imagem do Caddy), `Caddyfile`, `docker-compose.yml`, `STATIC_ROOT` no `settings.py`, instruções em `docs/deploy/deploy-producao.md` e primeiro deploy na VM.
+- TDD: não se aplica (infraestrutura de deploy, sem código de aplicação); os testes de settings e e-mail ficam no PR da dupla do banco.
+- Validação: build do PWA com `VITE_USE_MOCK=false`, `collectstatic` e `check --deploy` em modo produção e `ruff` locais; na VM, `docker compose config`, `docker compose up -d --build`, PWA, `/api/campi/`, `/admin/` e `/static/` respondendo por HTTPS com certificado do Let's Encrypt, e teste de reboot com os três containers voltando sozinhos.
+- Revisão humana: pendente.
+- Situação: PR aberto para revisão.
