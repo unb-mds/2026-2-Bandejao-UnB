@@ -43,6 +43,9 @@
   - [0013 — Estratégia de testes e portas de qualidade](arquitetura/adr/0013-estrategia-de-testes-e-portas-de-qualidade.md)
   - [0014 — Descoberta do PDF de cada campus](arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md)
 
+- **Deploy**
+  - [Deploy de produção](deploy/deploy-producao.md)
+
 - **Gestão do projeto**
   - [Atas de reunião](atas-reunioes/README.md)
   - [Reviews de sprint](reviews-sprints/README.md)
