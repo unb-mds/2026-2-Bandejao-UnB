@@ -1,0 +1,23 @@
+# Imagem do Caddy com o build do PWA (BD-05, ADR 0012). O Caddy serve estes
+# arquivos estáticos na raiz do domínio e encaminha /api/ e /admin/ ao
+# backend. O Caddyfile fica na raiz do repositório e é montado pelo Compose.
+
+# Etapa 1: build do PWA.
+FROM node:24-slim AS construcao
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+
+# Sem isto o apiClient usa o backend simulado (src/services/mock), e o site
+# em produção não falaria com a API.
+ARG VITE_USE_MOCK=false
+ENV VITE_USE_MOCK=$VITE_USE_MOCK
+RUN npm run build
+
+
+# Etapa 2: só o Caddy e a pasta dist.
+FROM caddy:2.11-alpine
+
+COPY --from=construcao /app/dist /srv/pwa

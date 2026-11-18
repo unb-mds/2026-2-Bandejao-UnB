@@ -1,0 +1,47 @@
+# Caddy de produção (BD-05, ADR 0012). O HTTPS é automático: o Caddy pede o
+# certificado ao Let's Encrypt e o renova sozinho.
+#
+# PWA e API no mesmo domínio (ADR 0007): /api/ e /admin/ vão ao backend, e o
+# resto é o build do PWA.
+{
+	email equipe@bandejaounb.com.br
+}
+
+bandejaounb.com.br {
+	encode zstd gzip
+
+	@backend path /api/* /admin /admin/*
+	handle @backend {
+		reverse_proxy backend:8000
+	}
+
+	# CSS e JS do admin do Django, gerados pelo collectstatic no volume
+	# compartilhado com o backend.
+	handle /static/* {
+		root * /srv/django
+		file_server
+	}
+
+	# JS e CSS do build: têm hash no nome e podem ficar em cache. Sem o
+	# try_files, um arquivo que não existe dá 404, e não o index.html.
+	handle /assets/* {
+		root * /srv/pwa
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	handle {
+		root * /srv/pwa
+		# Rotas do Vue Router (history mode) caem no index.html.
+		try_files {path} /index.html
+		# index.html, sw.js e rotas do app são revalidados a cada acesso, para
+		# um deploy novo chegar na hora.
+		header Cache-Control "no-cache"
+		file_server
+	}
+}
+
+# Um endereço só: o www redireciona para o domínio raiz, também por HTTPS.
+www.bandejaounb.com.br {
+	redir https://bandejaounb.com.br{uri} permanent
+}
