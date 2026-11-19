@@ -1,28 +1,50 @@
 <script setup>
-import { RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
+import NavegacaoTopo from '@/components/NavegacaoTopo.vue'
+
+const ROTAS_SEM_NAVEGACAO = new Set(['boas-vindas'])
+
+const route = useRoute()
+const mostrarNavegacaoTopo = computed(() => !ROTAS_SEM_NAVEGACAO.has(route.name))
 </script>
 
 <template>
-  <!-- Moldura mobile: o app ocupa a tela toda no celular e fica centralizado no desktop. -->
   <div class="app">
-    <RouterView />
+    <NavegacaoTopo v-if="mostrarNavegacaoTopo" />
+    <div class="area-tela">
+      <RouterView />
+    </div>
   </div>
 </template>
 
 <style scoped>
 .app {
-  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-width: var(--largura-app);
-  margin: 0 auto;
   overflow: hidden;
   background: var(--bege);
 }
 
-.app > :deep(*) {
+.area-tela {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
+  width: 100%;
+}
+
+.area-tela > :deep(*) {
+  flex: 1;
+  min-height: 0;
+}
+
+@media (min-width: 1024px) {
+  .area-tela {
+    max-width: var(--largura-conteudo);
+    margin: 0 auto;
+  }
 }
 </style>

@@ -92,7 +92,7 @@ async function criarConta() {
 </script>
 
 <template>
-  <div class="tela">
+  <div class="tela tela-formulario">
     <CabecalhoFormulario
       titulo="Criar conta"
       subtitulo="Comunidade da UnB"
