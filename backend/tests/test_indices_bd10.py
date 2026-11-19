@@ -33,7 +33,7 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth import get_user_model
 from django.db import connection
-from django.db.models import Count
+from django.db.models import Case, Count, Exists, OuterRef, Value, When
 from django.utils import timezone
 
 from apps.cadastro.models import StatusUsuario
@@ -206,16 +206,30 @@ def consulta_tempos_de_espera(campus):
 def consulta_ranking(campus):
     """Forma do `PontuacaoRepository.elegiveis` + tamanho do ranking (RF27.2,
     RN12): só quem aderiu, conta ativa e ao menos 1 ponto no semestre, pelos
-    pontos e desempate por `atualizado_em`, até 10 linhas."""
+    pontos e desempate por `atualizado_em`, até 10 linhas.
+
+    A elegibilidade (adesão e conta ativa) fica num `EXISTS` dentro de um
+    `CASE`, e não num join. Com join (ou `EXISTS`/`IN` soltos, que o MySQL
+    transforma em join), o MySQL 8.4 começa pela tabela de contas, lê todas e
+    ordena em arquivo temporário: sem estatística dos valores, ele supõe que
+    só 10% das contas são elegíveis. Com o `CASE`, a subconsulta não vira
+    join, a leitura começa pelo índice do ranking, já em ordem, e para quando
+    acha as 10 linhas. Ver docs/arquitetura/banco-de-dados/indices-bd10.md.
+    """
+    elegivel = Exists(
+        PontuacaoUsuario.objects.filter(
+            usuario_id=OuterRef("usuario_id"),
+            participa_ranking=True,
+            usuario__status=StatusUsuario.ATIVO,
+        )
+    )
     return (
         PontosSemestreCampus.objects.filter(
-            campus=campus,
-            semestre_referencia="2026.2",
-            pontos__gte=1,
-            usuario__status=StatusUsuario.ATIVO,
-            usuario__pontuacao__participa_ranking=True,
+            campus=campus, semestre_referencia="2026.2", pontos__gte=1
         )
-        .select_related("usuario")
+        # `alias` e não `annotate`: a subconsulta fica só no WHERE.
+        .alias(elegivel=Case(When(elegivel, then=Value(True)), default=Value(False)))
+        .filter(elegivel=True)
         .order_by("-pontos", "atualizado_em")[:10]
     )
 
