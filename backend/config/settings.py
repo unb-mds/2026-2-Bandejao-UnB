@@ -15,25 +15,64 @@ import sys
 from pathlib import Path
 
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def lista(valor):
+    """Lista separada por vírgulas, sem itens vazios."""
+    return [item.strip() for item in valor.split(",") if item.strip()]
+
+
+# Variáveis do Django no .env (BD-05): os nomes têm o prefixo DJANGO_, como
+# combinado para o .env da VM. Um .env de antes ainda teria os nomes antigos,
+# que seriam ignorados em silêncio: um DEBUG=True esquecido viraria produção,
+# e um ALLOWED_HOSTS antigo deixaria a lista vazia. Por isso o servidor para.
+nomes_antigos = {
+    "SECRET_KEY": "DJANGO_SECRET_KEY",
+    "DEBUG": "DJANGO_DEBUG",
+    "ALLOWED_HOSTS": "DJANGO_ALLOWED_HOSTS",
+    "CSRF_TRUSTED_ORIGINS": "DJANGO_CSRF_TRUSTED_ORIGINS",
+}
+_antigos = [
+    antigo for antigo in nomes_antigos if config(antigo, default=None) is not None
+]
+if _antigos:
+    raise ImproperlyConfigured(
+        "Variáveis com o nome antigo no .env (BD-05). Renomeie: "
+        + ", ".join(f"{antigo} -> {nomes_antigos[antigo]}" for antigo in _antigos)
+    )
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY")
+SECRET_KEY = config("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG", default=False, cast=bool)
+DEBUG = config("DJANGO_DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config(
-    "ALLOWED_HOSTS",
-    default="",
-    cast=lambda v: [s.strip() for s in v.split(",") if s.strip()],
-)
+
+def config_sem_padrao_em_producao(nome, padrao_em_desenvolvimento, **opcoes):
+    """Lê a variável do .env; em produção (sem DEBUG) ela é obrigatória.
+
+    Mesmo padrão da SECRET_KEY: esquecer a variável no deploy para o servidor
+    na subida (UndefinedValueError), em vez de ele subir com um valor que só
+    serve em desenvolvimento. Com DEBUG, vale o padrão de desenvolvimento.
+    """
+    if DEBUG:
+        return config(nome, default=padrao_em_desenvolvimento, **opcoes)
+    return config(nome, **opcoes)
+
+
+# Em produção, sem a lista o Django responde 400 a todo pedido. Em
+# desenvolvimento, com a lista vazia, ele já aceita localhost e 127.0.0.1.
+ALLOWED_HOSTS = config_sem_padrao_em_producao("DJANGO_ALLOWED_HOSTS", "", cast=lista)
+if not DEBUG and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS está vazio no .env.")
 
 
 # Application definition
@@ -178,19 +217,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # produção, vai pelo SMTP do Brevo: o EMAIL_HOST vem do painel do Brevo, e o
 # usuário e a senha ficam só no .env do servidor (BD-05). Nos testes, o
 # pytest-django troca o backend pelo de memória (django.core.mail.outbox).
-
-
-def config_sem_padrao_em_producao(nome, padrao_em_desenvolvimento):
-    """Lê a variável do .env; em produção (sem DEBUG) ela é obrigatória.
-
-    Mesmo padrão da SECRET_KEY: esquecer a variável no deploy para o servidor
-    na subida (UndefinedValueError), em vez de ele responder 201 e nunca
-    entregar o link. Com DEBUG, vale o padrão de desenvolvimento.
-    """
-    if DEBUG:
-        return config(nome, default=padrao_em_desenvolvimento)
-    return config(nome)
-
+# Os dados do SMTP usam o config_sem_padrao_em_producao (lá em cima): sem eles
+# o servidor responderia 201 ao cadastro e nunca entregaria o link.
 
 BACKEND_DE_EMAIL_SMTP = "django.core.mail.backends.smtp.EmailBackend"
 BACKEND_DE_EMAIL = config(
@@ -316,11 +344,7 @@ if ATRAS_DE_PROXY:
 else:
     SECURE_PROXY_SSL_HEADER = None
 
-CSRF_TRUSTED_ORIGINS = config(
-    "CSRF_TRUSTED_ORIGINS",
-    default="",
-    cast=lambda v: [s.strip() for s in v.split(",") if s.strip()],
-)
+CSRF_TRUSTED_ORIGINS = config("DJANGO_CSRF_TRUSTED_ORIGINS", default="", cast=lista)
 
 
 SPECTACULAR_SETTINGS = {

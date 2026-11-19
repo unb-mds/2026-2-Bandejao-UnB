@@ -73,7 +73,8 @@ jobs:
           --health-retries=12
 
     env:
-      SECRET_KEY: chave-exclusiva-do-ci
+      DJANGO_SECRET_KEY: chave-exclusiva-do-ci
+      DJANGO_ALLOWED_HOSTS: localhost
       DB_ENGINE: mysql
       DB_NAME: bandejao_ci
       DB_USER: root
