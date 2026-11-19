@@ -13,3 +13,11 @@ db.sqlite3
 .coverage
 .coverage.*
 htmlcov/
+
+# Produção (BD-05): segredos do Compose e saída do collectstatic
+.env.db
+staticfiles/
+
+# Caches do ruff e do pytest
+.ruff_cache/
+.pytest_cache/

@@ -1,0 +1,6 @@
+# O que não entra no build do PWA.
+node_modules
+dist
+coverage
+.eslintcache
+*.local

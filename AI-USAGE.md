@@ -141,6 +141,21 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação após os ajustes: os 8 diagramas dos três documentos passam no `mermaid.parse` do Mermaid 10.9.3, sem erro.
 - Situação: revisão aprovada; pronto para o merge.
 
+## BD-05 — Docker e publicação
+
+- PR: [#157 — BD-05: Docker e publicação](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/157).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `backend/Dockerfile` e `entrypoint.sh` (Gunicorn, espera do MySQL, `migrate` e `collectstatic`), `requirements-prod.txt`, `frontend/Dockerfile` (build do PWA na imagem do Caddy), `Caddyfile`, `docker-compose.yml`, `STATIC_ROOT` no `settings.py`, instruções em `docs/deploy/deploy-producao.md` e primeiro deploy na VM.
+- TDD: não se aplica (infraestrutura de deploy, sem código de aplicação); os testes de settings e e-mail ficam no PR da dupla do banco.
+- Validação: build do PWA com `VITE_USE_MOCK=false`, `collectstatic` e `check --deploy` em modo produção e `ruff` locais; na VM, `docker compose config`, `docker compose up -d --build`, PWA, `/api/campi/`, `/admin/` e `/static/` respondendo por HTTPS com certificado do Let's Encrypt, e teste de reboot com os três containers voltando sozinhos.
+- Revisão humana: [revisão de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/157#pullrequestreview-5966561757), com 3 pontos importantes e 7 sugestões.
+- Ajustes da revisão: senha do root do MySQL num `.env.db` só do container `db`; healthcheck do backend, com o Caddy esperando por ele; prazo de 60 s por relógio no `entrypoint.sh`, que mostra o último erro do banco; cabeçalhos de segurança no PWA e no `/static/`; `.env.db`, `staticfiles/` e os caches do ruff e do pytest no `.gitignore`; lista completa das variáveis no guia de deploy, `/api/campi/` na conferência, certificado pedido na subida e aviso sobre a troca de senhas; nomes dos recursos da Azure retirados do guia. O `/admin/` público e o SSH aberto foram para a [#158](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/158); o backup já é a BD-15 do backlog.
+- Validação dos ajustes: a VM passou a rodar a própria branch do PR; `docker compose config` e `up -d --build`; backend `healthy` e sem o `MYSQL_ROOT_PASSWORD` no ambiente; as mesmas respostas por HTTPS; cabeçalhos de segurança no PWA, no `/static/` e na API, sem duplicar os do Django.
+- Segunda revisão: [aprovação de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/157#pullrequestreview-5967539868), com 7 sugestões. Aplicadas a 1 e da 3 à 6: o `entrypoint.sh` confere que o Django usa o MySQL (a mesma checagem do CI) antes de tudo; cada tentativa de conexão tem `timeout` de 10 s e mostra a última linha do erro; `printf` no lugar do `echo` do dash; e o guia ganhou o `--force-recreate db` e a migração do `MYSQL_ROOT_PASSWORD` de um `.env` antigo. A 2 (healthcheck por HTTP) e a 7 (`lb_try_duration` no Caddy) ficaram para depois.
+- Validação da segunda revisão: na VM, backend `healthy`; com `DB_ENGINE` vazio ou `sqlite`, o backend para na hora com a mensagem do MySQL; com host e senha errados, cada tentativa mostra o motivo e o backend desiste no prazo.
+- Atualização com a `develop` (FE-01, #119): o `apiClient` passou a ligar o simulado só no servidor de desenvolvimento, então o `VITE_USE_MOCK` saiu do `frontend/Dockerfile` (`d24f27a`). Validação: o build sem a variável não leva o código do simulado; na VM, o PWA reconstruído responde, e o `/api/sessao/` devolve 401 sem login, vindo da API real.
+- Situação: aprovado; sugestões da segunda revisão aplicadas e branch atualizada com a `develop`.
+
 ## BD-10 — Índices da previsão e do ranking no MySQL
 
 - Issue: [#150](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/150). PR: [#160 — índices da previsão e do ranking no MySQL](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/160).
@@ -150,7 +165,8 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação local (SQLite): `pytest` com 1005 testes aprovados e 1 ignorado (específico do MySQL), cobertura de 97,97%; `ruff check` e `ruff format --check` sem achados.
 - Achado no MySQL 8.4 (CI): a previsão usou o índice desde a primeira execução, mas o ranking com join não usava `pontos_semestre_ranking_idx` (lia todas as contas e ordenava em arquivo temporário). Um teste de diagnóstico temporário (commits `e88e6e8` e `d8c3643`, removido depois) comparou join, `EXISTS`, `IN`, histogramas, dicas de otimizador e `EXISTS` dentro de `CASE`. Só o `EXISTS` dentro de `CASE`, sem `select_related`, usa o índice só com o ORM; a consulta do teste e as regras para a BE-17 passaram a ter essa forma (`410de07`).
 - Correção do teste no MySQL (`be9d85f`): o `bulk_create` não devolve o id das contas no MySQL, e a fixture passou a recarregá-las do banco.
-- Validação no MySQL: [execução 44466578120](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/44466578120), `testes-mysql` com 1007 testes aprovados; planos no `indices-bd10.md`.
+- Validação no MySQL: planos da [execução 44466578120](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/44466578120) (`410de07`, 1007 testes aprovados, contando o diagnóstico temporário) no `indices-bd10.md`; depois da remoção do diagnóstico, [execução 44467642301](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/44467642301) (`b0eab3b`) com 1006 testes aprovados no `testes-mysql`.
 - Checklist do Plano de Testes (3.10): os testes conferem o índice escolhido e também o resultado das consultas, para o plano não ser de uma consulta vazia ou diferente da previsão e do ranking.
-- Revisão humana: pendente.
-- Situação: aguardando revisão de outra frente.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/160#pullrequestreview-5975589822), sem bloqueio para o merge, com três pontos a melhorar e três sugestões.
+- Ajustes da revisão (`394382b`): o teste do ranking compara a consulta com o top 10 calculado em Python, com `atualizado_em` embaralhado e um empate no topo fora da ordem dos ids (um desempate por id ou uma elegibilidade que descarte contas faz o teste falhar, conferido localmente); o ranking no MySQL também não pode ter `Using temporary`; o parse do plano do SQLite aceita `SEARCH TABLE`; o passo do EXPLAIN só roda se os testes do MySQL rodaram; os números deste registro foram corrigidos. A `develop` foi trazida para a branch para resolver o conflito neste arquivo com o #157.
+- Situação: ajustes da revisão aplicados; aguardando o recheck.
