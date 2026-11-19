@@ -1,32 +1,43 @@
 # ADR 0015 — Permissões de agentes de IA no repositório
 
-**Status:** Aceita
-**Data:** 2026-11-15
+**Status:** Proposta
+**Data:** 2026-11-18 (redigida em 2026-11-15)
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
 ## Contexto
 
 A equipe usa agentes de IA para escrever código, testes e documentação (ADR 0013). Esses agentes conseguem criar branches, fazer commits e abrir PRs, mas o que eles produzem nem sempre está correto, e a equipe continua responsável por tudo o que entra no repositório.
 
-A `main` guarda a versão entregue do produto, e a `develop` reúne o trabalho integrado de cada release. Uma alteração ruim em qualquer uma das duas afeta a equipe inteira.
+A `develop` reúne o trabalho integrado de cada release, e a `main` recebe as entregas de cada release. Uma alteração ruim em qualquer uma das duas afeta a equipe inteira.
 
-Desde o início do projeto, a equipe já trabalha assim: nada gerado por um agente de IA entra na `main` ou na `develop` sem que um integrante do grupo revise antes. Esta ADR registra essa prática.
+A Definition of Done (`docs/requisitos/backlog.md` §1.4) já prevê revisão antes do merge; esta ADR deixa a regra explícita para o trabalho feito com agentes de IA.
 
 ## Decisão
 
-**Nenhum agente de IA pode fazer commits diretamente na `main` ou na `develop`, nem dar merge em PRs para essas branches, sem a revisão de um integrante do grupo.**
+**Agentes de IA não fazem commit nem push direto na `main` ou na `develop`; toda mudança entra por PR. Agentes não fazem merge desses PRs: o merge é feito por um integrante, depois da revisão de alguém diferente de quem operou o agente.**
+
+- "Push direto" inclui force-push. Agentes também não apagam nem renomeiam a `main` ou a `develop`.
+- A regra vale para a `main` e a `develop`. Nas branches de trabalho (`feature/…`, `fix/…`, `docs/…` e `chore/…`, README), o agente pode commitar e fazer push.
+- Por enquanto, a regra é um acordo da equipe. A proteção das branches exige só os jobs do CI verdes (ADR 0013), e o agente usa a conta do integrante que o opera, então o GitHub não distingue os dois.
 
 ## Consequências
 
-- Todo código, teste ou documento gerado por IA passa por pelo menos uma pessoa da equipe antes de entrar na `main` ou na `develop`, que continua responsável pelo que aprovou.
-- O merge para essas branches depende da disponibilidade de um integrante para revisar, o que pode atrasar entregas perto dos prazos.
+- Toda mudança feita com agente de IA passa por pelo menos um integrante diferente de quem operou o agente, que continua responsável pelo que aprovou, antes de entrar na `main` ou na `develop`.
+- O merge para essas branches depende da disponibilidade de outro integrante para revisar, o que pode atrasar entregas perto dos prazos.
 - A regra vale para todos os agentes de IA usados pela equipe, independentemente da ferramenta.
+- Enquanto a regra não estiver na proteção das branches, nada impede tecnicamente que ela seja quebrada; o cumprimento depende da equipe.
 
 ## Alternativa considerada
 
-**Permitir merge automático pelo agente quando o CI estiver verde.** Seria mais rápido, mas o CI não detecta tudo (por exemplo, um teste que passa sem testar nada, risco citado na ADR 0013). Descartada.
+**Permitir merge automático pelo agente quando o CI estiver verde.** Seria mais rápido, mas o CI não pega tudo: a mutação só roda nos arquivos críticos alterados, e erros de regra de negócio, de documentação ou dependências inventadas só aparecem na revisão humana (ADR 0013; Plano de Testes 3.10). Descartada.
+
+## Pontos em aberto
+
+- Se a regra vai virar "Require approvals" na proteção da `main` e da `develop`, ou se fica como acordo da equipe.
 
 ## Relacionadas
 
 - `docs/arquitetura/adr/0013-estrategia-de-testes-e-portas-de-qualidade.md` (uso de IA na equipe e proteção da `develop` e da `main`).
-- `.github/PULL_REQUEST_TEMPLATE.md`.
+- `docs/requisitos/backlog.md` §1.4 (Definition of Done: revisão por alguém de outra frente).
+- `docs/qualidade/plano-de-testes.md` §3.10 (checklist do revisor para testes gerados por IA).
+- `AI-USAGE.md` (registro do uso de IA em cada PR, com o campo "Revisão humana").
