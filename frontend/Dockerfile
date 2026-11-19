@@ -10,10 +10,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 
-# Sem isto o apiClient usa o backend simulado (src/services/mock), e o site
-# em produção não falaria com a API.
-ARG VITE_USE_MOCK=false
-ENV VITE_USE_MOCK=$VITE_USE_MOCK
+# O build de produção sempre usa a API real: o apiClient só liga o backend
+# simulado no servidor de desenvolvimento (import.meta.env.DEV).
 RUN npm run build
 
 
