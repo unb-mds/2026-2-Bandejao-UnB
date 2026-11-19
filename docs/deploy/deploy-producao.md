@@ -200,8 +200,15 @@ relê o arquivo):
 docker compose up -d --force-recreate backend
 ```
 
+Se mudar o `.env.db`, recrie o `db` do mesmo jeito
+(`docker compose up -d --force-recreate db`).
+
 Lembre que mudar uma senha do banco nos arquivos não muda a senha no MySQL
 (ver o passo 2).
+
+Numa VM com um `.env` anterior ao `.env.db`, tire a linha
+`MYSQL_ROOT_PASSWORD` do `.env` e passe-a para o `.env.db`. Senão, o backend
+continua recebendo a senha do root, porque o `.env` vai inteiro para ele.
 
 ## Ver logs
 
