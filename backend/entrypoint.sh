@@ -6,10 +6,13 @@ set -e
 # o Docker sobe todos os containers ao mesmo tempo, e o MySQL ainda não aceita
 # conexão. Espera até 60 s antes do migrate.
 tentativas=0
-until python manage.py check --database default >/dev/null 2>&1; do
+until erro=$(python manage.py check --database default 2>&1); do
     tentativas=$((tentativas + 1))
     if [ "$tentativas" -ge 30 ]; then
-        echo "MySQL não respondeu em 60 s" >&2
+        # O erro pode não ser do MySQL (variável faltando no .env, DB_ENGINE
+        # errado): mostra a última saída, com o motivo real.
+        echo "O backend não conseguiu falar com o banco em 60 s. Último erro:" >&2
+        echo "$erro" | tail -n 5 >&2
         exit 1
     fi
     echo "Esperando o MySQL ($tentativas)..."

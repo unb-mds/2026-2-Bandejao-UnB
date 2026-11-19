@@ -2,8 +2,8 @@
 # (Gunicorn) e MySQL 8, na VM da Azure. Instruções em
 # docs/deploy/deploy-producao.md.
 #
-# Os valores vêm do arquivo .env, na mesma pasta deste arquivo, que só existe
-# na VM e nunca vai para o Git.
+# Os valores vêm dos arquivos .env e .env.db, na mesma pasta deste arquivo,
+# que só existem na VM e nunca vão para o Git.
 
 name: bandejao
 
@@ -18,8 +18,10 @@ services:
   db:
     image: mysql:8.4
     restart: unless-stopped
+    # Só o MYSQL_ROOT_PASSWORD. Fica fora do .env para não chegar ao backend,
+    # que recebe o tráfego da internet.
+    env_file: .env.db
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?defina no .env}
       # Na primeira subida (volume vazio), a imagem cria o banco e o usuário
       # da aplicação com acesso total a ele. Os scripts de db/init/ rodam
       # depois disso e podem ajustar as permissões e criar o usuário da
@@ -57,13 +59,28 @@ services:
     volumes:
       - estaticos_django:/app/staticfiles
     # Sem "ports": só o Caddy fala com o Gunicorn.
+    healthcheck:
+      # Pronto quando o Gunicorn aceita conexão, depois do migrate. Só abre a
+      # porta, sem requisição HTTP, para não depender do ALLOWED_HOSTS.
+      test:
+        - CMD
+        - python
+        - -c
+        - import socket; socket.create_connection(("127.0.0.1", 8000), 2)
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      # A espera do MySQL no entrypoint.sh vai até 60 s, e o migrate vem depois.
+      start_period: 120s
     logging: *logs
 
   caddy:
     build: ./frontend
     restart: unless-stopped
+    # Sem esperar o backend, as primeiras requisições dariam 502.
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"

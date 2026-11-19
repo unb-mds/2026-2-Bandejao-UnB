@@ -10,6 +10,15 @@
 bandejaounb.com.br {
 	encode zstd gzip
 
+	# O PWA e o /static/ não passam pelo Django, então os cabeçalhos de
+	# segurança dele não chegam nesses arquivos. O "?" só define o cabeçalho
+	# quando a resposta não o tem: nas respostas do Django vale o valor dele.
+	header {
+		?X-Content-Type-Options nosniff
+		?Referrer-Policy same-origin
+		?X-Frame-Options DENY
+	}
+
 	@backend path /api/* /admin /admin/*
 	handle @backend {
 		reverse_proxy backend:8000
