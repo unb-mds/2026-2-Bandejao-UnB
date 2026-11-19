@@ -225,12 +225,13 @@ def test_migration_marca_campus_fora_do_anexo_a_sem_colidir(estado_anterior):
     do Anexo A nem batem com título ou arquivo da página do RU. O valor certo
     vem depois pela fixture.
 
-    O caso é "Ceilandia" sem acento ao lado da Ceilândia real: com o nome como
-    reserva, o prefixo colidiria com o "Ceilandia" do Anexo A (nos dois
-    bancos), e o rótulo, no MySQL, cuja collation ignora acentos.
+    O caso é um campus "Fazenda" ao lado da Fazenda Água Limpa: com o nome
+    como reserva, o prefixo colidiria com o "Fazenda" do Anexo A, nos dois
+    bancos. (Um "Ceilandia" sem acento não serve de exemplo: no MySQL ele já
+    colide com "Ceilândia" no UNIQUE de `nome`, por causa da collation.)
     """
-    criar_campus_historico(estado_anterior, 2, "Ceilândia")
-    criar_campus_historico(estado_anterior, 9, "Ceilandia")
+    criar_campus_historico(estado_anterior, 5, "Fazenda Água Limpa")
+    criar_campus_historico(estado_anterior, 9, "Fazenda")
 
     estado_novo = migrar_para(MIGRACAO_BD16)
     campus = estado_novo.get_model("cardapio", "Campus")
@@ -240,8 +241,8 @@ def test_migration_marca_campus_fora_do_anexo_a_sem_colidir(estado_anterior):
         "sem-rotulo-9",
         "sem-prefixo-9",
     )
-    real = campus.objects.get(pk=2)
+    real = campus.objects.get(pk=5)
     assert (real.rotulo_pagina_ru, real.prefixo_arquivo_pdf) == (
-        "Ceilândia",
-        "Ceilandia",
+        "Fazenda Água Limpa",
+        "Fazenda",
     )

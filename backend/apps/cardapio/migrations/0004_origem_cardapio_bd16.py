@@ -6,9 +6,9 @@
    nome; qualquer outro recebe marcadores pelo id ("sem-rotulo-<id>",
    "sem-prefixo-<id>"), que não colidem com os valores do Anexo A nem batem
    com título ou arquivo da página do RU. O nome não serve de reserva: um
-   "Ceilandia" sem acento colidiria com o prefixo da Ceilândia e, no MySQL,
-   cuja collation ignora acentos, também com o rótulo. O valor certo vem da
-   fixture `campi`.
+   campus "Fazenda" colidiria com o prefixo da Fazenda Água Limpa, e, no
+   MySQL, cuja collation ignora acentos e maiúsculas, as colisões seriam
+   ainda mais fáceis. O valor certo vem da fixture `campi`.
 3. Torna as colunas NOT NULL e UNIQUE.
 4. Cria `FONTE_CARDAPIO`.
 """
