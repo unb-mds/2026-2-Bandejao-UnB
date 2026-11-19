@@ -9,7 +9,7 @@ const ativo = (item) => itemAtivo(item, route.name)
 </script>
 
 <template>
-  <header class="navegacao-topo">
+  <div class="navegacao-topo">
     <div class="barra">
       <RouterLink :to="{ name: 'raiz' }" class="marca">
         <AppLogo :tamanho="28" />
@@ -37,7 +37,7 @@ const ativo = (item) => itemAtivo(item, route.name)
         </a>
       </nav>
     </div>
-  </header>
+  </div>
 </template>
 
 <style scoped>
