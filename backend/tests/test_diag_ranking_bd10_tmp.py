@@ -3,7 +3,7 @@ ranking no MySQL. Será removido depois de escolhida a forma da consulta."""
 
 import pytest
 from django.db import connection
-from django.db.models import Exists, OuterRef
+from django.db.models import Case, Exists, OuterRef, Value, When
 
 from apps.cadastro.models import StatusUsuario
 from apps.gamificacao.models import PontosSemestreCampus, PontuacaoUsuario
@@ -39,42 +39,53 @@ def test_diagnostico_variantes_ranking(dados_de_teste):  # noqa: F811
         )
         cursor.fetchall()
 
-    variantes = {
-        "1 join (atual), com ANALYZE de todas as tabelas": _base(campus).filter(
+    elegivel = Exists(
+        PontuacaoUsuario.objects.filter(
+            usuario_id=OuterRef("usuario_id"),
+            participa_ranking=True,
             usuario__status=StatusUsuario.ATIVO,
-            usuario__pontuacao__participa_ranking=True,
-        ),
-        "2 exists": _base(campus).filter(
-            Exists(
-                PontuacaoUsuario.objects.filter(
-                    usuario_id=OuterRef("usuario_id"),
-                    participa_ranking=True,
-                    usuario__status=StatusUsuario.ATIVO,
-                )
-            )
-        ),
-        "3 usuario__in subquery": _base(campus).filter(
-            usuario__in=PontuacaoUsuario.objects.filter(
-                participa_ranking=True, usuario__status=StatusUsuario.ATIVO
-            ).values("usuario_id")
-        ),
-        "4 só a tabela de pontos (sem elegibilidade)": _base(campus),
+        )
+    )
+    juncao = _base(campus).filter(
+        usuario__status=StatusUsuario.ATIVO,
+        usuario__pontuacao__participa_ranking=True,
+    )
+    variantes = {
+        "6 exists dentro de CASE": _base(campus)
+        .annotate(elegivel=Case(When(elegivel, then=Value(1)), default=Value(0)))
+        .filter(elegivel=1),
     }
     for rotulo, qs in variantes.items():
         sql, parametros = qs.order_by(*ORDEM)[:10].query.sql_with_params()
         _explicar(rotulo, sql, parametros)
 
-    sql, parametros = (
-        variantes["1 join (atual), com ANALYZE de todas as tabelas"]
-        .order_by(*ORDEM)[:10]
-        .query.sql_with_params()
+    sql, parametros = juncao.order_by(*ORDEM)[:10].query.sql_with_params()
+    _explicar(
+        "7 join com JOIN_PREFIX",
+        sql.replace(
+            "SELECT",
+            "SELECT /*+ JOIN_PREFIX(gamificacao_pontossemestrecampus) */",
+            1,
+        ),
+        parametros,
     )
-    for dica in (
-        "/*+ JOIN_ORDER(gamificacao_pontossemestrecampus) */",
-        "/*+ INDEX(gamificacao_pontossemestrecampus pontos_semestre_ranking_idx) */",
-    ):
-        _explicar(
-            f"5 join com dica {dica}",
-            sql.replace("SELECT", f"SELECT {dica}", 1),
-            parametros,
+
+    with connection.cursor() as cursor:
+        cursor.execute("ANALYZE TABLE cadastro_usuario UPDATE HISTOGRAM ON status")
+        cursor.fetchall()
+        cursor.execute(
+            "ANALYZE TABLE gamificacao_pontuacaousuario "
+            "UPDATE HISTOGRAM ON participa_ranking"
         )
+        cursor.fetchall()
+    _explicar("8 join com histogramas", sql, parametros)
+
+    # Não deixa os histogramas para os outros testes.
+    with connection.cursor() as cursor:
+        cursor.execute("ANALYZE TABLE cadastro_usuario DROP HISTOGRAM ON status")
+        cursor.fetchall()
+        cursor.execute(
+            "ANALYZE TABLE gamificacao_pontuacaousuario "
+            "DROP HISTOGRAM ON participa_ranking"
+        )
+        cursor.fetchall()
