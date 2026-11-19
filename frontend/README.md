@@ -12,8 +12,13 @@ Requer Node `^22.18.0` ou `>=24.12.0`.
 npm install
 npm run dev        # servidor de desenvolvimento
 npm run test:unit  # testes (Vitest)
-npm run lint       # oxlint + eslint
+npm run lint       # oxlint + eslint, corrigindo o que der
 npm run build      # build de produção em dist/
+
+# Os mesmos comandos do CI (frontend-ci.yml), para conferir antes do PR:
+npm run lint:ci    # oxlint + eslint sem corrigir nada; aviso também reprova
+npm run test:ci    # testes com cobertura (relatório em coverage/index.html)
+npm audit --audit-level=high
 ```
 
 ### Backend simulado × API real
@@ -39,6 +44,20 @@ VITE_USE_MOCK=false
 O Vite encaminha `/api` para `http://localhost:8000`, então PWA e API ficam na mesma origem
 e o cookie de sessão funciona sem CORS (ADR 0007). Não mude `VITE_API_URL` para outra origem:
 o `apiClient` usa `credentials: 'same-origin'`.
+
+### CI do front
+
+O `.github/workflows/frontend-ci.yml` roda em todo PR, com quatro portas (Plano de Testes 5.2):
+
+| Job | O que reprova |
+|---|---|
+| `lint (front)` | Qualquer erro ou aviso do Oxlint ou do ESLint, incluindo teste sem `expect` (`vitest/expect-expect`) e `v-html` |
+| `testes (front)` | Teste falhando, ou menos de 70% de linhas em algum arquivo crítico (`coverage.thresholds` no `vitest.config.js`) |
+| `build (front)` | Erro no `vite build`, ou o servidor simulado dentro do `dist/` |
+| `seguranca (front)` | Dependência com vulnerabilidade alta ou crítica (`npm audit`) e achado de severidade ERROR no Semgrep |
+
+Arquivo crítico novo (por exemplo, a `filaStore`) entra na lista do `coverage.thresholds` no
+mesmo PR que o cria.
 
 ## O que está implementado (MVP)
 

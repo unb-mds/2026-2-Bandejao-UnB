@@ -1,0 +1,76 @@
+name: Frontend CI
+
+# Portas de qualidade do front (RNF06, ADR 0013, Plano de Testes 5.2).
+# Roda em todo PR, qualquer que seja a base: os PRs de prova da FE-02 e os
+# PRs empilhados (base numa branch de tarefa) também passam pelas portas.
+on:
+  push:
+    branches: [ "develop", "main" ]
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: frontend
+
+# Os nomes levam "(front)" porque o backend-ci.yml também tem jobs `lint`,
+# `testes` e `seguranca`: na proteção da `develop`, cada porta é exigida pelo
+# nome, e nomes iguais nos dois workflows se confundiriam.
+jobs:
+  lint:
+    name: lint (front)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # Sem --fix: o `npm run lint` corrige sozinho e esconderia o erro aqui.
+      - run: npm run lint:ci
+
+  testes:
+    name: testes (front)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # Falha abaixo de 70% de linhas em algum arquivo crítico (vitest.config.js).
+      - run: npm run test:ci
+
+  build:
+    name: build (front)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      # O servidor simulado é só de desenvolvimento e testes (FE-01).
+      - name: Conferir que o simulado ficou fora do build
+        run: "! grep -rl 'backend-simulado' dist/"
+
+  seguranca:
+    name: seguranca (front)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      # Lê só o package-lock.json: não precisa do npm ci.
+      - run: npm audit --audit-level=high
+      - run: pipx run --spec semgrep==1.184.0 semgrep scan --config p/javascript --severity ERROR --error --metrics=off
