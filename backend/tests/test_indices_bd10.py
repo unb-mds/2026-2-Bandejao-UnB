@@ -257,13 +257,24 @@ def linha_da_tabela(linhas, tabela):
         encontradas = [linha for linha in linhas if linha["table"] == tabela]
     else:
         encontradas = [
-            linha
-            for linha in linhas
-            if linha["detail"].split(" ")[0] in ("SEARCH", "SCAN")
-            and linha["detail"].split(" ")[1] == tabela
+            linha for linha in linhas if _tabela_do_passo(linha["detail"]) == tabela
         ]
     assert len(encontradas) == 1, f"{tabela} não aparece uma vez no plano: {linhas}"
     return encontradas[0]
+
+
+def _tabela_do_passo(detalhe):
+    """Tabela lida num passo do `EXPLAIN QUERY PLAN` do SQLite, ou `None`.
+
+    O SQLite 3.36 em diante escreve "SEARCH fila_checkin ..."; as versões
+    anteriores, "SEARCH TABLE fila_checkin ...".
+    """
+    partes = detalhe.split()
+    if len(partes) < 2 or partes[0] not in ("SEARCH", "SCAN"):
+        return None
+    if partes[1] == "TABLE" and len(partes) > 2:
+        return partes[2]
+    return partes[1]
 
 
 def indice_usado(linha):
@@ -277,10 +288,14 @@ def indice_usado(linha):
 
 
 def ordena_sem_arquivo_temporario(linhas):
-    """Sem "Using filesort" (MySQL) nem "TEMP B-TREE FOR ORDER BY" (SQLite):
-    a ordem do ranking sai do próprio índice."""
+    """Sem "Using filesort" nem "Using temporary" (MySQL) e sem "TEMP B-TREE
+    FOR ORDER BY" (SQLite): a ordem do ranking sai do próprio índice."""
     if connection.vendor == "mysql":
-        return not any("filesort" in (linha["Extra"] or "") for linha in linhas)
+        return not any(
+            "filesort" in (linha["Extra"] or "")
+            or "temporary" in (linha["Extra"] or "")
+            for linha in linhas
+        )
     return not any("FOR ORDER BY" in linha["detail"] for linha in linhas)
 
 
@@ -318,15 +333,70 @@ def test_ranking_usa_indice_e_nao_ordena_em_arquivo_temporario(dados_de_teste):
     assert ordena_sem_arquivo_temporario(linhas), linhas
 
 
-def test_ranking_respeita_ordem_e_elegibilidade(dados_de_teste):
-    """Confere que a consulta do plano devolve o ranking esperado."""
+def _fixar_desempate(campus):
+    """Dá a cada linha de pontos do campus no semestre um `atualizado_em`
+    definido de propósito, fora da ordem de criação, e cria um empate no topo.
+
+    Com `auto_now` no `bulk_create`, `atualizado_em` cresce na mesma ordem dos
+    ids, e um desempate errado (por id, por exemplo) passaria despercebido. O
+    `bulk_update` grava os valores sem passar pelo `auto_now`.
+
+    Devolve as duas linhas empatadas no topo, na ordem esperada.
+    """
+    linhas = list(
+        PontosSemestreCampus.objects.filter(
+            campus=campus, semestre_referencia="2026.2"
+        ).order_by("id")
+    )
+    base = timezone.make_aware(datetime(2026, 11, 1, 12, 0))
+    # 37 é primo com 120: cada linha recebe um segundo diferente, embaralhado.
+    for k, linha in enumerate(linhas):
+        linha.atualizado_em = base + timedelta(seconds=(k * 37) % len(linhas))
+
+    elegiveis = [linha for linha in linhas if _elegivel(linha)]
+    primeira, segunda = elegiveis[0], elegiveis[1]
+    # Empate em 99 pontos (acima de todos): quem pontuou antes vem primeiro,
+    # mesmo tendo o id maior.
+    primeira.pontos = segunda.pontos = 99
+    primeira.atualizado_em = base + timedelta(hours=2)
+    segunda.atualizado_em = base + timedelta(hours=1)
+    PontosSemestreCampus.objects.bulk_update(linhas, ["atualizado_em", "pontos"])
+    return segunda.pk, primeira.pk
+
+
+def _elegivel(linha):
+    usuario = (
+        get_user_model().objects.select_related("pontuacao").get(pk=linha.usuario_id)
+    )
+    return (
+        linha.pontos >= 1
+        and usuario.status == StatusUsuario.ATIVO
+        and usuario.pontuacao.participa_ranking
+    )
+
+
+def test_ranking_devolve_os_10_esperados_na_ordem_certa(dados_de_teste):
+    """O top 10 calculado em Python, a partir dos dados criados, é o mesmo
+    que a consulta devolve, na mesma ordem: elegibilidade (adesão, conta ativa
+    e ao menos 1 ponto), pontos do maior para o menor e desempate por quem
+    pontuou antes (`atualizado_em` crescente)."""
     campus = dados_de_teste[2]
+    empatados = _fixar_desempate(campus)
+    todas = PontosSemestreCampus.objects.filter(
+        campus=campus, semestre_referencia="2026.2"
+    )
+    esperado = [
+        linha.pk
+        for linha in sorted(
+            (linha for linha in todas if _elegivel(linha)),
+            key=lambda linha: (-linha.pontos, linha.atualizado_em),
+        )[:10]
+    ]
 
-    linhas = list(consulta_ranking(campus))
+    obtido = [linha.pk for linha in consulta_ranking(campus)]
 
-    assert len(linhas) == 10
-    chaves = [(-linha.pontos, linha.atualizado_em) for linha in linhas]
-    assert chaves == sorted(chaves)
-    assert all(linha.pontos >= 1 for linha in linhas)
-    assert all(linha.usuario.status == StatusUsuario.ATIVO for linha in linhas)
-    assert all(linha.usuario.pontuacao.participa_ranking for linha in linhas)
+    assert obtido == esperado
+    assert tuple(obtido[:2]) == empatados
+    # O empate do topo está fora da ordem dos ids: o desempate foi pelo
+    # `atualizado_em`, e não pela ordem de criação.
+    assert obtido[0] > obtido[1]

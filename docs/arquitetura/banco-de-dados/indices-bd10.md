@@ -31,9 +31,15 @@ e ordena em arquivo temporário (ver "O caso do ranking no MySQL").
    1.200 linhas de pontos (2 semestres).
 2. Atualiza as estatísticas (`ANALYZE TABLE` no MySQL, `ANALYZE` no SQLite).
 3. Roda `EXPLAIN` nas três consultas e confere o índice escolhido. No
-   ranking, confere também que a ordem sai do índice (sem `Using filesort`).
+   ranking, confere também que a ordem sai do índice (sem `Using filesort`
+   nem `Using temporary` no MySQL, sem `TEMP B-TREE FOR ORDER BY` no SQLite).
 4. Executa as consultas e confere o resultado, para garantir que o plano é de
-   uma consulta que devolve o que a previsão e o ranking precisam.
+   uma consulta que devolve o que a previsão e o ranking precisam. No
+   ranking, o teste fixa um `atualizado_em` embaralhado em cada linha (fora
+   da ordem de criação), cria um empate no topo e compara a consulta com o
+   top 10 calculado em Python a partir dos dados: mesmas linhas, na mesma
+   ordem. Assim um desempate errado (por id, por exemplo) ou uma
+   elegibilidade que descarte contas que deveriam entrar faz o teste falhar.
 
 **Prova do vermelho:** com uma migration local (descartada) que remove os dois
 índices, os três testes de plano falham: a previsão passa a usar o índice de
@@ -156,8 +162,8 @@ uma refeição de um campus), então não vale a pena um índice só para isso.
 
 ## Plano no MySQL 8.4 (CI)
 
-Execução 44466578120 do PR #160 (commit `410de07`), job `testes-mysql`: 1007
-testes aprovados. Colunas principais do `EXPLAIN`:
+Execução 44466578120 do PR #160 (commit `410de07`), job `testes-mysql`.
+Colunas principais do `EXPLAIN`:
 
 ```text
 contarPorFaixa
@@ -179,4 +185,4 @@ ranking
 
 O `Using temporary` da contagem é o mesmo caso do `TEMP B-TREE` do SQLite: o
 agrupamento por `faixa_inicio`, sobre as 16 linhas que o índice selecionou. O
-ranking não tem `Using filesort`: a ordem sai do índice.
+ranking não tem `Using filesort` nem `Using temporary`: a ordem sai do índice.
