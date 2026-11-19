@@ -105,6 +105,24 @@ describe('App: navegação do topo', () => {
     expect(wrapper.findComponent(NavegacaoTopo).exists()).toBe(true)
   })
 
+  it('não aparece antes de a primeira rota ser resolvida (sem piscar na primeira visita)', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createRouter({ history: createMemoryHistory(), routes })
+
+    // Sem push: a rota ainda é a inicial, sem nome, como no instante em que o app monta.
+    const wrapper = mount(App, { global: { plugins: [pinia, router] } })
+
+    expect(wrapper.findComponent(NavegacaoTopo).exists()).toBe(false)
+  })
+
+  it('não usa <header>: cada tela fica com um só landmark "banner"', async () => {
+    const { wrapper } = await montar(NavegacaoTopo)
+
+    expect(wrapper.find('header').exists()).toBe(false)
+    expect(wrapper.find('nav[aria-label="Navegação principal"]').exists()).toBe(true)
+  })
+
   it('não aparece na boas-vindas (primeira visita, antes de escolher o campus)', async () => {
     localStorage.clear()
     const pinia = createPinia()
