@@ -299,6 +299,13 @@ classDiagram
     +rotulo(campus: Campus) str
     +prefixoArquivo(campus: Campus) str
   }
+  class ParametrosLeitorConfig {
+    <<Anexo A, BD-04>>
+    +urlPagina: str
+    +intervaloVerificacao: timedelta
+    +diaAlertaNaoPublicado: int
+    +horarioAlertaNaoPublicado: time
+  }
   class Campus {
     <<tabela CAMPUS>>
     +nome: str
@@ -339,6 +346,8 @@ classDiagram
   LeitorCardapioService --> CardapioDownloader : 1a. localiza os PDFs do campus, um por semana
   CardapioDownloader --> FonteCardapioConfig : lê a URL da página e o rótulo do campus
   FonteCardapioConfig ..> Campus : lê rótulo e prefixo (fixture)
+  FonteCardapioConfig --> ParametrosLeitorConfig : lê a URL da página
+  LeitorCardapioService --> ParametrosLeitorConfig : lê o prazo do alerta (segunda, 12h)
   CardapioDownloader ..> SiteRU : lê a página e baixa o PDF [HTTPS]
   CardapioDownloader --> FontePDF : produz 0..*
   CardapioDownloader --> ArquivoPDF : 1b. produz
@@ -403,9 +412,27 @@ classDiagram
   página não zera a contagem do "não publicado". Assim o limite de 3 avisos
   por dia é respeitado (ADR 0006, ADR 0014).
 - **`FonteCardapioConfig` segue o padrão de `LocalizacaoRUConfig`** (Fila):
-  a URL da página vem da configuração do Django (Anexo A), e o rótulo e o
-  prefixo de cada campus vêm das colunas de `CAMPUS`, povoadas por fixture.
-  Se o RU renomear um título, o ajuste é na fixture, sem mudar o código.
+  o rótulo e o prefixo de cada campus vêm das colunas de `CAMPUS`, povoadas
+  por fixture. Se o RU renomear um título, o ajuste é na fixture, sem mudar
+  o código.
+- **Duas configurações, sem sobreposição (BD-04).**
+  `ParametrosLeitorConfig`, em `backend/config/parametros.py`, guarda os
+  parâmetros do Anexo A comuns a todos os campi e não lê `CAMPUS`. A
+  `FonteCardapioConfig`, no módulo do Leitor, é a única que lê `CAMPUS`, e
+  sua `urlPagina` só repassa `ParametrosLeitorConfig().url_pagina`, que lê
+  `settings.URL_PAGINA_CARDAPIO` a cada acesso (propriedade de instância,
+  com os parênteses). O `LeitorCardapioService` lê de
+  `ParametrosLeitorConfig` o prazo usado por `semanaAtrasada`
+  (`diaAlertaNaoPublicado` e `horarioAlertaNaoPublicado`); o
+  `intervaloVerificacao` (3 horas) é a periodicidade do cron do SO, que fica
+  fora do diagrama (BD-07). Assim, a URL
+  e o prazo ficam num lugar só, e o que é de cada campus fica no banco.
+- **As classes do Leitor entram na BE-12.** O diagrama inteiro é o projeto
+  da BE-12: a `FonteCardapioConfig` e o `LeitorCardapioService` ainda não
+  existem no código, e as setas cheias para a `ParametrosLeitorConfig`
+  mostram o consumo previsto. Aqui não vale a convenção do Cadastro 4c
+  (cheia já existe, tracejada é previsto), que é só das setas para a
+  `ParametrosCadastroConfig`.
 - **`FonteCardapio` é a tabela `FONTE_CARDAPIO`**, com uma linha por campus
   e semana, criada na primeira leitura com sucesso daquela semana. Depois
   disso, `verificadoEm` é atualizado a cada execução que acha o link, e

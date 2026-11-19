@@ -353,17 +353,42 @@ em classes de configuração. Não constitui um novo componente do backend.
 | `HorariosRefeicaoConfig` | Intervalos de café, almoço e jantar; dias e refeições servidos vêm do PDF |
 | `ParametrosFilaConfig` | Previsão, perguntas de saída, espera estimada e retenção |
 | `ParametrosGamificacaoConfig` | Pontuação, sequência, patentes, tamanho do ranking e datas de término dos semestres |
-| `ParametrosSessaoConfig` | Expõe `settings.SESSION_COOKIE_AGE` |
+| `ParametrosSessaoConfig` | Expõe `settings.SESSION_COOKIE_AGE` por propriedade de instância |
 | `AvisoPrivacidadeConfig` | Versão do aviso em vigor |
 | `ParametrosCadastroConfig` | Ano mínimo da matrícula, confirmação de e-mail, bloqueio de login e recuperação de senha |
-| `ParametrosLeitorConfig` | Expõe a URL do settings; intervalo de verificação e prazo de alerta de cardápio não publicado |
+| `ParametrosLeitorConfig` | Expõe `settings.URL_PAGINA_CARDAPIO` por propriedade de instância; intervalo de verificação e prazo de alerta de cardápio não publicado |
 | `ParametrosBackupConfig` | Intervalo entre backups e prazo de retenção |
 | `ParametrosLocalizacaoConfig` | Intervalo para nova detecção, tempo limite da leitura e parâmetros ainda indefinidos |
 
+Os parâmetros fixos do Anexo A são atributos de classe, lidos sem criar
+instância (`ParametrosCadastroConfig.login_janela`). Os consumidores leem a
+classe no momento da chamada, e não copiam o valor no import. Os dois
+valores que já existem no settings são propriedades de instância e
+consultam o settings a cada acesso:
+
+- `ParametrosSessaoConfig().duracao_segundos` → `settings.SESSION_COOKIE_AGE`;
+- `ParametrosLeitorConfig().url_pagina` → `settings.URL_PAGINA_CARDAPIO`.
+
+Assim, os dois acompanham `override_settings` nos testes, sem `reload` do
+módulo. Os parênteses são obrigatórios: sem eles, o acesso pela classe
+devolve o objeto `property`, e não o valor, sem gerar erro.
+
 A URL da página do RU é definida uma única vez em
-`settings.URL_PAGINA_CARDAPIO`. A `FonteCardapioConfig` do leitor deverá
-consumir essa configuração e consultar os rótulos e prefixos de `CAMPUS`,
-conforme a ADR 0014. A BD-04 não implementa essa consulta.
+`settings.URL_PAGINA_CARDAPIO`. O Leitor separa duas configurações:
+
+- `ParametrosLeitorConfig`, neste módulo, guarda só os parâmetros do Anexo A
+  que valem para todos os campi: URL da página, intervalo de verificação e
+  prazo do alerta de cardápio não publicado (segunda-feira, 12h). Não lê
+  `CAMPUS`.
+- `FonteCardapioConfig`, no app do Leitor, lê o rótulo e o prefixo de cada
+  campus em `CAMPUS` (ADR 0014) e obtém a URL de
+  `ParametrosLeitorConfig().url_pagina`, sem consultar o settings
+  diretamente nem repetir o valor.
+
+É o mesmo critério da docstring do módulo: o que consulta `CAMPUS` fica no
+app que usa, como a `LocalizacaoRUConfig` da Fila. A BD-04 entrega só a
+`ParametrosLeitorConfig`; a `FonteCardapioConfig` é implementada no Leitor
+(BE-12), conforme o Nível 4 do Leitor de Cardápio.
 
 As datas de término dos semestres permanecem sem entradas até a equipe
 confirmá-las no calendário acadêmico. Precisão mínima e idade máxima da
@@ -376,4 +401,12 @@ Coordenadas, raios, rótulos e prefixos por campus pertencem aos dados de
 Disponibilizar os parâmetros não implementa os serviços que ainda não
 existem, não agenda tarefas e não transmite configurações automaticamente
 ao front-end. Os respectivos consumidores deverão lê-los nas suas tarefas.
-A Bandeja de Ouro permanece fora do escopo da Release 2, conforme o backlog.
+
+A Bandeja de Ouro (RF33) está fora do escopo atual por decisão do backlog
+(seção 3, item 6), embora continue descrita neste nível e no Nível 4 da
+Gamificação. Por isso, os dois parâmetros do Anexo A ligados a ela, as
+colocações premiadas (30 primeiros do ranking de cada campus) e o mínimo de
+pontos no semestre (100 pontos no campus), não entram em
+`ParametrosGamificacaoConfig`: sem `BandejaOuroResolver` e sem fechamento do
+semestre, não há quem os consuma. Se a Bandeja voltar ao escopo, os dois
+entram nessa classe, junto com o resolvedor.
