@@ -121,7 +121,12 @@ def rodar(tmp_path):
         else:
             comando = [SH, "-ec", '. "$0"; echo depois-do-script', caminho]
         resultado = subprocess.run(
-            comando, env=env, capture_output=True, text=True, encoding="utf-8"
+            comando,
+            check=False,  # o status de saída é conferido pelos testes
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
         )
         resultado.sql = saida.read_text(encoding="utf-8") if saida.exists() else ""
         return resultado

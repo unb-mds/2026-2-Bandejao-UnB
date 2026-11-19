@@ -64,9 +64,7 @@ def test_sem_django_debug_o_padrao_e_producao(carregar_settings):
     ("valor", "esperado"),
     [("1", True), ("on", True), ("0", False), ("off", False), ("", False)],
 )
-def test_django_debug_aceita_as_formas_de_booleano(
-    carregar_settings, valor, esperado
-):
+def test_django_debug_aceita_as_formas_de_booleano(carregar_settings, valor, esperado):
     ambiente = {**ENV_DE_PRODUCAO, "DJANGO_DEBUG": valor}
 
     assert carregar_settings(**ambiente).DEBUG is esperado
