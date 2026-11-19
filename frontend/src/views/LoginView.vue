@@ -37,7 +37,11 @@ const podeEnviar = computed(
   () => Boolean(matriculaSiape.value) && senha.value.length >= 1 && !enviando.value,
 )
 
-/** Depois do login: volta à tela que pediu o login, ou segue para a Início (RF03). */
+/**
+ * Depois do login: volta à tela que pediu o login, ou segue direto para a tela
+ * do campus lembrado (RF03.4), sem passo a mais; sem campus, para a escolha.
+ * Até a FE-07 criar `/campus/:campusId`, a tela do campus é a Início.
+ */
 function seguirAposLogin() {
   const voltar = route.query.voltar
   if (typeof voltar === 'string' && voltar.startsWith('/') && !voltar.startsWith('//')) {

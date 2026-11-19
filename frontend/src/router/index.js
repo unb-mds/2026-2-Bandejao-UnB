@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { campusValido } from '@/constants/campi'
 import { usePreferenciasStore } from '@/stores/preferencias'
+import { useAuthStore } from '@/stores/auth'
 
 /**
  * Rotas nomeadas e com lazy-loading (C4 — Estratégia de roteamento).
@@ -104,6 +105,16 @@ export const routes = [
   },
 ]
 
+/**
+ * Na primeira navegação, pergunta ao servidor se há sessão (GET /api/sessao/):
+ * depois de um F5 quem estava logado continua logado (ADR 0007, FE-03).
+ * Não bloqueia nenhuma rota: sem sessão, o app abre como visitante (RF05).
+ */
+export async function carregarSessaoAoAbrir() {
+  const auth = useAuthStore()
+  if (!auth.sessaoCarregada) await auth.carregarSessao()
+}
+
 /** Telas que dependem do campus mandam para a escolha de campus na primeira visita. */
 export function exigirCampus(to) {
   if (to.meta.requerCampus && !usePreferenciasStore().campusId) return { name: 'campus' }
@@ -118,6 +129,7 @@ const router = createRouter({
   routes,
 })
 
+router.beforeEach(carregarSessaoAoAbrir)
 router.beforeEach(exigirCampus)
 router.afterEach(atualizarTitulo)
 

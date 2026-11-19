@@ -16,6 +16,10 @@ export const useAuthStore = defineStore('auth', () => {
   /** @type {import('vue').Ref<{ apelido: string, tipo: string, avisoPrivacidadePendente: boolean } | null>} */
   const usuario = ref(null)
 
+  /** Já perguntou ao servidor se há sessão (`carregarSessao`), deu certo ou não. */
+  const sessaoCarregada = ref(false)
+  let carregandoSessao = null
+
   const estaAutenticado = computed(() => Boolean(usuario.value))
   const apelido = computed(() => usuario.value?.apelido ?? 'Visitante')
 
@@ -23,6 +27,27 @@ export const useAuthStore = defineStore('auth', () => {
     usuario.value = null
   }
   definirAoPerderSessao(limpar)
+
+  /**
+   * GET /api/sessao/ ao abrir o app: o cookie de sessão sobrevive ao F5, a
+   * store não (ADR 0007). Nunca rejeita: sem sessão (401) ou sem conexão, o
+   * app abre como visitante. Chamadas ao mesmo tempo esperam o mesmo pedido.
+   */
+  function carregarSessao() {
+    carregandoSessao ??= apiClient
+      .get('/sessao/')
+      .then((sessao) => {
+        usuario.value = sessao
+      })
+      .catch(() => {
+        usuario.value = null
+      })
+      .finally(() => {
+        sessaoCarregada.value = true
+        carregandoSessao = null
+      })
+    return carregandoSessao
+  }
 
   /** POST /api/sessao/ — matrícula (9 dígitos) ou SIAPE (7) no mesmo campo. */
   async function entrar(matriculaSiape, senha) {
@@ -81,9 +106,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     usuario,
+    sessaoCarregada,
     estaAutenticado,
     apelido,
     limpar,
+    carregarSessao,
     entrar,
     sair,
     cadastrar,

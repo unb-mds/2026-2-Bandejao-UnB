@@ -111,7 +111,8 @@ src/
 ```
 
 Segue o C4 nível 3/4 do frontend: nenhuma view chama a API diretamente, a sessão fica no
-cookie HttpOnly do Django (ADR 0007, nada de token no JavaScript) e apenas campus e filtros
+cookie HttpOnly do Django (ADR 0007, nada de token no JavaScript; ao abrir o app, o
+guarda `carregarSessaoAoAbrir` do roteador chama `GET /api/sessao/` uma vez) e apenas campus e filtros
 são persistidos no aparelho. O `apiClient` manda `X-CSRFToken` (lido do cookie `csrftoken`,
 buscado em `GET /api/csrf/` se ainda não existe) em POST, PUT, PATCH e DELETE, limpa o `authStore` quando recebe 401 e transforma erros em
 `ApiError` com `status`, `codigo` e `mensagem`.
