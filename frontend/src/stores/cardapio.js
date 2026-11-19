@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { apiClient } from '@/services/apiClient'
+import { apiClient, mensagemDeErro } from '@/services/apiClient'
 
 /** Cache do cardápio da semana vigente, por campus (RF06/RF07). */
 export const useCardapioStore = defineStore('cardapio', () => {
@@ -18,7 +18,7 @@ export const useCardapioStore = defineStore('cardapio', () => {
       porCampus.value[campusId] = semana
       return semana
     } catch (falha) {
-      erro.value = falha.message
+      erro.value = mensagemDeErro(falha)
       return null
     } finally {
       carregando.value = false

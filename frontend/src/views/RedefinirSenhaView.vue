@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import CabecalhoFormulario from '@/components/CabecalhoFormulario.vue'
 import CampoSenha from '@/components/CampoSenha.vue'
+import { mensagemDeErro } from '@/services/apiClient'
 
 /**
  * Definição da nova senha pelo link recebido por e-mail (RF04). O link é
@@ -37,7 +38,7 @@ async function redefinir() {
     await auth.redefinirSenha(token.value, senha.value)
     concluido.value = true
   } catch (falha) {
-    erro.value = falha.message
+    erro.value = mensagemDeErro(falha)
   } finally {
     enviando.value = false
   }

@@ -8,11 +8,8 @@
 const DOMINIO_ESTUDANTE = /^([^@\s]+)@aluno\.unb\.br$/i
 const DOMINIO_SERVIDOR = /^([^@\s]+)@unb\.br$/i
 
-/** Código do semestre corrente (ex.: 262 = 2º semestre de 2026). Anexo A. */
-export function codigoSemestreAtual(agora = new Date()) {
-  const semestre = agora.getMonth() < 6 ? 1 : 2
-  return (agora.getFullYear() % 100) * 10 + semestre
-}
+/** Primeiro ano aceito no prefixo da matrícula: 2010 (Anexo A, L10). */
+const PRIMEIRO_ANO = 10
 
 function ehSequencia(digitos, passo) {
   for (let i = 1; i < digitos.length; i++) {
@@ -26,14 +23,12 @@ export function validarMatriculaEstudante(matricula, agora = new Date()) {
   if (!/^\d{9}$/.test(matricula)) {
     return 'A matrícula de estudante deve ter exatamente 9 dígitos numéricos.'
   }
-  const codigo = Number(matricula.slice(0, 3))
-  const semestre = matricula[2]
-  if (
-    (semestre !== '1' && semestre !== '2') ||
-    codigo < 101 ||
-    codigo > codigoSemestreAtual(agora)
-  ) {
-    return 'Os 3 primeiros dígitos da matrícula não correspondem a um semestre de ingresso válido.'
+  // Só o ano (2 primeiros dígitos) é conferido, de 2010 ao ano corrente. O 3º
+  // dígito (semestre) fica de fora: a pós-graduação usa o mesmo @aluno.unb.br
+  // sem formato confirmado (ADR 0002, L16). Igual ao backend (BE-05, #122).
+  const ano = Number(matricula.slice(0, 2))
+  if (ano < PRIMEIRO_ANO || ano > agora.getFullYear() % 100) {
+    return 'Os 2 primeiros dígitos da matrícula não correspondem a um ano de ingresso válido.'
   }
   const resto = matricula.slice(3)
   if (/^(\d)\1{5}$/.test(resto) || ehSequencia(resto, 1) || ehSequencia(resto, -1)) {
