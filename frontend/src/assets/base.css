@@ -121,8 +121,12 @@ a {
 }
 
 :focus-visible {
-  outline: 3px solid var(--dourado);
+  outline: 3px solid var(--verde-escuro);
   outline-offset: 2px;
+}
+
+:where(.cabecalho, .cabecalho-cardapio, .navegacao-topo, .boas-vindas) :focus-visible {
+  outline-color: var(--dourado);
 }
 
 svg {
@@ -130,7 +134,3 @@ svg {
   flex-shrink: 0;
 }
 
-:focus-visible {
-  outline: 2px solid var(--dourado);
-  outline-offset: 2px;
-}
