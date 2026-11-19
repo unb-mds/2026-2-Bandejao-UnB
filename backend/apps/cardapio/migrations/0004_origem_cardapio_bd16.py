@@ -3,8 +3,12 @@
 1. Acrescenta `rotulo_pagina_ru` e `prefixo_arquivo_pdf` em `CAMPUS`, ainda
    aceitando nulo.
 2. Preenche as duas colunas nos campi que já existem: os 5 do Anexo A pelo
-   nome; qualquer outro recebe o próprio nome (único), para a migration não
-   falhar. O valor certo vem da fixture `campi`.
+   nome; qualquer outro recebe marcadores pelo id ("sem-rotulo-<id>",
+   "sem-prefixo-<id>"), que não colidem com os valores do Anexo A nem batem
+   com título ou arquivo da página do RU. O nome não serve de reserva: um
+   "Ceilandia" sem acento colidiria com o prefixo da Ceilândia e, no MySQL,
+   cuja collation ignora acentos, também com o rótulo. O valor certo vem da
+   fixture `campi`.
 3. Torna as colunas NOT NULL e UNIQUE.
 4. Cria `FONTE_CARDAPIO`.
 """
@@ -26,7 +30,8 @@ def preencher_origem(apps, schema_editor):
     campus = apps.get_model("cardapio", "Campus")
     for registro in campus.objects.using(schema_editor.connection.alias).all():
         rotulo, prefixo = ORIGEM_POR_NOME.get(
-            registro.nome, (registro.nome, registro.nome)
+            registro.nome,
+            (f"sem-rotulo-{registro.pk}", f"sem-prefixo-{registro.pk}"),
         )
         registro.rotulo_pagina_ru = rotulo
         registro.prefixo_arquivo_pdf = prefixo
