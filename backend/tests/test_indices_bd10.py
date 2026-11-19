@@ -353,7 +353,8 @@ def _fixar_desempate(campus):
     for k, linha in enumerate(linhas):
         linha.atualizado_em = base + timedelta(seconds=(k * 37) % len(linhas))
 
-    elegiveis = [linha for linha in linhas if _elegivel(linha)]
+    usuarios = _usuarios_elegiveis()
+    elegiveis = [linha for linha in linhas if _elegivel(linha, usuarios)]
     primeira, segunda = elegiveis[0], elegiveis[1]
     # Empate em 99 pontos (acima de todos): quem pontuou antes vem primeiro,
     # mesmo tendo o id maior.
@@ -364,15 +365,17 @@ def _fixar_desempate(campus):
     return segunda.pk, primeira.pk
 
 
-def _elegivel(linha):
-    usuario = (
-        get_user_model().objects.select_related("pontuacao").get(pk=linha.usuario_id)
+def _usuarios_elegiveis():
+    """Ids das contas ativas com adesão ao ranking, numa consulta só."""
+    return set(
+        get_user_model()
+        .objects.filter(status=StatusUsuario.ATIVO, pontuacao__participa_ranking=True)
+        .values_list("pk", flat=True)
     )
-    return (
-        linha.pontos >= 1
-        and usuario.status == StatusUsuario.ATIVO
-        and usuario.pontuacao.participa_ranking
-    )
+
+
+def _elegivel(linha, usuarios):
+    return linha.pontos >= 1 and linha.usuario_id in usuarios
 
 
 def test_ranking_devolve_os_10_esperados_na_ordem_certa(dados_de_teste):
@@ -385,10 +388,11 @@ def test_ranking_devolve_os_10_esperados_na_ordem_certa(dados_de_teste):
     todas = PontosSemestreCampus.objects.filter(
         campus=campus, semestre_referencia="2026.2"
     )
+    usuarios = _usuarios_elegiveis()
     esperado = [
         linha.pk
         for linha in sorted(
-            (linha for linha in todas if _elegivel(linha)),
+            (linha for linha in todas if _elegivel(linha, usuarios)),
             key=lambda linha: (-linha.pontos, linha.atualizado_em),
         )[:10]
     ]
