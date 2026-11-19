@@ -2,9 +2,12 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
-import { routes, exigirCampus } from './index'
+import { routes, exigirCampus, carregarSessaoAoAbrir } from './index'
 import { usePreferenciasStore } from '@/stores/preferencias'
-import { banco } from '@/services/mock/servidor'
+import { reiniciarSimulacao } from '@/services/mock/servidor'
+import { CONTA_DEMO } from '@/services/mock/banco'
+import { apiClient } from '@/services/apiClient'
+import { useAuthStore } from '@/stores/auth'
 import App from '@/App.vue'
 
 // Segunda-feira, 28/09/2026, 12h.
@@ -16,6 +19,7 @@ async function montarEm(caminho, { campus = null } = {}) {
   if (campus) usePreferenciasStore().escolherCampus(campus)
 
   const router = createRouter({ history: createMemoryHistory(), routes })
+  router.beforeEach(carregarSessaoAoAbrir)
   router.beforeEach(exigirCampus)
   router.push(caminho)
   await router.isReady()
@@ -34,11 +38,12 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(AGORA)
   localStorage.clear()
-  banco.reiniciar()
+  reiniciarSimulacao()
 })
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.restoreAllMocks()
   document.body.innerHTML = ''
 })
 
@@ -176,5 +181,33 @@ describe('cardápio', () => {
 
     expect(wrapper.text()).not.toContain('Bife acebolado')
     expect(JSON.parse(localStorage.getItem('bandejao:preferencias')).marcadores).toEqual(['suino'])
+  })
+})
+
+describe('sessão ao abrir o app (FE-03, ADR 0007)', () => {
+  it('depois de recarregar a página, quem tem sessão continua logado', async () => {
+    setActivePinia(createPinia())
+    await useAuthStore().entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+
+    // montarEm cria stores novas (como um F5); só o cookie de sessão continua.
+    const { wrapper } = await montarEm('/inicio', { campus: 'darcy' })
+
+    expect(wrapper.find(`[aria-label="Perfil de ${CONTA_DEMO.apelido}"]`).exists()).toBe(true)
+  })
+
+  it('sem sessão, o app abre como visitante', async () => {
+    const { wrapper } = await montarEm('/inicio', { campus: 'darcy' })
+    expect(wrapper.find('[aria-label="Perfil de Visitante"]').exists()).toBe(true)
+  })
+
+  it('busca a sessão uma vez só, não a cada navegação', async () => {
+    const espiao = vi.spyOn(apiClient, 'get')
+    const { router } = await montarEm('/login')
+
+    await router.push('/cadastro')
+    await router.push('/recuperar-senha')
+
+    const pedidosDeSessao = espiao.mock.calls.filter(([caminho]) => caminho === '/sessao/')
+    expect(pedidosDeSessao).toHaveLength(1)
   })
 })

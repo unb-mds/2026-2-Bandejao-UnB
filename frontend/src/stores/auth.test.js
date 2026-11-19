@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore } from './auth'
-import { apiClient } from '@/services/apiClient'
+import { ApiError, apiClient } from '@/services/apiClient'
 import { CONTA_DEMO } from '@/services/mock/banco'
 import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
 
@@ -166,5 +166,63 @@ describe('authStore com o servidor simulado', () => {
 
     await auth.entrar('241987650', 'senhaforte')
     expect(auth.apelido).toBe('novo_aluno')
+  })
+})
+
+describe('carregarSessao: a sessão volta ao abrir o app (ADR 0007)', () => {
+  /** Reabrir o app: stores novas, mas o cookie de sessão continua no navegador. */
+  function reabrirApp() {
+    setActivePinia(createPinia())
+    return useAuthStore()
+  }
+
+  it('com o cookie de sessão válido, a store volta a ter o usuário', async () => {
+    await useAuthStore().entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+
+    const auth = reabrirApp()
+    expect(auth.sessaoCarregada).toBe(false)
+    expect(auth.estaAutenticado).toBe(false)
+
+    await auth.carregarSessao()
+
+    expect(auth.sessaoCarregada).toBe(true)
+    expect(auth.usuario).toEqual({
+      apelido: CONTA_DEMO.apelido,
+      tipo: 'estudante',
+      avisoPrivacidadePendente: true,
+    })
+  })
+
+  it('sem sessão (401), fica como visitante e não rejeita', async () => {
+    const auth = useAuthStore()
+
+    await expect(auth.carregarSessao()).resolves.toBeUndefined()
+
+    expect(auth.sessaoCarregada).toBe(true)
+    expect(auth.estaAutenticado).toBe(false)
+  })
+
+  it('sem conexão, fica como visitante e não rejeita (o app abre do mesmo jeito)', async () => {
+    const auth = useAuthStore()
+    vi.spyOn(apiClient, 'get').mockImplementationOnce(() =>
+      Promise.reject(new ApiError(0, { codigo: 'sem_conexao' })),
+    )
+
+    await expect(auth.carregarSessao()).resolves.toBeUndefined()
+
+    expect(auth.sessaoCarregada).toBe(true)
+    expect(auth.estaAutenticado).toBe(false)
+    vi.restoreAllMocks()
+  })
+
+  it('chamadas ao mesmo tempo fazem um GET /api/sessao/ só', async () => {
+    const auth = useAuthStore()
+    const espiao = vi.spyOn(apiClient, 'get')
+
+    await Promise.all([auth.carregarSessao(), auth.carregarSessao()])
+
+    expect(espiao).toHaveBeenCalledTimes(1)
+    expect(espiao).toHaveBeenCalledWith('/sessao/')
+    vi.restoreAllMocks()
   })
 })
