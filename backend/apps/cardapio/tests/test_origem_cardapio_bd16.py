@@ -219,18 +219,29 @@ def test_migration_preenche_rotulo_e_prefixo_dos_campi_existentes(estado_anterio
     assert origem == ORIGEM_ESPERADA
 
 
-def test_migration_usa_o_nome_para_campus_fora_do_anexo_a(estado_anterior):
-    """Um campus que não está no Anexo A recebe o próprio nome nas duas
-    colunas, que é único, para a migration não falhar. O valor certo vem
-    depois pela fixture."""
-    criar_campus_historico(estado_anterior, 9, "Campus de Teste")
-    criar_campus_historico(estado_anterior, 3, "Gama")
+def test_migration_marca_campus_fora_do_anexo_a_sem_colidir(estado_anterior):
+    """Um campus que não está no Anexo A recebe marcadores pelo id
+    ("sem-rotulo-<id>", "sem-prefixo-<id>"), que não colidem com nenhum valor
+    do Anexo A nem batem com título ou arquivo da página do RU. O valor certo
+    vem depois pela fixture.
+
+    O caso é "Ceilandia" sem acento ao lado da Ceilândia real: com o nome como
+    reserva, o prefixo colidiria com o "Ceilandia" do Anexo A (nos dois
+    bancos), e o rótulo, no MySQL, cuja collation ignora acentos.
+    """
+    criar_campus_historico(estado_anterior, 2, "Ceilândia")
+    criar_campus_historico(estado_anterior, 9, "Ceilandia")
 
     estado_novo = migrar_para(MIGRACAO_BD16)
     campus = estado_novo.get_model("cardapio", "Campus")
 
-    teste = campus.objects.get(pk=9)
-    assert teste.rotulo_pagina_ru == "Campus de Teste"
-    assert teste.prefixo_arquivo_pdf == "Campus de Teste"
-    gama = campus.objects.get(pk=3)
-    assert (gama.rotulo_pagina_ru, gama.prefixo_arquivo_pdf) == ("Gama", "Gama")
+    fora = campus.objects.get(pk=9)
+    assert (fora.rotulo_pagina_ru, fora.prefixo_arquivo_pdf) == (
+        "sem-rotulo-9",
+        "sem-prefixo-9",
+    )
+    real = campus.objects.get(pk=2)
+    assert (real.rotulo_pagina_ru, real.prefixo_arquivo_pdf) == (
+        "Ceilândia",
+        "Ceilandia",
+    )
