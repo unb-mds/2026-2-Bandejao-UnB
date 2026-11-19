@@ -167,3 +167,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Proteção da `main`: a `main` não tinha proteção nenhuma. Em 2026-11-19, a pedido de AlvaroBento12, o agente aplicou nela, pela API do GitHub, as mesmas regras da `develop` (PR obrigatório, os 4 jobs do CI verdes, branch atualizada, sem force-push e sem exclusão, 0 aprovações, sem valer para administradores), e a ADR passou a descrever a proteção das duas branches.
 - Segunda revisão: [aprovação de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/156#pullrequestreview-5969631334), com 3 pontos antes do merge e 4 sugestões. Aplicados os 3 pontos e as sugestões 4 e 5: PR #156 citado no lugar de "neste PR"; exceção dos administradores nas Consequências; status "Aceita"; mutação descrita no futuro, porque ainda não há job de mutação no CI, e sem o trecho de documentação, que a ADR 0013 e o §3.10 não citam; a ADR fixa o mínimo para o trabalho com agentes sem dispensar a DoD. As sugestões 6 (configurações do repositório) e 7 (redação) ficaram de fora.
 - Situação: revisão aprovada; pronto para o merge. A decisão sobre "Require approvals" fica para a equipe.
+
+## BE-20 — Login com e-mail institucional
+
+- PR: #<número> — BE-20: login com e-mail institucional e senha. Issue: #201.
+- Ferramenta: Claude (Anthropic).
+- Apoio: a partir do guia da BE-20, testes do login, do reenvio, do `ContaRepository.buscar_por_email`, dos serializers e do limite de taxa com `emailInstitucional`; implementação de `buscar_por_email` (no lugar de `buscar_por_identificador`), da normalização e da conferência de domínio no `LoginService` (`EmailInstitucionalValidator`, ADR 0002), de `conta_para_reenvio(email=..., token=...)`, das mensagens do 422 e do 401 genérico (`config/excecoes.py`, troca aprovada por AlvaroBento12) e das descrições do `extend_schema`; `openapi.yaml` regerado.
+- TDD: testes no commit <hash-do-commit-test>, com 103 testes falhando e 6 erros antes da implementação (corpos ainda com `matriculaSiape` no código e `buscar_por_email` inexistente).
+- Validação: `pytest` no SQLite com 1029 testes passando e 1 ignorado (específico do MySQL), cobertura de `apps`, incluindo branches, de 97,99%; `ruff check`, `ruff format --check`, `bandit`, `makemigrations --check` (sem migration) e `spectacular --validate --fail-on-warn` aprovados localmente; diff do `openapi.yaml` só em `POST /api/sessao/` e `POST /api/reenviar-confirmacao/`; resultado do CI (incluindo `testes-mysql`) no PR.
+- Revisão humana: pendente (outra frente e o front, pelo contrato).
+- Situação: aguardando revisão; o login do PWA responde 422 até a FE-03 (#101) mandar `emailInstitucional`.
