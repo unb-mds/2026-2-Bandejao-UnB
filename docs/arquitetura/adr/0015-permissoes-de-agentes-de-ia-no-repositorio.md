@@ -18,14 +18,14 @@ A Definition of Done (`docs/requisitos/backlog.md` §1.4) já prevê revisão an
 
 - "Push direto" inclui force-push. Agentes também não apagam nem renomeiam a `main` ou a `develop`.
 - A regra vale para a `main` e a `develop`. Nas branches de trabalho (`feature/…`, `fix/…`, `docs/…` e `chore/…`, README), o agente pode commitar e fazer push.
-- Por enquanto, a regra é um acordo da equipe. A proteção das branches exige só os jobs do CI verdes (ADR 0013), e o agente usa a conta do integrante que o opera, então o GitHub não distingue os dois.
+- Por enquanto, a regra é um acordo da equipe. A `main` e a `develop` estão protegidas com as mesmas regras (a `main` desde 2026-11-19, neste PR): toda mudança entra por PR, os jobs `lint`, `testes`, `seguranca` e `testes-mysql` precisam estar verdes e a branch atualizada, e force-push e exclusão estão bloqueados. A proteção exige 0 aprovações e não vale para administradores. Além disso, o agente usa a conta do integrante que o opera, então o GitHub não distingue os dois.
 
 ## Consequências
 
 - Toda mudança feita com agente de IA passa por pelo menos um integrante diferente de quem operou o agente, que continua responsável pelo que aprovou, antes de entrar na `main` ou na `develop`.
 - O merge para essas branches depende da disponibilidade de outro integrante para revisar, o que pode atrasar entregas perto dos prazos.
 - A regra vale para todos os agentes de IA usados pela equipe, independentemente da ferramenta.
-- Enquanto a regra não estiver na proteção das branches, nada impede tecnicamente que ela seja quebrada; o cumprimento depende da equipe.
+- A proteção impede commit direto, force-push e exclusão da `main` e da `develop`, mas não exige a revisão de outro integrante; essa parte depende da equipe.
 
 ## Alternativa considerada
 
@@ -33,7 +33,7 @@ A Definition of Done (`docs/requisitos/backlog.md` §1.4) já prevê revisão an
 
 ## Pontos em aberto
 
-- Se a regra vai virar "Require approvals" na proteção da `main` e da `develop`, ou se fica como acordo da equipe.
+- Se a proteção da `main` e da `develop` vai passar a exigir pelo menos uma aprovação ("Require approvals") e valer também para administradores, ou se a revisão por outro integrante fica como acordo da equipe.
 
 ## Relacionadas
 
