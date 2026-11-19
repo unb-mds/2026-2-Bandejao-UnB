@@ -123,3 +123,9 @@ jobs:
 
       - name: Executar testes no MySQL
         run: python -m pytest -rs --cov=apps --cov-branch --cov-fail-under=70
+
+      # Repete só os testes da BD-10 com `-s` para o EXPLAIN do MySQL ficar no
+      # log (evidência do RNF01). A conferência dos índices já vale no passo
+      # anterior; este passo só imprime o plano.
+      - name: EXPLAIN dos índices (BD-10)
+        run: python -m pytest tests/test_indices_bd10.py -s -q --no-cov

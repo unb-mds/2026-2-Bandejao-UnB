@@ -140,3 +140,14 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Ajustes da revisão (08e8406): `ParametrosCadastroConfig` e a seta do `MatriculaValidator` retiradas do 4a de Cadastro, que voltou ao limite de 20 elementos (o ano mínimo segue nas notas e na tabela de parâmetros); seta `SessoesDaConta ..> ParametrosSessaoConfig` tracejada no 4c, com a nota de que quem aplica a duração é o Django (`SESSION_COOKIE_AGE`); nota no Leitor 4c de que as classes entram na BE-12 e de que a convenção cheia/tracejada do Cadastro 4c não vale ali. [Resposta à revisão](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/155#issuecomment-6978749760).
 - Validação após os ajustes: os 8 diagramas dos três documentos passam no `mermaid.parse` do Mermaid 10.9.3, sem erro.
 - Situação: revisão aprovada; pronto para o merge.
+
+## BD-10 — Índices da previsão e do ranking no MySQL
+
+- Issue: [#150](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/150). PR: PENDENTE_PR.
+- Ferramenta: Claude (Anthropic).
+- Apoio: teste `backend/tests/test_indices_bd10.py` (dados de teste em volume, `ANALYZE` e `EXPLAIN` das consultas de previsão de pico, espera estimada e ranking nos dois bancos), passo "EXPLAIN dos índices (BD-10)" no job `testes-mysql`, documento `docs/arquitetura/banco-de-dados/indices-bd10.md` com os planos e as regras para a BE-15 e a BE-17, referência no Nível 4 do banco e nota no plano de testes.
+- TDD: teste no commit `0a4fd90`, antes da documentação e do passo do CI. Os índices já existiam desde a BD-01, então o vermelho foi comprovado localmente com uma migration de prova (descartada) que remove os dois índices: os três testes de plano falharam (índice de `data` na previsão e UNIQUE de pontos no ranking).
+- Validação local (SQLite): `pytest` com 1005 testes aprovados e 1 ignorado (específico do MySQL), cobertura de 97,97%; `ruff check` e `ruff format --check` sem achados. Plano do MySQL 8.4 no log do CI do PR.
+- Checklist do Plano de Testes (3.10): os testes conferem o índice escolhido e também o resultado das consultas, para o plano não ser de uma consulta vazia ou diferente da previsão e do ranking.
+- Revisão humana: pendente.
+- Situação: aguardando revisão de outra frente.
