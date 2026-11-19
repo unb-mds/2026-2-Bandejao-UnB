@@ -167,3 +167,12 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Proteção da `main`: a `main` não tinha proteção nenhuma. Em 2026-11-19, a pedido de AlvaroBento12, o agente aplicou nela, pela API do GitHub, as mesmas regras da `develop` (PR obrigatório, os 4 jobs do CI verdes, branch atualizada, sem force-push e sem exclusão, 0 aprovações, sem valer para administradores), e a ADR passou a descrever a proteção das duas branches.
 - Segunda revisão: [aprovação de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/156#pullrequestreview-5969631334), com 3 pontos antes do merge e 4 sugestões. Aplicados os 3 pontos e as sugestões 4 e 5: PR #156 citado no lugar de "neste PR"; exceção dos administradores nas Consequências; status "Aceita"; mutação descrita no futuro, porque ainda não há job de mutação no CI, e sem o trecho de documentação, que a ADR 0013 e o §3.10 não citam; a ADR fixa o mínimo para o trabalho com agentes sem dispensar a DoD. As sugestões 6 (configurações do repositório) e 7 (redação) ficaram de fora.
 - Situação: revisão aprovada; pronto para o merge. A decisão sobre "Require approvals" fica para a equipe.
+
+## DOC-12 — Login com e-mail institucional e senha
+
+- PR: [#___ — DOC-12: login com e-mail institucional e senha](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/___).
+- Ferramenta: Claude (Anthropic).
+- Apoio: levantamento dos trechos que citavam o login por matrícula/SIAPE, redação da ADR 0016 e das notas nas ADRs 0002, 0007 e 0008, e atualização de requisitos (RF02.2, RF03, RF04.1, RN01, L16, Anexo A), Visão, glossários, aviso de privacidade, backlog e C4 (Cadastro N4, banco N4 e front).
+- Validação: os diagramas Mermaid dos C4 alterados renderizam com o Mermaid 10, a versão do Docsify. Uma varredura confirmou que nenhum documento descreve o login por matrícula/SIAPE, a não ser como comportamento do MVP. Os nomes conferem com o código da `develop` e com as issues BE-20 (#201) e FE-03 (#101).
+- Revisão humana: pendente (revisão de outra frente, como pede a #202).
+- Situação: aguardando revisão.

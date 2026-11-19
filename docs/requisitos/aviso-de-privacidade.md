@@ -30,8 +30,8 @@ Nesse caso, o Bandejão não guarda nenhum dado que identifique você:
 | Dado | Para quê |
 |---|---|
 | Tipo de usuário (estudante ou professor/servidor) | Saber quais campos pedir no cadastro |
-| Matrícula (estudante) ou SIAPE (professor/servidor) | Entrar na conta e garantir uma conta por pessoa |
-| E-mail institucional (`@aluno.unb.br` ou `@unb.br`) | Confirmar a conta e enviar o link de redefinição de senha |
+| Matrícula (estudante) ou SIAPE (professor/servidor) | Garantir uma conta por pessoa |
+| E-mail institucional (`@aluno.unb.br` ou `@unb.br`) | Entrar na conta, confirmar a conta e enviar o link de redefinição de senha |
 | Apelido | Identificar você nas avaliações e, se quiser, no ranking |
 | Senha | Entrar na conta. Guardamos só uma versão embaralhada (hash), nunca a senha em si |
 | Data e versão deste aviso que você aceitou | Comprovar o seu consentimento |

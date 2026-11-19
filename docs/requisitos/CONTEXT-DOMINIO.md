@@ -15,17 +15,17 @@ _Evitar:_ usar "comunidade" para todos que frequentam o RU. Terceirizados e exte
 Quem usa o Bandejão sem estar logado, tenha ou não conta. Consulta o cardápio e a previsão de pico, mas não avalia refeições nem faz check-in. É uma condição de uso, não um tipo de pessoa: quem faz login deixa de ser Visitante.
 
 **Usuário**
-Conta no Bandejão, ligada a exatamente uma matrícula ou um SIAPE. É a conta que se autentica, avalia e faz check-in, não a pessoa: quem tem mais de uma vinculação (ex.: matrícula de aluno e SIAPE) pode ter mais de um Usuário.
+Conta no Bandejão, ligada a exatamente uma matrícula ou um SIAPE e a um E-mail institucional. É a conta que se autentica (com o E-mail institucional e a senha), avalia e faz check-in, não a pessoa: quem tem mais de uma vinculação (ex.: matrícula de aluno e SIAPE) pode ter mais de um Usuário.
 _Evitar:_ usar "usuário" para quem apenas frequenta o RU sem ter conta.
 
 **Tipo de usuário**
 Vínculo declarado no cadastro: Estudante (matrícula) ou Professor/Servidor (SIAPE/matrícula funcional). É um único tipo interno: a tela de cadastro oferece "Professor" e "Servidor" como duas opções separadas por clareza para quem preenche, mas as duas levam ao mesmo fluxo e são o mesmo Tipo de usuário no sistema.
 
 **Matrícula / SIAPE**
-Identificador institucional associado à conta. Para Estudante, é extraído do E-mail institucional informado no cadastro, não digitado separadamente. Para Professor/Servidor, é informado diretamente no cadastro. É dado privado: nunca é exibido a outros usuários.
+Identificador institucional associado à conta. Para Estudante, é extraído do E-mail institucional informado no cadastro, não digitado separadamente. Para Professor/Servidor, é informado diretamente no cadastro. Garante uma conta por pessoa e serve à moderação, mas não é usado para entrar na conta. É dado privado: nunca é exibido a outros usuários.
 
 **E-mail institucional**
-E-mail da UnB informado no cadastro, único canal de confirmação de cadastro e de recuperação de senha. Para Estudante, segue o formato `matricula@aluno.unb.br`, do qual o sistema extrai a Matrícula. Para Professor/Servidor, é um e-mail `@unb.br`, geralmente no formato nome.sobrenome, do qual o sistema extrai o Apelido.
+E-mail da UnB informado no cadastro, usado para entrar na conta e único canal de confirmação de cadastro e de recuperação de senha. Para Estudante, segue o formato `matricula@aluno.unb.br`, do qual o sistema extrai a Matrícula. Para Professor/Servidor, é um e-mail `@unb.br`, geralmente no formato nome.sobrenome, do qual o sistema extrai o Apelido.
 
 **Apelido**
 Nome público do usuário, escolhido uma única vez no cadastro e único entre os usuários. É sob ele que as avaliações e, para quem optar por aparecer, o Ranking são exibidos. Para Estudante, é escolhido manualmente no cadastro; para Professor/Servidor, é extraído automaticamente do E-mail institucional (o texto antes do "@").

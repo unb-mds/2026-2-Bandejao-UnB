@@ -14,7 +14,8 @@
 >
 > A sessão é a do próprio Django, em cookie `HttpOnly` (ADR 0007), com
 > login, logout (RF03.3) e "quem sou eu" na mesma rota, e a matrícula/SIAPE
-> fica em texto claro, em `matriculaSiape` (ADR 0008).
+> fica em texto claro, em `matriculaSiape` (ADR 0008). O login é com o
+> e-mail institucional e a senha (ADR 0016).
 >
 > A classe `Conta` destes diagramas é o model `Usuario` do app `cadastro`
 > (tabela `USUARIO` no Nível 4 do banco de dados; glossário: "Usuário").
@@ -31,9 +32,11 @@
 > Referências: ADR 0002 — *Matrícula e apelido extraídos do e-mail
 > institucional* (`docs/arquitetura/adr/0002-matricula-apelido-extraidos-do-email.md`),
 > ADR 0007 — *Sessão autenticada por cookie HttpOnly*
-> (`docs/arquitetura/adr/0007-sessao-autenticada-por-cookie-httponly.md`) e
+> (`docs/arquitetura/adr/0007-sessao-autenticada-por-cookie-httponly.md`),
 > ADR 0008 — *Matrícula/SIAPE em texto claro*
-> (`docs/arquitetura/adr/0008-matricula-siape-em-texto-claro.md`).
+> (`docs/arquitetura/adr/0008-matricula-siape-em-texto-claro.md`) e
+> ADR 0016 — *Login com e-mail institucional e senha*
+> (`docs/arquitetura/adr/0016-login-com-email-institucional.md`).
 
 Há quatro diagramas: **4a** cadastro, **4b** confirmação de e-mail, **4c** login e recuperação de senha e **4d** aviso de privacidade, status e exclusão de conta. Cada diagrama tem no máximo 20 elementos e um título próprio, seguindo a skill c4-architecture usada pelo grupo; classes compartilhadas (como `Conta` ou as configurações) aparecem em mais de um diagrama.
 
@@ -98,7 +101,7 @@ classDiagram
   class ContaRepository {
     +existeMatriculaOuSiape(identificador: str) bool
     +existeEmail(email: str) bool
-    +buscarPorIdentificador(identificador: str) Conta
+    +buscarPorEmail(email: str) Conta
     +salvar(conta: Conta) Conta
     +excluirPendenteExpirada(conta: Conta) void
     +excluir(conta: Conta) void
@@ -224,7 +227,7 @@ classDiagram
   class ConfirmacaoEmailService {
     +enviarLink(conta: Conta) void
     +confirmar(token: str) void
-    +contaParaReenvio(matriculaSiape: Optional~str~, token: Optional~str~) Optional~Conta~
+    +contaParaReenvio(emailInstitucional: Optional~str~, token: Optional~str~) Optional~Conta~
     +reenviar(conta: Conta) void
   }
   class TokenConfirmacao {
@@ -238,7 +241,7 @@ classDiagram
   class ContaRepository {
     +existeMatriculaOuSiape(identificador: str) bool
     +existeEmail(email: str) bool
-    +buscarPorIdentificador(identificador: str) Conta
+    +buscarPorEmail(email: str) Conta
     +salvar(conta: Conta) Conta
     +pendentesExpiradas(limite: datetime) list~Conta~
     +excluirPendenteExpirada(conta: Conta, limite: datetime) bool
@@ -276,7 +279,7 @@ classDiagram
   CadastroService --> ConfirmacaoEmailService : dispara envio de link
   ConfirmacaoEmailService --> TokenConfirmacao : gera/consome
   ConfirmacaoEmailService ..> TokenExpiradoOuInvalidoError : lança se inválido/expirado
-  ConfirmacaoEmailService --> ContaRepository : busca pela matrícula/SIAPE
+  ConfirmacaoEmailService --> ContaRepository : busca pelo e-mail institucional
   ConfirmacaoEmailService --> Conta : marca confirmada (ORM)
   ConfirmacaoEmailService ..> EmailSvc : envia link [SMTP]
   ExclusaoCadastroPendenteJob --> ContaRepository : exclui pendentes expiradas
@@ -330,9 +333,10 @@ classDiagram
   um reenvio, ela é apagada em 24 h, e a falha fica no log.
 - **Link do e-mail.** Aponta para a página `/confirmar-email` do PWA
   (`URL_DO_PWA` no `.env`), que chama `POST /api/confirmar-email/{token}/`.
-- **Reenvio.** `contaParaReenvio` acha a conta pela matrícula/SIAPE ou por um
-  token antigo (mesmo vencido ou usado). A resposta HTTP é sempre a mesma,
-  exista ou não a conta.
+- **Reenvio.** `contaParaReenvio` acha a conta pelo e-mail institucional (o
+  mesmo dado do login, pedido pela tela de login, ADR 0016) ou por um token
+  antigo (mesmo vencido ou usado). O e-mail passa pelo `normalizar_email`
+  antes da busca. A resposta HTTP é sempre a mesma, exista ou não a conta.
 
 ## Nível 4c — Login e recuperação de senha
 
@@ -353,7 +357,11 @@ classDiagram
     +post(token: str, request) Response
   }
   class LoginService {
-    +autenticar(identificador: str, senha: str) Conta
+    +autenticar(email: str, senha: str) Conta
+  }
+  class EmailInstitucionalValidator {
+    +validarFormatoEstudante(email: str) bool
+    +validarFormatoProfessorServidor(email: str) bool
   }
   class TentativaLoginTracker {
     +registrarTentativa(conta: Conta, sucesso: bool) void
@@ -388,7 +396,7 @@ classDiagram
     +redefinicaoJanela: timedelta
   }
   class RecuperacaoSenhaService {
-    +solicitar(identificador: str) void
+    +solicitar(email: str) void
     +redefinir(token: str, novaSenha: str) void
   }
   class TokenRedefinicaoSenha {
@@ -399,7 +407,7 @@ classDiagram
     +usado: bool
   }
   class SolicitacaoRedefinicaoTracker {
-    +podeSolicitar(identificador: str) bool
+    +podeSolicitar(email: str) bool
   }
   class PasswordHasher {
     +hash(senha: str) str
@@ -408,7 +416,7 @@ classDiagram
   class ContaRepository {
     +existeMatriculaOuSiape(identificador: str) bool
     +existeEmail(email: str) bool
-    +buscarPorIdentificador(identificador: str, travar: bool) Conta
+    +buscarPorEmail(email: str, travar: bool) Conta
     +salvar(conta: Conta) Conta
     +excluirPendenteExpirada(conta: Conta) void
     +excluir(conta: Conta) void
@@ -436,10 +444,11 @@ classDiagram
   SessaoView ..> Conta : lê apelido, tipo e aviso pendente, no GET
   SolicitarRecuperacaoSenhaView --> RecuperacaoSenhaService : solicitar()
   RedefinirSenhaView --> RecuperacaoSenhaService : redefinir()
+  LoginService --> EmailInstitucionalValidator : confere o formato (ADR 0002)
   LoginService --> TentativaLoginTracker : verifica bloqueio / registra tentativa
-  LoginService --> ContaRepository : busca e trava a conta
+  LoginService --> ContaRepository : busca pelo e-mail e trava a conta
   LoginService --> PasswordHasher : verifica senha
-  LoginService ..> IdentificadorInvalidoError : lança se nem 9 nem 7 dígitos
+  LoginService ..> IdentificadorInvalidoError : lança se o e-mail não é institucional
   LoginService ..> ContaNaoConfirmadaError : lança se conta pendente
   LoginService ..> CredenciaisInvalidasError : lança em erro (mensagem genérica)
   LoginService ..> LoginBloqueadoError : lança se bloqueado
@@ -498,14 +507,21 @@ classDiagram
   sessões (diagrama 4d).
 - **`clearsessions`** roda pelo cron do SO para apagar sessões expiradas de
   `django_session`.
-- **Implementação do login (BE-07, #97).** O `LoginService` confere, nesta
-  ordem: formato (RN01, 9 ou 7 dígitos, sem consultar o banco: 422
+- **Implementação do login (BE-07, #97; e-mail na BE-20, #201).** O
+  `LoginService` normaliza o e-mail (`normalizar_email`: sem espaços nas
+  pontas e em minúsculas) e confere, nesta ordem: formato (e-mail
+  institucional de Estudante ou de Professor/Servidor, pelo
+  `EmailInstitucionalValidator`, ADR 0002, sem consultar o banco: 422
   `dados_invalidos`, não conta como tentativa), conta inexistente, bloqueio,
   senha e conta suspensa ou removida, e por fim conta pendente. Conta
   inexistente, senha errada e conta suspensa ou removida dão o mesmo 401
   `credenciais_invalidas`; para a conta inexistente, o service calcula um hash
   à toa, para o tempo de resposta não revelar que ela não existe. A conta
-  pendente só recebe o 403 `conta_nao_confirmada` com a senha certa.
+  pendente só recebe o 403 `conta_nao_confirmada` com a senha certa. O
+  corpo do `POST /api/sessao/` é `{emailInstitucional, senha}` (contrato
+  `LoginEntradaRequest`); um corpo com `matriculaSiape` dá 422. No MVP, o
+  login usava a matrícula/SIAPE, separada pelo tamanho (9 ou 7 dígitos), e
+  `buscarPorIdentificador` (ADR 0016).
 - **Quem abre a sessão é a `SessaoView`**, com `SessoesDaConta.abrir()`
   depois do `autenticar()`, e não o `LoginService`: assim o service não
   depende da requisição HTTP e é testado sem ela. O `login` do Django troca o
@@ -529,25 +545,25 @@ classDiagram
     janela deslizante exigiria guardar o horário de cada falha (ou ir para o
     cache da #123), o que não compensa agora (revisão do #127). Um acerto zera tudo, inclusive o de uma
   conta pendente (senha certa não é tentativa malsucedida).
-- **Limitação aceita: o 429 só existe para conta que existe.** Uma
-  matrícula/SIAPE sem conta não tem onde guardar a contagem e nunca bloqueia,
-  então quem errar a senha 5 vezes descobre, pelo 429, que a conta existe.
-  Não é um vazamento novo: o cadastro já diz, de propósito, se a
-  matrícula/SIAPE tem conta (RF01.5). O que torna cara a descoberta de contas
-  em massa (e o teste de uma senha em muitas matrículas) é o limite de pedidos
-  por IP no login, no cadastro e no reenvio, que fica na #123. Se o grupo
-  quiser fechar também este caso, as tentativas passam a ficar no cache
-  compartilhado da #123, por identificador, e não só na `USUARIO`.
+- **Limitação aceita: o 429 só existe para conta que existe.** Um e-mail
+  sem conta não tem onde guardar a contagem e nunca bloqueia, então quem
+  errar a senha 5 vezes descobre, pelo 429, que a conta existe. Não é um
+  vazamento novo: o cadastro já diz, de propósito, se o e-mail tem conta
+  (RF01.5). O que torna cara a descoberta de contas em massa (e o teste de
+  uma senha em muitos e-mails) é o limite de pedidos por IP no login, no
+  cadastro e no reenvio, que fica na #123. Se o grupo quiser fechar também
+  este caso, as tentativas passam a ficar no cache compartilhado da #123, por
+  e-mail, e não só na `USUARIO`.
 
 - **`TentativaLoginTracker` e `SolicitacaoRedefinicaoTracker` são duas
   classes, não uma genérica de "rate limiting"**, porque os parâmetros e a
-  granularidade são diferentes: bloqueio de login é por identificador, 5
+  granularidade são diferentes: bloqueio de login é por conta, 5
   tentativas em 10 minutos, bloqueio de 10 minutos (RF03); recuperação de
-  senha é por identificador, 3 solicitações por hora (RF04). Também evita
+  senha é por e-mail institucional, 3 solicitações por hora (RF04). Também evita
   que uma implementação genérica demais esconda esses números do Anexo A
   atrás de uma configuração difícil de rastrear até o requisito.
-- **`LoginService` nunca deixa a `SessaoView` saber se a matrícula/SIAPE
-  existe** — tanto `ContaNaoConfirmadaError` quanto `CredenciaisInvalidasError`
+- **`LoginService` nunca deixa a `SessaoView` saber se existe conta com o
+  e-mail** — tanto `ContaNaoConfirmadaError` quanto `CredenciaisInvalidasError`
   viram mensagens específicas de propósito diferente (uma convida a
   confirmar o e-mail; a outra é genérica de propósito, para não permitir
   enumeração de contas, RF03) — mas nenhuma das duas revela existência da
@@ -597,7 +613,7 @@ classDiagram
   class ContaRepository {
     +existeMatriculaOuSiape(identificador: str) bool
     +existeEmail(email: str) bool
-    +buscarPorIdentificador(identificador: str, travar: bool) Conta
+    +buscarPorEmail(email: str, travar: bool) Conta
     +salvar(conta: Conta) Conta
     +registrarAceiteSePendente(conta: Conta, versao: str, agora: datetime) bool
     +excluirPendenteExpirada(conta: Conta) void

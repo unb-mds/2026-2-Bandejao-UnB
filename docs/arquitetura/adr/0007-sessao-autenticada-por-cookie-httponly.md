@@ -1,12 +1,12 @@
 # ADR 0007 — Sessão autenticada por cookie HttpOnly
 
 **Status:** Aceita
-**Data:** 2026-09-28
+**Data:** 2026-09-28 (revisada em 2026-11-19: login com e-mail institucional, ADR 0016)
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
 ## Contexto
 
-O Usuário se autentica com matrícula/SIAPE e senha (RF03) para avaliar refeições (RF15) e fazer check-in (RF11). O C4 do frontend (Nível 3b) propunha guardar o token de sessão **só em memória**, no `authStore`. Com isso, a sessão se perde a cada recarga de página e cada vez que o PWA instalado é reaberto, o que vai contra:
+O Usuário se autentica com o e-mail institucional e a senha (RF03, ADR 0016; no MVP, com a matrícula/SIAPE) para avaliar refeições (RF15) e fazer check-in (RF11). O C4 do frontend (Nível 3b) propunha guardar o token de sessão **só em memória**, no `authStore`. Com isso, a sessão se perde a cada recarga de página e cada vez que o PWA instalado é reaberto, o que vai contra:
 
 - o caráter PWA e mobile-first do produto (RNF05): o app instalado é fechado e reaberto o tempo todo pelo sistema operacional do celular;
 - a usabilidade para quem tem pouco tempo (RNF03, Visão 3.4): pedir login toda vez que alguém abre o app para avaliar a refeição reduz o número de avaliações.
@@ -52,3 +52,4 @@ A autenticação da API usa a **sessão do Django em cookie**, e não token.
 - `docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md` (conta suspensa e exclusão de conta).
 - `c4-niveis-3-4-frontend-bandejao.md` (`authStore`, `apiClient`).
 - `c4-nivel-4-cadastro-autenticacao.md` (`LoginService`, `Sessao`).
+- `docs/arquitetura/adr/0016-login-com-email-institucional.md` (identificador do login).

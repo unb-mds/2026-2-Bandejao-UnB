@@ -80,7 +80,8 @@ Meu progresso (RF26.2, RF33.3)."]
 Ranking do semestre por
 campus, público (RF27.2)."]
     authViews["🖼️ Views de Autenticação
-Login, Cadastro, Confirmar e-mail,
+Login (e-mail institucional e senha),
+Cadastro, Confirmar e-mail,
 Recuperar/Redefinir senha (RF01–RF04)."]
 
     avisoLocalizacao["🧩 AvisoLocalizacao
@@ -140,6 +141,11 @@ Aviso '+10 pontos' (RF24.2)."]
   e `ConfirmarEmailView` concentram a maior parte da complexidade do épico
   Login (RF01/RF02) — por isso são elas que ganham detalhamento em Nível 4
   (4b), e não o grupo inteiro.
+- **`LoginView` pede o e-mail institucional e a senha** (RF03.1, ADR 0016),
+  no formato da ADR 0002: `matricula@aluno.unb.br` ou `nome.sobrenome@unb.br`.
+  `RecuperarSenhaView` pede o mesmo e-mail, e o reenvio da confirmação pela
+  `LoginView` usa o e-mail já digitado. Quem confere o domínio é a API (422),
+  como nas outras regras de formato (nota do fluxo 4b).
 
 ### 3a.2 — Tela do campus (Release 2)
 
@@ -599,7 +605,7 @@ separação por app do backend (RNF06):
 
 | Store | Responsabilidade | Persistência |
 |---|---|---|
-| `authStore` | Sessão do usuário: apelido, tipo de usuário e `avisoPrivacidadePendente`, lidos de `GET /api/sessao/`. Login, logout, cadastro e reenvio de confirmação. **Sem token** (ADR 0007) | Nenhuma no PWA: a sessão está no cookie `HttpOnly`; a store é recarregada ao abrir o app |
+| `authStore` | Sessão do usuário: apelido, tipo de usuário e `avisoPrivacidadePendente`, lidos de `GET /api/sessao/`. Login com e-mail institucional e senha (`entrar(emailInstitucional, senha)`, ADR 0016), logout, cadastro, reenvio de confirmação (pelo e-mail ou pelo token) e pedido de recuperação de senha pelo e-mail. **Sem token** (ADR 0007) | Nenhuma no PWA: a sessão está no cookie `HttpOnly`; a store é recarregada ao abrir o app |
 | `preferenciasStore` | Campus lembrado, escolha manual depois da última detecção, campus detectado, refeição selecionada, filtros de marcador e dieta, "Agora não" do aviso de localização | `localStorage` (RF07, RF08, RF09, RF19, RN04), exceto o campus detectado (memória) |
 | `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, semana, dia, refeição e filtros (inclui `refeicaoEncerrada`) | Em memória |
 | `avaliacoesStore` | Resumo do dia (notas de todas as refeições, `GET /api/avaliacoes/resumo/`), comentários com `distintivo` e envio/edição da avaliação do usuário | Em memória |
@@ -858,8 +864,10 @@ sequenceDiagram
   própria `ConfirmarEmailView` quando o token já expirou (acima), e pela
   `LoginView`, quando alguém tenta entrar com credenciais corretas numa
   conta ainda não confirmada — nesse caso a tela de login, não a de
-  cadastro, é quem oferece o reenvio (RF02). As duas chamam o mesmo
-  `authStore.reenviarConfirmacao()`, evitando duplicar a lógica.
+  cadastro, é quem oferece o reenvio (RF02), com o mesmo e-mail institucional
+  digitado no login (ADR 0016). As duas chamam o mesmo
+  `authStore.reenviarConfirmacao()` (`{ emailInstitucional }` ou `{ token }`),
+  evitando duplicar a lógica.
 - **O frontend não decide se um formato de matrícula/SIAPE ou e-mail é
   válido — ele só reflete a resposta do backend.** As regras de validação
   (checagem dos 3 primeiros dígitos da matrícula, sequências rejeitadas nos

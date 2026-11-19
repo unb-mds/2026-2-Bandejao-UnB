@@ -44,10 +44,10 @@ Os termos do domínio abaixo seguem o glossário do projeto (`docs/requisitos/CO
 - **Frequentadores do RU** — todas as pessoas que se alimentam nos RUs da UnB, tenham conta no Bandejão ou não. Inclui a Comunidade, terceirizados e externos.
 - **Comunidade** — estudantes (com matrícula de aluno) e professores/servidores (com SIAPE/matrícula funcional) da UnB. É o público que pode ter conta no Bandejão.
 - **Visitante** — quem usa o Bandejão sem estar logado, tenha ou não conta. Consulta o cardápio e, na Release 2, a previsão de pico, mas não avalia refeições nem faz check-in. É uma condição de uso, não um tipo de pessoa: quem faz login deixa de ser Visitante.
-- **Usuário** — conta no Bandejão, ligada a exatamente uma matrícula ou um SIAPE. É a conta que se autentica, avalia e faz check-in, não a pessoa: quem tem mais de uma vinculação pode ter mais de um Usuário.
+- **Usuário** — conta no Bandejão, ligada a exatamente uma matrícula ou um SIAPE e a um e-mail institucional. É a conta que se autentica (com o e-mail institucional e a senha), avalia e faz check-in, não a pessoa: quem tem mais de uma vinculação pode ter mais de um Usuário.
 - **Tipo de usuário** — vínculo declarado no cadastro: Estudante (matrícula) ou Professor/Servidor (SIAPE/matrícula funcional). É um único tipo interno: "Professor" e "Servidor" são duas opções na tela de cadastro que levam ao mesmo fluxo.
 - **Matrícula / SIAPE** — identificador institucional associado à conta. Para Estudante, é extraído do e-mail institucional informado no cadastro; para Professor/Servidor, é informado diretamente. É dado privado: nunca é exibido a outros usuários.
-- **E-mail institucional** — e-mail da UnB informado no cadastro (`matricula@aluno.unb.br` para estudantes, `@unb.br` para professores/servidores), único canal de confirmação de cadastro e de recuperação de senha; fonte da Matrícula (estudantes) e do Apelido (professores/servidores).
+- **E-mail institucional** — e-mail da UnB informado no cadastro (`matricula@aluno.unb.br` para estudantes, `@unb.br` para professores/servidores), usado para entrar na conta e único canal de confirmação de cadastro e de recuperação de senha; fonte da Matrícula (estudantes) e do Apelido (professores/servidores).
 - **Apelido** — nome público do usuário, escolhido uma única vez no cadastro e único entre os usuários. É sob ele que as avaliações e, para quem optar por aparecer, o Ranking são exibidos. Escolhido manualmente por Estudante; extraído do e-mail institucional para Professor/Servidor.
 
 **Lugares**
@@ -311,7 +311,7 @@ A alocação de cada recurso é indicada abaixo (MVP, Release 2 ou Backlog); imp
 
 ### Épico 1 — Login
 
-- **5.1** Cadastro em duas etapas — escolha do tipo de usuário (Estudante, Professor ou Servidor) e, em seguida, os campos daquele tipo — com validação de formato de matrícula (estudantes, extraída do e-mail institucional) ou SIAPE/matrícula funcional (professores e servidores), apelido manual (estudantes) ou extraído do e-mail institucional (professores e servidores), confirmação de e-mail e login; inclui aviso de privacidade (RF01 a RF03, exceto RF03.3 e RF03.4) — MVP
+- **5.1** Cadastro em duas etapas — escolha do tipo de usuário (Estudante, Professor ou Servidor) e, em seguida, os campos daquele tipo — com validação de formato de matrícula (estudantes, extraída do e-mail institucional) ou SIAPE/matrícula funcional (professores e servidores), apelido manual (estudantes) ou extraído do e-mail institucional (professores e servidores), confirmação de e-mail e login com e-mail institucional e senha; inclui aviso de privacidade (RF01 a RF03, exceto RF03.3 e RF03.4) — MVP (na Release 2, o login passou a usar o e-mail institucional no lugar da matrícula/SIAPE, ADR 0016)
 - **5.1.1** Encerramento de sessão (sair da conta) (RF03.3) — Release 2
 - **5.2** Recuperação de senha por e-mail (RF04) — MVP
 - **5.3** Navegação sem login: consulta ao cardápio sem necessidade de cadastro (RF05) — MVP

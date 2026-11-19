@@ -43,6 +43,7 @@
   - [0013 — Estratégia de testes e portas de qualidade](arquitetura/adr/0013-estrategia-de-testes-e-portas-de-qualidade.md)
   - [0014 — Descoberta do PDF de cada campus](arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md)
   - [0015 — Permissões de agentes de IA no repositório](arquitetura/adr/0015-permissoes-de-agentes-de-ia-no-repositorio.md)
+  - [0016 — Login com e-mail institucional](arquitetura/adr/0016-login-com-email-institucional.md)
 
 - **Deploy**
   - [Deploy de produção](deploy/deploy-producao.md)
