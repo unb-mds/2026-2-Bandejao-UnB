@@ -176,9 +176,9 @@ describe('ConfirmarEmailView: token na query string', () => {
 
   it('erro que não é do token (sem conexão): oferece tentar de novo', async () => {
     const { linkSimulado } = await cadastrarAluno()
-    const espiao = vi.spyOn(apiClient, 'post').mockImplementationOnce(() =>
-      Promise.reject(new ApiError(0, { codigo: 'sem_conexao' })),
-    )
+    const espiao = vi
+      .spyOn(apiClient, 'post')
+      .mockImplementationOnce(() => Promise.reject(new ApiError(0, { codigo: 'sem_conexao' })))
     const { wrapper } = await montarEm(`/confirmar-email?token=${tokenDoLink(linkSimulado)}`)
 
     await vi.waitFor(() => expect(wrapper.text()).toContain('Não conseguimos confirmar agora.'))
@@ -241,7 +241,9 @@ describe('LoginView', () => {
     await entrarPelaTela(wrapper, ALUNO.matricula, 'errada123')
 
     await vi.waitFor(() =>
-      expect(wrapper.find('[role="alert"]').text()).toContain('Matrícula/SIAPE ou senha incorretas.'),
+      expect(wrapper.find('[role="alert"]').text()).toContain(
+        'Matrícula/SIAPE ou senha incorretas.',
+      ),
     )
     expect(router.currentRoute.value.name).toBe('login')
   })
