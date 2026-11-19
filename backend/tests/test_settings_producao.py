@@ -5,6 +5,10 @@ repassa o `.env` da VM ao backend sem alterar nada. As quatro do Django têm o
 prefixo `DJANGO_`; as do banco e do e-mail mantêm os nomes de antes.
 """
 
+import importlib.util
+import re
+from pathlib import Path
+
 import pytest
 from decouple import UndefinedValueError
 from django.core.exceptions import ImproperlyConfigured
@@ -56,6 +60,24 @@ def test_sem_django_debug_o_padrao_e_producao(carregar_settings):
     assert carregar_settings(DJANGO_DEBUG=None).DEBUG is False
 
 
+@pytest.mark.parametrize(
+    ("valor", "esperado"),
+    [("1", True), ("on", True), ("0", False), ("off", False), ("", False)],
+)
+def test_django_debug_aceita_as_formas_de_booleano(
+    carregar_settings, valor, esperado
+):
+    ambiente = {**ENV_DE_PRODUCAO, "DJANGO_DEBUG": valor}
+
+    assert carregar_settings(**ambiente).DEBUG is esperado
+
+
+def test_django_debug_invalido_para_a_subida(carregar_settings):
+    """Um erro de digitação não pode virar False (ou True) em silêncio."""
+    with pytest.raises(ValueError):
+        carregar_settings(**{**ENV_DE_PRODUCAO, "DJANGO_DEBUG": "Fasle"})
+
+
 def test_producao_sem_secret_key_nao_sobe(carregar_settings):
     with pytest.raises(UndefinedValueError, match="DJANGO_SECRET_KEY"):
         carregar_settings(**{**ENV_DE_PRODUCAO, "DJANGO_SECRET_KEY": None})
@@ -99,6 +121,31 @@ def test_nome_antigo_no_env_para_a_subida(carregar_settings, antigo, novo):
         carregar_settings(**{**ENV_DE_PRODUCAO, antigo: "qualquer"})
 
 
+def test_varios_nomes_antigos_aparecem_juntos_na_mensagem(carregar_settings):
+    """A pessoa corrige o .env de uma vez, sem subir o servidor várias vezes."""
+    with pytest.raises(ImproperlyConfigured) as erro:
+        carregar_settings(
+            **{**ENV_DE_PRODUCAO, "SECRET_KEY": "x", "DEBUG": "True"},
+        )
+
+    assert "SECRET_KEY -> DJANGO_SECRET_KEY" in str(erro.value)
+    assert "DEBUG -> DJANGO_DEBUG" in str(erro.value)
+
+
+def test_nome_antigo_vindo_do_arquivo_env(carregar_settings, monkeypatch, tmp_path):
+    """O caso da VM: o nome antigo está no arquivo .env, e não no ambiente."""
+    import decouple
+
+    arquivo = tmp_path / ".env"
+    arquivo.write_text("DEBUG=True\n", encoding="utf-8")
+    monkeypatch.setattr(
+        decouple, "RepositoryEmpty", lambda: decouple.RepositoryEnv(str(arquivo))
+    )
+
+    with pytest.raises(ImproperlyConfigured, match="DEBUG -> DJANGO_DEBUG"):
+        carregar_settings(**ENV_DE_PRODUCAO)
+
+
 def test_banco_le_as_variaveis_do_env(producao):
     banco = producao.DATABASES["default"]
 
@@ -126,9 +173,31 @@ def test_email_le_as_variaveis_do_env(producao):
     assert producao.DEFAULT_FROM_EMAIL == "nao-responda@bandejaounb.com.br"
 
 
-def test_producao_passa_no_check_deploy_dos_cookies(producao):
-    """Os itens do `check --deploy` que dependem só do settings."""
+def test_producao_liga_os_cookies_seguros_e_o_proxy(producao):
+    """Itens do `check --deploy` que dependem só do settings (o comando em si
+    roda no CI e na VM, com o settings de verdade)."""
     assert producao.DEBUG is False
     assert producao.SESSION_COOKIE_SECURE is True
     assert producao.CSRF_COOKIE_SECURE is True
     assert producao.SECURE_PROXY_SSL_HEADER == ("HTTP_X_FORWARDED_PROTO", "https")
+
+
+def test_toda_variavel_do_settings_e_isolada_nos_testes():
+    """O `carregar_settings` apaga do ambiente as variáveis que conhece. Uma
+    variável nova fora da lista vazaria do .env ou do pytest.ini para os
+    testes de valor padrão."""
+    caminho = Path(__file__).resolve().parents[1] / "conftest.py"
+    spec = importlib.util.spec_from_file_location("conftest_isolado", caminho)
+    conftest = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(conftest)
+
+    codigo = conftest.CAMINHO_SETTINGS.read_text(encoding="utf-8")
+    lidas = set(
+        re.findall(r'config(?:_sem_padrao_em_producao)?\(\s*"([A-Z_]+)"', codigo)
+    )
+    conhecidas = set(conftest.VARIAVEIS_DO_SETTINGS) | set(
+        conftest.OBRIGATORIAS_DE_TESTE
+    )
+
+    assert lidas, "nenhuma variável encontrada no settings.py"
+    assert lidas <= conhecidas, f"faltam no conftest.py: {lidas - conhecidas}"

@@ -49,6 +49,7 @@ VARIAVEIS_DO_SETTINGS = [
 OBRIGATORIAS_DE_TESTE = {
     "DJANGO_SECRET_KEY": "chave-so-para-teste",
     "DJANGO_ALLOWED_HOSTS": "testserver",
+    "DEFAULT_FROM_EMAIL": "nao-responda@teste.br",
     "URL_DO_PWA": "https://pwa.teste",
     "EMAIL_HOST": "smtp.teste",
     "EMAIL_HOST_USER": "usuario-teste",
