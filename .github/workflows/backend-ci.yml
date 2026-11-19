@@ -128,4 +128,5 @@ jobs:
       # log (evidência do RNF01). A conferência dos índices já vale no passo
       # anterior; este passo só imprime o plano.
       - name: EXPLAIN dos índices (BD-10)
-        run: python -m pytest tests/test_indices_bd10.py -s -q --no-cov
+        if: ${{ !cancelled() }}
+        run: python -m pytest tests/test_indices_bd10.py tests/test_diag_ranking_bd10_tmp.py -s -q --no-cov
