@@ -156,6 +156,18 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Atualização com a `develop` (FE-01, #119): o `apiClient` passou a ligar o simulado só no servidor de desenvolvimento, então o `VITE_USE_MOCK` saiu do `frontend/Dockerfile` (`d24f27a`). Validação: o build sem a variável não leva o código do simulado; na VM, o PWA reconstruído responde, e o `/api/sessao/` devolve 401 sem login, vindo da API real.
 - Situação: aprovado; sugestões da segunda revisão aplicadas e branch atualizada com a `develop`.
 
+## ADR 0015 — Permissões de agentes de IA
+
+- PR: [#156 — ADR 0015: permissões de agentes de IA no repositório](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/156).
+- Ferramenta: Claude (Anthropic).
+- Apoio: commit da ADR 0015 e das linhas no `docs/_sidebar.md` e no `README.md`, abertura do PR e ajustes da revisão: decisão reescrita (sem commit ou push direto na `main` e na `develop`, merge por um integrante depois da revisão de alguém diferente de quem operou o agente, force-push incluído, branches de trabalho fora da regra), status de volta para "Proposta", data do PR com a da redação entre parênteses, Contexto apoiado na Definition of Done, argumento da alternativa alinhado à ADR 0013, referências trocadas pelas que tratam do tema e ponto em aberto sobre "Require approvals".
+- TDD: não se aplica (só documentação).
+- Validação: links do sidebar e do README conferidos; afirmações da ADR conferidas com a ADR 0013, o `backlog.md` §1.4, o `plano-de-testes.md` §3.10 e o README (Gitflow).
+- Revisão humana: [revisão de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/156#pullrequestreview-5967413548), com pedido de mudanças, e [resposta à revisão](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/156#issuecomment-6999016626).
+- Proteção da `main`: a `main` não tinha proteção nenhuma. Em 2026-11-19, a pedido de AlvaroBento12, o agente aplicou nela, pela API do GitHub, as mesmas regras da `develop` (PR obrigatório, os 4 jobs do CI verdes, branch atualizada, sem force-push e sem exclusão, 0 aprovações, sem valer para administradores), e a ADR passou a descrever a proteção das duas branches.
+- Segunda revisão: [aprovação de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/156#pullrequestreview-5969631334), com 3 pontos antes do merge e 4 sugestões. Aplicados os 3 pontos e as sugestões 4 e 5: PR #156 citado no lugar de "neste PR"; exceção dos administradores nas Consequências; status "Aceita"; mutação descrita no futuro, porque ainda não há job de mutação no CI, e sem o trecho de documentação, que a ADR 0013 e o §3.10 não citam; a ADR fixa o mínimo para o trabalho com agentes sem dispensar a DoD. As sugestões 6 (configurações do repositório) e 7 (redação) ficaram de fora.
+- Situação: revisão aprovada; pronto para o merge. A decisão sobre "Require approvals" fica para a equipe.
+
 ## BD-16 — Origem do cardápio por campus
 
 - Issue: [#161](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/161). PR: [#162 — origem do cardápio por campus](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/162).
