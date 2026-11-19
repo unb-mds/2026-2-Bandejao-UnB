@@ -1,8 +1,11 @@
 """Consultas da conta (RF01.5, Cadastro N4 4a; login pelo e-mail, 4c)."""
 
+from unittest import mock
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from apps.cadastro.conta_repository import ContaRepository
@@ -50,19 +53,39 @@ def test_buscar_por_email_sem_conta_devolve_none(conta):
     assert repositorio.buscar_por_email("251098732") is None
 
 
-def test_buscar_por_email_com_trava_devolve_a_conta(conta):
-    """No SQLite a trava não tem efeito; aqui só confere que a busca funciona."""
-    with transaction.atomic():
+def espiar_select_for_update():
+    """Espia o `select_for_update` de qualquer QuerySet, sem mudar o resultado."""
+    return mock.patch.object(
+        QuerySet,
+        "select_for_update",
+        autospec=True,
+        side_effect=QuerySet.select_for_update,
+    )
+
+
+def test_buscar_por_email_com_trava_usa_select_for_update(conta):
+    """A trava é o que impede tentativas simultâneas de perder contagem (RF03.2).
+
+    O SQLite dos testes ignora o `FOR UPDATE`: aqui se confere o pedido da
+    trava, e não a corrida, que só acontece no MySQL.
+    """
+    with espiar_select_for_update() as travar, transaction.atomic():
         achada = ContaRepository().buscar_por_email(
             "251098732@aluno.unb.br", travar=True
         )
 
     assert achada == conta
+    travar.assert_called_once()
+    assert travar.call_args.args[0].model is get_user_model()
 
 
-def test_buscar_por_identificador_saiu_do_repositorio():
-    """BE-20: o login e o reenvio passaram a buscar pelo e-mail."""
-    assert not hasattr(ContaRepository, "buscar_por_identificador")
+def test_buscar_por_email_sem_trava_nao_usa_select_for_update(conta):
+    """O reenvio busca sem trava: fora de uma transação, o FOR UPDATE daria erro."""
+    with espiar_select_for_update() as travar:
+        achada = ContaRepository().buscar_por_email("251098732@aluno.unb.br")
+
+    assert achada == conta
+    travar.assert_not_called()
 
 
 def test_conta_pendente_tambem_conta_como_existente(conta):

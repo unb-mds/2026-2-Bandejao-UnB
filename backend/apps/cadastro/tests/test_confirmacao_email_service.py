@@ -409,6 +409,22 @@ def test_email_e_token_juntos_vale_o_email(servico, usuario):
     assert conta == usuario
 
 
+def test_email_sem_conta_e_token_valido_vale_o_token(servico, usuario):
+    """Se o e-mail não acha conta, o token que veio junto ainda é tentado."""
+    token = enviar_e_pegar_token(servico, usuario)
+
+    conta = servico.conta_para_reenvio(email="209999999@aluno.unb.br", token=token)
+
+    assert conta == usuario
+
+
+def test_email_e_token_sem_conta_nao_acham_conta(servico, usuario):
+    assert (
+        servico.conta_para_reenvio(email="209999999@aluno.unb.br", token="nao-existe")
+        is None
+    )
+
+
 def test_token_de_outro_tipo_nao_acha_conta_para_reenvio(servico, usuario, relogio):
     Token.objects.create(
         usuario=usuario,

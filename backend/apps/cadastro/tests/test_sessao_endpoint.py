@@ -193,6 +193,15 @@ def test_conta_inexistente_e_senha_errada_dao_a_mesma_resposta(cliente, conta):
     assert "matrícula" not in inexistente.json()["mensagem"].lower()
 
 
+def test_professor_inexistente_e_senha_errada_dao_a_mesma_resposta(cliente, conta):
+    """O domínio @unb.br também não revela se a conta existe (RF03.1)."""
+    senha_errada = entrar(cliente, senha="senha-errada")
+    inexistente = entrar(cliente, email="ninguem.aqui@unb.br")
+
+    assert inexistente.status_code == senha_errada.status_code == 401
+    assert inexistente.json() == senha_errada.json()
+
+
 @pytest.mark.parametrize("status", [StatusUsuario.SUSPENSO, StatusUsuario.REMOVIDO])
 def test_conta_suspensa_ou_removida_da_a_mesma_mensagem_generica(cliente, status, db):
     criar_conta(status=status)
@@ -351,6 +360,7 @@ def test_login_nao_registra_email_matricula_nem_senha_no_log(cliente, conta, cap
         entrar(cliente, senha="senha-errada-123")
         entrar(cliente, email="202400002@aluno.unb.br", senha="senha-errada-123")
         entrar(cliente, email="x@gmail.com", senha="senha-errada-123")
+        entrar(cliente, email="maria.silva@unb.br", senha="senha-errada-123")
         for _ in range(5):
             entrar(cliente, email=" 202400001@ALUNO.unb.br ", senha="senha-errada-123")
         entrar(cliente)
@@ -358,8 +368,8 @@ def test_login_nao_registra_email_matricula_nem_senha_no_log(cliente, conta, cap
     for registro in caplog.records:
         mensagem = registro.getMessage().lower()
         assert MATRICULA not in mensagem
-        assert "@aluno.unb.br" not in mensagem
-        assert "x@gmail.com" not in mensagem
+        # Sem "@" nenhum: pega o e-mail de estudante, de professor e o de fora.
+        assert "@" not in mensagem
         assert "senha-errada-123" not in mensagem
         assert SENHA not in mensagem
 

@@ -8,6 +8,7 @@ from unittest import mock
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from apps.cadastro.erros import (
@@ -312,3 +313,42 @@ def test_bloqueio_vem_antes_da_conferencia_da_senha(servico, conta, relogio):
         servico.autenticar(EMAIL, SENHA)
 
     conferir.assert_not_called()
+
+
+# --- Trava da conta (RF03.2) --------------------------------------------------
+
+
+def test_login_trava_a_conta_com_select_for_update(servico, conta):
+    """Sem a trava, tentativas simultâneas perdem contagem e passam do limite.
+
+    O SQLite dos testes ignora o `FOR UPDATE`: aqui se confere o pedido da
+    trava na linha da conta, e não a corrida, que só acontece no MySQL.
+    """
+    with (
+        mock.patch.object(
+            QuerySet,
+            "select_for_update",
+            autospec=True,
+            side_effect=QuerySet.select_for_update,
+        ) as travar,
+        pytest.raises(CredenciaisInvalidasError),
+    ):
+        servico.autenticar(EMAIL, "senha-errada")
+
+    contas_travadas = [
+        chamada.args[0]
+        for chamada in travar.call_args_list
+        if chamada.args[0].model is get_user_model()
+    ]
+    assert len(contas_travadas) == 1
+
+
+def test_login_pede_a_busca_com_trava(servico, conta):
+    with mock.patch(
+        "apps.cadastro.login_service.ContaRepository.buscar_por_email",
+        autospec=True,
+        return_value=conta,
+    ) as buscar:
+        servico.autenticar(EMAIL, SENHA)
+
+    buscar.assert_called_once_with(mock.ANY, EMAIL, travar=True)
