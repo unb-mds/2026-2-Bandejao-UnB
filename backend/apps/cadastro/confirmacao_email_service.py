@@ -10,7 +10,7 @@ Fluxo:
 2. `confirmar(token)`: a página `/confirmar-email` do PWA chama, pela API.
    Token válido ativa a conta; inexistente, expirado ou já usado levanta
    `TokenExpiradoOuInvalidoError` (410).
-3. `conta_para_reenvio(...)` + `reenviar(conta)`: a tela de login (matrícula)
+3. `conta_para_reenvio(...)` + `reenviar(conta)`: a tela de login (e-mail)
    ou a do link expirado (token) pedem um link novo. Só a conta pendente
    recebe e-mail, mas a resposta HTTP é sempre a mesma (RF02.2).
 """
@@ -161,17 +161,17 @@ class ConfirmacaoEmailService:
             conta.save(update_fields=["email_confirmado", "status"])
 
     def conta_para_reenvio(
-        self, matricula_siape: str | None = None, token: str | None = None
+        self, email: str | None = None, token: str | None = None
     ) -> Usuario | None:
-        """Acha a conta pela matrícula/SIAPE ou por um token antigo dela.
+        """Acha a conta pelo e-mail institucional ou por um token antigo dela.
 
         O token pode estar expirado ou usado: aqui ele só identifica a conta
         (a busca é pelo hash, sem olhar a validade). Sem conta, devolve None.
+        O domínio do e-mail não é conferido: fora do padrão, simplesmente não
+        acha conta, e a resposta continua a mesma (RF02.2).
         """
-        if matricula_siape:
-            return self.conta_repository.buscar_por_identificador(
-                matricula_siape.strip()
-            )
+        if email:
+            return self.conta_repository.buscar_por_email(email)
         if token:
             registro = (
                 Token.objects.select_related("usuario")

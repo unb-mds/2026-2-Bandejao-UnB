@@ -84,11 +84,12 @@ class ApelidoIndisponivelSerializer(ErroSerializer):
 class ReenvioConfirmacaoEntradaSerializer(serializers.Serializer):
     """Corpo do POST /api/reenviar-confirmacao/ (RF02.2, Cadastro N4 4b).
 
-    Envie um dos dois campos. Se vierem os dois, vale a `matriculaSiape`.
+    Envie um dos dois campos. Se vierem os dois, vale o `emailInstitucional`.
     """
 
-    matriculaSiape = TextoEstritoField(
+    emailInstitucional = TextoEstritoField(
         required=False,
+        max_length=254,
         help_text="Quem pede o reenvio pela tela de login (conta não confirmada).",
     )
     token = serializers.CharField(
@@ -100,18 +101,19 @@ class ReenvioConfirmacaoEntradaSerializer(serializers.Serializer):
     )
 
     def validate(self, dados):
-        if not dados.get("matriculaSiape") and not dados.get("token"):
-            raise serializers.ValidationError("Informe matriculaSiape ou token.")
+        if not dados.get("emailInstitucional") and not dados.get("token"):
+            raise serializers.ValidationError("Informe emailInstitucional ou token.")
         return dados
 
 
 class LoginEntradaSerializer(serializers.Serializer):
     """Corpo do POST /api/sessao/ (RF03.1, Cadastro N4 4c)."""
 
-    # Texto, como no cadastro: um SIAPE enviado como número perderia o zero
-    # à esquerda.
-    matriculaSiape = TextoEstritoField(
-        help_text="Matrícula (9 dígitos) ou SIAPE (7 dígitos), no mesmo campo.",
+    # Texto estrito, como no cadastro. O domínio é conferido no LoginService
+    # (EmailInstitucionalValidator, ADR 0002). 254: o tamanho da coluna.
+    emailInstitucional = TextoEstritoField(
+        max_length=254,
+        help_text="E-mail institucional: matricula@aluno.unb.br ou nome@unb.br.",
     )
     # Sem cortar os espaços das pontas, como no cadastro.
     senha = TextoEstritoField(write_only=True, trim_whitespace=False)

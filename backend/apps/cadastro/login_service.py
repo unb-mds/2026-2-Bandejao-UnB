@@ -1,7 +1,7 @@
-"""LoginService: confere matrícula/SIAPE e senha (RF03.1, RF03.2, Cadastro N4 4c).
+"""LoginService: confere e-mail institucional e senha (RF03.1, RF03.2, Cadastro N4 4c).
 
 Ordem das checagens:
-1. formato (RN01): 9 dígitos (matrícula) ou 7 (SIAPE), sem consultar o banco;
+1. formato (ADR 0002): e-mail @aluno.unb.br ou @unb.br, sem consultar o banco;
 2. conta inexistente: mesmo erro da senha errada (RF03.1);
 3. bloqueio (RF03.2): bloqueado, a senha nem é conferida;
 4. senha, e conta suspensa ou removida (`is_active = False`, ADR 0007): os
@@ -23,12 +23,12 @@ from apps.cadastro.erros import (
     IdentificadorInvalidoError,
     LoginBloqueadoError,
 )
-from apps.cadastro.models import StatusUsuario, Usuario
+from apps.cadastro.models import StatusUsuario, Usuario, normalizar_email
 from apps.cadastro.tentativa_login_tracker import TentativaLoginTracker
-from apps.cadastro.validadores import MatriculaValidator, SiapeValidator
+from apps.cadastro.validadores import EmailInstitucionalValidator
 
 MENSAGEM_IDENTIFICADOR = (
-    "Informe a matrícula (9 dígitos) ou o SIAPE (7 dígitos), só com números."
+    "Informe o seu e-mail institucional da UnB (@aluno.unb.br ou @unb.br)."
 )
 
 
@@ -36,35 +36,36 @@ class LoginService:
     def __init__(self):
         self.conta_repository = ContaRepository()
         self.tentativa_login_tracker = TentativaLoginTracker()
-        self.matricula_validator = MatriculaValidator()
-        self.siape_validator = SiapeValidator()
+        self.email_validator = EmailInstitucionalValidator()
 
-    def autenticar(self, identificador: str, senha: str) -> Usuario:
+    def autenticar(self, email: str, senha: str) -> Usuario:
         """Devolve a conta se ela pode entrar. Senão, levanta um erro de login.
 
         Levanta `IdentificadorInvalidoError` (422), `CredenciaisInvalidasError`
         (401), `ContaNaoConfirmadaError` (403) ou `LoginBloqueadoError` (429).
         """
+        # Normaliza antes de validar: o validador não aceita espaço nas pontas.
+        email = normalizar_email(email)
+        # O login não sabe o tipo da conta antes de buscar: vale qualquer um
+        # dos dois domínios institucionais.
         if not (
-            self.matricula_validator.validar_formato(identificador)
-            or self.siape_validator.validar_formato(identificador)
+            self.email_validator.validar_formato_estudante(email)
+            or self.email_validator.validar_formato_professor_servidor(email)
         ):
             raise IdentificadorInvalidoError(MENSAGEM_IDENTIFICADOR)
 
         # O erro sai depois do atomic: levantado dentro dele, desfaria a
         # contagem da tentativa que acabou de ser gravada.
         with transaction.atomic():
-            conta, erro = self._conferir(identificador, senha)
+            conta, erro = self._conferir(email, senha)
         if erro is not None:
             raise erro
         return conta
 
-    def _conferir(self, identificador, senha):
+    def _conferir(self, email, senha):
         # Trava a conta até o fim da transação: tentativas simultâneas na
         # mesma conta esperam a vez, e nenhuma se perde na contagem.
-        conta = self.conta_repository.buscar_por_identificador(
-            identificador, travar=True
-        )
+        conta = self.conta_repository.buscar_por_email(email, travar=True)
         if conta is None:
             # Mesmo custo do hash da senha de uma conta que existe: sem isso, a
             # resposta mais rápida revelaria que a conta não existe.
