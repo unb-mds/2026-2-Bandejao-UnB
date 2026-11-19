@@ -170,7 +170,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BD-05 — Banco, settings de produção e e-mail
 
-- PR: [#203 — BD-05: banco, settings de produção e e-mail](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/203).
+- PR: [#203 — feat(banco): MySQL, usuários, settings de produção e e-mail (BD-05)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/203).
 - Ferramenta: Claude (Anthropic).
 - Apoio: `db/conf.d/bandejao.cnf` (`utf8mb4` e `READ-COMMITTED`), `db/init/10-usuarios.sh` (usuário da aplicação com permissões mínimas, papel `equipe_moderacao` e primeiro usuário da equipe), variáveis `DJANGO_*` no `settings.py` com `DJANGO_ALLOWED_HOSTS` obrigatório em produção e parada na subida com os nomes antigos, `.env.example`, `pytest.ini`, CI, `.gitattributes` e seções Banco e E-mail no guia de deploy; decisão de não exigir TLS na conexão com o banco registrada no PR.
 - TDD: testes antes do código (`4f41971` antes de `7b09297`): settings lidos do ambiente, envio pelo SMTP do Brevo com `smtplib` simulado e conferência do `.cnf` e das permissões do script.
