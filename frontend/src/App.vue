@@ -6,7 +6,9 @@ import NavegacaoTopo from '@/components/NavegacaoTopo.vue'
 const ROTAS_SEM_NAVEGACAO = new Set(['boas-vindas'])
 
 const route = useRoute()
-const mostrarNavegacaoTopo = computed(() => !ROTAS_SEM_NAVEGACAO.has(route.name))
+const mostrarNavegacaoTopo = computed(
+  () => Boolean(route.name) && !ROTAS_SEM_NAVEGACAO.has(route.name),
+)
 </script>
 
 <template>
