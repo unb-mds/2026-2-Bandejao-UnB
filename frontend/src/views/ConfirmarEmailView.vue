@@ -6,53 +6,69 @@ import CabecalhoFormulario from '@/components/CabecalhoFormulario.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
 import LinkSimulado from '@/components/LinkSimulado.vue'
+import { mensagemDeErro } from '@/services/apiClient'
 
 /**
  * Confirmação de e-mail (RF02), com dois pontos de entrada:
- * - `?email=...` logo após o cadastro: "verifique seu e-mail" + reenvio;
- * - `?token=...` pelo link recebido: confirma a conta ao abrir a tela.
+ * - `?email=...` logo após o cadastro: "verifique seu e-mail" + reenvio pela
+ *   matrícula/SIAPE;
+ * - `?token=...` pelo link recebido: confirma a conta ao abrir a tela
+ *   (`POST /api/confirmar-email/{token}/`). Se o link expirou, o reenvio usa
+ *   o próprio token (contrato OpenAPI v1, RF02.2).
  */
 const route = useRoute()
 const auth = useAuthStore()
 
 const token = computed(() => (typeof route.query.token === 'string' ? route.query.token : ''))
-const email = ref(typeof route.query.email === 'string' ? route.query.email : '')
+const email = typeof route.query.email === 'string' ? route.query.email : ''
+const matriculaSiape = ref('')
 
-// estado: 'pendente' | 'confirmando' | 'confirmado' | 'invalido'
+// estado: 'pendente' | 'confirmando' | 'confirmado' | 'invalido' | 'falhou'
+// 'invalido' só com `token_invalido_ou_expirado`. Outros erros (sem conexão,
+// 5xx, 429) vão para 'falhou', que oferece tentar de novo: o link pode ainda valer.
 const estado = ref(token.value ? 'confirmando' : 'pendente')
 const linkSimulado = ref(window.history.state?.linkSimulado ?? '')
 const reenvio = ref('')
 const erro = ref('')
 const reenviando = ref(false)
 
-// Observa o token (e não só a montagem): o link simulado reabre esta mesma tela.
-watch(
-  token,
-  async (valor) => {
-    if (!valor) return
-    estado.value = 'confirmando'
-    erro.value = ''
-    try {
-      await auth.confirmarEmail(valor)
-      estado.value = 'confirmado'
-    } catch (falha) {
-      erro.value = falha.message
-      estado.value = 'invalido'
-    }
-  },
-  { immediate: true },
+watch(matriculaSiape, (valor) => {
+  matriculaSiape.value = valor.replace(/\D/g, '')
+})
+const podeReenviar = computed(
+  () => !reenviando.value && (estado.value === 'invalido' || Boolean(matriculaSiape.value)),
 )
 
+async function confirmar(valor) {
+  if (!valor) return
+  estado.value = 'confirmando'
+  erro.value = ''
+  try {
+    await auth.confirmarEmail(valor)
+    estado.value = 'confirmado'
+  } catch (falha) {
+    erro.value = mensagemDeErro(falha)
+    estado.value = falha.codigo === 'token_invalido_ou_expirado' ? 'invalido' : 'falhou'
+  }
+}
+
+// Observa o token (e não só a montagem): o link simulado reabre esta mesma tela.
+watch(token, confirmar, { immediate: true })
+
 async function reenviar() {
-  if (!email.value || reenviando.value) return
+  if (!podeReenviar.value) return
   reenviando.value = true
   erro.value = ''
   try {
-    const resposta = await auth.reenviarConfirmacao(email.value)
-    reenvio.value = resposta.detail
+    const resposta = await auth.reenviarConfirmacao(
+      estado.value === 'invalido'
+        ? { token: token.value }
+        : { matriculaSiape: matriculaSiape.value },
+    )
+    reenvio.value = resposta.mensagem
     linkSimulado.value = resposta.linkSimulado ?? ''
   } catch (falha) {
-    erro.value = falha.message
+    erro.value = mensagemDeErro(falha)
   } finally {
     reenviando.value = false
   }
@@ -71,6 +87,15 @@ async function reenviar() {
       <p v-if="estado === 'confirmando'" class="carregando" role="status">
         Confirmando seu e-mail…
       </p>
+
+      <template v-else-if="estado === 'falhou'">
+        <p class="mensagem mensagem--erro" role="alert">
+          {{ erro }} Não conseguimos confirmar agora.
+        </p>
+        <button type="button" class="botao botao--primario" @click="confirmar(token)">
+          Tentar de novo
+        </button>
+      </template>
 
       <template v-else-if="estado === 'confirmado'">
         <div class="destaque destaque--sucesso">
@@ -106,25 +131,26 @@ async function reenviar() {
         </div>
 
         <p v-else class="mensagem mensagem--erro" role="alert">
-          {{ erro || 'Link expirado ou inválido.' }} Informe seu e-mail para receber um novo link.
+          {{ erro || 'Link expirado ou inválido.' }} Peça um novo link abaixo.
         </p>
 
         <LinkSimulado :link="linkSimulado" rotulo="Abrir link de confirmação recebido" />
 
         <form class="pilha-4" novalidate @submit.prevent="reenviar">
           <CampoTexto
-            v-model="email"
-            rotulo="E-mail institucional"
-            type="email"
-            inputmode="email"
-            autocomplete="email"
-            placeholder="matricula@aluno.unb.br"
+            v-if="estado === 'pendente'"
+            v-model="matriculaSiape"
+            rotulo="Matrícula ou SIAPE"
+            inputmode="numeric"
+            maxlength="9"
+            autocomplete="username"
+            placeholder="9 dígitos (aluno) ou 7 (SIAPE)"
           />
           <p v-if="reenvio" class="mensagem mensagem--sucesso" role="status">{{ reenvio }}</p>
           <p v-if="erro && estado === 'pendente'" class="mensagem mensagem--erro" role="alert">
             {{ erro }}
           </p>
-          <button type="submit" class="botao botao--contorno" :disabled="!email || reenviando">
+          <button type="submit" class="botao botao--contorno" :disabled="!podeReenviar">
             {{ reenviando ? 'Enviando…' : 'Reenviar link de confirmação' }}
           </button>
         </form>

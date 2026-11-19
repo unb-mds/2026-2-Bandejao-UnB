@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
 import { REFEICOES } from '@/constants/refeicoes'
 import IconeSvg from './IconeSvg.vue'
+import { mensagemDeErro } from '@/services/apiClient'
 
 /**
  * Formulário de avaliação de uma refeição (RF15): nota de 1 a 5 estrelas
@@ -54,7 +55,7 @@ async function enviar() {
     await avaliacoes.enviar(props.alvo, nota.value, comentario.value)
     editando.value = false
   } catch (falha) {
-    erro.value = falha.message
+    erro.value = mensagemDeErro(falha)
   } finally {
     enviando.value = false
   }

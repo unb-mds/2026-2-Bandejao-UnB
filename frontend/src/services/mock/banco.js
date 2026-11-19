@@ -5,7 +5,8 @@
  * VITE_USE_MOCK=false.
  */
 
-const CHAVE = 'bandejao:backend-simulado'
+// v2: nomes do contrato OpenAPI v1 (FE-01). Dados da v1 no aparelho são ignorados.
+const CHAVE = 'bandejao:backend-simulado:v2'
 
 /**
  * Resumo não reversível da senha. Apenas para a simulação: o backend real
@@ -22,6 +23,7 @@ export function resumoSenha(senha) {
 
 /** Conta de demonstração, já confirmada, para testar o login. */
 export const CONTA_DEMO = {
+  matricula: '231034567',
   email: '231034567@aluno.unb.br',
   senha: 'bandejao123',
   apelido: 'estudante_demo',
@@ -34,7 +36,7 @@ function estadoInicial() {
         id: 1,
         tipo: 'estudante',
         email: CONTA_DEMO.email,
-        identificador: '231034567',
+        identificador: CONTA_DEMO.matricula,
         apelido: CONTA_DEMO.apelido,
         senha: resumoSenha(CONTA_DEMO.senha),
         confirmado: true,
