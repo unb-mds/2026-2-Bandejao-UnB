@@ -169,9 +169,14 @@ class ConfirmacaoEmailService:
         (a busca é pelo hash, sem olhar a validade). Sem conta, devolve None.
         O domínio do e-mail não é conferido: fora do padrão, simplesmente não
         acha conta, e a resposta continua a mesma (RF02.2).
+
+        Se vierem os dois, vale o e-mail. Se ele não achar conta, o token ainda
+        é tentado: sem isso, um token válido seria ignorado em silêncio.
         """
         if email:
-            return self.conta_repository.buscar_por_email(email)
+            conta = self.conta_repository.buscar_por_email(email)
+            if conta is not None:
+                return conta
         if token:
             registro = (
                 Token.objects.select_related("usuario")

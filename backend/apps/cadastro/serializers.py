@@ -84,7 +84,8 @@ class ApelidoIndisponivelSerializer(ErroSerializer):
 class ReenvioConfirmacaoEntradaSerializer(serializers.Serializer):
     """Corpo do POST /api/reenviar-confirmacao/ (RF02.2, Cadastro N4 4b).
 
-    Envie um dos dois campos. Se vierem os dois, vale o `emailInstitucional`.
+    Envie um dos dois campos. Se vierem os dois, vale o `emailInstitucional`;
+    se ele não achar conta, vale o `token`.
     """
 
     emailInstitucional = TextoEstritoField(
