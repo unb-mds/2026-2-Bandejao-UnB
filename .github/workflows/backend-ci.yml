@@ -126,7 +126,7 @@ jobs:
 
       # Repete só os testes da BD-10 com `-s` para o EXPLAIN do MySQL ficar no
       # log (evidência do RNF01). A conferência dos índices já vale no passo
-      # anterior; este passo só imprime o plano.
+      # anterior; este passo só imprime o plano, mesmo quando ele falha.
       - name: EXPLAIN dos índices (BD-10)
         if: ${{ !cancelled() }}
-        run: python -m pytest tests/test_indices_bd10.py tests/test_diag_ranking_bd10_tmp.py -s -q --no-cov
+        run: python -m pytest tests/test_indices_bd10.py -s -q --no-cov
