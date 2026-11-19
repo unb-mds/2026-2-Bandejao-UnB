@@ -45,6 +45,14 @@ class Campus(models.Model):
     centro_latitude = models.DecimalField(max_digits=9, decimal_places=6)
     centro_longitude = models.DecimalField(max_digits=9, decimal_places=6)
     raio_deteccao_metros = models.IntegerField()
+    # Origem do cardápio (ADR 0014, BD-16), povoadas por fixture (Anexo A) e
+    # nunca publicadas na API. O rótulo é o nome do campus no título do bloco
+    # da página do RU ("Cardápio <rótulo>"); o prefixo é o início esperado do
+    # nome do PDF. UNIQUE para dois campi não disputarem o mesmo bloco nem o
+    # mesmo arquivo. Quem compara (ignorando acentos, maiúsculas e espaços) é
+    # o Leitor (BE-12), não o banco.
+    rotulo_pagina_ru = models.CharField(max_length=50, unique=True)
+    prefixo_arquivo_pdf = models.CharField(max_length=50, unique=True)
 
     class Meta:
         constraints = (
@@ -229,3 +237,37 @@ class ContadorAlerta(models.Model):
 
     def __str__(self):
         return f"{self.tipo} em {self.campus_id} ({self.data})"
+
+
+class FonteCardapio(models.Model):
+    """Origem do último PDF lido com sucesso de cada campus e semana (ADR
+    0014). Uma linha por campus e semana, porque a semana vigente e a
+    seguinte (RF18) podem estar publicadas juntas. A linha só nasce na
+    primeira leitura com sucesso da semana."""
+
+    campus = models.ForeignKey(
+        Campus, on_delete=models.CASCADE, related_name="fontes_cardapio"
+    )
+    # Primeiro dia da semana, lido do texto do link ("09/11/2026 À 15/11/2026").
+    semana_inicio = models.DateField()
+    # Mesmo tamanho de `Refeicao.fonte_pdf_url`.
+    url = models.URLField(max_length=500)
+    # SHA-256 do conteúdo do PDF. Se URL e SHA-256 da próxima execução forem
+    # iguais, o Leitor não lê o PDF de novo.
+    sha256 = models.CharField(max_length=64)
+    # Última execução que achou o link do campus e da semana na página.
+    verificado_em = models.DateTimeField()
+    # Última leitura com sucesso. `url` e `sha256` só mudam junto com este
+    # campo, para que um PDF com falha seja tentado de novo.
+    processado_em = models.DateTimeField()
+
+    class Meta:
+        constraints = (
+            models.UniqueConstraint(
+                fields=("campus", "semana_inicio"),
+                name="fonte_cardapio_unica_por_campus_semana",
+            ),
+        )
+
+    def __str__(self):
+        return f"Semana de {self.semana_inicio} ({self.campus_id})"

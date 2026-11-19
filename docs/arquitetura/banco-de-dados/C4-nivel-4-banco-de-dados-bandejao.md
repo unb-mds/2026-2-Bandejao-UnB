@@ -282,7 +282,7 @@ Um dos 5 campi com RU; tabela de apoio povoada por fixture.
 
 **Dados provisórios do BD-03:** as coordenadas iniciais foram fornecidas pela equipe a partir de mapas, arredondadas para seis casas decimais e ainda dependem da validação em campo do BD-06. Os quatro RUs com ponto identificado usam provisoriamente 150 m. Na FAL, o ponto representa a fazenda, não o RU; a fixture registra `confirmacao_ativa = false` e os dois raios iguais a zero, indicando indisponibilidade. Os campos `centro_*` repetem provisoriamente `ru_*`, e `raio_deteccao_metros` repete `raio_confirmacao_metros`, até a definição dos parâmetros de detecção no BD-E3. A origem e as limitações estão em `backend/apps/cardapio/fixtures/README.md`.
 
-**Campos previstos para o Leitor:** `rotulo_pagina_ru` e `prefixo_arquivo_pdf` fazem parte da arquitetura da ADR 0014, mas não são implementados pelo BD-03 nem estão na fixture atual. A implementação correspondente deverá preencher valores distintos para os cinco campi existentes antes de impor `NOT NULL` e `UNIQUE`; um único valor padrão não atende à unicidade.
+**Origem do cardápio (BD-16):** `rotulo_pagina_ru` e `prefixo_arquivo_pdf` entram pela migration `cardapio.0004_origem_cardapio_bd16`, que cria as colunas aceitando nulo, preenche os campi existentes e só depois impõe `NOT NULL` e `UNIQUE`. Os 5 campi do Anexo A recebem os valores pelo nome; um campus fora do Anexo A recebe o próprio nome (único) nas duas colunas, para a migration não falhar, e o valor certo vem da fixture `campi`. A comparação que ignora acentos, maiúsculas e espaços é do Leitor (BE-12), e não do banco.
 
 ### `REFEICAO`
 
