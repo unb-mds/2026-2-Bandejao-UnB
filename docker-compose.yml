@@ -18,8 +18,9 @@ services:
   db:
     image: mysql:8.4
     restart: unless-stopped
-    # Só o MYSQL_ROOT_PASSWORD. Fica fora do .env para não chegar ao backend,
-    # que recebe o tráfego da internet.
+    # O MYSQL_ROOT_PASSWORD e o usuário da equipe (DB_EQUIPE_USER e
+    # DB_EQUIPE_PASSWORD). Ficam fora do .env para não chegar ao backend, que
+    # recebe o tráfego da internet.
     env_file: .env.db
     environment:
       # Na primeira subida (volume vazio), a imagem cria o banco e o usuário
@@ -36,7 +37,7 @@ services:
       # Arquivos .cnf (charset, isolamento).
       - ./db/conf.d:/etc/mysql/conf.d:ro
     # Sem "ports": o banco só é acessível pela rede interna do Compose. A
-    # equipe entra por túnel SSH (ADR 0004).
+    # equipe entra na VM pelo SSH e usa o cliente do container (ADR 0004).
     healthcheck:
       # Pelo 127.0.0.1 (TCP), e não pelo socket: durante a primeira subida a
       # imagem roda um MySQL temporário sem rede, que não deve contar como
