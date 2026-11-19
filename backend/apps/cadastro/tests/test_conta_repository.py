@@ -1,7 +1,8 @@
-"""Consultas de duplicidade da conta (RF01.5, Cadastro N4 4a)."""
+"""Consultas da conta (RF01.5, Cadastro N4 4a; login pelo e-mail, 4c)."""
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.utils import timezone
 
 from apps.cadastro.conta_repository import ContaRepository
@@ -32,6 +33,36 @@ def test_existe_email_sem_distinguir_maiusculas_nem_espacos(conta):
 
     assert repositorio.existe_email(" 251098732@ALUNO.unb.br ")
     assert not repositorio.existe_email("251098733@aluno.unb.br")
+
+
+def test_buscar_por_email_acha_a_conta_sem_distinguir_maiusculas_nem_espacos(conta):
+    repositorio = ContaRepository()
+
+    assert repositorio.buscar_por_email("251098732@aluno.unb.br") == conta
+    assert repositorio.buscar_por_email(" 251098732@ALUNO.unb.br ") == conta
+
+
+def test_buscar_por_email_sem_conta_devolve_none(conta):
+    repositorio = ContaRepository()
+
+    assert repositorio.buscar_por_email("251098733@aluno.unb.br") is None
+    # A matrícula pura não é e-mail: não acha a conta.
+    assert repositorio.buscar_por_email("251098732") is None
+
+
+def test_buscar_por_email_com_trava_devolve_a_conta(conta):
+    """No SQLite a trava não tem efeito; aqui só confere que a busca funciona."""
+    with transaction.atomic():
+        achada = ContaRepository().buscar_por_email(
+            "251098732@aluno.unb.br", travar=True
+        )
+
+    assert achada == conta
+
+
+def test_buscar_por_identificador_saiu_do_repositorio():
+    """BE-20: o login e o reenvio passaram a buscar pelo e-mail."""
+    assert not hasattr(ContaRepository, "buscar_por_identificador")
 
 
 def test_conta_pendente_tambem_conta_como_existente(conta):

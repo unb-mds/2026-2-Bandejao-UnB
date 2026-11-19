@@ -61,9 +61,9 @@ def conta(db):
     return criar_conta()
 
 
-def entrar(cliente, matricula=MATRICULA, senha=SENHA):
+def entrar(cliente, email=EMAIL, senha=SENHA):
     return cliente.post(
-        ROTA, {"matriculaSiape": matricula, "senha": senha}, format="json"
+        ROTA, {"emailInstitucional": email, "senha": senha}, format="json"
     )
 
 
@@ -131,12 +131,13 @@ def test_login_troca_o_id_da_sessao_anterior(cliente, conta):
     assert resposta.cookies["sessionid"].value != "id-escolhido-por-um-atacante"
 
 
-def test_login_com_siape(cliente, db):
+def test_login_de_professor_com_nome_arroba_unb(cliente, db):
+    """ADR 0002: professor/servidor entra com qualquer texto antes de @unb.br."""
     get_user_model().objects.create_user(
         matricula_siape="1234567",
         tipo_usuario="professor_servidor",
         apelido="dani",
-        email_institucional="dani@unb.br",
+        email_institucional="maria.silva@unb.br",
         aceite_privacidade_em=timezone.now(),
         versao_aviso_aceita=AvisoPrivacidadeConfig.versao_atual,
         password=SENHA,
@@ -144,7 +145,7 @@ def test_login_com_siape(cliente, db):
         email_confirmado=True,
     )
 
-    resposta = entrar(cliente, matricula="1234567")
+    resposta = entrar(cliente, email="Maria.Silva@unb.br")
 
     assert resposta.status_code == 200
     assert resposta.json() == {
@@ -154,8 +155,18 @@ def test_login_com_siape(cliente, db):
     }
 
 
-def test_espacos_em_volta_da_matricula_sao_ignorados(cliente, conta):
-    assert entrar(cliente, matricula=f" {MATRICULA} ").status_code == 200
+@pytest.mark.parametrize(
+    "email",
+    [f" {EMAIL} ", "  202400001@ALUNO.unb.BR ", "202400001@Aluno.UnB.br"],
+)
+def test_maiusculas_e_espacos_em_volta_do_email_entram_na_mesma_conta(
+    cliente, conta, email
+):
+    resposta = entrar(cliente, email=email)
+
+    assert resposta.status_code == 200
+    sessao = Session.objects.get().get_decoded()
+    assert sessao["_auth_user_id"] == str(conta.pk)
 
 
 # --- POST: mensagem genérica (RF03.1) -----------------------------------------
@@ -164,16 +175,22 @@ def test_espacos_em_volta_da_matricula_sao_ignorados(cliente, conta):
 def test_senha_errada_da_401_credenciais_invalidas(cliente, conta):
     resposta = entrar(cliente, senha="senha-errada")
 
-    assert_erro(resposta, 401, "credenciais_invalidas")
+    corpo = assert_erro(resposta, 401, "credenciais_invalidas")
+    assert corpo["mensagem"] == "E-mail ou senha incorretos."
 
 
 def test_conta_inexistente_e_senha_errada_dao_a_mesma_resposta(cliente, conta):
-    """Não revela se a matrícula/SIAPE existe (RF03.1)."""
+    """Não revela se o e-mail tem conta (RF03.1)."""
     senha_errada = entrar(cliente, senha="senha-errada")
-    inexistente = entrar(cliente, matricula="202400002")
+    inexistente = entrar(cliente, email="202400002@aluno.unb.br")
 
     assert inexistente.status_code == senha_errada.status_code == 401
     assert inexistente.json() == senha_errada.json()
+    assert inexistente.json() == {
+        "codigo": "credenciais_invalidas",
+        "mensagem": "E-mail ou senha incorretos.",
+    }
+    assert "matrícula" not in inexistente.json()["mensagem"].lower()
 
 
 @pytest.mark.parametrize("status", [StatusUsuario.SUSPENSO, StatusUsuario.REMOVIDO])
@@ -183,7 +200,7 @@ def test_conta_suspensa_ou_removida_da_a_mesma_mensagem_generica(cliente, status
     resposta = entrar(cliente)
     corpo = assert_erro(resposta, 401, "credenciais_invalidas")
 
-    assert corpo == entrar(cliente, matricula="202400002").json()
+    assert corpo == entrar(cliente, email="202400002@aluno.unb.br").json()
 
 
 def test_login_recusado_nao_abre_sessao(cliente, conta):
@@ -261,29 +278,56 @@ def test_depois_de_10_minutos_o_login_volta_a_funcionar(cliente, conta, relogio)
     "corpo",
     [
         {},
-        {"matriculaSiape": MATRICULA},
+        {"emailInstitucional": EMAIL},
         {"senha": SENHA},
-        {"matriculaSiape": "", "senha": SENHA},
-        {"matriculaSiape": MATRICULA, "senha": ""},
-        # Número no JSON: o zero à esquerda de um SIAPE se perderia.
-        {"matriculaSiape": 202400001, "senha": SENHA},
-        {"matriculaSiape": MATRICULA, "senha": 12345678},
+        {"emailInstitucional": "", "senha": SENHA},
+        {"emailInstitucional": EMAIL, "senha": ""},
+        {"emailInstitucional": None, "senha": SENHA},
+        # Número no JSON não vira texto.
+        {"emailInstitucional": 202400001, "senha": SENHA},
+        {"emailInstitucional": EMAIL, "senha": 12345678},
+        {"emailInstitucional": "a" * 250 + "@unb.br", "senha": SENHA},
     ],
 )
 def test_corpo_invalido_da_422_dados_invalidos(cliente, conta, corpo):
     resposta = cliente.post(ROTA, corpo, format="json")
 
-    assert_erro(resposta, 422, "dados_invalidos")
+    corpo_erro = assert_erro(resposta, 422, "dados_invalidos")
+    assert corpo_erro["mensagem"] == "Informe o seu e-mail institucional e a senha."
+    conta.refresh_from_db()
+    assert conta.tentativas_login_falhas == 0
 
 
-@pytest.mark.parametrize("identificador", ["12345678", "202.400.001", "abc"])
-def test_identificador_fora_do_formato_da_422(cliente, conta, identificador):
-    """RN01: nem 9 nem 7 dígitos. Formato é público: não conta como erro."""
-    corpo = assert_erro(
-        entrar(cliente, matricula=identificador), 422, "dados_invalidos"
+def test_corpo_com_matricula_siape_da_422(cliente, conta):
+    """O campo antigo não vale mais: o login é pelo e-mail institucional."""
+    resposta = cliente.post(
+        ROTA, {"matriculaSiape": MATRICULA, "senha": SENHA}, format="json"
     )
 
-    assert "9 dígitos" in corpo["mensagem"]
+    corpo = assert_erro(resposta, 422, "dados_invalidos")
+    assert corpo["mensagem"] == "Informe o seu e-mail institucional e a senha."
+    assert cliente.get(ROTA).status_code == 401
+    conta.refresh_from_db()
+    assert conta.tentativas_login_falhas == 0
+
+
+@pytest.mark.parametrize(
+    "email",
+    [
+        MATRICULA,
+        "x@gmail.com",
+        "202400001@aluno.unb.br.com",
+        "a@b@unb.br",
+        "nome @unb.br",
+        "202.400.001",
+    ],
+)
+def test_email_fora_do_dominio_da_422_e_nao_conta_tentativa(cliente, conta, email):
+    """ADR 0002: @aluno.unb.br ou @unb.br. Formato é público: não conta erro."""
+    corpo = assert_erro(entrar(cliente, email=email), 422, "dados_invalidos")
+
+    assert "e-mail institucional" in corpo["mensagem"]
+    assert "matrícula" not in corpo["mensagem"].lower()
     conta.refresh_from_db()
     assert conta.tentativas_login_falhas == 0
 
@@ -302,16 +346,20 @@ def test_respostas_da_sessao_nao_trazem_matricula_nem_email(cliente, conta):
         assert EMAIL not in conteudo
 
 
-def test_login_nao_registra_matricula_nem_senha_no_log(cliente, conta, caplog):
+def test_login_nao_registra_email_matricula_nem_senha_no_log(cliente, conta, caplog):
     with caplog.at_level(logging.DEBUG):
         entrar(cliente, senha="senha-errada-123")
+        entrar(cliente, email="202400002@aluno.unb.br", senha="senha-errada-123")
+        entrar(cliente, email="x@gmail.com", senha="senha-errada-123")
         for _ in range(5):
-            entrar(cliente, senha="senha-errada-123")
+            entrar(cliente, email=" 202400001@ALUNO.unb.br ", senha="senha-errada-123")
         entrar(cliente)
 
     for registro in caplog.records:
-        mensagem = registro.getMessage()
+        mensagem = registro.getMessage().lower()
         assert MATRICULA not in mensagem
+        assert "@aluno.unb.br" not in mensagem
+        assert "x@gmail.com" not in mensagem
         assert "senha-errada-123" not in mensagem
         assert SENHA not in mensagem
 

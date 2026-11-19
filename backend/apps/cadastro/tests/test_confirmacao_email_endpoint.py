@@ -99,14 +99,41 @@ def test_confirmacao_sem_csrf_da_403(usuario, token):
 # --- POST /api/reenviar-confirmacao/ (RF02.2) ---------------------------------
 
 
-def test_reenvio_pela_matricula_manda_um_email(cliente, usuario):
+def test_reenvio_pelo_email_manda_um_email(cliente, usuario):
     resposta = cliente.post(
-        ROTA_REENVIO, {"matriculaSiape": "202400001"}, format="json"
+        ROTA_REENVIO, {"emailInstitucional": "202400001@aluno.unb.br"}, format="json"
     )
 
     assert resposta.status_code == 200
     assert len(mail.outbox) == 1
     assert mail.outbox[0].to == [usuario.email_institucional]
+
+
+def test_reenvio_pelo_email_em_maiusculas_acha_a_conta(cliente, usuario):
+    resposta = cliente.post(
+        ROTA_REENVIO,
+        {"emailInstitucional": "  202400001@ALUNO.UnB.br "},
+        format="json",
+    )
+
+    assert resposta.status_code == 200
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == [usuario.email_institucional]
+
+
+def test_reenvio_pela_matricula_siape_antiga_da_422(cliente, usuario):
+    """O campo antigo não vale mais: o reenvio pela tela de login é por e-mail."""
+    resposta = cliente.post(
+        ROTA_REENVIO, {"matriculaSiape": "202400001"}, format="json"
+    )
+
+    assert resposta.status_code == 422
+    corpo = resposta.json()
+    assert corpo["codigo"] == "dados_invalidos"
+    assert corpo["mensagem"] == (
+        "Informe o seu e-mail institucional ou abra o link recebido."
+    )
+    assert mail.outbox == []
 
 
 def test_reenvio_pelo_token_expirado_manda_um_email(cliente, usuario, token):
@@ -128,16 +155,20 @@ def test_o_link_reenviado_confirma_a_conta(cliente, usuario, token):
 
 def test_reenvio_para_conta_inexistente_da_o_mesmo_200_sem_email(cliente, usuario):
     existente = cliente.post(
-        ROTA_REENVIO, {"matriculaSiape": "202400001"}, format="json"
+        ROTA_REENVIO, {"emailInstitucional": "202400001@aluno.unb.br"}, format="json"
     )
     mail.outbox.clear()
 
     inexistente = cliente.post(
-        ROTA_REENVIO, {"matriculaSiape": "209999999"}, format="json"
+        ROTA_REENVIO, {"emailInstitucional": "209999999@aluno.unb.br"}, format="json"
+    )
+    # Fora do domínio: o reenvio não dá 422, só não acha conta (RF02.2).
+    fora_do_dominio = cliente.post(
+        ROTA_REENVIO, {"emailInstitucional": "x@gmail.com"}, format="json"
     )
     token_falso = cliente.post(ROTA_REENVIO, {"token": "nao-existe"}, format="json")
 
-    for resposta in (inexistente, token_falso):
+    for resposta in (inexistente, fora_do_dominio, token_falso):
         assert resposta.status_code == existente.status_code == 200
         assert resposta.content == existente.content
     assert mail.outbox == []
@@ -149,7 +180,7 @@ def test_reenvio_para_conta_confirmada_da_o_mesmo_200_sem_email(
     cliente.post(rota_confirmacao(token), format="json")
 
     resposta = cliente.post(
-        ROTA_REENVIO, {"matriculaSiape": "202400001"}, format="json"
+        ROTA_REENVIO, {"emailInstitucional": "202400001@aluno.unb.br"}, format="json"
     )
 
     assert resposta.status_code == 200
@@ -158,9 +189,15 @@ def test_reenvio_para_conta_confirmada_da_o_mesmo_200_sem_email(
 
 @pytest.mark.parametrize(
     "corpo",
-    [{}, {"matriculaSiape": ""}, {"token": ""}, {"matriculaSiape": 202400001}],
+    [
+        {},
+        {"emailInstitucional": ""},
+        {"token": ""},
+        {"emailInstitucional": 202400001},
+        {"emailInstitucional": None},
+    ],
 )
-def test_reenvio_sem_matricula_e_sem_token_da_422(cliente, corpo):
+def test_reenvio_sem_email_e_sem_token_da_422(cliente, corpo):
     resposta = cliente.post(ROTA_REENVIO, corpo, format="json")
 
     assert resposta.status_code == 422
