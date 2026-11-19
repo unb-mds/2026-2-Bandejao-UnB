@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { apiClient } from '@/services/apiClient'
+import { apiClient, mensagemDeErro } from '@/services/apiClient'
 
 const chaveRefeicao = ({ campus, data, refeicao }) => `${campus}|${data}|${refeicao}`
 
@@ -20,7 +20,7 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
     try {
       porRefeicao.value[chaveRefeicao(alvo)] = await apiClient.get(`/avaliacoes/?${parametros}`)
     } catch (falha) {
-      erro.value = falha.message
+      erro.value = mensagemDeErro(falha)
     }
     return daRefeicao(alvo)
   }
@@ -29,7 +29,7 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
     try {
       resumoPorCampus.value[campus] = await apiClient.get(`/avaliacoes/resumo/?campus=${campus}`)
     } catch (falha) {
-      erro.value = falha.message
+      erro.value = mensagemDeErro(falha)
     }
     return resumoPorCampus.value[campus] ?? null
   }
