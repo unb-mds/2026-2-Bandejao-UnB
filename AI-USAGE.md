@@ -167,3 +167,12 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Proteção da `main`: a `main` não tinha proteção nenhuma. Em 2026-11-19, a pedido de AlvaroBento12, o agente aplicou nela, pela API do GitHub, as mesmas regras da `develop` (PR obrigatório, os 4 jobs do CI verdes, branch atualizada, sem force-push e sem exclusão, 0 aprovações, sem valer para administradores), e a ADR passou a descrever a proteção das duas branches.
 - Segunda revisão: [aprovação de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/156#pullrequestreview-5969631334), com 3 pontos antes do merge e 4 sugestões. Aplicados os 3 pontos e as sugestões 4 e 5: PR #156 citado no lugar de "neste PR"; exceção dos administradores nas Consequências; status "Aceita"; mutação descrita no futuro, porque ainda não há job de mutação no CI, e sem o trecho de documentação, que a ADR 0013 e o §3.10 não citam; a ADR fixa o mínimo para o trabalho com agentes sem dispensar a DoD. As sugestões 6 (configurações do repositório) e 7 (redação) ficaram de fora.
 - Situação: revisão aprovada; pronto para o merge. A decisão sobre "Require approvals" fica para a equipe.
+
+## BD-05 — Banco, settings de produção e e-mail
+
+- PR: [#203 — BD-05: banco, settings de produção e e-mail](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/203).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `db/conf.d/bandejao.cnf` (`utf8mb4` e `READ-COMMITTED`), `db/init/10-usuarios.sh` (usuário da aplicação com permissões mínimas, papel `equipe_moderacao` e primeiro usuário da equipe), variáveis `DJANGO_*` no `settings.py` com `DJANGO_ALLOWED_HOSTS` obrigatório em produção e parada na subida com os nomes antigos, `.env.example`, `pytest.ini`, CI, `.gitattributes` e seções Banco e E-mail no guia de deploy; decisão de não exigir TLS na conexão com o banco registrada no PR.
+- TDD: testes antes do código (`4f41971` antes de `7b09297`): settings lidos do ambiente, envio pelo SMTP do Brevo com `smtplib` simulado e conferência do `.cnf` e das permissões do script.
+- Validação: `pytest` local com 1026 testes passando (1 pulado), `ruff check` e `ruff format --check`, `manage.py check` e `check --deploy` com o ambiente de produção; script de usuários conferido com `sh -n` e com o `mysql` simulado. Ainda falta a validação na VM (script de usuários, `SHOW GRANTS`, `Ssl_cipher` e e-mail real pelo Brevo).
+- Situação: PR aberto; aguardando a validação na VM e a revisão.
