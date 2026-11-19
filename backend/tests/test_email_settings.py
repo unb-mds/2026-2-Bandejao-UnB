@@ -27,7 +27,7 @@ OBSOLETAS = (
 
 # O mínimo para o settings carregar em produção com o SMTP.
 PRODUCAO = {
-    "DEBUG": "False",
+    "DJANGO_DEBUG": "False",
     "URL_DO_PWA": "https://bandejao.exemplo.br",
     "EMAIL_HOST": "smtp.exemplo.br",
     "EMAIL_HOST_USER": "usuario",
@@ -52,7 +52,7 @@ def test_nenhuma_configuracao_de_email_obsoleta(carregar_settings):
 
 
 def test_em_desenvolvimento_o_email_vai_para_o_terminal(carregar_settings):
-    padrao = mailer(carregar_settings(DEBUG="True"))
+    padrao = mailer(carregar_settings(DJANGO_DEBUG="True"))
 
     assert padrao["BACKEND"] == CONSOLE
     assert padrao["OPTIONS"] == {}
@@ -95,7 +95,7 @@ def test_producao_com_outro_backend_nao_pede_o_smtp(carregar_settings):
 def test_desenvolvimento_com_smtp_aceita_valores_vazios(carregar_settings):
     """Com DEBUG, o SMTP de verdade é opcional: quem testa preenche o .env."""
     modulo = carregar_settings(
-        DEBUG="True",
+        DJANGO_DEBUG="True",
         EMAIL_BACKEND=SMTP,
         EMAIL_HOST=None,
         EMAIL_HOST_USER=None,
@@ -111,7 +111,7 @@ def test_desenvolvimento_com_smtp_aceita_valores_vazios(carregar_settings):
 def test_o_env_escolhe_o_backend_e_o_servidor(carregar_settings):
     padrao = mailer(
         carregar_settings(
-            DEBUG="True",
+            DJANGO_DEBUG="True",
             EMAIL_BACKEND=SMTP,
             EMAIL_HOST="smtp.exemplo.br",
             EMAIL_PORT="2525",
@@ -128,7 +128,7 @@ def test_o_env_escolhe_o_backend_e_o_servidor(carregar_settings):
 
 
 def test_url_do_pwa_tem_padrao_so_em_desenvolvimento(carregar_settings):
-    dev = carregar_settings(DEBUG="True", URL_DO_PWA=None)
+    dev = carregar_settings(DJANGO_DEBUG="True", URL_DO_PWA=None)
     assert dev.URL_DO_PWA == "http://localhost:5173"
     assert carregar_settings(**PRODUCAO).URL_DO_PWA == "https://bandejao.exemplo.br"
 
@@ -136,7 +136,7 @@ def test_url_do_pwa_tem_padrao_so_em_desenvolvimento(carregar_settings):
 def test_os_logs_do_projeto_aparecem_no_console(carregar_settings):
     """Sem isto, o logger.error do envio sai sem nível nem horário (lastResort) e
     o logger.info do job nunca aparece."""
-    modulo = carregar_settings(DEBUG="True")
+    modulo = carregar_settings(DJANGO_DEBUG="True")
     apps = modulo.LOGGING["loggers"]["apps"]
 
     assert apps["handlers"] == ["console"]
@@ -178,7 +178,9 @@ def test_erro_do_on_commit_aparece_no_log_em_producao(carregar_settings, capsys)
 
 def test_o_log_do_on_commit_sai_uma_vez_so(carregar_settings):
     """propagate=False: com DEBUG, o console padrão do Django mostraria de novo."""
-    base = carregar_settings(DEBUG="True").LOGGING["loggers"]["django.db.backends.base"]
+    base = carregar_settings(DJANGO_DEBUG="True").LOGGING["loggers"][
+        "django.db.backends.base"
+    ]
 
     assert base["handlers"] == ["console"]
     assert base["level"] == "ERROR"
