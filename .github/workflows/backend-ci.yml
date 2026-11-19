@@ -126,5 +126,11 @@ jobs:
       - name: Aplicar migrations do zero
         run: python manage.py migrate --noinput
 
+      # Sem DEBUG, como em produção. Os avisos de HSTS (deixado de fora de
+      # propósito) e de SECURE_SSL_REDIRECT (o Caddy redireciona) não falham;
+      # um erro, sim.
+      - name: Conferir o settings de produção
+        run: python manage.py check --deploy
+
       - name: Executar testes no MySQL
         run: python -m pytest -rs --cov=apps --cov-branch --cov-fail-under=70

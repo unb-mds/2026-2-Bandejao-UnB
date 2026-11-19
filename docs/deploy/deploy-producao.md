@@ -189,6 +189,14 @@ script à mão, como em [Banco](#banco); ele sai com erro se algo falhar. Antes
 de haver dados reais, também dá para apagar o volume e subir de novo (`docker
 compose down -v`, que **apaga todo o banco**).
 
+O `check --deploy` do Django também deve mostrar só os avisos de HSTS
+(`security.W004`, deixado de fora de propósito) e de `SECURE_SSL_REDIRECT`
+(`security.W008`, o Caddy já redireciona):
+
+```bash
+docker compose exec backend python manage.py check --deploy
+```
+
 Para criar o superusuário do admin:
 
 ```bash
