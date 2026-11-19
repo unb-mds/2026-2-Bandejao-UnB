@@ -141,13 +141,29 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação após os ajustes: os 8 diagramas dos três documentos passam no `mermaid.parse` do Mermaid 10.9.3, sem erro.
 - Situação: revisão aprovada; pronto para o merge.
 
+## BD-05 — Docker e publicação
+
+- PR: [#157 — BD-05: Docker e publicação](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/157).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `backend/Dockerfile` e `entrypoint.sh` (Gunicorn, espera do MySQL, `migrate` e `collectstatic`), `requirements-prod.txt`, `frontend/Dockerfile` (build do PWA na imagem do Caddy), `Caddyfile`, `docker-compose.yml`, `STATIC_ROOT` no `settings.py`, instruções em `docs/deploy/deploy-producao.md` e primeiro deploy na VM.
+- TDD: não se aplica (infraestrutura de deploy, sem código de aplicação); os testes de settings e e-mail ficam no PR da dupla do banco.
+- Validação: build do PWA com `VITE_USE_MOCK=false`, `collectstatic` e `check --deploy` em modo produção e `ruff` locais; na VM, `docker compose config`, `docker compose up -d --build`, PWA, `/api/campi/`, `/admin/` e `/static/` respondendo por HTTPS com certificado do Let's Encrypt, e teste de reboot com os três containers voltando sozinhos.
+- Revisão humana: [revisão de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/157#pullrequestreview-5966561757), com 3 pontos importantes e 7 sugestões.
+- Ajustes da revisão: senha do root do MySQL num `.env.db` só do container `db`; healthcheck do backend, com o Caddy esperando por ele; prazo de 60 s por relógio no `entrypoint.sh`, que mostra o último erro do banco; cabeçalhos de segurança no PWA e no `/static/`; `.env.db`, `staticfiles/` e os caches do ruff e do pytest no `.gitignore`; lista completa das variáveis no guia de deploy, `/api/campi/` na conferência, certificado pedido na subida e aviso sobre a troca de senhas; nomes dos recursos da Azure retirados do guia. O `/admin/` público e o SSH aberto foram para a [#158](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/158); o backup já é a BD-15 do backlog.
+- Validação dos ajustes: a VM passou a rodar a própria branch do PR; `docker compose config` e `up -d --build`; backend `healthy` e sem o `MYSQL_ROOT_PASSWORD` no ambiente; as mesmas respostas por HTTPS; cabeçalhos de segurança no PWA, no `/static/` e na API, sem duplicar os do Django.
+- Segunda revisão: [aprovação de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/157#pullrequestreview-5967539868), com 7 sugestões. Aplicadas a 1 e da 3 à 6: o `entrypoint.sh` confere que o Django usa o MySQL (a mesma checagem do CI) antes de tudo; cada tentativa de conexão tem `timeout` de 10 s e mostra a última linha do erro; `printf` no lugar do `echo` do dash; e o guia ganhou o `--force-recreate db` e a migração do `MYSQL_ROOT_PASSWORD` de um `.env` antigo. A 2 (healthcheck por HTTP) e a 7 (`lb_try_duration` no Caddy) ficaram para depois.
+- Validação da segunda revisão: na VM, backend `healthy`; com `DB_ENGINE` vazio ou `sqlite`, o backend para na hora com a mensagem do MySQL; com host e senha errados, cada tentativa mostra o motivo e o backend desiste no prazo.
+- Atualização com a `develop` (FE-01, #119): o `apiClient` passou a ligar o simulado só no servidor de desenvolvimento, então o `VITE_USE_MOCK` saiu do `frontend/Dockerfile` (`d24f27a`). Validação: o build sem a variável não leva o código do simulado; na VM, o PWA reconstruído responde, e o `/api/sessao/` devolve 401 sem login, vindo da API real.
+- Situação: aprovado; sugestões da segunda revisão aplicadas e branch atualizada com a `develop`.
+
 ## BD-16 — Origem do cardápio por campus
 
 - Issue: [#161](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/161). PR: [#162 — origem do cardápio por campus](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/162).
 - Ferramenta: Claude (Anthropic).
 - Apoio: colunas `rotulo_pagina_ru` e `prefixo_arquivo_pdf` em `CAMPUS` (NOT NULL, UNIQUE), tabela `FONTE_CARDAPIO` (UNIQUE por campus e semana, `ON DELETE CASCADE` no campus), migration `cardapio.0004_origem_cardapio_bd16` com o preenchimento dos campi existentes, fixture `campi` com os rótulos e prefixos do Anexo A, ajuste dos helpers de teste que criam campus e documentação (Nível 4 do banco e README das fixtures), conforme a ADR 0014.
 - TDD: testes no commit `92c2f6a`, antes da implementação; falharam na coleta porque `FonteCardapio` ainda não existia.
-- Validação local (SQLite): `pytest` com 1012 testes aprovados e 1 ignorado (específico do MySQL), cobertura de 97,94%; `ruff check`, `ruff format --check` e `makemigrations --check` sem achados. Migration no MySQL: job `testes-mysql` do PR.
+- Validação local (SQLite): `pytest` com 1012 testes aprovados e 1 ignorado (específico do MySQL), cobertura de 97,94% (mesmos números depois dos ajustes da revisão); `ruff check`, `ruff format --check` e `makemigrations --check` sem achados. Migration no MySQL: job `testes-mysql` do PR.
 - Checklist do Plano de Testes (3.10): os testes cobrem os valores do Anexo A, as duas UNIQUE de `CAMPUS`, a UNIQUE e o CASCADE de `FONTE_CARDAPIO` e a data migration com os 5 campi e com um campus fora do Anexo A.
-- Revisão humana: pendente.
-- Situação: aguardando revisão de outra frente.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/162#pullrequestreview-5975331117), aprovando a implementação e pedindo a resolução do conflito neste arquivo com o #157.
+- Ajustes da revisão: a `develop` foi trazida para a branch e as duas seções foram mantidas; a reserva da migration para campus fora do Anexo A passou a ser `sem-rotulo-<id>` e `sem-prefixo-<id>` (teste em `cb46283`, que falhou com a colisão de um "Ceilandia" sem acento, e correção em `f1a40df`); o Nível 4 do banco registra que a UNIQUE é exata no SQLite e segue a collation no MySQL.
+- Situação: ajustes da revisão aplicados; aguardando o recheck.

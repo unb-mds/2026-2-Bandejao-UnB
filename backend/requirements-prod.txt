@@ -1,0 +1,5 @@
+# Dependências da imagem de produção (backend/Dockerfile, BD-05).
+-r requirements.txt
+# Mesma versão do CI (requirements-ci-mysql.txt).
+mysqlclient==2.3.1
+gunicorn==27.0.1
