@@ -1,6 +1,6 @@
 # ADR 0015 — Permissões de agentes de IA no repositório
 
-**Status:** Proposta
+**Status:** Aceita (proposta em 2026-11-18, aceita em 2026-11-19 na revisão do PR #156)
 **Data:** 2026-11-18 (redigida em 2026-11-15)
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
@@ -10,7 +10,7 @@ A equipe usa agentes de IA para escrever código, testes e documentação (ADR 0
 
 A `develop` reúne o trabalho integrado de cada release, e a `main` recebe as entregas de cada release. Uma alteração ruim em qualquer uma das duas afeta a equipe inteira.
 
-A Definition of Done (`docs/requisitos/backlog.md` §1.4) já prevê revisão antes do merge; esta ADR deixa a regra explícita para o trabalho feito com agentes de IA.
+A Definition of Done (`docs/requisitos/backlog.md` §1.4) já prevê revisão antes do merge nos PRs para a `develop`, por alguém de outra frente. Esta ADR deixa a regra explícita para o trabalho feito com agentes de IA: estende a revisão à `main` e fixa o mínimo para esse trabalho, sem dispensar a DoD.
 
 ## Decisão
 
@@ -18,18 +18,18 @@ A Definition of Done (`docs/requisitos/backlog.md` §1.4) já prevê revisão an
 
 - "Push direto" inclui force-push. Agentes também não apagam nem renomeiam a `main` ou a `develop`.
 - A regra vale para a `main` e a `develop`. Nas branches de trabalho (`feature/…`, `fix/…`, `docs/…` e `chore/…`, README), o agente pode commitar e fazer push.
-- Por enquanto, a regra é um acordo da equipe. A `main` e a `develop` estão protegidas com as mesmas regras (a `main` desde 2026-11-19, neste PR): toda mudança entra por PR, os jobs `lint`, `testes`, `seguranca` e `testes-mysql` precisam estar verdes e a branch atualizada, e force-push e exclusão estão bloqueados. A proteção exige 0 aprovações e não vale para administradores. Além disso, o agente usa a conta do integrante que o opera, então o GitHub não distingue os dois.
+- Por enquanto, a regra é um acordo da equipe. A `main` e a `develop` estão protegidas com as mesmas regras (a `main` desde 2026-11-19, configurada durante a revisão do PR #156): toda mudança entra por PR, os jobs `lint`, `testes`, `seguranca` e `testes-mysql` precisam estar verdes e a branch atualizada, e force-push e exclusão estão bloqueados. A proteção exige 0 aprovações e não vale para administradores. Além disso, o agente usa a conta do integrante que o opera, então o GitHub não distingue os dois.
 
 ## Consequências
 
 - Toda mudança feita com agente de IA passa por pelo menos um integrante diferente de quem operou o agente, que continua responsável pelo que aprovou, antes de entrar na `main` ou na `develop`.
 - O merge para essas branches depende da disponibilidade de outro integrante para revisar, o que pode atrasar entregas perto dos prazos.
 - A regra vale para todos os agentes de IA usados pela equipe, independentemente da ferramenta.
-- A proteção impede commit direto, force-push e exclusão da `main` e da `develop`, mas não exige a revisão de outro integrante; essa parte depende da equipe.
+- A proteção impede, para quem não é administrador, commit direto, force-push e exclusão da `main` e da `develop`. Ela não exige a revisão de outro integrante nem vale para administradores, e um agente operado pela conta de um administrador consegue fazer tudo isso; essas partes dependem da equipe.
 
 ## Alternativa considerada
 
-**Permitir merge automático pelo agente quando o CI estiver verde.** Seria mais rápido, mas o CI não pega tudo: a mutação só roda nos arquivos críticos alterados, e erros de regra de negócio, de documentação ou dependências inventadas só aparecem na revisão humana (ADR 0013; Plano de Testes 3.10). Descartada.
+**Permitir merge automático pelo agente quando o CI estiver verde.** Seria mais rápido, mas o CI não pega tudo: a mutação, quando entrar no CI, vai rodar só nos arquivos críticos alterados (ADR 0013, decisão 6), e erros de regra de negócio ou dependências inventadas só aparecem na revisão humana (ADR 0013; Plano de Testes 3.10). Descartada.
 
 ## Pontos em aberto
 
