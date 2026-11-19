@@ -141,6 +141,21 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação após os ajustes: os 8 diagramas dos três documentos passam no `mermaid.parse` do Mermaid 10.9.3, sem erro.
 - Situação: revisão aprovada; pronto para o merge.
 
+## BD-05 — Docker e publicação
+
+- PR: [#157 — BD-05: Docker e publicação](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/157).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `backend/Dockerfile` e `entrypoint.sh` (Gunicorn, espera do MySQL, `migrate` e `collectstatic`), `requirements-prod.txt`, `frontend/Dockerfile` (build do PWA na imagem do Caddy), `Caddyfile`, `docker-compose.yml`, `STATIC_ROOT` no `settings.py`, instruções em `docs/deploy/deploy-producao.md` e primeiro deploy na VM.
+- TDD: não se aplica (infraestrutura de deploy, sem código de aplicação); os testes de settings e e-mail ficam no PR da dupla do banco.
+- Validação: build do PWA com `VITE_USE_MOCK=false`, `collectstatic` e `check --deploy` em modo produção e `ruff` locais; na VM, `docker compose config`, `docker compose up -d --build`, PWA, `/api/campi/`, `/admin/` e `/static/` respondendo por HTTPS com certificado do Let's Encrypt, e teste de reboot com os três containers voltando sozinhos.
+- Revisão humana: [revisão de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/157#pullrequestreview-5966561757), com 3 pontos importantes e 7 sugestões.
+- Ajustes da revisão: senha do root do MySQL num `.env.db` só do container `db`; healthcheck do backend, com o Caddy esperando por ele; prazo de 60 s por relógio no `entrypoint.sh`, que mostra o último erro do banco; cabeçalhos de segurança no PWA e no `/static/`; `.env.db`, `staticfiles/` e os caches do ruff e do pytest no `.gitignore`; lista completa das variáveis no guia de deploy, `/api/campi/` na conferência, certificado pedido na subida e aviso sobre a troca de senhas; nomes dos recursos da Azure retirados do guia. O `/admin/` público e o SSH aberto foram para a [#158](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/158); o backup já é a BD-15 do backlog.
+- Validação dos ajustes: a VM passou a rodar a própria branch do PR; `docker compose config` e `up -d --build`; backend `healthy` e sem o `MYSQL_ROOT_PASSWORD` no ambiente; as mesmas respostas por HTTPS; cabeçalhos de segurança no PWA, no `/static/` e na API, sem duplicar os do Django.
+- Segunda revisão: [aprovação de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/157#pullrequestreview-5967539868), com 7 sugestões. Aplicadas a 1 e da 3 à 6: o `entrypoint.sh` confere que o Django usa o MySQL (a mesma checagem do CI) antes de tudo; cada tentativa de conexão tem `timeout` de 10 s e mostra a última linha do erro; `printf` no lugar do `echo` do dash; e o guia ganhou o `--force-recreate db` e a migração do `MYSQL_ROOT_PASSWORD` de um `.env` antigo. A 2 (healthcheck por HTTP) e a 7 (`lb_try_duration` no Caddy) ficaram para depois.
+- Validação da segunda revisão: na VM, backend `healthy`; com `DB_ENGINE` vazio ou `sqlite`, o backend para na hora com a mensagem do MySQL; com host e senha errados, cada tentativa mostra o motivo e o backend desiste no prazo.
+- Atualização com a `develop` (FE-01, #119): o `apiClient` passou a ligar o simulado só no servidor de desenvolvimento, então o `VITE_USE_MOCK` saiu do `frontend/Dockerfile` (`d24f27a`). Validação: o build sem a variável não leva o código do simulado; na VM, o PWA reconstruído responde, e o `/api/sessao/` devolve 401 sem login, vindo da API real.
+- Situação: aprovado; sugestões da segunda revisão aplicadas e branch atualizada com a `develop`.
+
 ## ADR 0015 — Permissões de agentes de IA
 
 - PR: [#156 — ADR 0015: permissões de agentes de IA no repositório](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/156).
@@ -148,6 +163,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Apoio: commit da ADR 0015 e das linhas no `docs/_sidebar.md` e no `README.md`, abertura do PR e ajustes da revisão: decisão reescrita (sem commit ou push direto na `main` e na `develop`, merge por um integrante depois da revisão de alguém diferente de quem operou o agente, force-push incluído, branches de trabalho fora da regra), status de volta para "Proposta", data do PR com a da redação entre parênteses, Contexto apoiado na Definition of Done, argumento da alternativa alinhado à ADR 0013, referências trocadas pelas que tratam do tema e ponto em aberto sobre "Require approvals".
 - TDD: não se aplica (só documentação).
 - Validação: links do sidebar e do README conferidos; afirmações da ADR conferidas com a ADR 0013, o `backlog.md` §1.4, o `plano-de-testes.md` §3.10 e o README (Gitflow).
-- Revisão humana: [revisão de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/156#pullrequestreview-5967413548), com pedido de mudanças.
+- Revisão humana: [revisão de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/156#pullrequestreview-5967413548), com pedido de mudanças, e [resposta à revisão](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/156#issuecomment-6999016626).
 - Proteção da `main`: a `main` não tinha proteção nenhuma. Em 2026-11-19, a pedido de AlvaroBento12, o agente aplicou nela, pela API do GitHub, as mesmas regras da `develop` (PR obrigatório, os 4 jobs do CI verdes, branch atualizada, sem force-push e sem exclusão, 0 aprovações, sem valer para administradores), e a ADR passou a descrever a proteção das duas branches.
-- Situação: ajustes da revisão aplicados; aguardando nova revisão. A decisão sobre "Require approvals" fica para a equipe.
+- Segunda revisão: [aprovação de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/156#pullrequestreview-5969631334), com 3 pontos antes do merge e 4 sugestões. Aplicados os 3 pontos e as sugestões 4 e 5: PR #156 citado no lugar de "neste PR"; exceção dos administradores nas Consequências; status "Aceita"; mutação descrita no futuro, porque ainda não há job de mutação no CI, e sem o trecho de documentação, que a ADR 0013 e o §3.10 não citam; a ADR fixa o mínimo para o trabalho com agentes sem dispensar a DoD. As sugestões 6 (configurações do repositório) e 7 (redação) ficaram de fora.
+- Situação: revisão aprovada; pronto para o merge. A decisão sobre "Require approvals" fica para a equipe.

@@ -44,6 +44,9 @@
   - [0014 — Descoberta do PDF de cada campus](arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md)
   - [0015 — Permissões de agentes de IA no repositório](arquitetura/adr/0015-permissoes-de-agentes-de-ia-no-repositorio.md)
 
+- **Deploy**
+  - [Deploy de produção](deploy/deploy-producao.md)
+
 - **Gestão do projeto**
   - [Atas de reunião](atas-reunioes/README.md)
   - [Reviews de sprint](reviews-sprints/README.md)
