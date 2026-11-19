@@ -8,9 +8,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:unit": "vitest",
-    "lint": "run-s \"lint:*\"",
+    "test:ci": "vitest run --coverage",
+    "lint": "run-s lint:oxlint lint:eslint",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
+    "lint:ci": "oxlint . --deny-warnings && eslint . --max-warnings 0",
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
@@ -21,6 +23,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@vitejs/plugin-vue": "^6.0.8",
+    "@vitest/coverage-v8": "^4.1.11",
     "@vitest/eslint-plugin": "^1.6.27",
     "@vue/test-utils": "^2.5.0",
     "eslint": "^10.10.0",
