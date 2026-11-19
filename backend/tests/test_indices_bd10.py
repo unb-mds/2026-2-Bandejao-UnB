@@ -79,7 +79,7 @@ def _criar_contas():
     `full_clean`) deixaria o teste lento à toa. Por isso o apelido normalizado
     e a senha inutilizável vão preenchidos aqui."""
     agora = timezone.now()
-    contas = get_user_model().objects.bulk_create(
+    get_user_model().objects.bulk_create(
         get_user_model()(
             tipo_usuario="estudante",
             matricula_siape=f"2026{n:05d}",
@@ -94,6 +94,10 @@ def _criar_contas():
         )
         for n in range(QTD_CONTAS)
     )
+    # No MySQL o `bulk_create` não devolve o id das linhas criadas (não há
+    # `RETURNING`), então as contas são lidas de novo do banco, na ordem da
+    # matrícula, que é a ordem de `n`.
+    contas = list(get_user_model().objects.order_by("matricula_siape"))
     PontuacaoUsuario.objects.bulk_create(
         # Metade das contas aderiu ao ranking (RN12).
         PontuacaoUsuario(usuario=conta, participa_ranking=n % 2 == 0)
