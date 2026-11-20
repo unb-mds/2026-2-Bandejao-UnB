@@ -190,9 +190,25 @@ describe('ConfirmarEmailView: token na query string', () => {
   })
 })
 
+describe('ConfirmarEmailView: logo após o cadastro', () => {
+  it('o campo de reenvio já vem com o e-mail do cadastro e manda emailInstitucional', async () => {
+    await cadastrarAluno()
+    const espiao = vi.spyOn(apiClient, 'post')
+    const { wrapper } = await montarEm(`/confirmar-email?email=${ALUNO.email}`)
+
+    expect(campo(wrapper, 'E-mail institucional').element.value).toBe(ALUNO.email)
+    await enviar(wrapper)
+
+    expect(espiao).toHaveBeenCalledWith('/reenviar-confirmacao/', {
+      emailInstitucional: ALUNO.email,
+    })
+    await vi.waitFor(() => expect(wrapper.text()).toContain('novo link de confirmação'))
+  })
+})
+
 describe('LoginView', () => {
-  async function entrarPelaTela(wrapper, matricula = ALUNO.matricula, senha = SENHA) {
-    await campo(wrapper, 'Matrícula ou SIAPE').setValue(matricula)
+  async function entrarPelaTela(wrapper, email = ALUNO.email, senha = SENHA) {
+    await campo(wrapper, 'E-mail institucional').setValue(email)
     await campo(wrapper, 'Senha').setValue(senha)
     await enviar(wrapper)
   }
@@ -239,12 +255,10 @@ describe('LoginView', () => {
     await cadastrarEConfirmar()
     const { wrapper, router } = await montarEm('/login')
 
-    await entrarPelaTela(wrapper, ALUNO.matricula, 'errada123')
+    await entrarPelaTela(wrapper, ALUNO.email, 'errada123')
 
     await vi.waitFor(() =>
-      expect(wrapper.find('[role="alert"]').text()).toContain(
-        'Matrícula/SIAPE ou senha incorretas.',
-      ),
+      expect(wrapper.find('[role="alert"]').text()).toContain('E-mail ou senha incorretos.'),
     )
     expect(router.currentRoute.value.name).toBe('login')
   })
@@ -263,11 +277,11 @@ describe('nada do formulário fica salvo no aparelho (front 4b, RI09)', () => {
     cadastro.wrapper.unmount()
 
     const reenvio = await apiClient.post('/reenviar-confirmacao/', {
-      matriculaSiape: ALUNO.matricula,
+      emailInstitucional: ALUNO.email,
     })
     await apiClient.post(`/confirmar-email/${tokenDoLink(reenvio.linkSimulado)}/`)
     const login = await montarEm('/login')
-    await campo(login.wrapper, 'Matrícula ou SIAPE').setValue(ALUNO.matricula)
+    await campo(login.wrapper, 'E-mail institucional').setValue(ALUNO.email)
     await campo(login.wrapper, 'Senha').setValue(SENHA)
     await enviar(login.wrapper)
     await esperarRota(login.router, 'inicio')

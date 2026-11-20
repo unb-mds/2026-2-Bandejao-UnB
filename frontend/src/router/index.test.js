@@ -187,7 +187,7 @@ describe('cardápio', () => {
 describe('sessão ao abrir o app (FE-03, ADR 0007)', () => {
   it('depois de recarregar a página, quem tem sessão continua logado', async () => {
     setActivePinia(createPinia())
-    await useAuthStore().entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    await useAuthStore().entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
     // montarEm cria stores novas (como um F5); só o cookie de sessão continua.
     const { wrapper } = await montarEm('/inicio', { campus: 'darcy' })

@@ -45,7 +45,7 @@ describe('cookie de sessão (ADR 0007)', () => {
     await cliente.get('/sessao/')
     expect(ultimaChamada().opcoes.credentials).toBe('same-origin')
 
-    await cliente.post('/sessao/', { matriculaSiape: '231034567', senha: 'x' })
+    await cliente.post('/sessao/', { emailInstitucional: '231034567@aluno.unb.br', senha: 'x' })
     expect(ultimaChamada().opcoes.credentials).toBe('same-origin')
   })
 
@@ -165,9 +165,11 @@ describe('CSRF nas escritas', () => {
 
 describe('corpo da requisição e da resposta', () => {
   it('escrita com corpo manda JSON com Content-Type', async () => {
-    await cliente.post('/sessao/', { matriculaSiape: '231034567', senha: 'x' })
+    await cliente.post('/sessao/', { emailInstitucional: '231034567@aluno.unb.br', senha: 'x' })
     const { opcoes, cabecalhos } = ultimaChamada()
-    expect(opcoes.body).toBe(JSON.stringify({ matriculaSiape: '231034567', senha: 'x' }))
+    expect(opcoes.body).toBe(
+      JSON.stringify({ emailInstitucional: '231034567@aluno.unb.br', senha: 'x' }),
+    )
     expect(cabecalhos['Content-Type']).toBe('application/json')
   })
 

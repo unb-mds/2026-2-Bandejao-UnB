@@ -45,7 +45,7 @@ describe('authStore com o servidor simulado', () => {
   it('login guarda só apelido, tipo e avisoPrivacidadePendente', async () => {
     const auth = useAuthStore()
 
-    await auth.entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
     expect(auth.estaAutenticado).toBe(true)
     expect(auth.usuario).toEqual({
@@ -58,7 +58,7 @@ describe('authStore com o servidor simulado', () => {
 
   it('401 numa rota logada limpa o authStore (sessão expirada no servidor)', async () => {
     const auth = useAuthStore()
-    await auth.entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
     simulacao.expirarSessao()
     const falha = await apiClient.post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 4 }).catch((e) => e)
@@ -71,7 +71,7 @@ describe('authStore com o servidor simulado', () => {
 
   it('403 de CSRF não limpa o authStore', async () => {
     const auth = useAuthStore()
-    await auth.entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
     // Cookie com um token que o servidor não reconhece (ex.: velho, de outra aba).
     document.cookie = 'csrftoken=token-velho; path=/'
@@ -84,7 +84,7 @@ describe('authStore com o servidor simulado', () => {
 
   it('escrita logada passa quando o apiClient manda o CSRF', async () => {
     const auth = useAuthStore()
-    await auth.entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
     const resposta = await apiClient.post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 4 })
 
@@ -93,7 +93,7 @@ describe('authStore com o servidor simulado', () => {
 
   it('sair encerra a sessão no servidor (DELETE /sessao/) e limpa a store', async () => {
     const auth = useAuthStore()
-    await auth.entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
     await auth.sair()
 
@@ -104,7 +104,7 @@ describe('authStore com o servidor simulado', () => {
 
   it('sair com a sessão já expirada (401) resolve e limpa a store', async () => {
     const auth = useAuthStore()
-    await auth.entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
     simulacao.expirarSessao()
 
     await expect(auth.sair()).resolves.toBeUndefined()
@@ -114,7 +114,7 @@ describe('authStore com o servidor simulado', () => {
 
   it('sair com outro erro (ex.: 403 de CSRF) rejeita, mas limpa a store', async () => {
     const auth = useAuthStore()
-    await auth.entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
     document.cookie = 'csrftoken=token-velho; path=/'
 
     const falha = await auth.sair().catch((e) => e)
@@ -126,7 +126,7 @@ describe('authStore com o servidor simulado', () => {
   it('reenvio sem conta pendente: 200 sem corpo, só a mensagem do front', async () => {
     const auth = useAuthStore()
 
-    const reenvio = await auth.reenviarConfirmacao({ matriculaSiape: '251000001' })
+    const reenvio = await auth.reenviarConfirmacao({ emailInstitucional: '251000001@aluno.unb.br' })
 
     expect(reenvio.mensagem).toMatch(/novo link de confirmação/)
     expect(reenvio.linkSimulado).toBeUndefined()
@@ -134,7 +134,7 @@ describe('authStore com o servidor simulado', () => {
 
   it('login com senha errada mostra o codigo do contrato', async () => {
     const auth = useAuthStore()
-    const falha = await auth.entrar(CONTA_DEMO.matricula, 'errada123').catch((e) => e)
+    const falha = await auth.entrar(CONTA_DEMO.email, 'errada123').catch((e) => e)
     expect(falha.status).toBe(401)
     expect(falha.codigo).toBe('credenciais_invalidas')
     expect(auth.estaAutenticado).toBe(false)
@@ -155,17 +155,17 @@ describe('authStore com o servidor simulado', () => {
       status: 'pendente',
     })
 
-    const pendente = await auth.entrar('241987650', 'senhaforte').catch((e) => e)
+    const pendente = await auth.entrar('241987650@aluno.unb.br', 'senhaforte').catch((e) => e)
     expect(pendente.codigo).toBe('conta_nao_confirmada')
 
-    const reenvio = await auth.reenviarConfirmacao({ matriculaSiape: '241987650' })
+    const reenvio = await auth.reenviarConfirmacao({ emailInstitucional: '241987650@aluno.unb.br' })
     // O backend responde 200 sem corpo: a mensagem vem da própria store.
     expect(reenvio.mensagem).toMatch(/novo link de confirmação/)
     // `linkSimulado` só existe no modo demonstração.
     const token = new URL(reenvio.linkSimulado, 'http://x').searchParams.get('token')
     await auth.confirmarEmail(token)
 
-    await auth.entrar('241987650', 'senhaforte')
+    await auth.entrar('241987650@aluno.unb.br', 'senhaforte')
     expect(auth.apelido).toBe('novo_aluno')
   })
 })
@@ -178,7 +178,7 @@ describe('carregarSessao: a sessão volta ao abrir o app (ADR 0007)', () => {
   }
 
   it('com o cookie de sessão válido, a store volta a ter o usuário', async () => {
-    await useAuthStore().entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    await useAuthStore().entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
     const auth = reabrirApp()
     expect(auth.sessaoCarregada).toBe(false)
@@ -277,7 +277,7 @@ describe('carregarSessao com a rede lenta (tempo limite de 3 s)', () => {
     await vi.advanceTimersByTimeAsync(3000)
     await carregando
 
-    await auth.entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
     travado.rejeitar(new ApiError(401, { codigo: 'nao_autenticado' }))
     await vi.advanceTimersByTimeAsync(0)
 

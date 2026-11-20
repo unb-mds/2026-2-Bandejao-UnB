@@ -29,7 +29,7 @@ const get = (caminho) => pedir('GET', caminho)
 const del = (caminho) => pedir('DELETE', caminho)
 const tokenDoLink = (link) => new URL(link, 'http://x').searchParams.get('token')
 const confirmar = (link) => post(`/confirmar-email/${tokenDoLink(link)}/`)
-const entrar = (matriculaSiape, senha) => post('/sessao/', { matriculaSiape, senha })
+const entrar = (emailInstitucional, senha) => post('/sessao/', { emailInstitucional, senha })
 
 // Segunda-feira, 28/09/2026, 12h — almoço em andamento.
 const SEGUNDA_MEIO_DIA = new Date(2026, 8, 28, 12, 0)
@@ -44,7 +44,8 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-const entrarComDemo = () => entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+const ALUNO_SEM_CONTA = '251000001@aluno.unb.br'
+const entrarComDemo = () => entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
 describe('POST /cadastro/ e confirmação de e-mail (RF01, RF02)', () => {
   const ESTUDANTE = {
@@ -70,13 +71,13 @@ describe('POST /cadastro/ e confirmação de e-mail (RF01, RF02)', () => {
       status: 'pendente',
     })
 
-    const antes = await entrar('241987650', ESTUDANTE.senha)
+    const antes = await entrar(ESTUDANTE.emailInstitucional, ESTUDANTE.senha)
     expect(antes.status).toBe(403)
     expect(antes.dados.codigo).toBe('conta_nao_confirmada')
 
     expect((await confirmar(cadastro.dados.linkSimulado)).status).toBe(200)
 
-    const depois = await entrar('241987650', ESTUDANTE.senha)
+    const depois = await entrar(ESTUDANTE.emailInstitucional, ESTUDANTE.senha)
     expect(depois.status).toBe(200)
     expect(depois.dados).toEqual({
       apelido: 'novo_aluno',
@@ -144,17 +145,17 @@ describe('POST /cadastro/ e confirmação de e-mail (RF01, RF02)', () => {
     expect(manual.status).toBe(201)
   })
 
-  it('professor_servidor entra pelo SIAPE', async () => {
+  it('professor_servidor entra pelo e-mail @unb.br', async () => {
     const { dados } = await post('/cadastro/', SERVIDOR)
     await confirmar(dados.linkSimulado)
-    const sessao = await entrar('1234567', SERVIDOR.senha)
+    const sessao = await entrar('maria.silva@unb.br', SERVIDOR.senha)
     expect(sessao.status).toBe(200)
     expect(sessao.dados.tipo).toBe('professor_servidor')
   })
 })
 
 describe('POST /reenviar-confirmacao/ (RF02.2)', () => {
-  it('aceita matriculaSiape e devolve a mesma resposta exista ou não a conta', async () => {
+  it('aceita emailInstitucional e devolve a mesma resposta exista ou não a conta', async () => {
     await post('/cadastro/', {
       tipoUsuario: 'estudante',
       emailInstitucional: '241987650@aluno.unb.br',
@@ -162,8 +163,12 @@ describe('POST /reenviar-confirmacao/ (RF02.2)', () => {
       apelido: 'novo_aluno',
       aceitePrivacidade: true,
     })
-    const existe = await post('/reenviar-confirmacao/', { matriculaSiape: '241987650' })
-    const naoExiste = await post('/reenviar-confirmacao/', { matriculaSiape: '251000001' })
+    const existe = await post('/reenviar-confirmacao/', {
+      emailInstitucional: ' 241987650@Aluno.UnB.br ',
+    })
+    const naoExiste = await post('/reenviar-confirmacao/', {
+      emailInstitucional: '251000001@aluno.unb.br',
+    })
     // Como o backend: 200 sem corpo nos dois casos. Só o `linkSimulado`
     // (extra do modo demonstração) aparece quando há conta pendente.
     expect(existe.status).toBe(200)
@@ -186,10 +191,35 @@ describe('POST /reenviar-confirmacao/ (RF02.2)', () => {
     expect(reenvio.dados.linkSimulado).toEqual(expect.any(String))
   })
 
-  it('sem matriculaSiape nem token: 422 dados_invalidos', async () => {
+  it('e-mail sem conta e token válido: vale o token', async () => {
+    const { dados } = await post('/cadastro/', {
+      tipoUsuario: 'estudante',
+      emailInstitucional: '241987650@aluno.unb.br',
+      senha: 'senhaforte',
+      apelido: 'novo_aluno',
+      aceitePrivacidade: true,
+    })
+    const reenvio = await post('/reenviar-confirmacao/', {
+      emailInstitucional: '251000001@aluno.unb.br',
+      token: tokenDoLink(dados.linkSimulado),
+    })
+    expect(reenvio.status).toBe(200)
+    expect(reenvio.dados.linkSimulado).toEqual(expect.any(String))
+  })
+
+  it('e-mail fora do domínio só não acha conta: o mesmo 200', async () => {
+    const resposta = await post('/reenviar-confirmacao/', { emailInstitucional: 'x@gmail.com' })
+    expect(resposta.status).toBe(200)
+    expect(resposta.dados).toBeNull()
+  })
+
+  it('sem emailInstitucional nem token: 422 dados_invalidos', async () => {
     const resposta = await post('/reenviar-confirmacao/', {})
     expect(resposta.status).toBe(422)
-    expect(resposta.dados.codigo).toBe('dados_invalidos')
+    expect(resposta.dados).toEqual({
+      codigo: 'dados_invalidos',
+      mensagem: 'Informe o seu e-mail institucional ou abra o link recebido.',
+    })
   })
 })
 
@@ -224,39 +254,55 @@ describe('/sessao/ (RF03, ADR 0007)', () => {
   })
 
   it('erro genérico (401 credenciais_invalidas) para senha errada e conta inexistente', async () => {
-    const senhaErrada = await entrar(CONTA_DEMO.matricula, 'errada123')
-    const inexistente = await entrar('251000001', 'errada123')
+    const senhaErrada = await entrar(CONTA_DEMO.email, 'errada123')
+    const inexistente = await entrar('251000001@aluno.unb.br', 'errada123')
     expect(senhaErrada.status).toBe(401)
     expect(senhaErrada.dados).toEqual(inexistente.dados)
     expect(senhaErrada.dados).toEqual({
       codigo: 'credenciais_invalidas',
-      mensagem: 'Matrícula/SIAPE ou senha incorretas.',
+      mensagem: 'E-mail ou senha incorretos.',
     })
   })
 
-  it('identificador sem 9 nem 7 dígitos: 422 dados_invalidos, sem contar tentativa', async () => {
+  it('maiúsculas e espaços nas pontas do e-mail entram na mesma conta', async () => {
+    const sessao = await entrar(` ${CONTA_DEMO.email.toUpperCase()} `, CONTA_DEMO.senha)
+    expect(sessao.status).toBe(200)
+    expect(sessao.dados.apelido).toBe(CONTA_DEMO.apelido)
+  })
+
+  it('e-mail fora do domínio da UnB: 422 dados_invalidos, sem contar tentativa', async () => {
     for (let i = 0; i < 6; i++) {
-      const resposta = await entrar('12345', 'x')
+      const resposta = await entrar('aluno@gmail.com', 'x')
       expect(resposta.status).toBe(422)
       expect(resposta.dados).toEqual({
         codigo: 'dados_invalidos',
-        mensagem: 'Informe a matrícula (9 dígitos) ou o SIAPE (7 dígitos), só com números.',
+        mensagem: 'Informe o seu e-mail institucional da UnB (@aluno.unb.br ou @unb.br).',
       })
     }
-    const semSenha = await post('/sessao/', { matriculaSiape: CONTA_DEMO.matricula })
+    const semSenha = await post('/sessao/', { emailInstitucional: CONTA_DEMO.email })
     expect(semSenha.status).toBe(422)
-    expect(semSenha.dados.mensagem).toBe('Informe a matrícula/SIAPE e a senha.')
+    expect(semSenha.dados.mensagem).toBe('Informe o seu e-mail institucional e a senha.')
+  })
+
+  it('corpo antigo com matriculaSiape: 422 dados_invalidos', async () => {
+    const resposta = await post('/sessao/', {
+      matriculaSiape: CONTA_DEMO.matricula,
+      senha: CONTA_DEMO.senha,
+    })
+    expect(resposta.status).toBe(422)
+    expect(resposta.dados.codigo).toBe('dados_invalidos')
   })
 
   it('bloqueia por 10 minutos após 5 tentativas erradas (429 login_bloqueado)', async () => {
-    for (let i = 0; i < 4; i++) expect((await entrar('251000002', 'x')).status).toBe(401)
-    const bloqueado = await entrar('251000002', 'x')
+    const outro = '251000002@aluno.unb.br'
+    for (let i = 0; i < 4; i++) expect((await entrar(outro, 'x')).status).toBe(401)
+    const bloqueado = await entrar(outro, 'x')
     expect(bloqueado.status).toBe(429)
     expect(bloqueado.dados.codigo).toBe('login_bloqueado')
-    expect((await entrar('251000002', 'x')).status).toBe(429)
+    expect((await entrar(outro, 'x')).status).toBe(429)
 
     vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 11 * 60 * 1000))
-    expect((await entrar('251000002', 'x')).status).toBe(401)
+    expect((await entrar(outro, 'x')).status).toBe(401)
   })
 
   it('escrita logada sem X-CSRFToken: 403 csrf_invalido (não é 401, não desloga)', async () => {
@@ -299,7 +345,7 @@ describe('CSRF (ADR 0007, #112)', () => {
     const resposta = await recarregado.tratarRequisicaoSimulada({
       metodo: 'POST',
       caminho: '/reenviar-confirmacao/',
-      corpo: { matriculaSiape: '251000001' },
+      corpo: { emailInstitucional: '251000001@aluno.unb.br' },
       cabecalhos: { 'X-CSRFToken': cookieAntesDoF5 },
     })
 
@@ -311,7 +357,7 @@ describe('CSRF (ADR 0007, #112)', () => {
     const resposta = await tratarRequisicaoSimulada({
       metodo: 'POST',
       caminho: '/reenviar-confirmacao/',
-      corpo: { matriculaSiape: '251000001' },
+      corpo: { emailInstitucional: '251000001@aluno.unb.br' },
       cabecalhos: { 'X-CSRFToken': 'outro-valor' },
     })
     expect(resposta.status).toBe(403)
@@ -340,8 +386,8 @@ describe('recuperação de senha (RF04, fora do contrato v1)', () => {
 
     const token = tokenDoLink(existente.dados.linkSimulado)
     expect((await post('/redefinir-senha/', { token, senha: 'novasenha1' })).status).toBe(200)
-    expect((await entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)).status).toBe(401)
-    expect((await entrar(CONTA_DEMO.matricula, 'novasenha1')).status).toBe(200)
+    expect((await entrar(CONTA_DEMO.email, CONTA_DEMO.senha)).status).toBe(401)
+    expect((await entrar(CONTA_DEMO.email, 'novasenha1')).status).toBe(200)
   })
 
   it('redefinir a senha encerra a sessão aberta', async () => {
@@ -470,17 +516,16 @@ describe('limite de taxa por IP (429 limite_excedido, #123)', () => {
 
   it('reenvio de confirmação: 10 por hora', async () => {
     for (let i = 0; i < 10; i++) {
-      expect((await post('/reenviar-confirmacao/', { matriculaSiape: '251000001' })).status).toBe(
-        200,
-      )
+      const reenvio = await post('/reenviar-confirmacao/', { emailInstitucional: ALUNO_SEM_CONTA })
+      expect(reenvio.status).toBe(200)
     }
-    const excedido = await post('/reenviar-confirmacao/', { matriculaSiape: '251000001' })
+    const excedido = await post('/reenviar-confirmacao/', { emailInstitucional: ALUNO_SEM_CONTA })
     expect(excedido.status).toBe(429)
     expect(excedido.dados).toEqual(LIMITE)
   })
 
   it('login: 60 por hora, contando também os pedidos inválidos', async () => {
-    for (let i = 0; i < 60; i++) expect((await entrar('12345', 'x')).status).toBe(422)
+    for (let i = 0; i < 60; i++) expect((await entrar('aluno@gmail.com', 'x')).status).toBe(422)
     const excedido = await entrarComDemo()
     expect(excedido.status).toBe(429)
     expect(excedido.dados).toEqual(LIMITE)
@@ -495,10 +540,14 @@ describe('limite de taxa por IP (429 limite_excedido, #123)', () => {
       aceitePrivacidade: true,
     })
     for (let i = 0; i < 3; i++) {
-      const reenvio = await post('/reenviar-confirmacao/', { matriculaSiape: '241987650' })
+      const reenvio = await post('/reenviar-confirmacao/', {
+        emailInstitucional: '241987650@aluno.unb.br',
+      })
       expect(reenvio.dados.linkSimulado).toEqual(expect.any(String))
     }
-    const quarto = await post('/reenviar-confirmacao/', { matriculaSiape: '241987650' })
+    const quarto = await post('/reenviar-confirmacao/', {
+      emailInstitucional: '241987650@aluno.unb.br',
+    })
     expect(quarto.status).toBe(200)
     expect(quarto.dados).toBeNull()
   })
