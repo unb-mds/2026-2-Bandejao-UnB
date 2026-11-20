@@ -447,3 +447,36 @@ describe('AvisoLocalizacao: aberto pelo menu sem localização possível', () =>
     expect(document.activeElement).toBe(origem)
   })
 })
+
+describe('AvisoLocalizacao: casos de borda do segundo recheck', () => {
+  it('aberto pelo menu durante a consulta da abertura do app, ainda dá resposta', async () => {
+    simularNavegador()
+    usePreferenciasStore().adiarAvisoLocalizacao()
+    let liberarConsulta
+    permissoes.query = vi.fn(
+      () => new Promise((resolver) => (liberarConsulta = () => resolver({ state: 'prompt' }))),
+    )
+    const wrapper = await montar()
+
+    const desfecho = abrirAvisoLocalizacao()
+    permissoes.query = vi.fn(async () => ({ state: 'prompt' }))
+    liberarConsulta()
+    await flushPromises()
+
+    expect(aberto(wrapper)).toBe(true)
+    await clicar(wrapper, 'Agora não')
+    expect(await desfecho).toBe('adiado')
+  })
+
+  it('se o navegador fechar o <dialog> sozinho, o aviso fecha e quem abriu recebe o desfecho', async () => {
+    simularNavegador({ estado: 'denied' })
+    const wrapper = await montar()
+    const { desfecho } = await abrirPeloMenu()
+
+    await wrapper.find('dialog').trigger('close')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('O acesso à localização foi bloqueado')
+    expect(await desfecho).toBe('negada')
+  })
+})
