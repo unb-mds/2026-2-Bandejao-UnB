@@ -32,6 +32,8 @@ const dialogo = ref(null)
 const titulo = ref(null)
 let focoAnterior = null
 let consultando = false
+// Abertura pelo menu que chegou enquanto a abertura do app ainda consultava.
+let pedidoDuranteConsulta = false
 // Cada pedido ao navegador ganha um número; respostas de pedidos antigos são ignoradas.
 let pedidoAtual = 0
 
@@ -100,9 +102,12 @@ function fechar(desfecho) {
 }
 
 async function abrir({ primeiroAcesso }) {
-  // Já aberto (inclusive esperando o navegador) ou consultando: quem pediu
-  // recebe o desfecho deste mesmo aviso.
-  if (consultando || etapa.value) return
+  // Já aberto (inclusive esperando o navegador): quem pediu recebe o desfecho deste aviso.
+  if (etapa.value) return
+  if (consultando) {
+    if (!primeiroAcesso) pedidoDuranteConsulta = true
+    return
+  }
   consultando = true
   try {
     const permissao = await consultarPermissao()
@@ -112,6 +117,10 @@ async function abrir({ primeiroAcesso }) {
     mostrar(permissao)
   } finally {
     consultando = false
+    // A abertura do app pode ter decidido não mostrar nada; o pedido do menu ainda merece resposta.
+    const reabrir = pedidoDuranteConsulta && !etapa.value
+    pedidoDuranteConsulta = false
+    if (reabrir) abrir({ primeiroAcesso: false })
   }
 }
 
@@ -158,7 +167,11 @@ async function jaLiberei() {
   mensagem.value = 'Ainda está bloqueado. Confira os passos acima.'
 }
 
-/** Esc (ou o gesto de voltar): no aviso vale como "Agora não"; nas outras etapas, fecha. */
+/**
+ * Esc, gesto de voltar ou o navegador fechando o <dialog> sozinho: no aviso
+ * vale como "Agora não"; nas outras etapas, fecha. O close disparado pelo
+ * próprio fechar() não faz nada, porque a etapa já foi zerada.
+ */
 function pedirFechamento() {
   if (!etapa.value) return
   if (etapa.value === 'aviso' || etapa.value === 'navegador') return agoraNao()
@@ -180,6 +193,7 @@ watch(pedidosDeAberturaDoAviso, (vezes) => {
     aria-describedby="aviso-localizacao-texto"
     @cancel.prevent="pedirFechamento"
     @keydown.esc.prevent="pedirFechamento"
+    @close="etapa && pedirFechamento()"
   >
     <section v-if="etapa" class="cartao painel">
       <template v-if="etapa === 'aviso' || etapa === 'navegador'">
