@@ -162,7 +162,9 @@ backend` mostra o motivo (por exemplo, uma variável faltando no `.env`).
 
 Na primeira subida, o banco está vazio. Carregue os dados fixos (os 5
 campi e os 10 marcadores); sem eles, a API responde `[]` e não há campus
-para o check-in. O comando é seguro de repetir, porque usa IDs fixos:
+para o check-in. Rode só nessa primeira vez: se for repetido depois, o
+comando regrava os campi e os marcadores com os valores da fixture e desfaz
+o que tiver sido ajustado no banco (como as coordenadas medidas em campo, BD-06):
 
 ```bash
 docker compose exec backend python manage.py loaddata campi marcadores
@@ -397,7 +399,8 @@ Cada container guarda no máximo 3 arquivos de 10 MB de log.
 ## Validação em produção (20/11/2026)
 
 Conferido na VM depois do primeiro deploy. Os itens do banco, do
-`check --deploy` e do e-mail estão na entrada da BD-05 do `AI-USAGE.md`.
+`check --deploy` e do e-mail estão na entrada "BD-05 — Banco, settings de produção e e-mail"
+do `AI-USAGE.md`.
 
 | Item | Resultado |
 |---|---|
