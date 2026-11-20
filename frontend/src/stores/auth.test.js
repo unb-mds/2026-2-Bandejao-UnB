@@ -222,6 +222,65 @@ describe('carregarSessao: a sessão volta ao abrir o app (ADR 0007)', () => {
     await Promise.all([auth.carregarSessao(), auth.carregarSessao()])
 
     expect(espiao).toHaveBeenCalledTimes(1)
-    expect(espiao).toHaveBeenCalledWith('/sessao/')
+    expect(espiao).toHaveBeenCalledWith('/sessao/', { avisarSessaoPerdida: false })
+  })
+})
+
+describe('carregarSessao com a rede lenta (tempo limite de 3 s)', () => {
+  /** Promessa que só se resolve quando o teste mandar, como uma rede travada. */
+  function pedidoTravado() {
+    let resolver
+    let rejeitar
+    const promessa = new Promise((sim, nao) => {
+      resolver = sim
+      rejeitar = nao
+    })
+    return { promessa, resolver, rejeitar }
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    vi.setSystemTime(SEGUNDA_MEIO_DIA)
+  })
+
+  it('depois de 3 s sem resposta, o app segue como visitante', async () => {
+    vi.spyOn(apiClient, 'get').mockImplementationOnce(() => pedidoTravado().promessa)
+    const auth = useAuthStore()
+
+    const carregando = auth.carregarSessao()
+    await vi.advanceTimersByTimeAsync(3000)
+
+    await expect(carregando).resolves.toBeUndefined()
+    expect(auth.sessaoCarregada).toBe(true)
+    expect(auth.estaAutenticado).toBe(false)
+  })
+
+  it('se a resposta chegar depois do tempo limite, o apelido aparece', async () => {
+    const travado = pedidoTravado()
+    vi.spyOn(apiClient, 'get').mockImplementationOnce(() => travado.promessa)
+    const auth = useAuthStore()
+    const carregando = auth.carregarSessao()
+    await vi.advanceTimersByTimeAsync(3000)
+    await carregando
+
+    travado.resolver({ apelido: 'demo', tipo: 'estudante', avisoPrivacidadePendente: false })
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(auth.apelido).toBe('demo')
+  })
+
+  it('uma resposta atrasada não desfaz um login feito nesse meio-tempo', async () => {
+    const travado = pedidoTravado()
+    vi.spyOn(apiClient, 'get').mockImplementationOnce(() => travado.promessa)
+    const auth = useAuthStore()
+    const carregando = auth.carregarSessao()
+    await vi.advanceTimersByTimeAsync(3000)
+    await carregando
+
+    await auth.entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    travado.rejeitar(new ApiError(401, { codigo: 'nao_autenticado' }))
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(auth.apelido).toBe(CONTA_DEMO.apelido)
   })
 })

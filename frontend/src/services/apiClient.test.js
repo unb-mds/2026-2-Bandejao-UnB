@@ -284,6 +284,17 @@ describe('401 avisa que a sessão acabou', () => {
     expect(falha.codigo).toBe('nao_autenticado')
   })
 
+  it('com `avisarSessaoPerdida: false`, um 401 é só a resposta (a sessão do boot)', async () => {
+    const aoPerder = vi.fn()
+    definirAoPerderSessao(aoPerder)
+    fetchFalso.mockReturnValueOnce(respostaJson(401, { codigo: 'nao_autenticado' }))
+
+    const falha = await cliente.get('/sessao/', { avisarSessaoPerdida: false }).catch((e) => e)
+
+    expect(falha.status).toBe(401)
+    expect(aoPerder).not.toHaveBeenCalled()
+  })
+
   it('403 de CSRF não desloga ninguém', async () => {
     const aoPerder = vi.fn()
     definirAoPerderSessao(aoPerder)
