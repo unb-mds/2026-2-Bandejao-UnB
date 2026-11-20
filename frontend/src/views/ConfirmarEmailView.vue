@@ -10,8 +10,8 @@ import { mensagemDeErro } from '@/services/apiClient'
 
 /**
  * Confirmação de e-mail (RF02), com dois pontos de entrada:
- * - `?email=...` logo após o cadastro: "verifique seu e-mail" + reenvio pela
- *   matrícula/SIAPE;
+ * - `?email=...` logo após o cadastro: "verifique seu e-mail" + reenvio pelo
+ *   e-mail institucional (o campo já vem preenchido com ele);
  * - `?token=...` pelo link recebido: confirma a conta ao abrir a tela
  *   (`POST /api/confirmar-email/{token}/`). Se o link expirou, o reenvio usa
  *   o próprio token (contrato OpenAPI v1, RF02.2).
@@ -21,7 +21,7 @@ const auth = useAuthStore()
 
 const token = computed(() => (typeof route.query.token === 'string' ? route.query.token : ''))
 const email = typeof route.query.email === 'string' ? route.query.email : ''
-const matriculaSiape = ref('')
+const emailInstitucional = ref(email)
 
 // estado: 'pendente' | 'confirmando' | 'confirmado' | 'invalido' | 'falhou'
 // 'invalido' só com `token_invalido_ou_expirado`. Outros erros (sem conexão,
@@ -32,11 +32,9 @@ const reenvio = ref('')
 const erro = ref('')
 const reenviando = ref(false)
 
-watch(matriculaSiape, (valor) => {
-  matriculaSiape.value = valor.replace(/\D/g, '')
-})
 const podeReenviar = computed(
-  () => !reenviando.value && (estado.value === 'invalido' || Boolean(matriculaSiape.value)),
+  () =>
+    !reenviando.value && (estado.value === 'invalido' || Boolean(emailInstitucional.value.trim())),
 )
 
 async function confirmar(valor) {
@@ -63,7 +61,7 @@ async function reenviar() {
     const resposta = await auth.reenviarConfirmacao(
       estado.value === 'invalido'
         ? { token: token.value }
-        : { matriculaSiape: matriculaSiape.value },
+        : { emailInstitucional: emailInstitucional.value },
     )
     reenvio.value = resposta.mensagem
     linkSimulado.value = resposta.linkSimulado ?? ''
@@ -139,12 +137,12 @@ async function reenviar() {
         <form class="pilha-4" novalidate @submit.prevent="reenviar">
           <CampoTexto
             v-if="estado === 'pendente'"
-            v-model="matriculaSiape"
-            rotulo="Matrícula ou SIAPE"
-            inputmode="numeric"
-            maxlength="9"
+            v-model="emailInstitucional"
+            rotulo="E-mail institucional"
+            type="email"
+            maxlength="254"
             autocomplete="username"
-            placeholder="9 dígitos (aluno) ou 7 (SIAPE)"
+            placeholder="matricula@aluno.unb.br ou nome@unb.br"
           />
           <p v-if="reenvio" class="mensagem mensagem--sucesso" role="status">{{ reenvio }}</p>
           <p v-if="erro && estado === 'pendente'" class="mensagem mensagem--erro" role="alert">

@@ -221,3 +221,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - TDD dos ajustes: testes no commit 98ca6f2, com 2 testes falhando (token ignorado no reenvio com os dois campos) antes da implementação. Os testes da trava já passavam, porque a trava existe; sabotagem manual confirmou que eles pegam a regressão: sem o `if travar:`, sempre com trava e com `travar=False` no `LoginService`, cada caso derrubou de 1 a 2 testes.
 - Validação após os ajustes: `pytest` no SQLite com 1038 testes passando e 1 ignorado, cobertura de `apps` de 98,08%; `ruff`, `bandit`, `makemigrations --check` e `spectacular --validate --fail-on-warn` aprovados localmente; o `openapi.yaml` só mudou na descrição do `ReenvioConfirmacaoEntradaRequest`.
 - Situação: aprovado por AlvaroBento12 no recheck, com CI verde (incluindo `testes-mysql`); o 500 do reenvio como oráculo ficou na #205; merge aguardando a FE-03 (#101).
+
+## FE-03 — Sessão ao abrir o app e login por e-mail institucional
+
+- Issue: [#101](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/101). PR: [#207 — FE-03: authStore e telas de conta](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/207).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `carregarSessao()` no `authStore` (`GET /api/sessao/` ao abrir o app, com tempo limite de 3 s e controle por geração para respostas atrasadas), guardas do router reunidos em `instalarGuardas`, opção `avisarSessaoPerdida` no `apiClient`, login e reenvio pelo e-mail institucional nas telas, na store e no servidor simulado (contrato do #204, BE-20, #201) e testes do fluxo 4b com as telas montadas. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: cada `feat`/`fix` veio depois de um commit `test`: `7363c2b` (sessão e fluxo 4b), `a75afdb` (tempo limite), `860c009` (e-mail institucional), `c1d610e` (guardas, log e geração) e `2822f07` (reenvio no login). Os testes novos falharam antes da implementação, e uma sabotagem manual (tirar a geração do `limpar`, tirar a checagem da geração e pôr o limite em 0) derrubou pelo menos um teste em cada caso.
+- Validação: `npm run test:ci` com 191 testes passando e cobertura de 85,71% das linhas e 74,39% dos ramos; `npm run lint:ci` sem achados; `npm run build` sem erro.
+- Revisão humana: duas revisões de AlvaroBento12 no PR #207 (tempo limite da sessão, sincronia com o #204, guarda ligado no router do app, log no boot, geração no login, testes da geração e do RI09, comentários) e o comentário depois do merge do #204.
+- Situação: ajustes das duas revisões aplicados; aguardando o recheck e o teste contra o backend real da `develop`.

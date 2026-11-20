@@ -45,7 +45,7 @@ describe('cookie de sessão (ADR 0007)', () => {
     await cliente.get('/sessao/')
     expect(ultimaChamada().opcoes.credentials).toBe('same-origin')
 
-    await cliente.post('/sessao/', { matriculaSiape: '231034567', senha: 'x' })
+    await cliente.post('/sessao/', { emailInstitucional: '231034567@aluno.unb.br', senha: 'x' })
     expect(ultimaChamada().opcoes.credentials).toBe('same-origin')
   })
 
@@ -165,9 +165,11 @@ describe('CSRF nas escritas', () => {
 
 describe('corpo da requisição e da resposta', () => {
   it('escrita com corpo manda JSON com Content-Type', async () => {
-    await cliente.post('/sessao/', { matriculaSiape: '231034567', senha: 'x' })
+    await cliente.post('/sessao/', { emailInstitucional: '231034567@aluno.unb.br', senha: 'x' })
     const { opcoes, cabecalhos } = ultimaChamada()
-    expect(opcoes.body).toBe(JSON.stringify({ matriculaSiape: '231034567', senha: 'x' }))
+    expect(opcoes.body).toBe(
+      JSON.stringify({ emailInstitucional: '231034567@aluno.unb.br', senha: 'x' }),
+    )
     expect(cabecalhos['Content-Type']).toBe('application/json')
   })
 
@@ -282,6 +284,31 @@ describe('401 avisa que a sessão acabou', () => {
 
     expect(aoPerder).toHaveBeenCalledTimes(1)
     expect(falha.codigo).toBe('nao_autenticado')
+  })
+
+  it('com `avisarSessaoPerdida: false`, um 401 é só a resposta (a sessão do boot)', async () => {
+    const aoPerder = vi.fn()
+    definirAoPerderSessao(aoPerder)
+    fetchFalso.mockReturnValueOnce(respostaJson(401, { codigo: 'nao_autenticado' }))
+
+    const falha = await cliente.get('/sessao/', { avisarSessaoPerdida: false }).catch((e) => e)
+
+    expect(falha.status).toBe(401)
+    expect(aoPerder).not.toHaveBeenCalled()
+  })
+
+  it('o POST também aceita `avisarSessaoPerdida: false` (senha errada no login)', async () => {
+    const aoPerder = vi.fn()
+    definirAoPerderSessao(aoPerder)
+    fetchFalso.mockReturnValueOnce(respostaJson(401, { codigo: 'credenciais_invalidas' }))
+
+    const corpo = { emailInstitucional: '231034567@aluno.unb.br', senha: 'x' }
+    const falha = await cliente
+      .post('/sessao/', corpo, { avisarSessaoPerdida: false })
+      .catch((e) => e)
+
+    expect(falha.status).toBe(401)
+    expect(aoPerder).not.toHaveBeenCalled()
   })
 
   it('403 de CSRF não desloga ninguém', async () => {
