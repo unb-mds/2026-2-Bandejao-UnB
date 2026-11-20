@@ -160,11 +160,19 @@ fica `healthy`, e o Caddy sobe. O Caddy pede os certificados ao subir, para os
 dois domínios do `Caddyfile`. Se o backend não subir, o `docker compose logs
 backend` mostra o motivo (por exemplo, uma variável faltando no `.env`).
 
+Na primeira subida, o banco está vazio. Carregue os dados fixos (os 5
+campi e os 10 marcadores); sem eles, a API responde `[]` e não há campus
+para o check-in. O comando é seguro de repetir, porque usa IDs fixos:
+
+```bash
+docker compose exec backend python manage.py loaddata campi marcadores
+```
+
 ### 4. Conferir
 
 - `https://bandejaounb.com.br` abre o PWA, com cadeado no navegador;
 - `https://www.bandejaounb.com.br` redireciona para o endereço sem `www`;
-- `https://bandejaounb.com.br/api/campi/` responde JSON;
+- `https://bandejaounb.com.br/api/campi/` responde a lista dos 5 campi;
 - `https://bandejaounb.com.br/admin/` abre o login do admin, com CSS;
 - **as permissões do banco foram reduzidas** (obrigatório, veja abaixo).
 
@@ -388,9 +396,8 @@ Cada container guarda no máximo 3 arquivos de 10 MB de log.
 
 ## Validação em produção (20/11/2026)
 
-Conferido na VM `vm-bandejao` (North Central US, IP estático) depois do
-primeiro deploy. Os itens do banco, do `check --deploy` e do e-mail estão
-registrados no AI-USAGE do #91.
+Conferido na VM depois do primeiro deploy. Os itens do banco, do
+`check --deploy` e do e-mail estão na entrada da BD-05 do `AI-USAGE.md`.
 
 | Item | Resultado |
 |---|---|
@@ -401,10 +408,3 @@ registrados no AI-USAGE do #91.
 | Porta 3306 pela internet | Recusada (o NSG só libera 22, 80 e 443) |
 | `.env` e `.env.db` | Permissão `600` |
 | Reinício da VM (`sudo reboot`) | Os três serviços voltaram sozinhos (`restart: unless-stopped`), e os dados do banco continuaram |
-
-Depois do primeiro deploy, é preciso carregar os dados fixos, senão a API
-responde `[]` e não há campus para o check-in:
-
-​```bash
-docker compose exec backend python manage.py loaddata campi marcadores
-​```
