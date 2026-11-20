@@ -16,22 +16,25 @@ function lerPreferencias() {
       marcadores: Array.isArray(salvas.marcadores)
         ? salvas.marcadores.filter((m) => IDS_MARCADORES.includes(m))
         : [],
+      avisoLocalizacaoAdiado: salvas.avisoLocalizacaoAdiado === true,
     }
   } catch {
-    return { campusId: null, dieta: 'todos', marcadores: [] }
+    return { campusId: null, dieta: 'todos', marcadores: [], avisoLocalizacaoAdiado: false }
   }
 }
 
 /**
- * Preferências do aparelho (RF07, RF08, RF09, RNF03): campus, filtros de
- * dieta e de marcadores ficam no localStorage; dia e refeição selecionados
- * valem só para a sessão de navegação.
+ * Preferências do aparelho (RF07, RF08, RF09, RF19, RNF03): campus, filtros
+ * de dieta e de marcadores e o "Agora não" do aviso de localização ficam no
+ * localStorage; dia e refeição selecionados valem só para a sessão de
+ * navegação.
  */
 export const usePreferenciasStore = defineStore('preferencias', () => {
   const salvas = lerPreferencias()
   const campusId = ref(salvas.campusId)
   const dieta = ref(salvas.dieta)
   const marcadores = ref(salvas.marcadores)
+  const avisoLocalizacaoAdiado = ref(salvas.avisoLocalizacaoAdiado)
   const dataSelecionada = ref(null)
   const refeicaoSelecionada = ref(null)
 
@@ -39,7 +42,7 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
   const filtrosAtivos = computed(() => contarFiltrosAtivos(dieta.value, marcadores.value))
 
   watch(
-    [campusId, dieta, marcadores],
+    [campusId, dieta, marcadores, avisoLocalizacaoAdiado],
     () => {
       try {
         localStorage.setItem(
@@ -48,6 +51,7 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
             campusId: campusId.value,
             dieta: dieta.value,
             marcadores: marcadores.value,
+            avisoLocalizacaoAdiado: avisoLocalizacaoAdiado.value,
           }),
         )
       } catch {
@@ -65,6 +69,11 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
   function aplicarFiltros(novaDieta, novosMarcadores) {
     dieta.value = novaDieta
     marcadores.value = [...novosMarcadores]
+  }
+
+  /** "Agora não" do aviso de localização: não reaparece a cada abertura (RF19). */
+  function adiarAvisoLocalizacao() {
+    avisoLocalizacaoAdiado.value = true
   }
 
   function selecionar(data, refeicao) {
@@ -92,12 +101,14 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
     campusId,
     dieta,
     marcadores,
+    avisoLocalizacaoAdiado,
     dataSelecionada,
     refeicaoSelecionada,
     campus,
     filtrosAtivos,
     escolherCampus,
     aplicarFiltros,
+    adiarAvisoLocalizacao,
     selecionar,
     ajustarSelecao,
   }

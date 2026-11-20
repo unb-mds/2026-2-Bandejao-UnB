@@ -9,6 +9,7 @@ import { REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
 import { CANAL_CONTATO } from '@/constants/contato'
 import { dataPorExtenso, diaCurto, hojeISO } from '@/utils/datas'
 import { formatarNota, refeicaoPadrao, resumoRefeicao } from '@/utils/cardapio'
+import { abrirAvisoLocalizacao } from '@/composables/avisoLocalizacao'
 import AppLogo from '@/components/AppLogo.vue'
 import EstrelasNota from '@/components/EstrelasNota.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
@@ -71,6 +72,12 @@ watch(
 function abrirCardapioDeHoje() {
   if (tipoHoje.value) preferencias.selecionar(hoje, tipoHoje.value)
   router.push({ name: 'cardapio' })
+}
+
+/** Ponto fixo do RF19: abre de novo o aviso (ou o passo a passo, se bloqueado). */
+function usarLocalizacao() {
+  menuAberto.value = false
+  abrirAvisoLocalizacao()
 }
 
 async function sair() {
@@ -150,6 +157,9 @@ async function sair() {
             <RouterLink :to="{ name: 'campus' }" class="menu-item" role="menuitem">
               <IconeSvg nome="mapa" :tamanho="16" /> Trocar campus
             </RouterLink>
+            <button type="button" class="menu-item" role="menuitem" @click="usarLocalizacao">
+              <IconeSvg nome="local" :tamanho="16" /> Usar minha localização
+            </button>
             <button
               v-if="auth.estaAutenticado"
               type="button"

@@ -57,9 +57,7 @@ describe('pedirPermissao', () => {
   })
 
   it('devolve "negada" quando a pessoa recusa no navegador', async () => {
-    const getCurrentPosition = vi.fn((_sucesso, falha) =>
-      falha({ code: 1, PERMISSION_DENIED: 1 }),
-    )
+    const getCurrentPosition = vi.fn((_sucesso, falha) => falha({ code: 1, PERMISSION_DENIED: 1 }))
     simularNavegador({ estado: 'prompt', geolocalizacao: { getCurrentPosition } })
 
     expect(await pedirPermissao()).toBe('negada')

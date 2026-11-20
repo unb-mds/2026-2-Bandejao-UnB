@@ -100,12 +100,13 @@ describe('AvisoLocalizacao', () => {
       expect(wrapper.emitted('permitido')).toHaveLength(1)
     })
 
-    it('com a permissão já concedida, não mostra o aviso ao abrir o app', async () => {
+    it('com a permissão já concedida, não mostra o aviso e segue para a detecção', async () => {
       simularNavegador({ estado: 'granted' })
       const wrapper = await montar()
 
       expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
       expect(getCurrentPosition).not.toHaveBeenCalled()
+      expect(wrapper.emitted('permitido')).toHaveLength(1)
     })
 
     it('"Usar minha localização" com permissão já concedida não mostra o aviso', async () => {
@@ -116,7 +117,8 @@ describe('AvisoLocalizacao', () => {
       await flushPromises()
 
       expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
-      expect(wrapper.emitted('permitido')).toHaveLength(1)
+      // Um ao abrir o app e outro ao tocar em "Usar minha localização".
+      expect(wrapper.emitted('permitido')).toHaveLength(2)
     })
   })
 
