@@ -170,7 +170,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## DOC-12 — Login com e-mail institucional e senha
 
-- PR: [#___ — DOC-12: login com e-mail institucional e senha](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/___).
+- PR: [#208 — DOC-12: login com e-mail institucional e senha](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/208).
 - Ferramenta: Claude (Anthropic).
 - Apoio: levantamento dos trechos que citavam o login por matrícula/SIAPE, redação da ADR 0016 e das notas nas ADRs 0002, 0007 e 0008, e atualização de requisitos (RF02.2, RF03, RF04.1, RN01, L16, Anexo A), Visão, glossários, aviso de privacidade, backlog e C4 (Cadastro N4, banco N4 e front).
 - Validação: os diagramas Mermaid dos C4 alterados renderizam com o Mermaid 10, a versão do Docsify. Uma varredura confirmou que nenhum documento descreve o login por matrícula/SIAPE, a não ser como comportamento do MVP. Os nomes conferem com o código da `develop` e com as issues BE-20 (#201) e FE-03 (#101).
