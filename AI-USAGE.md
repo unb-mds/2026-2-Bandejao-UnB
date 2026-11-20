@@ -234,7 +234,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
  
  ## BD-05 — Registro da validação em produção
 
-- Issue: [#91](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/91). PR: [#NÚMERO — docs(deploy): validação em produção e loaddata](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/NÚMERO).
+- Issue: [#91](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/91). PR: [#211 — docs(deploy): validação em produção e loaddata](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/NÚMERO).
 - Ferramenta: Claude (Anthropic).
 - Apoio: seção "Validação em produção (20/11/2026)" no `docs/deploy/deploy-producao.md` e o passo do `loaddata campi marcadores` depois do primeiro deploy, além do roteiro dos comandos rodados na VM (estado dos serviços, HTTPS, porta 3306, permissões dos `.env` e reinício).
 - TDD: não se aplica (só documentação).
