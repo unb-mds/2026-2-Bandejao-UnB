@@ -160,11 +160,21 @@ fica `healthy`, e o Caddy sobe. O Caddy pede os certificados ao subir, para os
 dois domínios do `Caddyfile`. Se o backend não subir, o `docker compose logs
 backend` mostra o motivo (por exemplo, uma variável faltando no `.env`).
 
+Na primeira subida, o banco está vazio. Carregue os dados fixos (os 5
+campi e os 10 marcadores); sem eles, a API responde `[]` e não há campus
+para o check-in. Rode só nessa primeira vez: se for repetido depois, o
+comando regrava os campi e os marcadores com os valores da fixture e desfaz
+o que tiver sido ajustado no banco (como as coordenadas medidas em campo, BD-06):
+
+```bash
+docker compose exec backend python manage.py loaddata campi marcadores
+```
+
 ### 4. Conferir
 
 - `https://bandejaounb.com.br` abre o PWA, com cadeado no navegador;
 - `https://www.bandejaounb.com.br` redireciona para o endereço sem `www`;
-- `https://bandejaounb.com.br/api/campi/` responde JSON;
+- `https://bandejaounb.com.br/api/campi/` responde a lista dos 5 campi;
 - `https://bandejaounb.com.br/admin/` abre o login do admin, com CSS;
 - **as permissões do banco foram reduzidas** (obrigatório, veja abaixo).
 
@@ -411,3 +421,20 @@ Cada container guarda no máximo 3 arquivos de 10 MB de log.
 - Antes de desligar ou apagar recursos na Azure, lembre que o crédito é
   limitado: discos, IPs e VMs de teste esquecidos consomem o crédito (ADR
   0012).
+
+## Validação em produção (20/11/2026)
+
+Conferido na VM depois do primeiro deploy. Os itens do banco, do
+`check --deploy` e do e-mail estão na entrada "BD-05 — Banco, settings de produção e e-mail"
+do `AI-USAGE.md`.
+
+| Item | Resultado |
+|---|---|
+| Serviços `db`, `backend` e `caddy` | `Up`; `db` e `backend` `healthy` |
+| `https://bandejaounb.com.br` | `HTTP/2 200`, com HTTPS |
+| `https://www.bandejaounb.com.br` | `301` para o domínio sem `www` |
+| `/api/campi/` | JSON com os 5 campi (depois do `loaddata`) |
+| Porta 3306 pela internet | Recusada (o NSG só libera 22, 80 e 443) |
+| `.env` e `.env.db` | Permissão `600` |
+| Reinício da VM (`sudo reboot`) | Os três serviços voltaram sozinhos (`restart: unless-stopped`), e os dados do banco continuaram |
+| IP real atrás do Caddy (`NUM_PROXIES = 1`) | De uma rede, o 11º pedido de reenvio deu `429`. De outra rede (a própria VM), o pedido seguinte deu `200`: o limite conta cada IP separado |
