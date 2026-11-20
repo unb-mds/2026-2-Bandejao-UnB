@@ -1,5 +1,6 @@
 <script setup>
 import { useRoute } from 'vue-router'
+import { ITENS_NAVEGACAO as ITENS, itemAtivo } from '@/constants/navegacao'
 import IconeSvg from './IconeSvg.vue'
 
 /**
@@ -7,18 +8,8 @@ import IconeSvg from './IconeSvg.vue'
  * Avaliações — não na Início. "Perfil" leva à Início, onde ficam o apelido,
  * a troca de campus e o login/logout.
  */
-const ITENS = [
-  { rotulo: 'Início', rota: 'inicio', icone: 'casa', preenche: true },
-  { rotulo: 'Cardápio', rota: 'cardapio', icone: 'talheres' },
-  { rotulo: 'Fila', rota: 'fila', icone: 'relogio' },
-  { rotulo: 'Avaliações', rota: 'avaliacoes', icone: 'estrela', preenche: true },
-  { rotulo: 'Perfil', rota: 'inicio', icone: 'usuario' },
-]
-
 const route = useRoute()
-
-// Como no protótipo, "Início" e "Perfil" nunca aparecem como ativos.
-const ativo = (item) => item.rota !== 'inicio' && route.name?.toString().startsWith(item.rota)
+const ativo = (item) => itemAtivo(item, route.name)
 </script>
 
 <template>
@@ -62,6 +53,17 @@ const ativo = (item) => item.rota !== 'inicio' && route.name?.toString().startsW
 }
 .item:active {
   transform: scale(0.95);
+}
+@media (hover: hover) {
+  .item:hover .rotulo-item {
+    color: var(--verde-escuro);
+  }
+}
+
+@media (min-width: 768px) {
+  .navegacao {
+    display: none;
+  }
 }
 
 .rotulo-item {

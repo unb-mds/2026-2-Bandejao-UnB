@@ -74,7 +74,7 @@ async function reenviar() {
 </script>
 
 <template>
-  <div class="tela">
+  <div class="tela tela-formulario">
     <CabecalhoFormulario
       titulo="Confirmar e-mail"
       subtitulo="Ative sua conta pelo link enviado"

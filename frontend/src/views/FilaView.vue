@@ -21,7 +21,7 @@ const NIVEIS = [
 
 <template>
   <div class="tela">
-    <header class="cabecalho cabecalho-fila">
+    <header class="cabecalho cabecalho-fila fundo-escuro">
       <BotaoVoltar class="voltar" :para="{ name: 'inicio' }" />
       <h1 class="titulo-tela">Fila do RU</h1>
       <p class="subtitulo">{{ preferencias.campus?.nome }} · Previsão de pico</p>

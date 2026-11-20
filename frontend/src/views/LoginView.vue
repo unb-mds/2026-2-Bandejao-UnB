@@ -82,7 +82,7 @@ async function reenviarConfirmacao() {
 </script>
 
 <template>
-  <div class="tela">
+  <div class="tela tela-formulario">
     <CabecalhoFormulario
       titulo="Entrar"
       subtitulo="Use seu e-mail institucional"

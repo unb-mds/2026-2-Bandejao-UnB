@@ -98,7 +98,7 @@ function tentarNovamente() {
 
 <template>
   <div class="tela">
-    <header class="cabecalho-cardapio">
+    <header class="cabecalho-cardapio fundo-escuro">
       <div class="barra-topo">
         <BotaoVoltar :para="{ name: 'inicio' }" />
         <div class="titulo-centro">

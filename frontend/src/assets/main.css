@@ -27,6 +27,32 @@
   padding: 24px 20px 32px;
 }
 
+@media (min-width: 768px) {
+  .cabecalho {
+    padding: 32px 32px 24px;
+  }
+  .conteudo {
+    padding: 24px 32px 32px;
+  }
+}
+
+/* A partir do tablet, o cartão cresce com o conteúdo e quem rola é a página
+   (`.area-tela`, no App.vue): numa janela baixa, o fim do formulário continua
+   alcançável e com barra de rolagem. O `!important` vence a regra genérica
+   `.area-tela > :deep(*)` do App.vue, que é mais específica. */
+@media (min-width: 768px) {
+  .tela-formulario {
+    flex: 0 0 auto !important;
+    height: auto;
+    width: calc(100% - 64px);
+    max-width: var(--largura-formulario);
+    margin: 32px auto;
+    border-radius: var(--raio-xl);
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(10, 26, 12, 0.12);
+  }
+}
+
 .sem-barra {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -141,6 +167,23 @@
 .botao:disabled {
   background: var(--borda);
   color: var(--texto-claro);
+}
+
+@media (hover: hover) {
+  .botao--primario:hover:not(:disabled),
+  .botao-pequeno:hover {
+    background: var(--verde-medio);
+  }
+  .botao--destaque:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  .botao--contorno:hover:not(:disabled) {
+    border-color: var(--texto-claro);
+    color: var(--texto-escuro);
+  }
+  .cartao-clicavel:hover {
+    transform: translateY(-1px);
+  }
 }
 
 .botao-pequeno {

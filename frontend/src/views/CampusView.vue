@@ -17,7 +17,7 @@ function escolher(id) {
 
 <template>
   <div class="tela">
-    <header class="cabecalho cabecalho-campus">
+    <header class="cabecalho cabecalho-campus fundo-escuro">
       <div class="marca">
         <AppLogo :tamanho="36" />
         <span class="nome">bandejão</span>
