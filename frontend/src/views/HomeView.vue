@@ -24,6 +24,7 @@ const preferencias = usePreferenciasStore()
 const agora = new Date()
 const hoje = hojeISO(agora)
 const menuAberto = ref(false)
+const botaoPerfil = ref(null)
 
 const campusId = computed(() => preferencias.campusId)
 const semana = computed(() => cardapio.semana(campusId.value))
@@ -74,10 +75,17 @@ function abrirCardapioDeHoje() {
   router.push({ name: 'cardapio' })
 }
 
-/** Ponto fixo do RF19: abre de novo o aviso (ou o passo a passo, se bloqueado). */
-function usarLocalizacao() {
+/**
+ * Ponto fixo do RF19: abre o aviso de novo, o passo a passo se o navegador
+ * bloqueou, a confirmação se já está liberada ou a explicação se não há como
+ * usar a localização. O menu fecha ao abrir, então o foco volta ao botão do
+ * perfil quando o aviso fecha.
+ * TODO(FE-07): levar este item para a CampusView quando ela existir.
+ */
+async function usarLocalizacao() {
   menuAberto.value = false
-  abrirAvisoLocalizacao()
+  await abrirAvisoLocalizacao()
+  botaoPerfil.value?.focus()
 }
 
 async function sair() {
@@ -133,6 +141,7 @@ async function sair() {
 
         <div class="perfil">
           <button
+            ref="botaoPerfil"
             type="button"
             class="avatar"
             :aria-label="`Perfil de ${auth.apelido}`"

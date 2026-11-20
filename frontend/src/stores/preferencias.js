@@ -7,27 +7,36 @@ import { contarFiltrosAtivos, selecaoPadrao } from '@/utils/cardapio'
 
 const CHAVE = 'bandejao:preferencias'
 
-function lerPreferencias() {
+/** Só a leitura e o parse ficam no try: erro na validação não pode passar por "sem dados". */
+function lerSalvas() {
   try {
     const salvas = JSON.parse(localStorage.getItem(CHAVE) ?? '{}')
-    return {
-      campusId: campusValido(salvas.campusId) ? salvas.campusId : null,
-      dieta: DIETAS.some((d) => d.id === salvas.dieta) ? salvas.dieta : 'todos',
-      marcadores: Array.isArray(salvas.marcadores)
-        ? salvas.marcadores.filter((m) => IDS_MARCADORES.includes(m))
-        : [],
-      avisoLocalizacaoAdiado: salvas.avisoLocalizacaoAdiado === true,
-    }
-  } catch {
-    return { campusId: null, dieta: 'todos', marcadores: [], avisoLocalizacaoAdiado: false }
+    return salvas && typeof salvas === 'object' ? salvas : {}
+  } catch (falha) {
+    console.warn('Preferências salvas ilegíveis; usando os padrões.', falha)
+    return {}
+  }
+}
+
+function lerPreferencias() {
+  const salvas = lerSalvas()
+  return {
+    campusId: campusValido(salvas.campusId) ? salvas.campusId : null,
+    dieta: DIETAS.some((d) => d.id === salvas.dieta) ? salvas.dieta : 'todos',
+    marcadores: Array.isArray(salvas.marcadores)
+      ? salvas.marcadores.filter((m) => IDS_MARCADORES.includes(m))
+      : [],
+    avisoLocalizacaoAdiado: salvas.avisoLocalizacaoAdiado === true,
+    localizacaoPermitida: salvas.localizacaoPermitida === true,
   }
 }
 
 /**
  * Preferências do aparelho (RF07, RF08, RF09, RF19, RNF03): campus, filtros
- * de dieta e de marcadores e o "Agora não" do aviso de localização ficam no
- * localStorage; dia e refeição selecionados valem só para a sessão de
- * navegação.
+ * de dieta e de marcadores, o "Agora não" do aviso de localização e, para
+ * navegadores sem Permissions API, a marca de que a pessoa já permitiu a
+ * localização ficam no localStorage; dia e refeição selecionados valem só
+ * para a sessão de navegação.
  */
 export const usePreferenciasStore = defineStore('preferencias', () => {
   const salvas = lerPreferencias()
@@ -35,6 +44,8 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
   const dieta = ref(salvas.dieta)
   const marcadores = ref(salvas.marcadores)
   const avisoLocalizacaoAdiado = ref(salvas.avisoLocalizacaoAdiado)
+  const localizacaoPermitida = ref(salvas.localizacaoPermitida)
+  let falhaDeEscritaAvisada = false
   const dataSelecionada = ref(null)
   const refeicaoSelecionada = ref(null)
 
@@ -42,7 +53,7 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
   const filtrosAtivos = computed(() => contarFiltrosAtivos(dieta.value, marcadores.value))
 
   watch(
-    [campusId, dieta, marcadores, avisoLocalizacaoAdiado],
+    [campusId, dieta, marcadores, avisoLocalizacaoAdiado, localizacaoPermitida],
     () => {
       try {
         localStorage.setItem(
@@ -52,10 +63,15 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
             dieta: dieta.value,
             marcadores: marcadores.value,
             avisoLocalizacaoAdiado: avisoLocalizacaoAdiado.value,
+            localizacaoPermitida: localizacaoPermitida.value,
           }),
         )
-      } catch {
-        // sem armazenamento local: a preferência vale só nesta visita
+      } catch (falha) {
+        // Sem armazenamento local (ex.: modo privado sem cota): vale só nesta visita.
+        if (!falhaDeEscritaAvisada) {
+          falhaDeEscritaAvisada = true
+          console.warn('Não foi possível salvar as preferências neste aparelho.', falha)
+        }
       }
     },
     { deep: true, flush: 'sync' },
@@ -74,6 +90,11 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
   /** "Agora não" do aviso de localização: não reaparece a cada abertura (RF19). */
   function adiarAvisoLocalizacao() {
     avisoLocalizacaoAdiado.value = true
+  }
+
+  /** Para navegadores sem Permissions API: lembra que a pessoa já permitiu (RF19). */
+  function registrarLocalizacaoPermitida() {
+    localizacaoPermitida.value = true
   }
 
   function selecionar(data, refeicao) {
@@ -102,6 +123,7 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
     dieta,
     marcadores,
     avisoLocalizacaoAdiado,
+    localizacaoPermitida,
     dataSelecionada,
     refeicaoSelecionada,
     campus,
@@ -109,6 +131,7 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
     escolherCampus,
     aplicarFiltros,
     adiarAvisoLocalizacao,
+    registrarLocalizacaoPermitida,
     selecionar,
     ajustarSelecao,
   }

@@ -17,9 +17,13 @@ const mostrarNavegacaoTopo = computed(
     <NavegacaoTopo v-if="mostrarNavegacaoTopo" />
     <div class="area-tela">
       <RouterView />
-      <!-- Global: aparece no primeiro acesso, antes de qualquer tela (RF19, front 3a.1). -->
-      <AvisoLocalizacao />
     </div>
+    <!--
+      Global (RF19): camada por cima da tela atual. Abre sozinho na abertura do
+      app ou por abrirAvisoLocalizacao() de qualquer tela. Fica fora da
+      .area-tela porque o <dialog> não participa do layout das telas.
+    -->
+    <AvisoLocalizacao />
   </div>
 </template>
 
@@ -41,7 +45,7 @@ const mostrarNavegacaoTopo = computed(
   width: 100%;
 }
 
-.area-tela > :deep(:not(.fundo)) {
+.area-tela > :deep(*) {
   flex: 1;
   min-height: 0;
 }
