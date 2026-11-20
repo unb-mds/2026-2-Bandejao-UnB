@@ -10,7 +10,9 @@
       "confirmacao_ativa": true,
       "centro_latitude": "-15.764203",
       "centro_longitude": "-47.870251",
-      "raio_deteccao_metros": 150
+      "raio_deteccao_metros": 150,
+      "rotulo_pagina_ru": "Darcy Ribeiro",
+      "prefixo_arquivo_pdf": "Darcy-Ribeiro"
     }
   },
   {
@@ -24,7 +26,9 @@
       "confirmacao_ativa": true,
       "centro_latitude": "-15.844288",
       "centro_longitude": "-48.099944",
-      "raio_deteccao_metros": 150
+      "raio_deteccao_metros": 150,
+      "rotulo_pagina_ru": "Ceilândia",
+      "prefixo_arquivo_pdf": "Ceilandia"
     }
   },
   {
@@ -38,7 +42,9 @@
       "confirmacao_ativa": true,
       "centro_latitude": "-15.989493",
       "centro_longitude": "-48.044024",
-      "raio_deteccao_metros": 150
+      "raio_deteccao_metros": 150,
+      "rotulo_pagina_ru": "Gama",
+      "prefixo_arquivo_pdf": "Gama"
     }
   },
   {
@@ -52,7 +58,9 @@
       "confirmacao_ativa": true,
       "centro_latitude": "-15.600701",
       "centro_longitude": "-47.659890",
-      "raio_deteccao_metros": 150
+      "raio_deteccao_metros": 150,
+      "rotulo_pagina_ru": "Planaltina",
+      "prefixo_arquivo_pdf": "Planaltina"
     }
   },
   {
@@ -66,7 +74,9 @@
       "confirmacao_ativa": false,
       "centro_latitude": "-15.940559",
       "centro_longitude": "-47.940424",
-      "raio_deteccao_metros": 0
+      "raio_deteccao_metros": 0,
+      "rotulo_pagina_ru": "Fazenda Água Limpa",
+      "prefixo_arquivo_pdf": "Fazenda"
     }
   }
 ]

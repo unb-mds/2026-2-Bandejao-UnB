@@ -501,6 +501,12 @@ classDiagram
   progresso" mostra ao usuário a própria posição mesmo fora dos 10 exibidos
   (RF33.3); `topPublico` corta em 10 (Anexo A). Sem elegíveis, a lista vem
   vazia e o PWA mostra "ninguém no ranking ainda" (RF27.2).
+- **Forma da consulta de `PontuacaoRepository.elegiveis` (BD-10).** A
+  adesão e a conta ativa entram num `EXISTS` dentro de um `CASE`, e não num
+  join (nem `select_related("usuario")`): só assim o MySQL 8.4 lê o índice
+  do ranking em ordem, sem ordenar em arquivo temporário. O apelido das
+  linhas vem numa segunda consulta, pelos ids. Detalhes e planos em
+  `docs/arquitetura/banco-de-dados/indices-bd10.md`.
 - **`RankingPublicoMapper` é o único lugar por onde o ranking fica visível
   para terceiros**, no mesmo padrão do `AvaliacaoPublicaMapper`: expõe só
   posição, apelido, patente e, quando houver, a Bandeja de Ouro (campi e
