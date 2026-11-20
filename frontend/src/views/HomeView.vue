@@ -90,7 +90,7 @@ async function sair() {
 
 <template>
   <div class="tela">
-    <header class="cabecalho cabecalho-inicio">
+    <header class="cabecalho cabecalho-inicio fundo-escuro">
       <svg
         class="deco"
         width="100%"

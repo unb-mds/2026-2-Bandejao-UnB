@@ -67,7 +67,7 @@
   --raio-lg: 16px;
   --raio-xl: 24px;
 
-  /* Largura máxima do app (mobile first, RNF03) */
+  /* Larguras a partir do tablet (mobile first, FE-20, RNF05) */
   --largura-conteudo: 1200px;
   --largura-formulario: 480px;
 }
@@ -125,7 +125,10 @@ a {
   outline-offset: 2px;
 }
 
-:where(.cabecalho, .cabecalho-cardapio, .navegacao-topo, .boas-vindas) :focus-visible {
+/* Superfície verde com algo focável dentro leva a classe `fundo-escuro`: nela
+   o anel de foco fica dourado, senão some (verde sobre verde, WCAG 2.4.7 e
+   1.4.11). Tela nova com fundo escuro também precisa dela. */
+.fundo-escuro :focus-visible {
   outline-color: var(--dourado);
 }
 

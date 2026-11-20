@@ -36,9 +36,13 @@
   }
 }
 
+/* A partir do tablet, o cartão cresce com o conteúdo e quem rola é a página
+   (`.area-tela`, no App.vue): numa janela baixa, o fim do formulário continua
+   alcançável e com barra de rolagem. O `!important` vence a regra genérica
+   `.area-tela > :deep(*)` do App.vue, que é mais específica. */
 @media (min-width: 768px) {
   .tela-formulario {
-    flex: 0 1 auto !important;
+    flex: 0 0 auto !important;
     height: auto;
     width: calc(100% - 64px);
     max-width: var(--largura-formulario);

@@ -9,7 +9,7 @@ const ativo = (item) => itemAtivo(item, route.name, { marcarInicio: true })
 </script>
 
 <template>
-  <div class="navegacao-topo">
+  <div class="navegacao-topo fundo-escuro">
     <div class="barra">
       <RouterLink :to="{ name: 'raiz' }" class="marca">
         <AppLogo :tamanho="28" />

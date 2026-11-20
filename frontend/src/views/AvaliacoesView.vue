@@ -68,7 +68,7 @@ watch(
 
 <template>
   <div class="tela">
-    <header class="cabecalho cabecalho-avaliacoes">
+    <header class="cabecalho cabecalho-avaliacoes fundo-escuro">
       <BotaoVoltar class="voltar" :para="{ name: 'inicio' }" />
       <h1 class="titulo-tela">Avaliações</h1>
       <p class="subtitulo">{{ subtitulo }}</p>

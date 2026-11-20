@@ -43,6 +43,12 @@ const mostrarNavegacaoTopo = computed(
   min-height: 0;
 }
 
+@media (min-width: 768px) {
+  .area-tela {
+    overflow-y: auto;
+  }
+}
+
 @media (min-width: 1024px) {
   .area-tela {
     max-width: var(--largura-conteudo);
