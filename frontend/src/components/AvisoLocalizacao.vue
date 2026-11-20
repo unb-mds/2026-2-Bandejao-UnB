@@ -87,6 +87,7 @@ watch(aberturasDoAvisoLocalizacao, (vezes) => {
         <div class="icone-caixa">
           <IconeSvg nome="local" :tamanho="24" cor="#fff" />
         </div>
+        <p class="rotulo rotulo-desktop">Localização</p>
         <h2 id="aviso-localizacao-titulo" ref="titulo" tabindex="-1" class="titulo">
           Usar sua localização?
         </h2>
@@ -108,10 +109,11 @@ watch(aberturasDoAvisoLocalizacao, (vezes) => {
             @click="permitir"
           >
             Permitir localização
+            <IconeSvg nome="local" :tamanho="18" class="icone-desktop" />
           </button>
           <button
             type="button"
-            class="botao-texto"
+            class="botao-texto botao-secundario"
             :disabled="etapa === 'navegador'"
             @click="agoraNao"
           >
@@ -148,7 +150,7 @@ watch(aberturasDoAvisoLocalizacao, (vezes) => {
 
         <div class="acoes">
           <button type="button" class="botao botao--primario" @click="jaLiberei">Já liberei</button>
-          <button type="button" class="botao-texto" @click="fechar">Fechar</button>
+          <button type="button" class="botao-texto botao-secundario" @click="fechar">Fechar</button>
         </div>
       </template>
     </section>
@@ -273,5 +275,61 @@ watch(aberturasDoAvisoLocalizacao, (vezes) => {
 
 .botao-texto:disabled {
   color: var(--texto-claro);
+}
+
+.rotulo-desktop,
+.icone-desktop {
+  display: none;
+}
+
+/* Desktop: proporções do painel de localização do protótipo desktop. */
+@media (min-width: 768px) {
+  .painel {
+    max-width: 560px;
+    padding: 40px;
+  }
+
+  .icone-caixa {
+    margin-bottom: 24px;
+    border-radius: var(--raio-lg);
+    box-shadow: 0 10px 22px rgba(19, 43, 24, 0.14);
+  }
+
+  .rotulo-desktop {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .icone-desktop {
+    display: block;
+  }
+
+  .titulo {
+    margin-top: 0;
+    font-size: 32px;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
+  .texto {
+    margin-top: 10px;
+  }
+
+  .acoes {
+    gap: 10px;
+  }
+
+  .botao--primario {
+    box-shadow: 0 10px 20px rgba(19, 43, 24, 0.15);
+  }
+
+  .botao-secundario {
+    border: 1.5px solid var(--borda);
+    border-radius: var(--raio-lg);
+  }
+
+  .botao-secundario:hover:not(:disabled) {
+    color: var(--verde-escuro);
+  }
 }
 </style>
