@@ -231,3 +231,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação: `npm run test:ci` com 191 testes passando e cobertura de 85,71% das linhas e 74,39% dos ramos; `npm run lint:ci` sem achados; `npm run build` sem erro.
 - Revisão humana: duas revisões de AlvaroBento12 no PR #207 (tempo limite da sessão, sincronia com o #204, guarda ligado no router do app, log no boot, geração no login, testes da geração e do RI09, comentários) e o comentário depois do merge do #204.
 - Situação: ajustes das duas revisões aplicados; aguardando o recheck e o teste contra o backend real da `develop`.
+ 
+ ## BD-05 — Registro da validação em produção
+
+- Issue: [#91](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/91). PR: [#NÚMERO — docs(deploy): validação em produção e loaddata](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/NÚMERO).
+- Ferramenta: Claude (Anthropic).
+- Apoio: seção "Validação em produção (20/11/2026)" no `docs/deploy/deploy-producao.md` e o passo do `loaddata campi marcadores` depois do primeiro deploy, além do roteiro dos comandos rodados na VM (estado dos serviços, HTTPS, porta 3306, permissões dos `.env` e reinício).
+- TDD: não se aplica (só documentação).
+- Validação: comandos rodados por Luís na VM em 20/11: serviços `Up` (`db` e `backend` `healthy`), `HTTP/2 200`, `www` com `301`, 3306 recusada de fora, `.env` e `.env.db` com `600`. `/api/campi/` devolvia `[]` antes do `loaddata` e passou a listar os 5 campi. Depois do `sudo reboot`, os três serviços voltaram sozinhos e a API continuou com os dados.
+- Revisão humana: pendente.
+- Situação: PR a abrir; aguardando revisão de AlvaroBento12.
