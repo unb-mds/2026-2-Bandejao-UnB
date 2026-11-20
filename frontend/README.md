@@ -30,7 +30,7 @@ rotas, nomes de campos, status e `codigo`. O build de produção (`npm run build
 simulado e sempre fala com a API real. Os dados de demonstração (contas, avaliações) ficam no
 `localStorage` do navegador.
 
-- Conta de demonstração: matrícula `231034567` / senha `bandejao123`.
+- Conta de demonstração: e-mail `231034567@aluno.unb.br` / senha `bandejao123`.
 - Onde o sistema real enviaria um e-mail (confirmação de cadastro, redefinição de senha), a
   tela mostra um quadro "Modo demonstração" com o link, para seguir o fluxo inteiro.
 
