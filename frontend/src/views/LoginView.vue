@@ -22,6 +22,7 @@ const enviando = ref(false)
 const erro = ref('')
 const naoConfirmado = ref(false)
 const reenvio = ref(null)
+const reenviando = ref(false)
 /** Conta de demonstração: só em desenvolvimento, sem levar o simulado ao build. */
 const contaDemo = ref(null)
 if (import.meta.env.DEV && USANDO_SIMULACAO) {
@@ -31,6 +32,7 @@ if (import.meta.env.DEV && USANDO_SIMULACAO) {
 const podeEnviar = computed(
   () => Boolean(emailInstitucional.value.trim()) && senha.value.length >= 1 && !enviando.value,
 )
+const podeReenviar = computed(() => Boolean(emailInstitucional.value.trim()) && !reenviando.value)
 
 /**
  * Depois do login: volta à tela que pediu o login, ou segue direto para a tela
@@ -40,10 +42,9 @@ const podeEnviar = computed(
 function seguirAposLogin() {
   const voltar = route.query.voltar
   if (typeof voltar === 'string' && voltar.startsWith('/') && !voltar.startsWith('//')) {
-    router.replace(voltar)
-  } else {
-    router.replace({ name: preferencias.campusId ? 'inicio' : 'campus' })
+    return router.replace(voltar)
   }
+  return router.replace({ name: preferencias.campusId ? 'inicio' : 'campus' })
 }
 
 async function entrar() {
@@ -54,23 +55,28 @@ async function entrar() {
   reenvio.value = null
   try {
     await auth.entrar(emailInstitucional.value, senha.value)
-    avaliacoes.limparCache()
-    seguirAposLogin()
   } catch (falha) {
     erro.value = mensagemDeErro(falha)
     naoConfirmado.value = falha.codigo === 'conta_nao_confirmada'
+    return
   } finally {
     enviando.value = false
   }
+  avaliacoes.limparCache()
+  await seguirAposLogin()
 }
 
 async function reenviarConfirmacao() {
+  if (!podeReenviar.value) return
+  reenviando.value = true
   try {
     reenvio.value = await auth.reenviarConfirmacao({
       emailInstitucional: emailInstitucional.value,
     })
   } catch (falha) {
     erro.value = mensagemDeErro(falha)
+  } finally {
+    reenviando.value = false
   }
 }
 </script>
@@ -107,6 +113,7 @@ async function reenviarConfirmacao() {
           v-if="naoConfirmado && !reenvio"
           type="button"
           class="reenviar"
+          :disabled="!podeReenviar"
           @click="reenviarConfirmacao"
         >
           Reenviar link de confirmação
@@ -149,6 +156,11 @@ async function reenviarConfirmacao() {
   color: var(--erro-texto);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.reenviar:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .criar-conta {
