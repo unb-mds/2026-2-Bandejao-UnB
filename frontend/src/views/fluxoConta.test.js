@@ -253,6 +253,25 @@ describe('LoginView', () => {
     )
   })
 
+  it('reenvio: o botão fica desligado com o campo vazio e enquanto envia', async () => {
+    await cadastrarAluno()
+    const { wrapper } = await montarEm('/login')
+    await entrarPelaTela(wrapper)
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Confirme seu e-mail antes de entrar.'))
+
+    await campo(wrapper, 'E-mail institucional').setValue('')
+    expect(botao(wrapper, 'Reenviar link').attributes('disabled')).toBeDefined()
+
+    await campo(wrapper, 'E-mail institucional').setValue(ALUNO.email)
+    expect(botao(wrapper, 'Reenviar link').attributes('disabled')).toBeUndefined()
+    const espiao = vi.spyOn(apiClient, 'post').mockImplementation(() => new Promise(() => {}))
+    await botao(wrapper, 'Reenviar link').trigger('click')
+    await botao(wrapper, 'Reenviar link').trigger('click')
+
+    expect(botao(wrapper, 'Reenviar link').attributes('disabled')).toBeDefined()
+    expect(espiao).toHaveBeenCalledTimes(1)
+  })
+
   it('senha errada: mensagem genérica, sem dizer se a conta existe', async () => {
     await cadastrarEConfirmar()
     const { wrapper, router } = await montarEm('/login')
