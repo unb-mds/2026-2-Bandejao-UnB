@@ -176,7 +176,8 @@ export function criarApiClient({ simulado = USANDO_SIMULACAO } = {}) {
 
   /**
    * `avisarSessaoPerdida: false`: um 401 não limpa o authStore. Serve para o
-   * `GET /sessao/` da abertura do app, em que 401 quer dizer só "visitante".
+   * `GET /sessao/` da abertura do app (401 quer dizer só "visitante") e para o
+   * login (401 quer dizer senha errada).
    */
   async function requisitar(metodo, caminho, corpo, { avisarSessaoPerdida = true } = {}) {
     if (METODOS_DE_ESCRITA.has(metodo)) await garantirCookieCsrf(transporte)
@@ -191,7 +192,7 @@ export function criarApiClient({ simulado = USANDO_SIMULACAO } = {}) {
 
   return {
     get: (caminho, opcoes) => requisitar('GET', caminho, undefined, opcoes),
-    post: (caminho, corpo) => requisitar('POST', caminho, corpo),
+    post: (caminho, corpo, opcoes) => requisitar('POST', caminho, corpo, opcoes),
     put: (caminho, corpo) => requisitar('PUT', caminho, corpo),
     patch: (caminho, corpo) => requisitar('PATCH', caminho, corpo),
     delete: (caminho) => requisitar('DELETE', caminho),

@@ -125,13 +125,17 @@ export function atualizarTitulo(to) {
   document.title = to.meta.title ? `${to.meta.title} · Bandejão` : 'Bandejão'
 }
 
+/** Os guardas do app num lugar só: o `router` abaixo e os testes usam a mesma função. */
+export function instalarGuardas(roteador) {
+  roteador.beforeEach(carregarSessaoAoAbrir)
+  roteador.beforeEach(exigirCampus)
+  roteador.afterEach(atualizarTitulo)
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
-
-router.beforeEach(carregarSessaoAoAbrir)
-router.beforeEach(exigirCampus)
-router.afterEach(atualizarTitulo)
+instalarGuardas(router)
 
 export default router

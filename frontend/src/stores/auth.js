@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { apiClient, definirAoPerderSessao } from '@/services/apiClient'
+import { ApiError, apiClient, definirAoPerderSessao } from '@/services/apiClient'
 
 /**
  * Sessão do usuário (RF01–RF04). Sem token (ADR 0007): a sessão fica no
@@ -52,7 +52,12 @@ export const useAuthStore = defineStore('auth', () => {
       .then((sessao) => {
         if (geracao === geracaoDoPedido) usuario.value = sessao
       })
-      .catch(() => {
+      .catch((falha) => {
+        // 401 é o visitante de sempre. O resto (500, 429, VITE_API_URL errada,
+        // bug do simulado) também abre como visitante, mas fica no console.
+        if (!(falha instanceof ApiError && falha.status === 401)) {
+          console.warn('Não foi possível carregar a sessão ao abrir o app.', falha)
+        }
         if (geracao === geracaoDoPedido) usuario.value = null
       })
     let temporizador
@@ -69,11 +74,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** POST /api/sessao/ com o e-mail institucional: @aluno.unb.br ou @unb.br (BE-20). */
   async function entrar(emailInstitucional, senha) {
+    const sessao = await apiClient.post(
+      '/sessao/',
+      { emailInstitucional: emailInstitucional.trim(), senha },
+      { avisarSessaoPerdida: false },
+    )
     geracao++
-    usuario.value = await apiClient.post('/sessao/', {
-      emailInstitucional: emailInstitucional.trim(),
-      senha,
-    })
+    usuario.value = sessao
   }
 
   /**
