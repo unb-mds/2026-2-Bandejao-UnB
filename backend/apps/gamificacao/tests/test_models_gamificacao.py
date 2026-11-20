@@ -37,8 +37,12 @@ def criar_usuario():
 
 
 def criar_campus():
+    nome = f"Campus {_proximo()}"
     return Campus.objects.create(
-        nome=f"Campus {_proximo()}",
+        nome=nome,
+        # Colunas UNIQUE da BD-16 (ADR 0014): o nome, que já é único, serve.
+        rotulo_pagina_ru=nome,
+        prefixo_arquivo_pdf=nome,
         ru_latitude=Decimal("-15.763100"),
         ru_longitude=Decimal("-47.866900"),
         raio_confirmacao_metros=150,

@@ -43,6 +43,9 @@ def criar_refeicao():
     n = _proximo()
     campus = Campus.objects.create(
         nome=f"Campus {n}",
+        # Colunas UNIQUE da BD-16 (ADR 0014): o nome, que já é único, serve.
+        rotulo_pagina_ru=f"Campus {n}",
+        prefixo_arquivo_pdf=f"Campus {n}",
         ru_latitude=Decimal("-15.763100"),
         ru_longitude=Decimal("-47.866900"),
         raio_confirmacao_metros=150,
