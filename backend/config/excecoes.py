@@ -11,10 +11,10 @@ TRADUCOES = {
         "nao_autenticado",
         "É preciso entrar na conta para continuar.",
     ),
-    # Mensagem genérica de propósito: não diz se errou a matrícula ou a senha.
+    # Mensagem genérica de propósito: não diz se errou o e-mail ou a senha.
     "authentication_failed": (
         "credenciais_invalidas",
-        "Matrícula/SIAPE ou senha incorretas.",
+        "E-mail ou senha incorretos.",
     ),
     # Corpo ilegível: chega antes do serializer, então a view não traduz.
     "parse_error": (

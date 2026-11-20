@@ -348,7 +348,7 @@ def test_pedido_normal_nao_gera_log_de_erro_do_limite(
     limite(nome)
     criar_conta()
     with caplog.at_level(logging.WARNING, logger="apps.cadastro.limite_de_taxa"):
-        pedir(cliente, rota, corpo={"matriculaSiape": "202400001"})
+        pedir(cliente, rota, corpo={"emailInstitucional": "202400001@aluno.unb.br"})
 
     assert caplog.records == []
 
@@ -416,13 +416,16 @@ def test_login_bloqueado_da_conta_continua_com_o_proprio_codigo(cliente, relogio
         pedir(
             cliente,
             ROTA_SESSAO,
-            corpo={"matriculaSiape": "202400001", "senha": "senha-errada"},
+            corpo={
+                "emailInstitucional": "202400001@aluno.unb.br",
+                "senha": "senha-errada",
+            },
         )
 
     resposta = pedir(
         cliente,
         ROTA_SESSAO,
-        corpo={"matriculaSiape": "202400001", "senha": "senha-errada"},
+        corpo={"emailInstitucional": "202400001@aluno.unb.br", "senha": "senha-errada"},
     )
 
     assert resposta.status_code == 429
@@ -444,7 +447,7 @@ def test_reenvio_acima_do_limite_da_conta_responde_200_sem_email(
             cliente,
             ROTA_REENVIO,
             ip=f"200.130.2.{final}",
-            corpo={"matriculaSiape": "202400001"},
+            corpo={"emailInstitucional": "202400001@aluno.unb.br"},
         )
         for final in range(5)
     ]
@@ -460,10 +463,15 @@ def test_aviso_do_log_tem_o_id_da_conta_e_nao_tem_dado_pessoal(
 ):
     limite("reenvio_por_conta", "1/hour")
     conta = criar_conta()
-    pedir(cliente, ROTA_REENVIO, corpo={"matriculaSiape": "202400001"})
+    pedir(cliente, ROTA_REENVIO, corpo={"emailInstitucional": "202400001@aluno.unb.br"})
 
     with caplog.at_level(logging.WARNING, logger="apps.cadastro.limite_de_taxa"):
-        pedir(cliente, ROTA_REENVIO, ip=IP_B, corpo={"matriculaSiape": "202400001"})
+        pedir(
+            cliente,
+            ROTA_REENVIO,
+            ip=IP_B,
+            corpo={"emailInstitucional": "202400001@aluno.unb.br"},
+        )
 
     mensagens = [r.getMessage() for r in caplog.records]
     assert any(str(conta.pk) in m for m in mensagens)
@@ -474,12 +482,17 @@ def test_aviso_do_log_tem_o_id_da_conta_e_nao_tem_dado_pessoal(
 def test_depois_da_janela_a_conta_volta_a_receber_o_link(cliente, limite, relogio):
     limite("reenvio_por_conta", "1/hour")
     criar_conta()
-    pedir(cliente, ROTA_REENVIO, corpo={"matriculaSiape": "202400001"})
-    pedir(cliente, ROTA_REENVIO, ip=IP_B, corpo={"matriculaSiape": "202400001"})
+    pedir(cliente, ROTA_REENVIO, corpo={"emailInstitucional": "202400001@aluno.unb.br"})
+    pedir(
+        cliente,
+        ROTA_REENVIO,
+        ip=IP_B,
+        corpo={"emailInstitucional": "202400001@aluno.unb.br"},
+    )
     assert len(mail.outbox) == 1
 
     relogio.return_value = DEPOIS_DA_JANELA
-    pedir(cliente, ROTA_REENVIO, corpo={"matriculaSiape": "202400001"})
+    pedir(cliente, ROTA_REENVIO, corpo={"emailInstitucional": "202400001@aluno.unb.br"})
 
     assert len(mail.outbox) == 2
 
@@ -488,10 +501,15 @@ def test_no_meio_da_janela_a_conta_continua_sem_link(cliente, limite, relogio):
     """Com `cache.incr`, a janela de 1 hora viraria 5 minutos, e isto falharia."""
     limite("reenvio_por_conta", "1/hour")
     criar_conta()
-    pedir(cliente, ROTA_REENVIO, corpo={"matriculaSiape": "202400001"})
+    pedir(cliente, ROTA_REENVIO, corpo={"emailInstitucional": "202400001@aluno.unb.br"})
 
     relogio.return_value = AGORA + timedelta(minutes=10)
-    pedir(cliente, ROTA_REENVIO, ip=IP_B, corpo={"matriculaSiape": "202400001"})
+    pedir(
+        cliente,
+        ROTA_REENVIO,
+        ip=IP_B,
+        corpo={"emailInstitucional": "202400001@aluno.unb.br"},
+    )
 
     assert len(mail.outbox) == 1
 
@@ -509,12 +527,17 @@ def test_falha_no_smtp_nao_gasta_a_vaga_do_reenvio(cliente, limite, relogio):
                 cliente,
                 ROTA_REENVIO,
                 ip=f"200.130.3.{final}",
-                corpo={"matriculaSiape": "202400001"},
+                corpo={"emailInstitucional": "202400001@aluno.unb.br"},
             )
             assert resposta.status_code == 200
     assert mail.outbox == []
 
-    pedir(cliente, ROTA_REENVIO, ip=IP_B, corpo={"matriculaSiape": "202400001"})
+    pedir(
+        cliente,
+        ROTA_REENVIO,
+        ip=IP_B,
+        corpo={"emailInstitucional": "202400001@aluno.unb.br"},
+    )
 
     assert len(mail.outbox) == 1
 
@@ -524,7 +547,7 @@ def test_envios_que_sairam_continuam_contando_depois_de_uma_falha(
 ):
     limite("reenvio_por_conta", "2/hour")
     criar_conta()
-    corpo = {"matriculaSiape": "202400001"}
+    corpo = {"emailInstitucional": "202400001@aluno.unb.br"}
     pedir(cliente, ROTA_REENVIO, corpo=corpo)
     with mock.patch(
         "apps.cadastro.confirmacao_email_service.send_mail",
@@ -547,7 +570,11 @@ def test_falha_ao_gravar_o_contador_da_conta_vai_para_o_log(
         mock.patch("apps.cadastro.limite_de_taxa.cache.set", return_value=False),
         caplog.at_level(logging.ERROR, logger="apps.cadastro.limite_de_taxa"),
     ):
-        resposta = pedir(cliente, ROTA_REENVIO, corpo={"matriculaSiape": "202400001"})
+        resposta = pedir(
+            cliente,
+            ROTA_REENVIO,
+            corpo={"emailInstitucional": "202400001@aluno.unb.br"},
+        )
 
     assert resposta.status_code == 200
     assert len(mail.outbox) == 1
@@ -567,7 +594,7 @@ def test_falha_na_segunda_gravacao_da_conta_tambem_vai_para_o_log(
 ):
     limite("reenvio_por_conta")
     conta = criar_conta()
-    corpo = {"matriculaSiape": "202400001"}
+    corpo = {"emailInstitucional": "202400001@aluno.unb.br"}
     pedir(cliente, ROTA_REENVIO, corpo=corpo)
     relogio.return_value = AGORA + timedelta(seconds=5)
 
@@ -593,7 +620,12 @@ def test_limite_de_uma_conta_nao_atinge_outra(cliente, limite, relogio):
     criar_conta(matricula="202400002")
 
     for matricula in ("202400001", "202400001", "202400002"):
-        pedir(cliente, ROTA_REENVIO, ip=IP_B, corpo={"matriculaSiape": matricula})
+        pedir(
+            cliente,
+            ROTA_REENVIO,
+            ip=IP_B,
+            corpo={"emailInstitucional": f"{matricula}@aluno.unb.br"},
+        )
 
     assert sorted(m.to[0] for m in mail.outbox) == [
         "202400001@aluno.unb.br",
@@ -610,7 +642,11 @@ def test_conta_inexistente_ou_confirmada_continua_200_sem_email(
         criar_conta(status=status)
 
     for _ in range(3):
-        resposta = pedir(cliente, ROTA_REENVIO, corpo={"matriculaSiape": "202400001"})
+        resposta = pedir(
+            cliente,
+            ROTA_REENVIO,
+            corpo={"emailInstitucional": "202400001@aluno.unb.br"},
+        )
         assert resposta.status_code == 200
     assert mail.outbox == []
 
@@ -629,7 +665,12 @@ def test_primeiro_email_do_cadastro_nao_passa_pelo_limite_da_conta(
     }
     with django_capture_on_commit_callbacks(execute=True):
         assert pedir(cliente, ROTA_CADASTRO, corpo=corpo).status_code == 201
-    pedir(cliente, ROTA_REENVIO, ip=IP_B, corpo={"matriculaSiape": "251098732"})
+    pedir(
+        cliente,
+        ROTA_REENVIO,
+        ip=IP_B,
+        corpo={"emailInstitucional": "251098732@aluno.unb.br"},
+    )
 
     # O do cadastro e o primeiro reenvio.
     assert len(mail.outbox) == 2
