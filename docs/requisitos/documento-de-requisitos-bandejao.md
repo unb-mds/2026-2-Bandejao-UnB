@@ -153,7 +153,7 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 **Descrição:** O sistema deve permitir que o usuário com conta confirmada se autentique com o e-mail institucional e a senha. No MVP, o login usava a matrícula/SIAPE; a Release 2 passou a usar o e-mail (ADR 0016).
 **Release:** MVP · **Prioridade:** Essencial
 
-**RF03.1 — Login com e-mail institucional.** O sistema deve aceitar, no mesmo campo, o e-mail institucional de Estudante (`matricula@aluno.unb.br`) ou de Professor/Servidor (`@unb.br`), nos mesmos formatos do cadastro (RF01.2, RF01.4, ADR 0002), sem revelar se a conta existe.
+**RF03.1 — Login com e-mail institucional.** O sistema deve aceitar, no mesmo campo, o e-mail institucional de Estudante (`@aluno.unb.br`) ou de Professor/Servidor (`@unb.br`), sem revelar se a conta existe. O login confere só o domínio (ADR 0002, ADR 0016): o formato da matrícula é conferido no cadastro (RF01.2), e um e-mail no domínio certo com matrícula inválida recebe a mesma mensagem genérica de credenciais incorretas.
 - Dado credenciais corretas de conta confirmada, quando entro, então a sessão é iniciada e sou levado à página inicial.
 - Dado o e-mail `251098732@aluno.unb.br` ou `maria.silva@unb.br` de uma conta confirmada e a senha correta, quando entro, então a sessão é iniciada.
 - Dado o e-mail com letras maiúsculas ou espaços nas pontas (ex.: ` Maria.Silva@UNB.br `), quando entro, então entro na mesma conta.

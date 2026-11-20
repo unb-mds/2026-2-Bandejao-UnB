@@ -158,7 +158,8 @@ Aviso '+10 pontos' (RF24.2)."]
   Login (RF01/RF02) — por isso são elas que ganham detalhamento em Nível 4
   (4b), e não o grupo inteiro.
 - **`LoginView` pede o e-mail institucional e a senha** (RF03.1, ADR 0016),
-  no formato da ADR 0002: `matricula@aluno.unb.br` ou `nome.sobrenome@unb.br`.
+  nos domínios da ADR 0002: `@aluno.unb.br` ou `@unb.br` (o login confere só
+  o domínio; o formato da matrícula fica no cadastro).
   `RecuperarSenhaView` pede o mesmo e-mail, e o reenvio da confirmação pela
   `LoginView` usa o e-mail já digitado. Quem confere o domínio é a API (422),
   como nas outras regras de formato (nota do fluxo 4b).

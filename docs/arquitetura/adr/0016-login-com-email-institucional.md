@@ -35,20 +35,25 @@ indexada) e é guardado normalizado, sem espaços nas pontas e em minúsculas
 
 O login da Release 2 usa o **e-mail institucional e a senha**.
 
-- **Formatos aceitos** (ADR 0002, sem mudança): `matricula@aluno.unb.br` para
-  Estudante (ex.: `251098732@aluno.unb.br`) e qualquer texto antes de
-  `@unb.br` para Professor/Servidor, em geral `nome.sobrenome@unb.br`. O
-  `LoginService` usa o `EmailInstitucionalValidator` como está: o e-mail é
-  aceito se um dos dois formatos passar. Não há regra de formato nova.
+- **Domínios aceitos** (ADR 0002, sem mudança): `@aluno.unb.br` para
+  Estudante (ex.: `251098732@aluno.unb.br`) e `@unb.br` para
+  Professor/Servidor, em geral `nome.sobrenome@unb.br`. O `LoginService` usa
+  o `EmailInstitucionalValidator` como está: o e-mail é aceito se um dos dois
+  domínios bater. O login confere **só o domínio**: o formato da matrícula
+  (RN01) é conferido no cadastro, e `abc@aluno.unb.br` não acha conta e
+  recebe o 401 genérico, não o 422. Não há regra de formato nova.
 - **Normalização:** o e-mail digitado passa pelo `normalizar_email` antes da
   busca. Maiúsculas e espaços nas pontas entram na mesma conta.
-- **Formato inválido:** e-mail fora dos domínios institucionais dá `422`,
+- **Domínio inválido:** e-mail fora dos domínios institucionais dá `422`,
   antes de consultar o banco, e não conta como tentativa (RF03.2).
 - **Busca da conta:** `ContaRepository.buscarPorEmail(email, travar)`, com o
   mesmo `select_for_update` que o login já usava.
 - **Reenvio da confirmação pela tela de login** recebe o mesmo e-mail do login
-  (`contaParaReenvio(emailInstitucional, token)`). O reenvio pelo token do link
-  expirado não muda.
+  (`contaParaReenvio(email, token)`; no corpo HTTP, o campo é
+  `emailInstitucional`). Ao contrário do login, o reenvio não confere o
+  domínio: um e-mail fora do padrão só não acha conta, e a resposta é a mesma
+  (RF02.2). Se vierem o e-mail e o token, vale o e-mail; se ele não achar
+  conta, o token é tentado. O reenvio só pelo token do link expirado não muda.
 - **Recuperação de senha (RF04.1)** pede o e-mail institucional, e o limite de
   3 solicitações por hora (Anexo A) passa a contar por e-mail.
 - **Continua valendo:** mensagem genérica que não revela se a conta existe

@@ -227,7 +227,7 @@ classDiagram
   class ConfirmacaoEmailService {
     +enviarLink(conta: Conta) void
     +confirmar(token: str) void
-    +contaParaReenvio(emailInstitucional: Optional~str~, token: Optional~str~) Optional~Conta~
+    +contaParaReenvio(email: Optional~str~, token: Optional~str~) Optional~Conta~
     +reenviar(conta: Conta) void
   }
   class TokenConfirmacao {
@@ -334,9 +334,12 @@ classDiagram
 - **Link do e-mail.** Aponta para a página `/confirmar-email` do PWA
   (`URL_DO_PWA` no `.env`), que chama `POST /api/confirmar-email/{token}/`.
 - **Reenvio.** `contaParaReenvio` acha a conta pelo e-mail institucional (o
-  mesmo dado do login, pedido pela tela de login, ADR 0016) ou por um token
-  antigo (mesmo vencido ou usado). O e-mail passa pelo `normalizar_email`
-  antes da busca. A resposta HTTP é sempre a mesma, exista ou não a conta.
+  mesmo dado do login, pedido pela tela de login, ADR 0016; no corpo HTTP, o
+  campo `emailInstitucional`) ou por um token antigo (mesmo vencido ou usado).
+  O e-mail passa pelo `normalizar_email` antes da busca. Se vierem os dois,
+  vale o e-mail; se ele não achar conta, o token é tentado. Ao contrário do
+  login, o reenvio não confere o domínio: um e-mail fora do padrão só não acha
+  conta. A resposta HTTP é sempre a mesma, exista ou não a conta (RF02.2).
 
 ## Nível 4c — Login e recuperação de senha
 
@@ -509,10 +512,10 @@ classDiagram
   `django_session`.
 - **Implementação do login (BE-07, #97; e-mail na BE-20, #201).** O
   `LoginService` normaliza o e-mail (`normalizar_email`: sem espaços nas
-  pontas e em minúsculas) e confere, nesta ordem: formato (e-mail
-  institucional de Estudante ou de Professor/Servidor, pelo
-  `EmailInstitucionalValidator`, ADR 0002, sem consultar o banco: 422
-  `dados_invalidos`, não conta como tentativa), conta inexistente, bloqueio,
+  pontas e em minúsculas) e confere, nesta ordem: domínio (`@aluno.unb.br` ou
+  `@unb.br`, pelo `EmailInstitucionalValidator`, ADR 0002, sem consultar o
+  banco: 422 `dados_invalidos`, não conta como tentativa; o formato da
+  matrícula não é conferido no login, só no cadastro), conta inexistente, bloqueio,
   senha e conta suspensa ou removida, e por fim conta pendente. Conta
   inexistente, senha errada e conta suspensa ou removida dão o mesmo 401
   `credenciais_invalidas`; para a conta inexistente, o service calcula um hash
@@ -521,7 +524,9 @@ classDiagram
   corpo do `POST /api/sessao/` é `{emailInstitucional, senha}` (contrato
   `LoginEntradaRequest`); um corpo com `matriculaSiape` dá 422. No MVP, o
   login usava a matrícula/SIAPE, separada pelo tamanho (9 ou 7 dígitos), e
-  `buscarPorIdentificador` (ADR 0016).
+  `buscarPorIdentificador` (ADR 0016). O `IdentificadorInvalidoError` manteve
+  o nome da BE-07, quando o identificador era a matrícula/SIAPE: hoje ele é
+  lançado para e-mail fora dos domínios institucionais.
 - **Quem abre a sessão é a `SessaoView`**, com `SessoesDaConta.abrir()`
   depois do `autenticar()`, e não o `LoginService`: assim o service não
   depende da requisição HTTP e é testado sem ela. O `login` do Django troca o

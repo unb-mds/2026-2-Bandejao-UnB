@@ -52,8 +52,8 @@ de Requisitos (L10 e L16):
   níveis.** Se a matrícula de outro nível tiver outro tamanho, essa pessoa
   não consegue se cadastrar, e a correção exige revisar a RN01. *Nota de
   2026-11-19:* o login usava o tamanho para separar matrícula (9) de SIAPE
-  (7). Desde a ADR 0016, ele usa o e-mail institucional, nos mesmos formatos
-  desta ADR, e não depende mais do tamanho.
+  (7). Desde a ADR 0016, ele usa o e-mail institucional e confere só o
+  domínio desta ADR (`@aluno.unb.br` ou `@unb.br`), sem depender do tamanho.
 - **A defesa real é a confirmação do e-mail.** A matrícula sai do e-mail, e
   a conta só funciona depois que a pessoa abre o link enviado para aquela
   caixa (RF02). Uma matrícula inventada gera um e-mail que não existe, e a
