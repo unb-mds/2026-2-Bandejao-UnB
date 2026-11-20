@@ -1,11 +1,11 @@
 <script setup>
 import { useRoute } from 'vue-router'
 import { CANAL_CONTATO } from '@/constants/contato'
-import { ITENS_NAVEGACAO, itemAtivo } from '@/constants/navegacao'
+import { ITENS_NAVEGACAO_TOPO, itemAtivo } from '@/constants/navegacao'
 import AppLogo from './AppLogo.vue'
 
 const route = useRoute()
-const ativo = (item) => itemAtivo(item, route.name)
+const ativo = (item) => itemAtivo(item, route.name, { marcarInicio: true })
 </script>
 
 <template>
@@ -18,7 +18,7 @@ const ativo = (item) => itemAtivo(item, route.name)
 
       <nav class="itens" aria-label="Navegação principal">
         <RouterLink
-          v-for="item in ITENS_NAVEGACAO"
+          v-for="item in ITENS_NAVEGACAO_TOPO"
           :key="item.rotulo"
           :to="{ name: item.rota }"
           class="item"
@@ -34,6 +34,7 @@ const ativo = (item) => itemAtivo(item, route.name)
           class="item item--contato"
         >
           Contato
+          <span class="visualmente-oculto">(abre em nova aba)</span>
         </a>
       </nav>
     </div>

@@ -9,8 +9,6 @@ import IconeSvg from './IconeSvg.vue'
  * a troca de campus e o login/logout.
  */
 const route = useRoute()
-
-// Como no protótipo, "Início" e "Perfil" nunca aparecem como ativos.
 const ativo = (item) => itemAtivo(item, route.name)
 </script>
 
