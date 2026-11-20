@@ -378,7 +378,7 @@ estiver ligado à conta.
 | `tempo_espera_min` | DecimalField(5,1) | nullable | Em minutos, com uma casa decimal (ex.: 12,5 min, RF22.1); gravado quando chega a resposta à pergunta de saída que o define (RN07): resposta − 2,5 ou 7,5 min − check-in; piso com "Ainda estou na fila"; vazio com "mais de 10 min", "Desisti" ou sem resposta. |
 | `pontos_concedidos_em` | DateTimeField | nullable | Marcador de pontos (ADR 0011, decisão 4). |
 | — | — | **UNIQUE** (`usuario_id`, `campus_id`, `tipo_refeicao`, `data`) | Um check-in confirmado por conta por refeição (RF11, RI03). Valores nulos em `usuario_id` não colidem no UNIQUE, no SQLite e no MySQL. |
-| — | — | **Índice** (`campus_id`, `tipo_refeicao`, `data`) | Consulta da previsão de pico e da espera estimada. |
+| — | — | **Índice** (`campus_id`, `tipo_refeicao`, `data`) | Consulta da previsão de pico e da espera estimada. Uso conferido com `EXPLAIN` no MySQL (BD-10, [`indices-bd10.md`](indices-bd10.md)). |
 
 ### `TENTATIVA_CHECKIN` (Release 2)
 
@@ -458,7 +458,7 @@ final.
 | `posicao_final` | IntegerField | nullable, **CHECK** `>= 1` | Preenchida no fechamento do semestre (decisão 9); só o semestre corrente e o último fechado ficam guardados. |
 | `atualizado_em` | DateTimeField | NOT NULL | Desempate do ranking. |
 | — | — | **UNIQUE** (`usuario_id`, `campus_id`, `semestre_referencia`) | Uma linha por conta, campus e semestre. |
-| — | — | **Índice** (`campus_id`, `semestre_referencia`, `pontos` decrescente, `atualizado_em` crescente) | Ranking e desempate. O fechamento apaga as linhas mais antigas que o semestre fechado. |
+| — | — | **Índice** (`campus_id`, `semestre_referencia`, `pontos` decrescente, `atualizado_em` crescente) | Ranking e desempate. O fechamento apaga as linhas mais antigas que o semestre fechado. Uso conferido com `EXPLAIN` no MySQL, sem ordenação em arquivo temporário (BD-10, [`indices-bd10.md`](indices-bd10.md)). |
 
 ### `ALERTA_LEITURA_CARDAPIO`
 
