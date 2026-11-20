@@ -86,14 +86,14 @@ def test_cookies_sao_secure_por_padrao_sem_env(carregar_settings):
 def test_secure_acompanha_o_debug_em_desenvolvimento(carregar_settings):
     # Em desenvolvimento (HTTP no runserver) o Secure desliga sozinho, sem o
     # .env precisar repetir isso; em produção DEBUG fica False e vale True.
-    dev = carregar_settings(DEBUG="True")
+    dev = carregar_settings(DJANGO_DEBUG="True")
     assert dev.SESSION_COOKIE_SECURE is False
     assert dev.CSRF_COOKIE_SECURE is False
 
 
 def test_secure_pode_ser_forcado_pelo_env(carregar_settings):
     forcado = carregar_settings(
-        DEBUG="True", SESSION_COOKIE_SECURE="True", CSRF_COOKIE_SECURE="True"
+        DJANGO_DEBUG="True", SESSION_COOKIE_SECURE="True", CSRF_COOKIE_SECURE="True"
     )
     assert forcado.SESSION_COOKIE_SECURE is True
     assert forcado.CSRF_COOKIE_SECURE is True
@@ -106,7 +106,7 @@ def test_https_do_proxy_reconhecido_por_padrao_em_producao(carregar_settings):
 
 
 def test_https_do_proxy_desligado_em_desenvolvimento(carregar_settings):
-    dev = carregar_settings(DEBUG="True")
+    dev = carregar_settings(DJANGO_DEBUG="True")
     assert dev.SECURE_PROXY_SSL_HEADER is None
 
 
@@ -116,7 +116,7 @@ def test_https_do_proxy_pode_ser_desligado_pelo_env(carregar_settings):
 
 
 def test_allowed_hosts_ignora_itens_vazios(carregar_settings):
-    padrao = carregar_settings(ALLOWED_HOSTS="a.com, ,b.com,")
+    padrao = carregar_settings(DJANGO_ALLOWED_HOSTS="a.com, ,b.com,")
     assert padrao.ALLOWED_HOSTS == ["a.com", "b.com"]
 
 

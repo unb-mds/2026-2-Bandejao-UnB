@@ -218,7 +218,10 @@ def test_erro_inesperado_na_api_da_500_em_json_sem_o_traceback():
     ):
         resposta = cliente.post(
             "/api/sessao/",
-            {"matriculaSiape": "202400001", "senha": "senha-forte-123"},
+            {
+                "emailInstitucional": "202400001@aluno.unb.br",
+                "senha": "senha-forte-123",
+            },
             format="json",
         )
 
@@ -310,7 +313,10 @@ def test_erro_5xx_vai_para_o_log_em_producao(log_de_requisicoes):
     ):
         resposta = cliente.post(
             "/api/sessao/",
-            {"matriculaSiape": "202400001", "senha": "senha-forte-123"},
+            {
+                "emailInstitucional": "202400001@aluno.unb.br",
+                "senha": "senha-forte-123",
+            },
             format="json",
         )
 

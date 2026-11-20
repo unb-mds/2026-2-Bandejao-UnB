@@ -53,7 +53,7 @@ describe('avaliacoesStore', () => {
   })
 
   it('enviar grava a nota e atualiza a refeição e o resumo', async () => {
-    await useAuthStore().entrar(CONTA_DEMO.matricula, CONTA_DEMO.senha)
+    await useAuthStore().entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
     const avaliacoes = useAvaliacoesStore()
 
     const resposta = await avaliacoes.enviar(ALMOCO_HOJE, 4, 'Bom')

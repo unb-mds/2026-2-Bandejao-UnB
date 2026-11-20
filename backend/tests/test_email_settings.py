@@ -11,6 +11,7 @@ servidor na subida, e não mandar e-mails com link para localhost.
 
 import pytest
 from decouple import UndefinedValueError
+from django.core.exceptions import ImproperlyConfigured
 
 CONSOLE = "django.core.mail.backends.console.EmailBackend"
 SMTP = "django.core.mail.backends.smtp.EmailBackend"
@@ -27,11 +28,12 @@ OBSOLETAS = (
 
 # O mínimo para o settings carregar em produção com o SMTP.
 PRODUCAO = {
-    "DEBUG": "False",
+    "DJANGO_DEBUG": "False",
     "URL_DO_PWA": "https://bandejao.exemplo.br",
     "EMAIL_HOST": "smtp.exemplo.br",
     "EMAIL_HOST_USER": "usuario",
     "EMAIL_HOST_PASSWORD": "segredo",
+    "DEFAULT_FROM_EMAIL": "contato@bandejao.exemplo.br",
 }
 
 
@@ -52,7 +54,7 @@ def test_nenhuma_configuracao_de_email_obsoleta(carregar_settings):
 
 
 def test_em_desenvolvimento_o_email_vai_para_o_terminal(carregar_settings):
-    padrao = mailer(carregar_settings(DEBUG="True"))
+    padrao = mailer(carregar_settings(DJANGO_DEBUG="True"))
 
     assert padrao["BACKEND"] == CONSOLE
     assert padrao["OPTIONS"] == {}
@@ -67,11 +69,19 @@ def test_em_producao_o_padrao_e_o_smtp_do_brevo(carregar_settings):
     assert padrao["OPTIONS"]["port"] == 587
     assert padrao["OPTIONS"]["use_tls"] is True
     assert padrao["OPTIONS"]["timeout"] == 10
-    assert modulo.DEFAULT_FROM_EMAIL == "nao-responda@bandejaounb.com.br"
+    assert modulo.DEFAULT_FROM_EMAIL == "contato@bandejao.exemplo.br"
+
+
+def test_remetente_tem_padrao_so_em_desenvolvimento(carregar_settings):
+    """Um remetente não verificado no Brevo faz todo envio ser recusado."""
+    dev = carregar_settings(DJANGO_DEBUG="True", DEFAULT_FROM_EMAIL=None)
+
+    assert dev.DEFAULT_FROM_EMAIL == "nao-responda@bandejaounb.com.br"
 
 
 @pytest.mark.parametrize(
-    "faltando", ["EMAIL_HOST", "EMAIL_HOST_USER", "EMAIL_HOST_PASSWORD"]
+    "faltando",
+    ["EMAIL_HOST", "EMAIL_HOST_USER", "EMAIL_HOST_PASSWORD", "DEFAULT_FROM_EMAIL"],
 )
 def test_producao_sem_o_smtp_nao_sobe(carregar_settings, faltando):
     with pytest.raises(UndefinedValueError, match=faltando):
@@ -83,11 +93,24 @@ def test_producao_sem_url_do_pwa_nao_sobe(carregar_settings):
         carregar_settings(**sem("URL_DO_PWA"))
 
 
-def test_producao_com_outro_backend_nao_pede_o_smtp(carregar_settings):
-    modulo = carregar_settings(
-        EMAIL_BACKEND=CONSOLE,
-        **sem("EMAIL_HOST", "EMAIL_HOST_USER", "EMAIL_HOST_PASSWORD"),
-    )
+@pytest.mark.parametrize(
+    "backend",
+    [
+        CONSOLE,
+        "django.core.mail.backends.locmem.EmailBackend",
+        "django.core.mail.backends.filebased.EmailBackend",
+        "django.core.mail.backends.dummy.EmailBackend",
+    ],
+)
+def test_producao_com_outro_backend_nao_sobe(carregar_settings, backend):
+    """Um EMAIL_BACKEND esquecido no .env da VM desligaria o e-mail em
+    silêncio: o cadastro responderia 201 e o link iria para o log."""
+    with pytest.raises(ImproperlyConfigured, match="EMAIL_BACKEND"):
+        carregar_settings(EMAIL_BACKEND=backend, **PRODUCAO)
+
+
+def test_desenvolvimento_aceita_outro_backend(carregar_settings):
+    modulo = carregar_settings(DJANGO_DEBUG="True", EMAIL_BACKEND=CONSOLE)
 
     assert mailer(modulo)["OPTIONS"] == {}
 
@@ -95,7 +118,7 @@ def test_producao_com_outro_backend_nao_pede_o_smtp(carregar_settings):
 def test_desenvolvimento_com_smtp_aceita_valores_vazios(carregar_settings):
     """Com DEBUG, o SMTP de verdade é opcional: quem testa preenche o .env."""
     modulo = carregar_settings(
-        DEBUG="True",
+        DJANGO_DEBUG="True",
         EMAIL_BACKEND=SMTP,
         EMAIL_HOST=None,
         EMAIL_HOST_USER=None,
@@ -111,7 +134,7 @@ def test_desenvolvimento_com_smtp_aceita_valores_vazios(carregar_settings):
 def test_o_env_escolhe_o_backend_e_o_servidor(carregar_settings):
     padrao = mailer(
         carregar_settings(
-            DEBUG="True",
+            DJANGO_DEBUG="True",
             EMAIL_BACKEND=SMTP,
             EMAIL_HOST="smtp.exemplo.br",
             EMAIL_PORT="2525",
@@ -128,7 +151,7 @@ def test_o_env_escolhe_o_backend_e_o_servidor(carregar_settings):
 
 
 def test_url_do_pwa_tem_padrao_so_em_desenvolvimento(carregar_settings):
-    dev = carregar_settings(DEBUG="True", URL_DO_PWA=None)
+    dev = carregar_settings(DJANGO_DEBUG="True", URL_DO_PWA=None)
     assert dev.URL_DO_PWA == "http://localhost:5173"
     assert carregar_settings(**PRODUCAO).URL_DO_PWA == "https://bandejao.exemplo.br"
 
@@ -136,7 +159,7 @@ def test_url_do_pwa_tem_padrao_so_em_desenvolvimento(carregar_settings):
 def test_os_logs_do_projeto_aparecem_no_console(carregar_settings):
     """Sem isto, o logger.error do envio sai sem nível nem horário (lastResort) e
     o logger.info do job nunca aparece."""
-    modulo = carregar_settings(DEBUG="True")
+    modulo = carregar_settings(DJANGO_DEBUG="True")
     apps = modulo.LOGGING["loggers"]["apps"]
 
     assert apps["handlers"] == ["console"]
@@ -178,7 +201,9 @@ def test_erro_do_on_commit_aparece_no_log_em_producao(carregar_settings, capsys)
 
 def test_o_log_do_on_commit_sai_uma_vez_so(carregar_settings):
     """propagate=False: com DEBUG, o console padrão do Django mostraria de novo."""
-    base = carregar_settings(DEBUG="True").LOGGING["loggers"]["django.db.backends.base"]
+    base = carregar_settings(DJANGO_DEBUG="True").LOGGING["loggers"][
+        "django.db.backends.base"
+    ]
 
     assert base["handlers"] == ["console"]
     assert base["level"] == "ERROR"

@@ -28,6 +28,9 @@ def criar_campus(nome="Darcy Ribeiro", ru=RU_DARCY, raio=RAIO, ativa=True):
     centro = ao_norte(ru, 1000)
     return Campus.objects.create(
         nome=nome,
+        # Colunas UNIQUE da BD-16 (ADR 0014): o nome, que já é único, serve.
+        rotulo_pagina_ru=nome,
+        prefixo_arquivo_pdf=nome,
         ru_latitude=Decimal(str(ru.latitude)),
         ru_longitude=Decimal(str(ru.longitude)),
         raio_confirmacao_metros=raio,

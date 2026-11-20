@@ -63,7 +63,9 @@ flowchart TB
   subgraph frontend["📱 PWA (Frontend) — Vue 3 + Vite"]
     app["🖼️ App (raiz)
 Casca do app: monta os avisos
-globais e a navegação inferior."]
+globais e a NavegacaoTopo (tablet e
+desktop). A NavegacaoInferior (celular)
+é montada por cada tela."]
     router["🧭 Router
 Vue Router — rotas nomeadas e
 lazy-loaded (ver Estratégia de roteamento)."]
@@ -134,6 +136,20 @@ Aviso '+10 pontos' (RF24.2)."]
   `/campus`) passa a ser o componente `SeletorCampus`**, usado dentro da
   tela do campus (botão "trocar") e sozinho quando nenhum campus foi
   resolvido pela RN04. O nome `CampusView` fica com a tela do campus.
+- **Um só frontend, mobile first, com três pontos de quebra (FE-20, RNF05):**
+  celular até 767 px, tablet de 768 a 1023 px e desktop a partir de 1024 px.
+  No celular, cada tela ocupa a tela inteira e a `NavegacaoInferior` aparece
+  em Cardápio, Fila e Avaliações. A partir de 768 px, a `NavegacaoTopo`
+  (montada no `App.vue`, menos na boas-vindas) leva aos mesmos destinos
+  (`constants/navegacao.js`), sem repetir o "Perfil" (atalho para a Início,
+  que ela marca como página atual), mais o canal de contato (RNF08), e as telas de
+  formulário viram um cartão centralizado de até 480 px, que cresce com o
+  conteúdo (numa janela baixa, quem rola é a página). A partir de 1024 px,
+  o conteúdo tem largura máxima de 1200 px, centralizada. As larguras são
+  tokens do guia de estilo (`--largura-conteudo` e `--largura-formulario` em
+  `assets/base.css`, RF17). Foco visível (`:focus-visible`) e `:hover` valem em todas as telas:
+  nada depende só de toque. Nas superfícies verdes, a classe `fundo-escuro`
+  deixa o anel de foco dourado.
 - **`HomeView`, `BoasVindasView` e `NotFoundView`** existem no código, mas
   ficam de fora do diagrama por não agregarem componentes próprios — são
   apenas destino de rota.

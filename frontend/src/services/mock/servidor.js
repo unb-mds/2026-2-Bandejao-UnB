@@ -26,6 +26,7 @@ import { APELIDOS_SEMENTE, avaliacoesSemente } from './sementes'
 import {
   analisarEmailEstudante,
   analisarEmailServidor,
+  ehEmailInstitucional,
   validarApelido,
   validarSenha,
   validarSiape,
@@ -49,8 +50,8 @@ const LIMITE_REENVIOS_POR_CONTA = 3
  * contadores de limite ficam no banco.
  */
 const sessoes = new Map() // id da sessão → id do usuário
-const tentativasLogin = new Map() // matrícula/SIAPE → [instantes das falhas]
-const bloqueiosLogin = new Map() // matrícula/SIAPE → instante de fim do bloqueio
+const tentativasLogin = new Map() // e-mail → [instantes das falhas]
+const bloqueiosLogin = new Map() // e-mail → instante de fim do bloqueio
 const pedidosRecuperacao = new Map() // e-mail → [instantes]
 const pedidosPorRota = new Map() // rota com limite → [instantes]
 const reenviosPorConta = new Map() // id do usuário → [instantes]
@@ -107,11 +108,6 @@ const normalizarEmail = (email = '') => String(email).trim().toLowerCase()
 
 function usuarioPorEmail(email) {
   return banco.estado.usuarios.find((u) => u.email === normalizarEmail(email))
-}
-
-function usuarioPorMatriculaSiape(matriculaSiape = '') {
-  const valor = String(matriculaSiape).trim()
-  return valor ? banco.estado.usuarios.find((u) => u.identificador === valor) : null
 }
 
 function usuarioDaSessao() {
@@ -267,14 +263,14 @@ function confirmarEmail(token, agora) {
   return ok(null)
 }
 
-function reenviarConfirmacao({ matriculaSiape, token }, agora) {
-  if (!matriculaSiape && !token) {
-    return dadosInvalidos('Informe a matrícula/SIAPE ou abra o link recebido.')
+function reenviarConfirmacao({ emailInstitucional, token }, agora) {
+  if (!emailInstitucional && !token) {
+    return dadosInvalidos('Informe o seu e-mail institucional ou abra o link recebido.')
   }
-  let usuario
-  if (matriculaSiape) {
-    usuario = usuarioPorMatriculaSiape(matriculaSiape)
-  } else {
+  // Como o backend: vale o e-mail; se ele não achar conta, o token é tentado.
+  // O domínio não é conferido: um e-mail fora do padrão só não acha conta.
+  let usuario = emailInstitucional ? usuarioPorEmail(emailInstitucional) : null
+  if (!usuario && token) {
     const link = banco.estado.links.find((l) => l.tipo === 'confirmacao' && l.token === token)
     usuario = link && banco.estado.usuarios.find((u) => u.id === link.usuarioId)
   }
@@ -294,19 +290,19 @@ function reenviarConfirmacao({ matriculaSiape, token }, agora) {
 
 // ─── Sessão (/api/sessao/: POST entra, GET quem sou, DELETE sai) ──────────
 
-function entrar({ matriculaSiape, senha }, agora) {
+function entrar({ emailInstitucional, senha }, agora) {
   if (
-    typeof matriculaSiape !== 'string' ||
+    typeof emailInstitucional !== 'string' ||
     typeof senha !== 'string' ||
-    !matriculaSiape ||
+    !emailInstitucional.trim() ||
     !senha
   ) {
-    return dadosInvalidos('Informe a matrícula/SIAPE e a senha.')
+    return dadosInvalidos('Informe o seu e-mail institucional e a senha.')
   }
-  const chave = matriculaSiape.trim()
+  const chave = normalizarEmail(emailInstitucional)
   // Não conta como tentativa (RN01).
-  if (!/^(\d{9}|\d{7})$/.test(chave)) {
-    return dadosInvalidos('Informe a matrícula (9 dígitos) ou o SIAPE (7 dígitos), só com números.')
+  if (!ehEmailInstitucional(chave)) {
+    return dadosInvalidos('Informe o seu e-mail institucional da UnB (@aluno.unb.br ou @unb.br).')
   }
   const fimBloqueio = bloqueiosLogin.get(chave)
   if (fimBloqueio && fimBloqueio > agora) {
@@ -314,7 +310,7 @@ function entrar({ matriculaSiape, senha }, agora) {
     return erro(429, 'login_bloqueado', `Muitas tentativas. Tente de novo em ${minutos} min.`)
   }
 
-  const usuario = usuarioPorMatriculaSiape(chave)
+  const usuario = usuarioPorEmail(chave)
   if (!usuario || usuario.senha !== resumoSenha(senha)) {
     const recentes = (tentativasLogin.get(chave) ?? []).filter(
       (t) => agora - t < JANELA_BLOQUEIO_LOGIN,
@@ -327,7 +323,7 @@ function entrar({ matriculaSiape, senha }, agora) {
       return erro(429, 'login_bloqueado', 'Muitas tentativas. Tente de novo em 10 min.')
     }
     // Mensagem genérica: não indica se a conta existe (RF03.1).
-    return erro(401, 'credenciais_invalidas', 'Matrícula/SIAPE ou senha incorretas.')
+    return erro(401, 'credenciais_invalidas', 'E-mail ou senha incorretos.')
   }
 
   tentativasLogin.delete(chave)
