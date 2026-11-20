@@ -1,6 +1,6 @@
 # Aviso de privacidade do Bandejão
 
-**Versão:** 2026-11-14
+**Versão:** 2026-11-14 (revisado em 2026-11-19: o login passou a usar o e-mail institucional, §2; ajuste sem nova ciência, §11)
 
 O Bandejão é um aplicativo feito por estudantes da disciplina de Métodos de
 Desenvolvimento de Software (MDS) da UnB para a comunidade acadêmica. **Não é
@@ -178,6 +178,11 @@ Nacional de Proteção de Dados (ANPD).
 
 ## 11. Mudanças neste aviso
 
-Quando este aviso mudar, a data da versão no topo muda junto. Na próxima vez
-que você entrar, o aplicativo mostra o novo texto para você dar ciência, e o
-check-in só volta a funcionar depois disso.
+Quando mudar o que guardamos ou para quê (um dado novo ou uma finalidade
+nova), a data da versão no topo muda junto. Na próxima vez que você entrar, o
+aplicativo mostra o novo texto para você dar ciência, e o check-in só volta a
+funcionar depois disso.
+
+Um ajuste que não traz dado nem finalidade nova (uma correção de redação, ou
+passar a usar para entrar um dado que já guardávamos para a sua conta) fica
+anotado ao lado da versão, como "revisado em", sem pedir nova ciência.
