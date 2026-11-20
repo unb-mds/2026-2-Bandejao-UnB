@@ -385,3 +385,26 @@ Cada container guarda no máximo 3 arquivos de 10 MB de log.
 - Antes de desligar ou apagar recursos na Azure, lembre que o crédito é
   limitado: discos, IPs e VMs de teste esquecidos consomem o crédito (ADR
   0012).
+
+## Validação em produção (20/11/2026)
+
+Conferido na VM `vm-bandejao` (North Central US, IP estático) depois do
+primeiro deploy. Os itens do banco, do `check --deploy` e do e-mail estão
+registrados no AI-USAGE do #91.
+
+| Item | Resultado |
+|---|---|
+| Serviços `db`, `backend` e `caddy` | `Up`; `db` e `backend` `healthy` |
+| `https://bandejaounb.com.br` | `HTTP/2 200`, com HTTPS |
+| `https://www.bandejaounb.com.br` | `301` para o domínio sem `www` |
+| `/api/campi/` | JSON com os 5 campi (depois do `loaddata`) |
+| Porta 3306 pela internet | Recusada (o NSG só libera 22, 80 e 443) |
+| `.env` e `.env.db` | Permissão `600` |
+| Reinício da VM (`sudo reboot`) | Os três serviços voltaram sozinhos (`restart: unless-stopped`), e os dados do banco continuaram |
+
+Depois do primeiro deploy, é preciso carregar os dados fixos, senão a API
+responde `[]` e não há campus para o check-in:
+
+​```bash
+docker compose exec backend python manage.py loaddata campi marcadores
+​```
