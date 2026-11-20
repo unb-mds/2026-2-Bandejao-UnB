@@ -12,15 +12,26 @@ import pytest
 
 CAMINHO_SETTINGS = Path(__file__).resolve().parent / "config" / "settings.py"
 
-# Variáveis que o settings.py lê com o decouple.
+# Variáveis que o settings.py lê com o decouple. Os nomes antigos (sem o
+# DJANGO_, de antes da BD-05) também saem do ambiente: o settings recusa
+# subir se encontrar algum deles.
 VARIAVEIS_DO_SETTINGS = [
+    "DJANGO_DEBUG",
+    "DJANGO_ALLOWED_HOSTS",
+    "DJANGO_CSRF_TRUSTED_ORIGINS",
+    "SECRET_KEY",
     "DEBUG",
     "ALLOWED_HOSTS",
+    "CSRF_TRUSTED_ORIGINS",
     "DB_ENGINE",
+    "DB_HOST",
+    "DB_PORT",
+    "DB_NAME",
+    "DB_USER",
+    "DB_PASSWORD",
     "SESSION_COOKIE_SECURE",
     "SESSION_COOKIE_AGE",
     "CSRF_COOKIE_SECURE",
-    "CSRF_TRUSTED_ORIGINS",
     "ATRAS_DE_PROXY_HTTPS",
     "EMAIL_BACKEND",
     "EMAIL_HOST",
@@ -36,7 +47,9 @@ VARIAVEIS_DO_SETTINGS = [
 # Variáveis sem valor padrão em produção (sem DEBUG): o settings não carrega
 # sem elas. Os testes que não tratam delas recebem estes valores.
 OBRIGATORIAS_DE_TESTE = {
-    "SECRET_KEY": "chave-so-para-teste",
+    "DJANGO_SECRET_KEY": "chave-so-para-teste",
+    "DJANGO_ALLOWED_HOSTS": "testserver",
+    "DEFAULT_FROM_EMAIL": "nao-responda@teste.br",
     "URL_DO_PWA": "https://pwa.teste",
     "EMAIL_HOST": "smtp.teste",
     "EMAIL_HOST_USER": "usuario-teste",
