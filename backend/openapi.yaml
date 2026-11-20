@@ -582,8 +582,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Corpo inválido: não veio `matriculaSiape` nem `token`, ou
-            um deles veio vazio ou com tipo errado (mesmo que o outro esteja certo).
+          description: 'Corpo inválido: não veio `emailInstitucional` nem `token`,
+            ou um deles veio vazio ou com tipo errado (mesmo que o outro esteja certo).
             `codigo`: `dados_invalidos`.'
         '429':
           content:
@@ -656,11 +656,12 @@ paths:
           description: 'Sem sessão. `codigo`: `nao_autenticado`.'
     post:
       operationId: sessao_create
-      description: 'Matrícula (9 dígitos) ou SIAPE (7 dígitos) no mesmo campo. O servidor
-        grava o cookie de sessão (HttpOnly) e o `csrftoken`. Um 401 aqui é senha ou
-        matrícula errada, não sessão expirada: a tela de login mostra a mensagem do
-        erro (o `authStore` já está vazio, então limpá-lo de novo não causa problema).
-        O login troca o `csrftoken`: leia o cookie de novo antes da próxima escrita.'
+      description: 'E-mail institucional (`@aluno.unb.br` ou `@unb.br`, sem diferença
+        entre maiúsculas e minúsculas) e senha. O servidor grava o cookie de sessão
+        (HttpOnly) e o `csrftoken`. Um 401 aqui é senha ou e-mail errado, não sessão
+        expirada: a tela de login mostra a mensagem do erro (o `authStore` já está
+        vazio, então limpá-lo de novo não causa problema). O login troca o `csrftoken`:
+        leia o cookie de novo antes da próxima escrita.'
       summary: Entra na conta (login)
       tags:
       - cadastro
@@ -701,9 +702,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Corpo inválido (falta `matriculaSiape` ou `senha`, ou um deles
-            não é texto) ou identificador que não tem 9 nem 7 dígitos (RN01). Não
-            conta como tentativa. `codigo`: `dados_invalidos`.'
+          description: 'Corpo inválido (falta `emailInstitucional` ou `senha`, ou
+            um deles não é texto) ou e-mail fora dos domínios institucionais (ADR
+            0002). Não conta como tentativa. `codigo`: `dados_invalidos`.'
         '429':
           content:
             application/json:
@@ -1076,16 +1077,17 @@ components:
       type: object
       description: Corpo do POST /api/sessao/ (RF03.1, Cadastro N4 4c).
       properties:
-        matriculaSiape:
+        emailInstitucional:
           type: string
           minLength: 1
-          description: Matrícula (9 dígitos) ou SIAPE (7 dígitos), no mesmo campo.
+          description: 'E-mail institucional: matricula@aluno.unb.br ou nome@unb.br.'
+          maxLength: 254
         senha:
           type: string
           writeOnly: true
           minLength: 1
       required:
-      - matriculaSiape
+      - emailInstitucional
       - senha
     PratoFiltrado:
       type: object
@@ -1184,12 +1186,14 @@ components:
       description: |-
         Corpo do POST /api/reenviar-confirmacao/ (RF02.2, Cadastro N4 4b).
 
-        Envie um dos dois campos. Se vierem os dois, vale a `matriculaSiape`.
+        Envie um dos dois campos. Se vierem os dois, vale o `emailInstitucional`;
+        se ele não achar conta, vale o `token`.
       properties:
-        matriculaSiape:
+        emailInstitucional:
           type: string
           minLength: 1
           description: Quem pede o reenvio pela tela de login (conta não confirmada).
+          maxLength: 254
         token:
           type: string
           minLength: 1

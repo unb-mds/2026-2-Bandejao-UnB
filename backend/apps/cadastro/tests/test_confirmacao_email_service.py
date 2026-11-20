@@ -334,12 +334,17 @@ def test_confirmar_trava_o_token_com_select_for_update(servico, usuario):
 # --- conta_para_reenvio e reenviar -------------------------------------------
 
 
-def test_acha_a_conta_pela_matricula(servico, usuario):
-    assert servico.conta_para_reenvio(matricula_siape="202400001") == usuario
+def test_acha_a_conta_pelo_email(servico, usuario):
+    assert servico.conta_para_reenvio(email="202400001@aluno.unb.br") == usuario
 
 
-def test_acha_a_conta_pela_matricula_com_espacos_nas_pontas(servico, usuario):
-    assert servico.conta_para_reenvio(matricula_siape=" 202400001 ") == usuario
+def test_acha_a_conta_pelo_email_com_maiusculas_e_espacos_nas_pontas(servico, usuario):
+    assert servico.conta_para_reenvio(email=" 202400001@ALUNO.unb.br ") == usuario
+
+
+def test_reenvio_pela_matricula_pura_nao_acha_conta(servico, usuario):
+    """O reenvio não confere domínio: só não acha conta (e a resposta é 200)."""
+    assert servico.conta_para_reenvio(email="202400001") is None
 
 
 def test_acha_a_conta_pelo_token_mesmo_expirado_ou_usado(servico, usuario, relogio):
@@ -351,7 +356,7 @@ def test_acha_a_conta_pelo_token_mesmo_expirado_ou_usado(servico, usuario, relog
 
 
 def test_conta_inexistente_da_none(servico, db):
-    assert servico.conta_para_reenvio(matricula_siape="209999999") is None
+    assert servico.conta_para_reenvio(email="209999999@aluno.unb.br") is None
     assert servico.conta_para_reenvio(token="nao-existe") is None
 
 
@@ -385,7 +390,7 @@ def test_reenviar_sem_conta_nao_faz_nada(servico, db):
     assert mail.outbox == []
 
 
-def test_matricula_e_token_juntos_vale_a_matricula(servico, usuario):
+def test_email_e_token_juntos_vale_o_email(servico, usuario):
     outra = type(usuario).objects.create_user(
         matricula_siape="202400002",
         tipo_usuario="estudante",
@@ -398,10 +403,26 @@ def test_matricula_e_token_juntos_vale_a_matricula(servico, usuario):
     token_da_outra = enviar_e_pegar_token(servico, outra)
 
     conta = servico.conta_para_reenvio(
-        matricula_siape="202400001", token=token_da_outra
+        email="202400001@aluno.unb.br", token=token_da_outra
     )
 
     assert conta == usuario
+
+
+def test_email_sem_conta_e_token_valido_vale_o_token(servico, usuario):
+    """Se o e-mail não acha conta, o token que veio junto ainda é tentado."""
+    token = enviar_e_pegar_token(servico, usuario)
+
+    conta = servico.conta_para_reenvio(email="209999999@aluno.unb.br", token=token)
+
+    assert conta == usuario
+
+
+def test_email_e_token_sem_conta_nao_acham_conta(servico, usuario):
+    assert (
+        servico.conta_para_reenvio(email="209999999@aluno.unb.br", token="nao-existe")
+        is None
+    )
 
 
 def test_token_de_outro_tipo_nao_acha_conta_para_reenvio(servico, usuario, relogio):

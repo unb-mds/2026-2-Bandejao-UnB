@@ -1,13 +1,18 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { apiClient, definirAoPerderSessao } from '@/services/apiClient'
+import { ApiError, apiClient, definirAoPerderSessao } from '@/services/apiClient'
 
 /**
  * Sessão do usuário (RF01–RF04). Sem token (ADR 0007): a sessão fica no
  * cookie HttpOnly e a store guarda só o que `/api/sessao/` devolve —
- * apelido, tipo e avisoPrivacidadePendente. Um 401 em qualquer rota limpa a
- * store (o apiClient avisa). Os corpos seguem o contrato OpenAPI v1 (BE-03).
+ * apelido, tipo e avisoPrivacidadePendente. Um 401 limpa a store (o apiClient
+ * avisa), menos no `GET /sessao/` da abertura do app e no login, em que 401
+ * quer dizer visitante ou senha errada. Os corpos seguem o contrato OpenAPI v1
+ * (BE-03).
  */
+// Quanto a primeira tela espera pelo `GET /sessao/` antes de seguir como visitante.
+const LIMITE_SESSAO_MS = 3000
+
 // O backend responde o reenvio com 200 sem corpo, exista ou não a conta (RF02.2).
 const MENSAGEM_REENVIO =
   'Se houver um cadastro pendente, enviamos um novo link de confirmação para o e-mail institucional.'
@@ -16,20 +21,70 @@ export const useAuthStore = defineStore('auth', () => {
   /** @type {import('vue').Ref<{ apelido: string, tipo: string, avisoPrivacidadePendente: boolean } | null>} */
   const usuario = ref(null)
 
+  /** Já perguntou ao servidor se há sessão (`carregarSessao`), deu certo ou não. */
+  const sessaoCarregada = ref(false)
+  let carregandoSessao = null
+  // Muda a cada login que dá certo, a cada logout e a cada 401 de outra rota
+  // (`limpar`): uma resposta atrasada do boot não desfaz o que veio depois.
+  let geracao = 0
+
   const estaAutenticado = computed(() => Boolean(usuario.value))
   const apelido = computed(() => usuario.value?.apelido ?? 'Visitante')
 
   function limpar() {
+    geracao++
     usuario.value = null
   }
   definirAoPerderSessao(limpar)
 
-  /** POST /api/sessao/ — matrícula (9 dígitos) ou SIAPE (7) no mesmo campo. */
-  async function entrar(matriculaSiape, senha) {
-    usuario.value = await apiClient.post('/sessao/', {
-      matriculaSiape: matriculaSiape.trim(),
-      senha,
+  /**
+   * GET /api/sessao/ ao abrir o app: o cookie de sessão sobrevive ao F5, a
+   * store não (ADR 0007). Nunca rejeita: sem sessão (401) ou sem conexão, o
+   * app abre como visitante. Chamadas ao mesmo tempo esperam o mesmo pedido.
+   *
+   * Espera no máximo 3 s (rede lenta, como o Wi-Fi do RU): depois disso o app
+   * segue como visitante, e se a resposta chegar mais tarde o apelido aparece.
+   * Se o pedido falhar (sem conexão, 500), quem tinha sessão aparece como
+   * visitante até recarregar a página (o guarda não tenta de novo), e o erro
+   * vai para o console.
+   */
+  function carregarSessao() {
+    if (carregandoSessao) return carregandoSessao
+    const geracaoDoPedido = geracao
+    const pedido = apiClient
+      .get('/sessao/', { avisarSessaoPerdida: false })
+      .then((sessao) => {
+        if (geracao === geracaoDoPedido) usuario.value = sessao
+      })
+      .catch((falha) => {
+        // 401 é o visitante de sempre. O resto (500, 429, VITE_API_URL errada,
+        // bug do simulado) também abre como visitante, mas fica no console.
+        if (!(falha instanceof ApiError && falha.status === 401)) {
+          console.warn('Não foi possível carregar a sessão ao abrir o app.', falha)
+        }
+        if (geracao === geracaoDoPedido) usuario.value = null
+      })
+    let temporizador
+    const limite = new Promise((resolver) => {
+      temporizador = setTimeout(resolver, LIMITE_SESSAO_MS)
     })
+    carregandoSessao = Promise.race([pedido, limite]).finally(() => {
+      clearTimeout(temporizador)
+      sessaoCarregada.value = true
+      carregandoSessao = null
+    })
+    return carregandoSessao
+  }
+
+  /** POST /api/sessao/ com o e-mail institucional: @aluno.unb.br ou @unb.br (#201). */
+  async function entrar(emailInstitucional, senha) {
+    const sessao = await apiClient.post(
+      '/sessao/',
+      { emailInstitucional: emailInstitucional.trim(), senha },
+      { avisarSessaoPerdida: false },
+    )
+    geracao++
+    usuario.value = sessao
   }
 
   /**
@@ -62,11 +117,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   /**
    * POST /api/reenviar-confirmacao/ com um dos dois campos:
-   * `{ matriculaSiape }` (tela de login) ou `{ token }` (link expirado).
+   * `{ emailInstitucional }` (login ou logo após o cadastro) ou `{ token }`
+   * (link expirado).
    * @returns {Promise<{ mensagem: string, linkSimulado?: string }>}
    */
-  async function reenviarConfirmacao({ matriculaSiape, token } = {}) {
-    const corpo = matriculaSiape ? { matriculaSiape: matriculaSiape.trim() } : { token }
+  async function reenviarConfirmacao({ emailInstitucional, token } = {}) {
+    const corpo = emailInstitucional ? { emailInstitucional: emailInstitucional.trim() } : { token }
     const resposta = await apiClient.post('/reenviar-confirmacao/', corpo)
     return { mensagem: MENSAGEM_REENVIO, linkSimulado: resposta?.linkSimulado }
   }
@@ -81,9 +137,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     usuario,
+    sessaoCarregada,
     estaAutenticado,
     apelido,
     limpar,
+    carregarSessao,
     entrar,
     sair,
     cadastrar,

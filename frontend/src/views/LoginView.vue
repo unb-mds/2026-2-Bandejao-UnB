@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
@@ -16,35 +16,35 @@ const auth = useAuthStore()
 const avaliacoes = useAvaliacoesStore()
 const preferencias = usePreferenciasStore()
 
-const matriculaSiape = ref('')
+const emailInstitucional = ref('')
 const senha = ref('')
 const enviando = ref(false)
 const erro = ref('')
 const naoConfirmado = ref(false)
 const reenvio = ref(null)
+const reenviando = ref(false)
 /** Conta de demonstração: só em desenvolvimento, sem levar o simulado ao build. */
 const contaDemo = ref(null)
 if (import.meta.env.DEV && USANDO_SIMULACAO) {
   import('@/services/mock/banco').then(({ CONTA_DEMO }) => (contaDemo.value = CONTA_DEMO))
 }
 
-// Matrícula (9 dígitos) ou SIAPE (7): só números.
-watch(matriculaSiape, (valor) => {
-  matriculaSiape.value = valor.replace(/\D/g, '')
-})
-
 const podeEnviar = computed(
-  () => Boolean(matriculaSiape.value) && senha.value.length >= 1 && !enviando.value,
+  () => Boolean(emailInstitucional.value.trim()) && senha.value.length >= 1 && !enviando.value,
 )
+const podeReenviar = computed(() => Boolean(emailInstitucional.value.trim()) && !reenviando.value)
 
-/** Depois do login: volta à tela que pediu o login, ou segue para a Início (RF03). */
+/**
+ * Depois do login: volta à tela que pediu o login, ou segue direto para a tela
+ * do campus lembrado (RF03.4), sem passo a mais; sem campus, para a escolha.
+ */
 function seguirAposLogin() {
+  // TODO(FE-07): trocar a Início por `/campus/:campusId` do campus lembrado (#143).
   const voltar = route.query.voltar
   if (typeof voltar === 'string' && voltar.startsWith('/') && !voltar.startsWith('//')) {
-    router.replace(voltar)
-  } else {
-    router.replace({ name: preferencias.campusId ? 'inicio' : 'campus' })
+    return router.replace(voltar)
   }
+  return router.replace({ name: preferencias.campusId ? 'inicio' : 'campus' })
 }
 
 async function entrar() {
@@ -54,22 +54,29 @@ async function entrar() {
   naoConfirmado.value = false
   reenvio.value = null
   try {
-    await auth.entrar(matriculaSiape.value, senha.value)
-    avaliacoes.limparCache()
-    seguirAposLogin()
+    await auth.entrar(emailInstitucional.value, senha.value)
   } catch (falha) {
     erro.value = mensagemDeErro(falha)
     naoConfirmado.value = falha.codigo === 'conta_nao_confirmada'
+    return
   } finally {
     enviando.value = false
   }
+  avaliacoes.limparCache()
+  await seguirAposLogin()
 }
 
 async function reenviarConfirmacao() {
+  if (!podeReenviar.value) return
+  reenviando.value = true
   try {
-    reenvio.value = await auth.reenviarConfirmacao({ matriculaSiape: matriculaSiape.value })
+    reenvio.value = await auth.reenviarConfirmacao({
+      emailInstitucional: emailInstitucional.value,
+    })
   } catch (falha) {
     erro.value = mensagemDeErro(falha)
+  } finally {
+    reenviando.value = false
   }
 }
 </script>
@@ -78,18 +85,18 @@ async function reenviarConfirmacao() {
   <div class="tela tela-formulario">
     <CabecalhoFormulario
       titulo="Entrar"
-      subtitulo="Use sua matrícula ou SIAPE"
+      subtitulo="Use seu e-mail institucional"
       :voltar-para="{ name: 'boas-vindas' }"
     />
 
     <form class="conteudo sem-barra pilha-4" novalidate @submit.prevent="entrar">
       <CampoTexto
-        v-model="matriculaSiape"
-        rotulo="Matrícula ou SIAPE"
-        inputmode="numeric"
-        maxlength="9"
+        v-model="emailInstitucional"
+        rotulo="E-mail institucional"
+        type="email"
+        maxlength="254"
         autocomplete="username"
-        placeholder="9 dígitos (aluno) ou 7 (SIAPE)"
+        placeholder="matricula@aluno.unb.br ou nome@unb.br"
       />
 
       <CampoSenha v-model="senha" />
@@ -106,6 +113,7 @@ async function reenviarConfirmacao() {
           v-if="naoConfirmado && !reenvio"
           type="button"
           class="reenviar"
+          :disabled="!podeReenviar"
           @click="reenviarConfirmacao"
         >
           Reenviar link de confirmação
@@ -126,7 +134,7 @@ async function reenviarConfirmacao() {
       </p>
 
       <p v-if="contaDemo" class="demo">
-        Demonstração: entre com a matrícula <strong>{{ contaDemo.matricula }}</strong> e a senha
+        Demonstração: entre com o e-mail <strong>{{ contaDemo.email }}</strong> e a senha
         <strong>{{ contaDemo.senha }}</strong
         >, ou crie uma conta nova.
       </p>
@@ -148,6 +156,11 @@ async function reenviarConfirmacao() {
   color: var(--erro-texto);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.reenviar:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .criar-conta {
