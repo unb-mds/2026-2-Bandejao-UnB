@@ -35,7 +35,7 @@ async function solicitar() {
 </script>
 
 <template>
-  <div class="tela">
+  <div class="tela tela-formulario">
     <CabecalhoFormulario
       titulo="Recuperar senha"
       subtitulo="Enviaremos um link para o seu e-mail"

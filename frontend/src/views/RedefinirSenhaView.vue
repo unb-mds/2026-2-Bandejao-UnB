@@ -46,7 +46,7 @@ async function redefinir() {
 </script>
 
 <template>
-  <div class="tela">
+  <div class="tela tela-formulario">
     <CabecalhoFormulario
       titulo="Redefinir senha"
       subtitulo="Escolha uma nova senha"

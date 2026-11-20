@@ -10,7 +10,7 @@ defineProps({
 </script>
 
 <template>
-  <header class="cabecalho">
+  <header class="cabecalho fundo-escuro">
     <BotaoVoltar :para="voltarPara" historico com-rotulo />
     <h1 class="titulo-tela">{{ titulo }}</h1>
     <p v-if="subtitulo" class="subtitulo-tela">{{ subtitulo }}</p>

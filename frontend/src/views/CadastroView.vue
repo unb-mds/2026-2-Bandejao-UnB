@@ -92,7 +92,7 @@ async function criarConta() {
 </script>
 
 <template>
-  <div class="tela">
+  <div class="tela tela-formulario">
     <CabecalhoFormulario
       titulo="Criar conta"
       subtitulo="Comunidade da UnB"
@@ -260,7 +260,7 @@ async function criarConta() {
   border-color: var(--verde-escuro);
 }
 .aceite:has(input:focus-visible) .caixa {
-  outline: 2px solid var(--dourado);
+  outline: 3px solid var(--verde-escuro);
   outline-offset: 2px;
 }
 
