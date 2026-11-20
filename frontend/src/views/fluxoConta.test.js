@@ -80,6 +80,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.restoreAllMocks()
   document.body.innerHTML = ''
 })
 

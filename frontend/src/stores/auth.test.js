@@ -23,6 +23,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe('authStore com o servidor simulado', () => {
@@ -212,7 +213,6 @@ describe('carregarSessao: a sessão volta ao abrir o app (ADR 0007)', () => {
 
     expect(auth.sessaoCarregada).toBe(true)
     expect(auth.estaAutenticado).toBe(false)
-    vi.restoreAllMocks()
   })
 
   it('chamadas ao mesmo tempo fazem um GET /api/sessao/ só', async () => {
@@ -223,6 +223,5 @@ describe('carregarSessao: a sessão volta ao abrir o app (ADR 0007)', () => {
 
     expect(espiao).toHaveBeenCalledTimes(1)
     expect(espiao).toHaveBeenCalledWith('/sessao/')
-    vi.restoreAllMocks()
   })
 })
