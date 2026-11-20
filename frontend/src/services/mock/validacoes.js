@@ -8,6 +8,11 @@
 const DOMINIO_ESTUDANTE = /^([^@\s]+)@aluno\.unb\.br$/i
 const DOMINIO_SERVIDOR = /^([^@\s]+)@unb\.br$/i
 
+/** Login e reenvio (BE-20): `matricula@aluno.unb.br` ou `nome@unb.br` (ADR 0002). */
+export function ehEmailInstitucional(email) {
+  return DOMINIO_ESTUDANTE.test(email) || DOMINIO_SERVIDOR.test(email)
+}
+
 /** Primeiro ano aceito no prefixo da matrícula: 2010 (Anexo A, L10). */
 const PRIMEIRO_ANO = 10
 

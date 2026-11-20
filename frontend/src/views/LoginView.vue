@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
@@ -16,7 +16,7 @@ const auth = useAuthStore()
 const avaliacoes = useAvaliacoesStore()
 const preferencias = usePreferenciasStore()
 
-const matriculaSiape = ref('')
+const emailInstitucional = ref('')
 const senha = ref('')
 const enviando = ref(false)
 const erro = ref('')
@@ -28,13 +28,8 @@ if (import.meta.env.DEV && USANDO_SIMULACAO) {
   import('@/services/mock/banco').then(({ CONTA_DEMO }) => (contaDemo.value = CONTA_DEMO))
 }
 
-// Matrícula (9 dígitos) ou SIAPE (7): só números.
-watch(matriculaSiape, (valor) => {
-  matriculaSiape.value = valor.replace(/\D/g, '')
-})
-
 const podeEnviar = computed(
-  () => Boolean(matriculaSiape.value) && senha.value.length >= 1 && !enviando.value,
+  () => Boolean(emailInstitucional.value.trim()) && senha.value.length >= 1 && !enviando.value,
 )
 
 /**
@@ -58,7 +53,7 @@ async function entrar() {
   naoConfirmado.value = false
   reenvio.value = null
   try {
-    await auth.entrar(matriculaSiape.value, senha.value)
+    await auth.entrar(emailInstitucional.value, senha.value)
     avaliacoes.limparCache()
     seguirAposLogin()
   } catch (falha) {
@@ -71,7 +66,9 @@ async function entrar() {
 
 async function reenviarConfirmacao() {
   try {
-    reenvio.value = await auth.reenviarConfirmacao({ matriculaSiape: matriculaSiape.value })
+    reenvio.value = await auth.reenviarConfirmacao({
+      emailInstitucional: emailInstitucional.value,
+    })
   } catch (falha) {
     erro.value = mensagemDeErro(falha)
   }
@@ -82,18 +79,18 @@ async function reenviarConfirmacao() {
   <div class="tela">
     <CabecalhoFormulario
       titulo="Entrar"
-      subtitulo="Use sua matrícula ou SIAPE"
+      subtitulo="Use seu e-mail institucional"
       :voltar-para="{ name: 'boas-vindas' }"
     />
 
     <form class="conteudo sem-barra pilha-4" novalidate @submit.prevent="entrar">
       <CampoTexto
-        v-model="matriculaSiape"
-        rotulo="Matrícula ou SIAPE"
-        inputmode="numeric"
-        maxlength="9"
+        v-model="emailInstitucional"
+        rotulo="E-mail institucional"
+        type="email"
+        maxlength="254"
         autocomplete="username"
-        placeholder="9 dígitos (aluno) ou 7 (SIAPE)"
+        placeholder="matricula@aluno.unb.br ou nome@unb.br"
       />
 
       <CampoSenha v-model="senha" />
@@ -130,7 +127,7 @@ async function reenviarConfirmacao() {
       </p>
 
       <p v-if="contaDemo" class="demo">
-        Demonstração: entre com a matrícula <strong>{{ contaDemo.matricula }}</strong> e a senha
+        Demonstração: entre com o e-mail <strong>{{ contaDemo.email }}</strong> e a senha
         <strong>{{ contaDemo.senha }}</strong
         >, ou crie uma conta nova.
       </p>

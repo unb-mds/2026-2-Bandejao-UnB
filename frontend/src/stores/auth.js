@@ -67,11 +67,11 @@ export const useAuthStore = defineStore('auth', () => {
     return carregandoSessao
   }
 
-  /** POST /api/sessao/ — matrícula (9 dígitos) ou SIAPE (7) no mesmo campo. */
-  async function entrar(matriculaSiape, senha) {
+  /** POST /api/sessao/ com o e-mail institucional: @aluno.unb.br ou @unb.br (BE-20). */
+  async function entrar(emailInstitucional, senha) {
     geracao++
     usuario.value = await apiClient.post('/sessao/', {
-      matriculaSiape: matriculaSiape.trim(),
+      emailInstitucional: emailInstitucional.trim(),
       senha,
     })
   }
@@ -106,11 +106,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   /**
    * POST /api/reenviar-confirmacao/ com um dos dois campos:
-   * `{ matriculaSiape }` (tela de login) ou `{ token }` (link expirado).
+   * `{ emailInstitucional }` (login ou logo após o cadastro) ou `{ token }`
+   * (link expirado).
    * @returns {Promise<{ mensagem: string, linkSimulado?: string }>}
    */
-  async function reenviarConfirmacao({ matriculaSiape, token } = {}) {
-    const corpo = matriculaSiape ? { matriculaSiape: matriculaSiape.trim() } : { token }
+  async function reenviarConfirmacao({ emailInstitucional, token } = {}) {
+    const corpo = emailInstitucional ? { emailInstitucional: emailInstitucional.trim() } : { token }
     const resposta = await apiClient.post('/reenviar-confirmacao/', corpo)
     return { mensagem: MENSAGEM_REENVIO, linkSimulado: resposta?.linkSimulado }
   }
