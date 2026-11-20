@@ -254,8 +254,8 @@ isso o acesso à VM fica só com quem administra o deploy (#158).
 ### Acesso da equipe
 
 A porta do banco não é publicada, então não há túnel SSH até ela: o "acesso
-por SSH" das ADRs 0004 e 0012 é entrar na VM pelo SSH, com a própria chave, e
-abrir o cliente dentro do container, com o próprio usuário de banco:
+por SSH" das ADRs 0004, 0008 e 0012 é entrar na VM pelo SSH, com a própria
+chave, e abrir o cliente dentro do container, com o próprio usuário de banco:
 
 ```bash
 docker compose exec db mysql -u <usuário> -p bandejao
@@ -283,24 +283,50 @@ docker compose up -d --force-recreate --wait db
 docker compose exec db sh /docker-entrypoint-initdb.d/10-usuarios.sh
 ```
 
-### Conexão criptografada
+### Conexão com o banco (TLS)
 
 O item BD-05 do backlog (`docs/requisitos/backlog.md`) pede a conexão com o
-banco criptografada se for viável. A ADR 0008 já considera suficiente que a
-conexão da aplicação não saia da VM (rede interna do Compose) e que a da
-equipe passe pelo SSH, que é criptografado. Além disso, o MySQL 8.4 gera um
-certificado próprio na primeira subida, e o cliente do Django deve usar TLS
-quando o servidor oferece (depende do cliente instalado na imagem, ainda não
-conferido na VM). Para conferir se a conexão do backend está cifrada:
+banco criptografada se a hospedagem oferecer (ADR 0008). A ADR 0008 registra
+que a conexão da aplicação com o banco não sai do servidor, que a porta do
+banco não é exposta à internet e que o acesso da equipe passa pelo SSH, que é
+criptografado. Na prática, a equipe entra na VM pelo SSH e abre o cliente
+dentro do container, sem túnel até o banco (ver "Acesso da equipe").
+
+**Situação conferida na VM em 19/11/2026: a conexão do backend com o MySQL não
+usava TLS** (o `Ssl_cipher` da conexão do backend veio vazio). Por padrão, o
+MySQL 8.4 gera um certificado próprio na primeira subida, mas o backend não
+pede TLS: o `OPTIONS` do banco em `settings.py` não tem `ssl`/`ssl_mode`, e a
+biblioteca cliente da imagem do backend (`libmariadb3`, usada pelo
+`mysqlclient`) conectou sem TLS. Isso fica dentro do que a ADR 0008 considera
+suficiente: o tráfego entre o backend e o banco fica na rede interna do
+Compose, dentro da VM, e a porta do banco não é publicada (o serviço `db` do
+`docker-compose.yml` não tem `ports`).
+
+A exigência de TLS (`REQUIRE SSL` no usuário) não foi ligada. Com o backend sem
+pedir TLS, o servidor recusaria a conexão e derrubaria o backend. Ligar o TLS
+exige configurar `ssl` no `OPTIONS`, decidir como tratar o certificado
+autoassinado do MySQL e só então pôr `REQUIRE SSL` no usuário; seria uma
+decisão nova (com uma ADR), e não um ajuste do guia. Para quem for ligar:
+
+- o `REQUIRE SSL` vai só no `DB_USER`, gravado no `db/init/10-usuarios.sh`; um
+  `ALTER USER` feito à mão se perde se o volume `mysql_dados` for recriado;
+- o certificado gerado pelo MySQL é emitido por uma CA própria (`ca.pem`, no
+  volume do banco) e tem um nome diferente de `db`, então a verificação do nome
+  do servidor falharia; é preciso usar esse `ca.pem` no backend sem verificar o
+  nome, ou gerar um certificado com o nome `db`.
+
+A `libmariadb3` não tem versão fixa no `backend/Dockerfile` (vem do Debian da
+imagem `python:3.14-slim`), então um rebuild pode mudar o comportamento.
+Confira de novo depois de reconstruir a imagem do backend:
 
 ```bash
-docker compose exec backend python manage.py shell -c "from django.db import connection; c = connection.cursor(); c.execute(\"SHOW SESSION STATUS LIKE 'Ssl_cipher'\"); print(c.fetchone())"
+docker compose exec backend python manage.py shell --no-imports -c "from django.db import connection; c = connection.cursor(); c.execute(\"SHOW SESSION STATUS LIKE 'Ssl_cipher'\"); print(c.fetchone())"
 ```
 
-Um nome de cifra (como `TLS_AES_256_GCM_SHA384`) indica conexão cifrada; um
-valor vazio indica conexão sem TLS. A exigência de TLS (`REQUIRE SSL` no
-usuário) não foi ligada: o certificado é autoassinado, e o cliente do
-container (MariaDB Connector/C) pode recusá-lo, o que derrubaria o backend.
+O `--no-imports` evita a linha de importações automáticas do `shell` do
+Django; sem ele, a tupla é a última linha da saída. Um nome de cifra (como
+`TLS_AES_256_GCM_SHA384`) indica conexão cifrada; um valor vazio
+(`('Ssl_cipher', '')`, o resultado de 19/11/2026) indica conexão sem TLS.
 
 ## E-mail (Brevo)
 
