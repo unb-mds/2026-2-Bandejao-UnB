@@ -15,25 +15,65 @@ import sys
 from pathlib import Path
 
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def lista(valor):
+    """Lista separada por vírgulas, sem itens vazios."""
+    return [item.strip() for item in valor.split(",") if item.strip()]
+
+
+# Variáveis do Django (BD-05): os nomes têm o prefixo DJANGO_, como combinado
+# para o .env da VM. Um .env (ou um ambiente) de antes ainda teria os nomes
+# antigos, que seriam ignorados em silêncio: um DEBUG=True esquecido viraria
+# produção, e um ALLOWED_HOSTS antigo deixaria a lista vazia. Por isso o
+# servidor para.
+nomes_antigos = {
+    "SECRET_KEY": "DJANGO_SECRET_KEY",
+    "DEBUG": "DJANGO_DEBUG",
+    "ALLOWED_HOSTS": "DJANGO_ALLOWED_HOSTS",
+    "CSRF_TRUSTED_ORIGINS": "DJANGO_CSRF_TRUSTED_ORIGINS",
+}
+_antigos = [
+    antigo for antigo in nomes_antigos if config(antigo, default=None) is not None
+]
+if _antigos:
+    raise ImproperlyConfigured(
+        "Variáveis com o nome antigo no .env ou no ambiente (BD-05). Renomeie: "
+        + ", ".join(f"{antigo} -> {nomes_antigos[antigo]}" for antigo in _antigos)
+    )
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY")
+SECRET_KEY = config("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG", default=False, cast=bool)
+DEBUG = config("DJANGO_DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config(
-    "ALLOWED_HOSTS",
-    default="",
-    cast=lambda v: [s.strip() for s in v.split(",") if s.strip()],
-)
+
+def config_sem_padrao_em_producao(nome, padrao_em_desenvolvimento, **opcoes):
+    """Lê a variável do .env; em produção (sem DEBUG) ela é obrigatória.
+
+    Mesmo padrão da SECRET_KEY: esquecer a variável no deploy para o servidor
+    na subida (UndefinedValueError), em vez de ele subir com um valor que só
+    serve em desenvolvimento. Com DEBUG, vale o padrão de desenvolvimento.
+    """
+    if DEBUG:
+        return config(nome, default=padrao_em_desenvolvimento, **opcoes)
+    return config(nome, **opcoes)
+
+
+# Em produção, sem a lista o Django responde 400 a todo pedido. Em
+# desenvolvimento, com a lista vazia, ele já aceita localhost e 127.0.0.1.
+ALLOWED_HOSTS = config_sem_padrao_em_producao("DJANGO_ALLOWED_HOSTS", "", cast=lista)
+if not DEBUG and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS está vazio no .env.")
 
 
 # Application definition
@@ -175,22 +215,12 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # As variáveis do .env mantêm os nomes conhecidos (EMAIL_HOST...), mas viram
 # o OPTIONS do mailer "default".
 # Em desenvolvimento (DEBUG=True), o e-mail sai no terminal do runserver. Em
-# produção, vai pelo SMTP do Brevo: o EMAIL_HOST vem do painel do Brevo, e o
-# usuário e a senha ficam só no .env do servidor (BD-05). Nos testes, o
+# produção, vai pelo SMTP do Brevo (smtp-relay.brevo.com; confira no painel),
+# e o usuário e a senha ficam só no .env do servidor (BD-05). Nos testes, o
 # pytest-django troca o backend pelo de memória (django.core.mail.outbox).
-
-
-def config_sem_padrao_em_producao(nome, padrao_em_desenvolvimento):
-    """Lê a variável do .env; em produção (sem DEBUG) ela é obrigatória.
-
-    Mesmo padrão da SECRET_KEY: esquecer a variável no deploy para o servidor
-    na subida (UndefinedValueError), em vez de ele responder 201 e nunca
-    entregar o link. Com DEBUG, vale o padrão de desenvolvimento.
-    """
-    if DEBUG:
-        return config(nome, default=padrao_em_desenvolvimento)
-    return config(nome)
-
+# Os dados do SMTP e o remetente usam o config_sem_padrao_em_producao (lá em
+# cima): sem eles o servidor responderia 201 ao cadastro e nunca entregaria o
+# link. Pelo mesmo motivo, em produção só o SMTP é aceito.
 
 BACKEND_DE_EMAIL_SMTP = "django.core.mail.backends.smtp.EmailBackend"
 BACKEND_DE_EMAIL = config(
@@ -201,6 +231,13 @@ BACKEND_DE_EMAIL = config(
         else BACKEND_DE_EMAIL_SMTP
     ),
 )
+if not DEBUG and BACKEND_DE_EMAIL != BACKEND_DE_EMAIL_SMTP:
+    # Um EMAIL_BACKEND esquecido no .env da VM: o cadastro responderia 201, o
+    # e-mail nunca sairia, e o link de confirmação iria para o log.
+    raise ImproperlyConfigured(
+        f"EMAIL_BACKEND={BACKEND_DE_EMAIL!r} em produção: só o SMTP entrega o "
+        "link de confirmação. Remova a variável do .env."
+    )
 if BACKEND_DE_EMAIL == BACKEND_DE_EMAIL_SMTP:
     OPCOES_DE_EMAIL = {
         "host": config_sem_padrao_em_producao("EMAIL_HOST", "localhost"),
@@ -208,7 +245,10 @@ if BACKEND_DE_EMAIL == BACKEND_DE_EMAIL_SMTP:
         "use_tls": config("EMAIL_USE_TLS", default=True, cast=bool),
         "username": config_sem_padrao_em_producao("EMAIL_HOST_USER", ""),
         "password": config_sem_padrao_em_producao("EMAIL_HOST_PASSWORD", ""),
-        # Sem esse limite, um SMTP travado prende o worker do Gunicorn.
+        # Limite de cada operação no socket (conexão, EHLO, STARTTLS, login,
+        # envio), não do envio inteiro: evita que um SMTP travado prenda o
+        # worker do Gunicorn para sempre, mas não garante ficar abaixo dos 30 s
+        # dele.
         "timeout": 10,
     }
 else:
@@ -221,8 +261,10 @@ MAILERS = {
         "OPTIONS": OPCOES_DE_EMAIL,
     },
 }
-DEFAULT_FROM_EMAIL = config(
-    "DEFAULT_FROM_EMAIL", default="nao-responda@bandejaounb.com.br"
+# Sem padrão em produção: um remetente não verificado no Brevo faz todo envio
+# ser recusado, e o erro só aparece no log.
+DEFAULT_FROM_EMAIL = config_sem_padrao_em_producao(
+    "DEFAULT_FROM_EMAIL", "nao-responda@bandejaounb.com.br"
 )
 
 # Endereço do PWA: o link de confirmação de e-mail aponta para a página
@@ -316,11 +358,7 @@ if ATRAS_DE_PROXY:
 else:
     SECURE_PROXY_SSL_HEADER = None
 
-CSRF_TRUSTED_ORIGINS = config(
-    "CSRF_TRUSTED_ORIGINS",
-    default="",
-    cast=lambda v: [s.strip() for s in v.split(",") if s.strip()],
-)
+CSRF_TRUSTED_ORIGINS = config("DJANGO_CSRF_TRUSTED_ORIGINS", default="", cast=lista)
 
 
 SPECTACULAR_SETTINGS = {
