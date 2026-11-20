@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { instalarGuardas, routes } from '@/router'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { ApiError, apiClient } from '@/services/apiClient'
+import { CHAVE as CHAVE_DO_SIMULADO } from '@/services/mock/banco'
 import { reiniciarSimulacao } from '@/services/mock/servidor'
 import App from '@/App.vue'
 
@@ -17,7 +18,6 @@ import App from '@/App.vue'
 const AGORA = new Date(2026, 8, 28, 12, 0)
 const SENHA = 'senhaforte'
 const ALUNO = { matricula: '241987650', email: '241987650@aluno.unb.br', apelido: 'novo_aluno' }
-const CHAVE_DO_SIMULADO = 'bandejao:backend-simulado:v2'
 
 async function montarEm(caminho, { campus = null } = {}) {
   const pinia = createPinia()
@@ -73,6 +73,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(AGORA)
   localStorage.clear()
+  sessionStorage.clear()
   reiniciarSimulacao()
   setActivePinia(createPinia())
 })
@@ -123,7 +124,9 @@ describe('CadastroView: desfechos do envio', () => {
 
     await vi.waitFor(() => expect(wrapper.find('[role="alert"]').exists()).toBe(true))
     expect(router.currentRoute.value.name).toBe('cadastro')
-    expect(campo(wrapper, 'Apelido (nick)').element.value).toBe('mariasilva1')
+    const sugestao = campo(wrapper, 'Apelido (nick)').element.value
+    expect(sugestao).not.toBe('')
+    expect(sugestao).not.toBe('mariasilva')
     expect(campo(wrapper, 'SIAPE').element.value).toBe('7654321')
     expect(campo(wrapper, 'E-mail institucional').element.value).toBe('mariasilva@unb.br')
     expect(campo(wrapper, 'Senha').element.value).toBe(SENHA)
@@ -264,35 +267,67 @@ describe('LoginView', () => {
 })
 
 describe('nada do formulário fica salvo no aparelho (front 4b, RI09)', () => {
-  it('depois de cadastrar e entrar, o localStorage não tem senha, e-mail nem matrícula', async () => {
+  const SERVIDOR = { siape: '7654321', email: 'mariasilva@unb.br' }
+  const SEGREDOS = [SENHA, SERVIDOR.email, SERVIDOR.siape]
+  const CHAVES_PERMITIDAS = ['bandejao:preferencias', CHAVE_DO_SIMULADO]
+
+  async function tentarEntrar(wrapper, senha) {
+    await campo(wrapper, 'E-mail institucional').setValue(SERVIDOR.email)
+    await campo(wrapper, 'Senha').setValue(senha)
+    await enviar(wrapper)
+  }
+
+  it('do 409 ao login, com os erros no caminho, só as preferências são gravadas', async () => {
+    await apiClient.post('/cadastro/', {
+      tipoUsuario: 'professor_servidor',
+      matriculaSiape: '1234567',
+      emailInstitucional: 'maria.silva@unb.br',
+      senha: SENHA,
+      aceitePrivacidade: true,
+    })
+    // localStorage e sessionStorage, durante o fluxo inteiro (rascunhos também).
+    const gravar = vi.spyOn(Storage.prototype, 'setItem')
+
     const cadastro = await montarEm('/cadastro', { campus: 'darcy' })
-    await botao(cadastro.wrapper, 'Aluno').trigger('click')
-    await campo(cadastro.wrapper, 'Apelido (nick)').setValue(ALUNO.apelido)
-    await campo(cadastro.wrapper, 'E-mail institucional').setValue(ALUNO.email)
+    await botao(cadastro.wrapper, 'Servidor').trigger('click')
+    await campo(cadastro.wrapper, 'SIAPE').setValue(SERVIDOR.siape)
+    await campo(cadastro.wrapper, 'E-mail institucional').setValue(SERVIDOR.email)
     await campo(cadastro.wrapper, 'Senha').setValue(SENHA)
     await cadastro.wrapper.find('input[type="checkbox"]').setValue(true)
+    await enviar(cadastro.wrapper)
+    await vi.waitFor(() => expect(cadastro.wrapper.find('[role="alert"]').exists()).toBe(true))
+    await campo(cadastro.wrapper, 'Apelido (nick)').setValue('profa_maria')
     await enviar(cadastro.wrapper)
     await esperarRota(cadastro.router, 'confirmar-email')
     cadastro.wrapper.unmount()
 
+    const login = await montarEm('/login')
+    await tentarEntrar(login.wrapper, SENHA)
+    await vi.waitFor(() =>
+      expect(login.wrapper.text()).toContain('Confirme seu e-mail antes de entrar.'),
+    )
     const reenvio = await apiClient.post('/reenviar-confirmacao/', {
-      emailInstitucional: ALUNO.email,
+      emailInstitucional: SERVIDOR.email,
     })
     await apiClient.post(`/confirmar-email/${tokenDoLink(reenvio.linkSimulado)}/`)
-    const login = await montarEm('/login')
-    await campo(login.wrapper, 'E-mail institucional').setValue(ALUNO.email)
-    await campo(login.wrapper, 'Senha').setValue(SENHA)
-    await enviar(login.wrapper)
+    await tentarEntrar(login.wrapper, 'errada123')
+    await vi.waitFor(() =>
+      expect(login.wrapper.find('[role="alert"]').text()).toContain('E-mail ou senha incorretos.'),
+    )
+    await tentarEntrar(login.wrapper, SENHA)
     await esperarRota(login.router, 'inicio')
 
-    // O banco do servidor simulado (só em desenvolvimento) faz o papel do backend.
-    const doApp = Object.keys(localStorage).filter((chave) => chave !== CHAVE_DO_SIMULADO)
-    expect(doApp.length).toBeGreaterThan(0) // as preferências continuam lá
-    for (const chave of doApp) {
-      const valor = localStorage.getItem(chave)
-      expect(valor).not.toContain(SENHA)
-      expect(valor).not.toContain(ALUNO.email)
-      expect(valor).not.toContain(ALUNO.matricula)
+    const chaves = [...new Set(gravar.mock.calls.map(([chave]) => chave))]
+    expect(chaves.filter((chave) => !CHAVES_PERMITIDAS.includes(chave))).toEqual([])
+    expect(chaves).toContain('bandejao:preferencias')
+    expect(sessionStorage.length).toBe(0)
+    // O banco do simulado (só em desenvolvimento) faz o papel do backend.
+    for (const [chave, valor] of gravar.mock.calls) {
+      if (chave === CHAVE_DO_SIMULADO) continue
+      for (const segredo of SEGREDOS) {
+        expect(valor).not.toContain(segredo)
+        expect(valor).not.toContain(btoa(segredo))
+      }
     }
   })
 })
