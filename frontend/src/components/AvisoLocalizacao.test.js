@@ -47,7 +47,7 @@ describe('AvisoLocalizacao', () => {
     const wrapper = await montar()
 
     expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('coordenadas não saem do aparelho')
+    expect(wrapper.text()).toContain('as coordenadas não saem do aparelho')
     expect(botao(wrapper, 'Permitir')).toBeDefined()
     expect(botao(wrapper, 'Agora não')).toBeDefined()
     expect(getCurrentPosition).not.toHaveBeenCalled()
@@ -131,7 +131,7 @@ describe('AvisoLocalizacao', () => {
       await flushPromises()
 
       expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
-      expect(wrapper.text()).toContain('A localização está bloqueada')
+      expect(wrapper.text()).toContain('O acesso à localização foi bloqueado')
       expect(wrapper.findAll('ol li').length).toBeGreaterThan(0)
     })
 
@@ -149,7 +149,7 @@ describe('AvisoLocalizacao', () => {
       abrirAvisoLocalizacao()
       await flushPromises()
 
-      expect(wrapper.text()).toContain('A localização está bloqueada')
+      expect(wrapper.text()).toContain('O acesso à localização foi bloqueado')
       expect(botao(wrapper, 'Permitir')).toBeUndefined()
       expect(getCurrentPosition).not.toHaveBeenCalled()
     })

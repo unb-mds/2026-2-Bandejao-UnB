@@ -77,37 +77,24 @@ watch(aberturasDoAvisoLocalizacao, (vezes) => {
 <template>
   <div v-if="etapa" class="fundo" @keydown.esc="etapa !== 'navegador' && fechar()">
     <section
-      class="painel"
+      class="cartao painel"
       role="dialog"
       aria-modal="true"
       aria-labelledby="aviso-localizacao-titulo"
       aria-describedby="aviso-localizacao-texto"
     >
-      <div class="icone-caixa" :class="{ 'icone-caixa--alerta': etapa === 'bloqueado' }">
-        <IconeSvg
-          :nome="etapa === 'bloqueado' ? 'proibido' : 'local'"
-          :tamanho="24"
-          :cor="etapa === 'bloqueado' ? 'var(--alerta-texto)' : 'var(--verde-escuro)'"
-        />
-      </div>
-
       <template v-if="etapa === 'aviso' || etapa === 'navegador'">
+        <div class="icone-caixa">
+          <IconeSvg nome="local" :tamanho="24" cor="#fff" />
+        </div>
         <h2 id="aviso-localizacao-titulo" ref="titulo" tabindex="-1" class="titulo">
           Usar sua localização?
         </h2>
-        <div id="aviso-localizacao-texto" class="texto pilha-3">
-          <p>
-            <strong>Para achar seu campus:</strong> o Bandejão abre direto no RU mais perto. As
-            coordenadas não saem do aparelho.
-          </p>
-          <p>
-            <strong>Para o check-in:</strong> confirma que você está no RU. As coordenadas são
-            conferidas e descartadas na hora.
-          </p>
-          <p class="nota">
-            Sem a localização, o cardápio, as avaliações e a fila continuam abertos.
-          </p>
-        </div>
+        <p id="aviso-localizacao-texto" class="texto">
+          Ela identifica o campus mais próximo e confirma o check-in no RU. Na identificação do
+          campus, as coordenadas não saem do aparelho; no check-in, são descartadas depois da
+          conferência.
+        </p>
 
         <p v-if="etapa === 'navegador'" class="mensagem mensagem--alerta" role="status">
           Agora é com o navegador: responda ao pedido que apareceu na tela.
@@ -120,11 +107,11 @@ watch(aberturasDoAvisoLocalizacao, (vezes) => {
             :disabled="etapa === 'navegador'"
             @click="permitir"
           >
-            Permitir
+            Permitir localização
           </button>
           <button
             type="button"
-            class="botao botao--contorno"
+            class="botao-texto"
             :disabled="etapa === 'navegador'"
             @click="agoraNao"
           >
@@ -134,12 +121,17 @@ watch(aberturasDoAvisoLocalizacao, (vezes) => {
       </template>
 
       <template v-else>
-        <h2 id="aviso-localizacao-titulo" ref="titulo" tabindex="-1" class="titulo">
-          A localização está bloqueada
-        </h2>
-        <p id="aviso-localizacao-texto" class="texto">
-          O navegador não deixa mais o Bandejão perguntar. Para liberar:
-        </p>
+        <div class="alerta">
+          <IconeSvg nome="alerta" :tamanho="20" cor="var(--dourado)" />
+          <div>
+            <h2 id="aviso-localizacao-titulo" ref="titulo" tabindex="-1" class="alerta-titulo">
+              O acesso à localização foi bloqueado
+            </h2>
+            <p id="aviso-localizacao-texto" class="alerta-texto">
+              Libere a localização nas configurações do navegador:
+            </p>
+          </div>
+        </div>
         <ol class="passos">
           <li>
             Toque no ícone ao lado do endereço do site (cadeado ou <em>aA</em>) ou abra as
@@ -152,10 +144,11 @@ watch(aberturasDoAvisoLocalizacao, (vezes) => {
             <strong>Ajustes › Privacidade › Serviços de Localização</strong>.
           </li>
         </ol>
+        <p class="nota">Sem a localização, o cardápio, as avaliações e a fila continuam abertos.</p>
 
         <div class="acoes">
           <button type="button" class="botao botao--primario" @click="jaLiberei">Já liberei</button>
-          <button type="button" class="botao botao--contorno" @click="fechar">Fechar</button>
+          <button type="button" class="botao-texto" @click="fechar">Fechar</button>
         </div>
       </template>
     </section>
@@ -163,37 +156,35 @@ watch(aberturasDoAvisoLocalizacao, (vezes) => {
 </template>
 
 <style scoped>
+/* Visual do protótipo (cartão "Usar sua localização?" da tela de campus). */
 .fundo {
   position: absolute;
   inset: 0;
   z-index: 50;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
   background: rgba(10, 26, 12, 0.55);
 }
 
 .painel {
   width: 100%;
+  max-width: 420px;
   max-height: 100%;
   overflow-y: auto;
-  padding: 28px 20px 24px;
-  border-radius: var(--raio-lg) var(--raio-lg) 0 0;
-  background: var(--cartao);
+  padding: 24px;
   font-family: var(--fonte-texto);
 }
 
 .icone-caixa {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--raio-md);
-  background: var(--bege);
-}
-
-.icone-caixa--alerta {
-  background: var(--alerta-fundo);
+  background: var(--verde-escuro);
 }
 
 .titulo {
@@ -208,21 +199,39 @@ watch(aberturasDoAvisoLocalizacao, (vezes) => {
 .texto {
   margin-top: 12px;
   font-size: 14px;
+  line-height: 1.6;
+  color: var(--texto-suave);
+}
+
+.alerta {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border: 1.5px solid var(--alerta-borda);
+  border-radius: var(--raio-md);
+  background: var(--alerta-fundo);
+}
+
+.alerta :deep(svg) {
+  flex-shrink: 0;
+}
+
+.alerta-titulo {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--texto-escuro);
+  outline: none;
+}
+
+.alerta-texto {
+  margin-top: 4px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--texto-suave);
 }
 
-.texto strong {
-  color: var(--texto-escuro);
-}
-
-.nota {
-  font-size: 12px;
-  color: var(--texto-claro);
-}
-
 .passos {
-  margin-top: 12px;
+  margin-top: 16px;
   padding-left: 20px;
   font-size: 14px;
   line-height: 1.5;
@@ -237,6 +246,12 @@ watch(aberturasDoAvisoLocalizacao, (vezes) => {
   color: var(--texto-escuro);
 }
 
+.nota {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--texto-claro);
+}
+
 .mensagem {
   margin-top: 16px;
 }
@@ -245,6 +260,18 @@ watch(aberturasDoAvisoLocalizacao, (vezes) => {
   margin-top: 24px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+}
+
+.botao-texto {
+  padding: 14px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--texto-suave);
+}
+
+.botao-texto:disabled {
+  color: var(--texto-claro);
 }
 </style>
