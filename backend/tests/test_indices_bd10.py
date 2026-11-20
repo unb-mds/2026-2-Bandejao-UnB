@@ -62,6 +62,9 @@ def _criar_campi():
     return [
         Campus.objects.create(
             nome=f"Campus {n}",
+            # Colunas UNIQUE da BD-16 (ADR 0014): o nome, que já é único, serve.
+            rotulo_pagina_ru=f"Campus {n}",
+            prefixo_arquivo_pdf=f"Campus {n}",
             ru_latitude=Decimal("-15.764203"),
             ru_longitude=Decimal("-47.870251"),
             raio_confirmacao_metros=150,
