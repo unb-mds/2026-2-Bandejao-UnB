@@ -28,6 +28,9 @@ def criar_campus(**ajustes):
         "raio_deteccao_metros": 150,
     }
     dados.update(ajustes)
+    # Colunas UNIQUE da BD-16 (ADR 0014): o nome, que já é único, serve.
+    dados.setdefault("rotulo_pagina_ru", dados["nome"])
+    dados.setdefault("prefixo_arquivo_pdf", dados["nome"])
     return Campus.objects.create(**dados)
 
 

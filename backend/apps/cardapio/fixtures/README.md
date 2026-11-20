@@ -43,6 +43,20 @@ A BE-09 deverá consultar `confirmacao_ativa` antes do cálculo de distância e 
 
 A ativação da FAL depende da identificação do ponto do RU e da definição de um raio adequado, com atualização da fixture.
 
+## Origem do cardápio (BD-16)
+
+`campi.json` traz também o rótulo de cada campus na página de cardápios do RU e o prefixo esperado do nome do PDF (ADR 0014, Anexo A):
+
+| ID | `rotulo_pagina_ru` | `prefixo_arquivo_pdf` |
+|---|---|---|
+| 1 | Darcy Ribeiro | `Darcy-Ribeiro` |
+| 2 | Ceilândia | `Ceilandia` |
+| 3 | Gama | `Gama` |
+| 4 | Planaltina | `Planaltina` |
+| 5 | Fazenda Água Limpa | `Fazenda` |
+
+As duas colunas são únicas. Se o RU renomear um título ou mudar o nome dos arquivos, o ajuste é feito aqui, sem mudar o código do Leitor. Os campos não são publicados na API.
+
 ## Marcadores
 
 `marcadores.json` contém os dez códigos definidos no Nível 4 do banco e utilizados pelo leitor do cardápio.
