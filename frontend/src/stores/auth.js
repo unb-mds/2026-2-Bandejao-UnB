@@ -9,6 +9,9 @@ import { apiClient, definirAoPerderSessao } from '@/services/apiClient'
  * store (o apiClient avisa). Os corpos seguem o contrato OpenAPI v1 (BE-03).
  */
 // O backend responde o reenvio com 200 sem corpo, exista ou não a conta (RF02.2).
+// Quanto a primeira tela espera pelo `GET /sessao/` antes de seguir como visitante.
+const LIMITE_SESSAO_MS = 3000
+
 const MENSAGEM_REENVIO =
   'Se houver um cadastro pendente, enviamos um novo link de confirmação para o e-mail institucional.'
 
@@ -19,11 +22,14 @@ export const useAuthStore = defineStore('auth', () => {
   /** Já perguntou ao servidor se há sessão (`carregarSessao`), deu certo ou não. */
   const sessaoCarregada = ref(false)
   let carregandoSessao = null
+  // Muda a cada login ou logout: uma resposta atrasada do boot não desfaz o que veio depois.
+  let geracao = 0
 
   const estaAutenticado = computed(() => Boolean(usuario.value))
   const apelido = computed(() => usuario.value?.apelido ?? 'Visitante')
 
   function limpar() {
+    geracao++
     usuario.value = null
   }
   definirAoPerderSessao(limpar)
@@ -32,25 +38,38 @@ export const useAuthStore = defineStore('auth', () => {
    * GET /api/sessao/ ao abrir o app: o cookie de sessão sobrevive ao F5, a
    * store não (ADR 0007). Nunca rejeita: sem sessão (401) ou sem conexão, o
    * app abre como visitante. Chamadas ao mesmo tempo esperam o mesmo pedido.
+   *
+   * Espera no máximo 3 s (rede lenta, como o Wi-Fi do RU): depois disso o app
+   * segue como visitante, e se a resposta chegar mais tarde o apelido aparece.
+   * Se o pedido falhar (sem conexão, 500), quem tinha sessão aparece como
+   * visitante até recarregar a página: o guarda não tenta de novo.
    */
   function carregarSessao() {
-    carregandoSessao ??= apiClient
-      .get('/sessao/')
+    if (carregandoSessao) return carregandoSessao
+    const geracaoDoPedido = geracao
+    const pedido = apiClient
+      .get('/sessao/', { avisarSessaoPerdida: false })
       .then((sessao) => {
-        usuario.value = sessao
+        if (geracao === geracaoDoPedido) usuario.value = sessao
       })
       .catch(() => {
-        usuario.value = null
+        if (geracao === geracaoDoPedido) usuario.value = null
       })
-      .finally(() => {
-        sessaoCarregada.value = true
-        carregandoSessao = null
-      })
+    let temporizador
+    const limite = new Promise((resolver) => {
+      temporizador = setTimeout(resolver, LIMITE_SESSAO_MS)
+    })
+    carregandoSessao = Promise.race([pedido, limite]).finally(() => {
+      clearTimeout(temporizador)
+      sessaoCarregada.value = true
+      carregandoSessao = null
+    })
     return carregandoSessao
   }
 
   /** POST /api/sessao/ — matrícula (9 dígitos) ou SIAPE (7) no mesmo campo. */
   async function entrar(matriculaSiape, senha) {
+    geracao++
     usuario.value = await apiClient.post('/sessao/', {
       matriculaSiape: matriculaSiape.trim(),
       senha,

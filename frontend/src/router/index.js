@@ -108,7 +108,8 @@ export const routes = [
 /**
  * Na primeira navegação, pergunta ao servidor se há sessão (GET /api/sessao/):
  * depois de um F5 quem estava logado continua logado (ADR 0007, FE-03).
- * Não bloqueia nenhuma rota: sem sessão, o app abre como visitante (RF05).
+ * Não recusa nenhuma rota (sem sessão, o app abre como visitante, RF05), mas
+ * a primeira tela espera a resposta por no máximo 3 s (`carregarSessao`).
  */
 export async function carregarSessaoAoAbrir() {
   const auth = useAuthStore()

@@ -174,19 +174,23 @@ async function requisitarSimulado(pedido) {
 export function criarApiClient({ simulado = USANDO_SIMULACAO } = {}) {
   const transporte = simulado ? requisitarSimulado : requisitarHttp
 
-  async function requisitar(metodo, caminho, corpo) {
+  /**
+   * `avisarSessaoPerdida: false`: um 401 não limpa o authStore. Serve para o
+   * `GET /sessao/` da abertura do app, em que 401 quer dizer só "visitante".
+   */
+  async function requisitar(metodo, caminho, corpo, { avisarSessaoPerdida = true } = {}) {
     if (METODOS_DE_ESCRITA.has(metodo)) await garantirCookieCsrf(transporte)
     const pedido = { metodo, caminho, corpo, cabecalhos: montarCabecalhos(metodo, corpo) }
     const resposta = await transporte(pedido)
 
     if (resposta.status >= 200 && resposta.status < 300) return resposta.dados ?? null
 
-    if (resposta.status === 401) aoPerderSessao?.()
+    if (resposta.status === 401 && avisarSessaoPerdida) aoPerderSessao?.()
     throw new ApiError(resposta.status, resposta.dados ?? {})
   }
 
   return {
-    get: (caminho) => requisitar('GET', caminho),
+    get: (caminho, opcoes) => requisitar('GET', caminho, undefined, opcoes),
     post: (caminho, corpo) => requisitar('POST', caminho, corpo),
     put: (caminho, corpo) => requisitar('PUT', caminho, corpo),
     patch: (caminho, corpo) => requisitar('PATCH', caminho, corpo),
