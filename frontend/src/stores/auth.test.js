@@ -194,17 +194,32 @@ describe('carregarSessao: a sessão volta ao abrir o app (ADR 0007)', () => {
     })
   })
 
-  it('sem sessão (401), fica como visitante e não rejeita', async () => {
+  it('sem sessão (401), fica como visitante, não rejeita e não avisa no console', async () => {
     const auth = useAuthStore()
+    const aviso = vi.spyOn(console, 'warn')
 
     await expect(auth.carregarSessao()).resolves.toBeUndefined()
 
     expect(auth.sessaoCarregada).toBe(true)
     expect(auth.estaAutenticado).toBe(false)
+    expect(aviso).not.toHaveBeenCalled()
+  })
+
+  it('500 ao abrir: fica como visitante, e o erro vai para o console', async () => {
+    const auth = useAuthStore()
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const falha = new ApiError(500, { codigo: 'erro_interno' })
+    vi.spyOn(apiClient, 'get').mockImplementationOnce(() => Promise.reject(falha))
+
+    await expect(auth.carregarSessao()).resolves.toBeUndefined()
+
+    expect(auth.estaAutenticado).toBe(false)
+    expect(aviso).toHaveBeenCalledWith(expect.any(String), falha)
   })
 
   it('sem conexão, fica como visitante e não rejeita (o app abre do mesmo jeito)', async () => {
     const auth = useAuthStore()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(apiClient, 'get').mockImplementationOnce(() =>
       Promise.reject(new ApiError(0, { codigo: 'sem_conexao' })),
     )
@@ -243,6 +258,37 @@ describe('carregarSessao com a rede lenta (tempo limite de 3 s)', () => {
     vi.setSystemTime(SEGUNDA_MEIO_DIA)
   })
 
+  /** Abre o app com o `GET /sessao/` travado e deixa passar o tempo limite. */
+  async function abrirComRedeTravada() {
+    const travado = pedidoTravado()
+    vi.spyOn(apiClient, 'get').mockImplementationOnce(() => travado.promessa)
+    const auth = useAuthStore()
+    const carregando = auth.carregarSessao()
+    await vi.advanceTimersByTimeAsync(3000)
+    await carregando
+    return { auth, travado }
+  }
+
+  const OUTRA_PESSOA = {
+    apelido: 'outra_pessoa',
+    tipo: 'estudante',
+    avisoPrivacidadePendente: false,
+  }
+
+  it('espera os 3 s inteiros: com 2999 ms a primeira tela ainda não abriu', async () => {
+    vi.spyOn(apiClient, 'get').mockImplementationOnce(() => pedidoTravado().promessa)
+    const auth = useAuthStore()
+    let abriu = false
+    auth.carregarSessao().then(() => (abriu = true))
+
+    await vi.advanceTimersByTimeAsync(2999)
+    expect(abriu).toBe(false)
+    expect(auth.sessaoCarregada).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(abriu).toBe(true)
+  })
+
   it('depois de 3 s sem resposta, o app segue como visitante', async () => {
     vi.spyOn(apiClient, 'get').mockImplementationOnce(() => pedidoTravado().promessa)
     const auth = useAuthStore()
@@ -279,6 +325,40 @@ describe('carregarSessao com a rede lenta (tempo limite de 3 s)', () => {
 
     await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
     travado.rejeitar(new ApiError(401, { codigo: 'nao_autenticado' }))
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(auth.apelido).toBe(CONTA_DEMO.apelido)
+  })
+
+  it('login nesse meio-tempo vale mais que a resposta atrasada com outra pessoa', async () => {
+    const { auth, travado } = await abrirComRedeTravada()
+
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+    travado.resolver(OUTRA_PESSOA)
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(auth.apelido).toBe(CONTA_DEMO.apelido)
+  })
+
+  it('quem saiu nesse meio-tempo continua visitante, mesmo se a resposta trouxer alguém', async () => {
+    const { auth, travado } = await abrirComRedeTravada()
+
+    await auth.sair()
+    travado.resolver(OUTRA_PESSOA)
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(auth.estaAutenticado).toBe(false)
+  })
+
+  it('errar a senha nesse meio-tempo não descarta a sessão que chega atrasada', async () => {
+    const { auth, travado } = await abrirComRedeTravada()
+
+    await expect(auth.entrar(CONTA_DEMO.email, 'errada123')).rejects.toMatchObject({ status: 401 })
+    travado.resolver({
+      apelido: CONTA_DEMO.apelido,
+      tipo: 'estudante',
+      avisoPrivacidadePendente: true,
+    })
     await vi.advanceTimersByTimeAsync(0)
 
     expect(auth.apelido).toBe(CONTA_DEMO.apelido)

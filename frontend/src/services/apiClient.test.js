@@ -297,6 +297,20 @@ describe('401 avisa que a sessão acabou', () => {
     expect(aoPerder).not.toHaveBeenCalled()
   })
 
+  it('o POST também aceita `avisarSessaoPerdida: false` (senha errada no login)', async () => {
+    const aoPerder = vi.fn()
+    definirAoPerderSessao(aoPerder)
+    fetchFalso.mockReturnValueOnce(respostaJson(401, { codigo: 'credenciais_invalidas' }))
+
+    const corpo = { emailInstitucional: '231034567@aluno.unb.br', senha: 'x' }
+    const falha = await cliente
+      .post('/sessao/', corpo, { avisarSessaoPerdida: false })
+      .catch((e) => e)
+
+    expect(falha.status).toBe(401)
+    expect(aoPerder).not.toHaveBeenCalled()
+  })
+
   it('403 de CSRF não desloga ninguém', async () => {
     const aoPerder = vi.fn()
     definirAoPerderSessao(aoPerder)

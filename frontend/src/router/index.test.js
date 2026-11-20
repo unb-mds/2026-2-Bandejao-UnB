@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
-import { routes, exigirCampus, carregarSessaoAoAbrir } from './index'
+import routerDoApp, { routes, instalarGuardas } from './index'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { reiniciarSimulacao } from '@/services/mock/servidor'
 import { CONTA_DEMO } from '@/services/mock/banco'
@@ -19,8 +19,7 @@ async function montarEm(caminho, { campus = null } = {}) {
   if (campus) usePreferenciasStore().escolherCampus(campus)
 
   const router = createRouter({ history: createMemoryHistory(), routes })
-  router.beforeEach(carregarSessaoAoAbrir)
-  router.beforeEach(exigirCampus)
+  instalarGuardas(router)
   router.push(caminho)
   await router.isReady()
   const wrapper = mount(App, { global: { plugins: [pinia, router] }, attachTo: document.body })
@@ -185,6 +184,16 @@ describe('cardápio', () => {
 })
 
 describe('sessão ao abrir o app (FE-03, ADR 0007)', () => {
+  it('o router do app já pergunta pela sessão na primeira navegação', async () => {
+    setActivePinia(createPinia())
+    const espiao = vi.spyOn(apiClient, 'get')
+
+    await routerDoApp.push('/campus')
+
+    expect(espiao).toHaveBeenCalledWith('/sessao/', { avisarSessaoPerdida: false })
+    expect(useAuthStore().sessaoCarregada).toBe(true)
+  })
+
   it('depois de recarregar a página, quem tem sessão continua logado', async () => {
     setActivePinia(createPinia())
     await useAuthStore().entrar(CONTA_DEMO.email, CONTA_DEMO.senha)

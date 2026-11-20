@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { carregarSessaoAoAbrir, exigirCampus, routes } from '@/router'
+import { instalarGuardas, routes } from '@/router'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { ApiError, apiClient } from '@/services/apiClient'
 import { reiniciarSimulacao } from '@/services/mock/servidor'
@@ -25,8 +25,7 @@ async function montarEm(caminho, { campus = null } = {}) {
   if (campus) usePreferenciasStore().escolherCampus(campus)
 
   const router = createRouter({ history: createMemoryHistory(), routes })
-  router.beforeEach(carregarSessaoAoAbrir)
-  router.beforeEach(exigirCampus)
+  instalarGuardas(router)
   router.push(caminho)
   await router.isReady()
   const wrapper = mount(App, { global: { plugins: [pinia, router] }, attachTo: document.body })
