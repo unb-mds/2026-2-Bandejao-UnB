@@ -408,3 +408,4 @@ Conferido na VM depois do primeiro deploy. Os itens do banco, do
 | Porta 3306 pela internet | Recusada (o NSG só libera 22, 80 e 443) |
 | `.env` e `.env.db` | Permissão `600` |
 | Reinício da VM (`sudo reboot`) | Os três serviços voltaram sozinhos (`restart: unless-stopped`), e os dados do banco continuaram |
+| IP real atrás do Caddy (`NUM_PROXIES = 1`) | De uma rede, o 11º pedido de reenvio deu `429`. De outra rede (a própria VM), o pedido seguinte deu `200`: o limite conta cada IP separado |
