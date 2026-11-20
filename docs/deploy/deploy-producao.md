@@ -283,31 +283,42 @@ docker compose up -d --force-recreate --wait db
 docker compose exec db sh /docker-entrypoint-initdb.d/10-usuarios.sh
 ```
 
-### Conexão criptografada
+### Conexão com o banco (TLS)
 
 O item BD-05 do backlog (`docs/requisitos/backlog.md`) pede a conexão com o
-banco criptografada se for viável. A ADR 0008 já considera suficiente que a
-conexão da aplicação não saia da VM (rede interna do Compose) e que a da
-equipe passe pelo SSH, que é criptografado.
+banco criptografada se a hospedagem oferecer (ADR 0008). A ADR 0008 registra
+que a conexão da aplicação com o banco não sai do servidor, que a porta do
+banco não é exposta à internet e que o acesso da equipe é feito por túnel SSH,
+que é criptografado.
 
-**Em uso hoje: a conexão do backend com o MySQL não usa TLS.** Conferido na VM
-em 20/11/2026: o `Ssl_cipher` da conexão do backend veio vazio. O MySQL 8.4
-gera um certificado próprio na primeira subida, mas, com a configuração atual,
-o cliente do container (MariaDB Connector/C) não negocia TLS. Isso é aceito
-pela ADR 0008: o tráfego entre o backend e o banco fica na rede interna do
-Compose, dentro da VM, e a porta do banco não é publicada.
+**Situação conferida na VM em 19/11/2026: a conexão do backend com o MySQL não
+usava TLS** (o `Ssl_cipher` da conexão do backend veio vazio). O MySQL 8.4 gera
+um certificado próprio na primeira subida, mas o backend não pede TLS: o
+`OPTIONS` do banco em `settings.py` não tem `ssl`/`ssl_mode`, e a biblioteca
+cliente da imagem do backend (`libmariadb3`, usada pelo `mysqlclient`) conectou
+sem TLS. Isso fica dentro do que a ADR 0008 considera suficiente: o tráfego
+entre o backend e o banco fica na rede interna do Compose, dentro da VM, e a
+porta do banco não é publicada (o serviço `db` do `docker-compose.yml` não tem
+`ports`).
 
-A exigência de TLS (`REQUIRE SSL` no usuário) não foi ligada: o certificado é
-autoassinado, e o cliente do container pode recusá-lo, o que derrubaria o
-backend. Ligar o TLS seria uma decisão nova (com uma ADR), e não um ajuste do
-guia. Para conferir de novo a conexão do backend:
+A exigência de TLS (`REQUIRE SSL` no usuário) não foi ligada. Com o backend sem
+pedir TLS, o servidor recusaria a conexão e derrubaria o backend. Ligar o TLS
+exige configurar `ssl` no `OPTIONS`, decidir como tratar o certificado
+autoassinado do MySQL e só então pôr `REQUIRE SSL` no usuário; seria uma
+decisão nova (com uma ADR), e não um ajuste do guia.
+
+A `libmariadb3` não tem versão fixa no `backend/Dockerfile` (vem do Debian da
+imagem `python:3.14-slim`), então um rebuild pode mudar o comportamento.
+Confira de novo depois de reconstruir a imagem do backend:
 
 ```bash
-docker compose exec backend python manage.py shell -c "from django.db import connection; c = connection.cursor(); c.execute(\"SHOW SESSION STATUS LIKE 'Ssl_cipher'\"); print(c.fetchone())"
+docker compose exec backend python manage.py shell --no-imports -c "from django.db import connection; c = connection.cursor(); c.execute(\"SHOW SESSION STATUS LIKE 'Ssl_cipher'\"); print(c.fetchone())"
 ```
 
-Um nome de cifra (como `TLS_AES_256_GCM_SHA384`) indica conexão cifrada; um
-valor vazio (`('Ssl_cipher', '')`, o resultado atual) indica conexão sem TLS.
+O `--no-imports` evita a linha de importações automáticas do `shell` do
+Django; sem ele, a tupla é a última linha da saída. Um nome de cifra (como
+`TLS_AES_256_GCM_SHA384`) indica conexão cifrada; um valor vazio
+(`('Ssl_cipher', '')`, o resultado de 19/11/2026) indica conexão sem TLS.
 
 ## E-mail (Brevo)
 
