@@ -39,8 +39,9 @@ python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 
 # 3 workers: a regra do Gunicorn é 2 x CPUs + 1, e a VM (B2as_v2) tem 2 vCPUs,
-# mas parte da CPU fica com o MySQL e o Caddy. O timeout de 30 s fica acima
-# do timeout de 10 s do SMTP (settings.py).
+# mas parte da CPU fica com o MySQL e o Caddy. O timeout de 10 s do SMTP
+# (settings.py) vale por operação no socket, e não pelo envio inteiro: um SMTP
+# lento em várias etapas ainda pode passar dos 30 s.
 exec gunicorn config.wsgi:application \
     --bind 0.0.0.0:8000 \
     --workers 3 \
