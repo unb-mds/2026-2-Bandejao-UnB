@@ -49,11 +49,11 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 - ADR 0001 — Escolha da stack de backend (`docs/arquitetura/adr/0001-escolha-stack-backend.md`).
 - ADR 0002 — Matrícula e apelido extraídos do e-mail institucional (`docs/arquitetura/adr/0002-matricula-apelido-extraidos-do-email.md`).
 - ADR 0007 — Sessão autenticada por cookie HttpOnly (`docs/arquitetura/adr/0007-sessao-autenticada-por-cookie-httponly.md`).
-- ADR 0016 — Login com e-mail institucional e senha (`docs/arquitetura/adr/0016-login-com-email-institucional.md`).
 - ADR 0009 — Detecção de campus feita no aparelho (`docs/arquitetura/adr/0009-deteccao-de-campus-no-aparelho.md`).
 - ADR 0010 — Nível de fila calculado por chegadas, com espera estimada por saída da fila (`docs/arquitetura/adr/0010-nivel-por-chegadas-com-espera-estimada.md`).
 - ADR 0011 — Contadores de gamificação mantidos além da janela de retenção (`docs/arquitetura/adr/0011-contadores-de-gamificacao-alem-da-janela-de-retencao.md`).
 - ADR 0014 — Descoberta do PDF de cada campus na página de cardápios do RU (`docs/arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md`).
+- ADR 0016 — Login com e-mail institucional e senha (`docs/arquitetura/adr/0016-login-com-email-institucional.md`).
 - Restaurante Universitário da UnB. *Cardápio refeitório* (página em que o RU publica o PDF semanal de cada campus). Disponível em: https://ru.unb.br/cardapio-refeitorio/.
 
 ### 1.5 Termos
@@ -153,7 +153,7 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 **Descrição:** O sistema deve permitir que o usuário com conta confirmada se autentique com o e-mail institucional e a senha. No MVP, o login usava a matrícula/SIAPE; a Release 2 passou a usar o e-mail (ADR 0016).
 **Release:** MVP · **Prioridade:** Essencial
 
-**RF03.1 — Login com e-mail institucional.** O sistema deve aceitar, no mesmo campo, o e-mail institucional de Estudante (`@aluno.unb.br`) ou de Professor/Servidor (`@unb.br`), sem revelar se a conta existe. O login confere só o domínio (ADR 0002, ADR 0016): o formato da matrícula é conferido no cadastro (RF01.2), e um e-mail no domínio certo com matrícula inválida recebe a mesma mensagem genérica de credenciais incorretas.
+**RF03.1 — Login com e-mail institucional.** *(Release 2 · Importante; no MVP, o login era pela matrícula/SIAPE, RN01)* O sistema deve aceitar, no mesmo campo, o e-mail institucional de Estudante (`@aluno.unb.br`) ou de Professor/Servidor (`@unb.br`), sem revelar se a conta existe. O login confere só o domínio (ADR 0002, ADR 0016): o formato da matrícula é conferido no cadastro (RF01.2), e um e-mail no domínio certo com matrícula inválida recebe a mesma mensagem genérica de credenciais incorretas.
 - Dado credenciais corretas de conta confirmada, quando entro, então a sessão é iniciada e sou levado à página inicial.
 - Dado o e-mail `251098732@aluno.unb.br` ou `maria.silva@unb.br` de uma conta confirmada e a senha correta, quando entro, então a sessão é iniciada.
 - Dado o e-mail com letras maiúsculas ou espaços nas pontas (ex.: ` Maria.Silva@UNB.br `), quando entro, então entro na mesma conta.
@@ -176,7 +176,7 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 **Descrição:** O sistema deve permitir que um usuário que perdeu a senha defina uma nova, por meio de um link enviado ao e-mail cadastrado. Sem acesso a esse e-mail, não há recuperação de senha no MVP (L07).
 **Release:** MVP · **Prioridade:** Essencial
 
-**RF04.1 — Solicitar redefinição.** O sistema deve enviar o link de redefinição ao e-mail institucional informado, se houver conta com ele, sem revelar se a conta existe, e limitar as solicitações (Anexo A).
+**RF04.1 — Solicitar redefinição.** *(Release 2 · Importante; no MVP, a conta era identificada pela matrícula/SIAPE)* O sistema deve enviar o link de redefinição ao e-mail institucional informado, se houver conta com ele, sem revelar se a conta existe, e limitar as solicitações (Anexo A).
 - Dado que informo um e-mail institucional, quando peço a redefinição, então a resposta é sempre "se houver conta, enviaremos o e-mail", exista ou não a conta.
 - Dado 3 solicitações na última hora para o mesmo e-mail, quando peço a 4ª, então nenhum e-mail é enviado.
 
@@ -735,8 +735,8 @@ Necessidades das partes interessadas conforme o Documento de Visão. A origem de
 |---|---|---|---|---|
 | RF01 | RF01.1 a RF01.5 | Login | Pré-requisito de avaliação — "Saber a qualidade da comida antes de decidir comer no RU"; decisão de projeto | MVP |
 | RF02 | RF02.1 a RF02.3 | Login | Decisão de projeto (se o e-mail estiver errado, a pessoa perde o único canal de recuperação de senha); pré-requisito de avaliação | MVP |
-| RF03 | RF03.1 a RF03.4 | Login | Pré-requisito de avaliação e, na Release 2, de check-in; decisão de projeto. RF03.3: decisão de projeto (sair da conta, sobretudo em aparelho compartilhado). RF03.4: decisão de projeto (consequência do RF20) | MVP; RF03.3 e RF03.4 na Release 2 |
-| RF04 | RF04.1, RF04.2 | Login | Decisão de projeto (canal de recuperação de senha); pré-requisito de avaliação | MVP |
+| RF03 | RF03.1 a RF03.4 | Login | Pré-requisito de avaliação e, na Release 2, de check-in; decisão de projeto. RF03.3: decisão de projeto (sair da conta, sobretudo em aparelho compartilhado). RF03.4: decisão de projeto (consequência do RF20) | MVP; RF03.1 com o e-mail institucional, RF03.3 e RF03.4 na Release 2 |
+| RF04 | RF04.1, RF04.2 | Login | Decisão de projeto (canal de recuperação de senha); pré-requisito de avaliação | MVP; RF04.1 com o e-mail institucional na Release 2 |
 | RF05 | — | Login / Transversal | "Planejar a refeição com informação antecipada" (perspectiva do produto: sistema como "porta") | MVP |
 | RF06 | RF06.1 a RF06.5 | Cardápio | "Planejar a refeição com informação antecipada"; decisão de projeto (leitura dos marcadores e das dietas) | MVP |
 | RF07 | RF07.1 a RF07.3 | Cardápio | "Planejar a refeição com informação antecipada"; decisão de projeto (visualização refinada já no MVP; ampliação na Release 2 pelas RN04 e RN05, conforme feedback da orientadora) | MVP |
@@ -772,8 +772,8 @@ Necessidades das partes interessadas conforme o Documento de Visão. A origem de
 
 | Release | Requisitos Funcionais |
 |---|---|
-| **MVP** (entregue) | RF01, RF02, RF03 (RF03.1 e RF03.2), RF04, RF05, RF06, RF07, RF08, RF09, RF15, RF17 |
-| **Release 2** (entrega final) | RF11, RF12, RF13, RF16, RF18, RF19, RF20, RF21, RF22, RF24, RF25, RF26, RF27, RF33; RF03.3 e RF03.4; ampliações de comportamentos do MVP nas RN04 e RN05 (RF07) e no RNF03 |
+| **MVP** (entregue) | RF01, RF02, RF03 (RF03.1, com a matrícula/SIAPE, e RF03.2), RF04, RF05, RF06, RF07, RF08, RF09, RF15, RF17 |
+| **Release 2** (entrega final) | RF11, RF12, RF13, RF16, RF18, RF19, RF20, RF21, RF22, RF24, RF25, RF26, RF27, RF33; RF03.3 e RF03.4; troca do login (RF03.1) e da recuperação de senha (RF04.1) para o e-mail institucional (ADR 0016); ampliações de comportamentos do MVP nas RN04 e RN05 (RF07) e no RNF03 |
 | **Backlog** | RF10, RF14, RF23, RF28, RF29, RF30, RF31, RF32 |
 
 Todos os requisitos não funcionais (RNF01–RNF09) e todos os requisitos inversos (RI01–RI12) aplicam-se transversalmente a partir do MVP, ainda que alguns (ex.: RNF06 quanto a detecção, check-in e previsão; RNF03 e RNF07 quanto às regras de localização e retenção; RI03, RI05, RI09, RI11, RI12 e o RNF09) só se manifestem completamente a partir da entrada em vigor das funcionalidades de fila na Release 2.
@@ -844,6 +844,7 @@ Regras citadas pelos requisitos funcionais. Onde há uma versão do MVP e outra 
 - **Seis dígitos finais:** são rejeitados se formarem uma sequência inteira crescente (`123456`), uma sequência inteira decrescente (`654321`) ou se todos forem iguais (`111111`).
 - **Professor/Servidor:** SIAPE/matrícula funcional com exatamente 7 dígitos numéricos.
 - **Outros formatos**, inclusive com pontuação, são rejeitados com mensagem específica.
+- **No login (RF03.1), só no MVP:** 9 dígitos indicavam matrícula e 7 indicavam SIAPE, e um identificador com outra quantidade de dígitos era rejeitado antes de consultar a base. Na Release 2, o login usa o e-mail institucional e não depende do tamanho (ADR 0016).
 - O sistema confere apenas o formato (L01).
 
 #### RN02 — Apelido

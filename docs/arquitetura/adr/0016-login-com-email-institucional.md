@@ -1,6 +1,6 @@
 # ADR 0016 — Login com e-mail institucional e senha
 
-**Status:** Proposta (2026-11-19; passa a Aceita na revisão do PR da DOC-12, #202)
+**Status:** Aceita (2026-11-20, na revisão do PR #208, DOC-12, issue #202)
 **Data:** 2026-11-19
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 

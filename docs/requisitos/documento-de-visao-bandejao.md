@@ -311,7 +311,7 @@ A alocação de cada recurso é indicada abaixo (MVP, Release 2 ou Backlog); imp
 
 ### Épico 1 — Login
 
-- **5.1** Cadastro em duas etapas — escolha do tipo de usuário (Estudante, Professor ou Servidor) e, em seguida, os campos daquele tipo — com validação de formato de matrícula (estudantes, extraída do e-mail institucional) ou SIAPE/matrícula funcional (professores e servidores), apelido manual (estudantes) ou extraído do e-mail institucional (professores e servidores), confirmação de e-mail e login com e-mail institucional e senha; inclui aviso de privacidade (RF01 a RF03, exceto RF03.3 e RF03.4) — MVP (na Release 2, o login passou a usar o e-mail institucional no lugar da matrícula/SIAPE, ADR 0016)
+- **5.1** Cadastro em duas etapas — escolha do tipo de usuário (Estudante, Professor ou Servidor) e, em seguida, os campos daquele tipo — com validação de formato de matrícula (estudantes, extraída do e-mail institucional) ou SIAPE/matrícula funcional (professores e servidores), apelido manual (estudantes) ou extraído do e-mail institucional (professores e servidores), confirmação de e-mail e login com matrícula/SIAPE e senha; inclui aviso de privacidade (RF01 a RF03, exceto RF03.3 e RF03.4) — MVP (na Release 2, o login passou a usar o e-mail institucional e a senha no lugar da matrícula/SIAPE, RF03.1, ADR 0016)
 - **5.1.1** Encerramento de sessão (sair da conta) (RF03.3) — Release 2
 - **5.2** Recuperação de senha por e-mail (RF04) — MVP
 - **5.3** Navegação sem login: consulta ao cardápio sem necessidade de cadastro (RF05) — MVP

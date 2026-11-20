@@ -256,7 +256,7 @@ Também ficam para o kickoff as decisões D1 a D5 do documento de prioridades. O
 | **DOC-09** | Merge da documentação na `develop` (que está em 29/09) e depois `develop` → `main` | Ter 24/11 |
 | **DOC-10** | Aceitar a ADR 0013 e o Plano de Testes (metas do plano de ensino no RNF06, para back e front) e avisar as frentes da mudança na Definition of Done | Sex 06/11 |
 | **DOC-11** | ~~Revisar a ADR 0012 e os documentos que citavam a Hostinger para a Azure for Students~~ **Concluído em 06/11**: ADR 0012, ADRs 0003, 0004, 0007 e 0008, C4 Níveis 1 e 2, Visão (4.3, 4.4 com os cuidados com a Azure, 6 e 9.2) e BD-05. Menu e README também ganharam as ADRs 0009 a 0013, o Nível 4 da Gamificação e os links corretos do banco (parte do DOC-04) | Sex 06/11 |
-| **DOC-12** | Documentar o **login com e-mail institucional e senha** (#202): ADR 0016; notas nas ADRs 0002, 0007 e 0008; RF02.2, RF03, RF04.1, RN01 e Anexo A; glossários; aviso de privacidade; Visão 5.1; Cadastro N4 (4b, 4c, 4d); dicionário do banco; C4 do front (`LoginView`, `authStore`) | Dom 22/11 |
+| **DOC-12** | Documentar o **login com e-mail institucional e senha** (#202): ADR 0016; notas nas ADRs 0002, 0007 e 0008; RF02.2, RF03 (RF03.1 e RF03.2), RF04.1, RN01, L16 e Anexo A; glossários; aviso de privacidade; Visão 5.1; Cadastro N4 (4a, 4b, 4c, 4d); dicionário do banco; C4 do front (`LoginView`, `authStore`) | Dom 22/11 |
 
 ---
 
