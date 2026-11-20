@@ -13,12 +13,15 @@
  *
  * Nos pontos em que o sistema real enviaria um e-mail, a resposta traz o
  * campo extra `linkSimulado` (fora do contrato), que a interface mostra
- * apenas em modo de simulação. Recuperação de senha, cardápio e avaliações
+ * apenas em modo de simulação. O aviso de privacidade e o check-in seguem o
+ * contrato da BE-09; como o raio do RU não é publicado, o simulado confirma
+ * toda localização, a não ser que `simulacao.definirLocalizacaoConfirmada(false)`.
+ * Recuperação de senha, cardápio e avaliações
  * ainda têm o formato do MVP: entram no contrato nas tarefas FE-08, FE-09 e
  * FE-E2.
  */
-import { campusValido } from '@/constants/campi'
-import { REFEICOES, horaInicio } from '@/constants/refeicoes'
+import { buscarCampusPorIdApi, campusValido } from '@/constants/campi'
+import { REFEICOES, horaInicio, mensagemForaDoHorario } from '@/constants/refeicoes'
 import { hojeISO, minutosAgora, minutosDoDia } from '@/utils/datas'
 import { banco, resumoSenha } from './banco'
 import { montarCardapioSemana, refeicaoExiste } from './cardapios'
@@ -55,6 +58,9 @@ const bloqueiosLogin = new Map() // e-mail → instante de fim do bloqueio
 const pedidosRecuperacao = new Map() // e-mail → [instantes]
 const pedidosPorRota = new Map() // rota com limite → [instantes]
 const reenviosPorConta = new Map() // id do usuário → [instantes]
+
+/** Se o check-in simulado confirma a localização (o raio real fica só no backend). */
+let localizacaoConfirmada = true
 
 /** "Cookie HttpOnly" sessionid deste navegador: o JavaScript da página não o lê. */
 let cookieSessao = null
@@ -542,6 +548,81 @@ function gravarCsrfSeFaltar() {
 }
 
 // Terceiro item: nome do limite por IP da rota (LIMITES_POR_IP), se houver.
+// ─── Aviso de privacidade e check-in (BE-09) ─────────────────────────────────
+
+/** POST /privacidade/aceite/: sem corpo, 204 (RF11, RNF07.1). */
+function registrarAceitePrivacidade(agora) {
+  const usuario = usuarioDaSessao()
+  if (!usuario) return naoAutenticado()
+  usuario.aceitouAvisoAtualizado = true
+  usuario.aceiteAvisoEm = agora.toISOString()
+  banco.salvar()
+  return { status: 204, dados: null }
+}
+
+const numeroNaFaixa = (valor, limite) =>
+  typeof valor === 'number' && Number.isFinite(valor) && Math.abs(valor) <= limite
+
+function corpoCheckinValido({ campus, tipoRefeicao, coordenadas }) {
+  return (
+    Number.isInteger(campus) &&
+    Boolean(buscarCampusPorIdApi(campus)) &&
+    Object.hasOwn(REFEICOES, tipoRefeicao ?? '') &&
+    numeroNaFaixa(coordenadas?.latitude, 90) &&
+    numeroNaFaixa(coordenadas?.longitude, 180)
+  )
+}
+
+/**
+ * POST /checkins/ na ordem do backend (Fila N4): sessão, formato, aviso de
+ * privacidade, horário, duplicidade e distância. As coordenadas não são
+ * gravadas (RI09): o registro só tem conta, campus, refeição e data.
+ */
+function registrarCheckin(corpo, agora) {
+  const usuario = usuarioDaSessao()
+  if (!usuario) return naoAutenticado()
+  if (!corpoCheckinValido(corpo)) {
+    return erro(400, 'dados_invalidos', 'Não foi possível registrar o check-in.')
+  }
+  if (!usuario.aceitouAvisoAtualizado) {
+    return erro(
+      403,
+      'aviso_privacidade_pendente',
+      'Dê ciência ao aviso de privacidade atualizado antes do check-in.',
+    )
+  }
+
+  const { campus, tipoRefeicao } = corpo
+  const { inicio, fim } = REFEICOES[tipoRefeicao]
+  const minutos = minutosAgora(agora)
+  if (minutos < minutosDoDia(inicio) || minutos > minutosDoDia(fim)) {
+    return erro(422, 'fora_do_horario', mensagemForaDoHorario(tipoRefeicao))
+  }
+
+  const data = hojeISO(agora)
+  const { estado } = banco
+  estado.checkins ??= []
+  const repetido = estado.checkins.some(
+    (c) => c.usuarioId === usuario.id && c.tipoRefeicao === tipoRefeicao && c.data === data,
+  )
+  if (repetido) {
+    return erro(422, 'checkin_duplicado', 'Você já fez check-in nesta refeição hoje.')
+  }
+  if (!localizacaoConfirmada) {
+    return erro(
+      422,
+      'localizacao_nao_confirmada',
+      'Não foi possível confirmar que você está no RU.',
+    )
+  }
+
+  const checkin = { id: estado.proximoId++, campus, tipoRefeicao, data }
+  estado.checkins.push({ ...checkin, usuarioId: usuario.id })
+  banco.salvar()
+  // Até a BE-14 o bloco `pontos` volta zerado.
+  return ok({ checkin, pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 } }, 201)
+}
+
 const ROTAS = [
   ['GET', /^\/csrf\/$/, () => gravarCsrfSeFaltar()],
   ['POST', /^\/cadastro\/$/, ({ corpo, agora }) => cadastrar(corpo, agora), 'cadastro'],
@@ -565,6 +646,8 @@ const ROTAS = [
   ['GET', /^\/avaliacoes\/resumo\/$/, ({ parametros, agora }) => resumoSemana(parametros, agora)],
   ['GET', /^\/avaliacoes\/$/, ({ parametros, agora }) => listarAvaliacoes(parametros, agora)],
   ['POST', /^\/avaliacoes\/$/, ({ corpo, agora }) => avaliar(corpo, agora)],
+  ['POST', /^\/privacidade\/aceite\/$/, ({ agora }) => registrarAceitePrivacidade(agora)],
+  ['POST', /^\/checkins\/$/, ({ corpo, agora }) => registrarCheckin(corpo, agora)],
 ]
 
 const ATRASO_MS = import.meta.env.MODE === 'test' ? 0 : 250
@@ -609,6 +692,10 @@ export const simulacao = {
   expirarSessao() {
     sessoes.clear()
   },
+  /** `false`: o check-in recebe 422 `localizacao_nao_confirmada` (fora do raio do RU). */
+  definirLocalizacaoConfirmada(confirmada) {
+    localizacaoConfirmada = confirmada
+  },
 }
 
 /** Volta ao estado inicial: banco, sessões, cookies e contadores de tentativas. */
@@ -620,6 +707,7 @@ export function reiniciarSimulacao() {
   pedidosRecuperacao.clear()
   pedidosPorRota.clear()
   reenviosPorConta.clear()
+  localizacaoConfirmada = true
   cookieSessao = null
   if (typeof document !== 'undefined') {
     document.cookie = 'csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'

@@ -1,15 +1,23 @@
 <script setup>
 import { usePreferenciasStore } from '@/stores/preferencias'
+import { ORDEM_REFEICOES, REFEICOES } from '@/constants/refeicoes'
+import { refeicaoPadrao } from '@/utils/cardapio'
 import BotaoVoltar from '@/components/BotaoVoltar.vue'
+import CheckinBotao from '@/components/CheckinBotao.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
 import NavegacaoInferior from '@/components/NavegacaoInferior.vue'
 
 /**
- * Fila do RU — previsão de pico e check-in (RF11–RF13) são da Release 2.
- * No MVP a tela existe para manter a navegação do protótipo e avisa que a
- * funcionalidade está a caminho.
+ * Fila do RU. O check-in (RF11, RF12, FE-05) já funciona; a previsão de
+ * pico (RF13) chega com a FE-06.
+ * TODO(FE-07): o CheckinBotao vai para a seção Fila da CampusView, que usa
+ * a refeição selecionada e o `refeicaoEncerrada` do cardápio (RN05).
  */
 const preferencias = usePreferenciasStore()
+
+// A refeição em andamento ou a próxima do dia; depois do jantar, o jantar
+// (o backend responde fora_do_horario com a janela).
+const refeicaoDoCheckin = refeicaoPadrao(ORDEM_REFEICOES)
 
 const NIVEIS = [
   { id: 'vazia', rotulo: 'Vazia' },
@@ -39,6 +47,13 @@ const NIVEIS = [
           vazia ou longa — e ajudar a previsão fazendo check-in quando estiver no restaurante.
         </p>
       </div>
+
+      <section v-if="preferencias.campusId" class="pilha-3" aria-labelledby="titulo-checkin">
+        <p id="titulo-checkin" class="titulo-secao pequeno">
+          Check-in · {{ REFEICOES[refeicaoDoCheckin].rotulo }}
+        </p>
+        <CheckinBotao :campus-id="preferencias.campusId" :tipo-refeicao="refeicaoDoCheckin" />
+      </section>
 
       <div class="escala" aria-hidden="true">
         <div v-for="nivel in NIVEIS" :key="nivel.id" class="nivel">
