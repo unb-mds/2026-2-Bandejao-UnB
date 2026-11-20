@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { routes } from '@/router'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { reiniciarSimulacao } from '@/services/mock/servidor'
 import { CANAL_CONTATO } from '@/constants/contato'
-import { ITENS_NAVEGACAO } from '@/constants/navegacao'
+import { ITENS_NAVEGACAO, ITENS_NAVEGACAO_TOPO, itemAtivo } from '@/constants/navegacao'
 import App from '@/App.vue'
 import NavegacaoInferior from './NavegacaoInferior.vue'
 import NavegacaoTopo from './NavegacaoTopo.vue'
@@ -40,17 +40,55 @@ beforeEach(() => {
   reiniciarSimulacao()
 })
 
+enableAutoUnmount(afterEach)
+
 afterEach(() => {
   document.body.innerHTML = ''
 })
 
+const item = (rotulo) => ITENS_NAVEGACAO.find((i) => i.rotulo === rotulo)
+
+describe('itemAtivo', () => {
+  it.each([
+    ['Cardápio', 'cardapio', true],
+    ['Cardápio', 'cardapio-campus', true],
+    ['Fila', 'fila', true],
+    ['Fila', 'filas-historico', false],
+    ['Avaliações', 'avaliacoes', true],
+    ['Cardápio', 'fila', false],
+    ['Cardápio', undefined, false],
+    ['Cardápio', null, false],
+    ['Início', 'inicio', false],
+    ['Perfil', 'inicio', false],
+  ])('%s na rota %s: %s', (rotulo, rota, esperado) => {
+    expect(itemAtivo(item(rotulo), rota)).toBe(esperado)
+  })
+
+  it('com marcarInicio (barra do topo), só a Início acende na /inicio', () => {
+    expect(itemAtivo(item('Início'), 'inicio', { marcarInicio: true })).toBe(true)
+    expect(itemAtivo(item('Início'), 'fila', { marcarInicio: true })).toBe(false)
+    expect(itemAtivo(item('Perfil'), 'inicio', { marcarInicio: true })).toBe(false)
+  })
+})
+
 describe('NavegacaoTopo e NavegacaoInferior', () => {
-  it('as duas levam aos mesmos destinos, na mesma ordem', async () => {
+  it('as duas levam aos mesmos destinos, na mesma ordem (o topo não repete o Perfil)', async () => {
     const { wrapper: topo } = await montar(NavegacaoTopo)
     const { wrapper: inferior } = await montar(NavegacaoInferior)
 
-    expect(destinos(topo)).toEqual(destinos(inferior))
-    expect(destinos(topo).map((d) => d.rotulo)).toEqual(ITENS_NAVEGACAO.map((i) => i.rotulo))
+    const semPerfil = destinos(inferior).filter((d) => d.rotulo !== 'Perfil')
+    expect(destinos(topo)).toEqual(semPerfil)
+    expect(destinos(topo).map((d) => d.rotulo)).toEqual(ITENS_NAVEGACAO_TOPO.map((i) => i.rotulo))
+    expect(new Set(destinos(topo).map((d) => d.href)).size).toBe(destinos(topo).length)
+  })
+
+  it('na /inicio, a do topo marca "Início" como página atual', async () => {
+    const { wrapper } = await montar(NavegacaoTopo, '/inicio')
+
+    const atuais = wrapper.findAll('[aria-current="page"]')
+
+    expect(atuais).toHaveLength(1)
+    expect(atuais[0].text()).toBe('Início')
   })
 
   it('a do topo tem o canal de contato (RNF08), abrindo em outra aba com segurança', async () => {
@@ -61,6 +99,7 @@ describe('NavegacaoTopo e NavegacaoInferior', () => {
     expect(contato.exists()).toBe(true)
     expect(contato.attributes('target')).toBe('_blank')
     expect(contato.attributes('rel')).toContain('noopener')
+    expect(contato.text()).toContain('(abre em nova aba)')
   })
 
   it.each([
@@ -116,11 +155,25 @@ describe('App: navegação do topo', () => {
     expect(wrapper.findComponent(NavegacaoTopo).exists()).toBe(false)
   })
 
-  it('não usa <header>: cada tela fica com um só landmark "banner"', async () => {
-    const { wrapper } = await montar(NavegacaoTopo)
+  it('aparece quando a primeira rota é resolvida', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    usePreferenciasStore().escolherCampus('darcy')
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    const wrapper = mount(App, { global: { plugins: [pinia, router] } })
+    expect(wrapper.findComponent(NavegacaoTopo).exists()).toBe(false)
 
-    expect(wrapper.find('header').exists()).toBe(false)
-    expect(wrapper.find('nav[aria-label="Navegação principal"]').exists()).toBe(true)
+    await router.push('/fila')
+    await flushPromises()
+
+    expect(wrapper.findComponent(NavegacaoTopo).exists()).toBe(true)
+  })
+
+  it('com a barra do topo, a tela continua com um só landmark "banner"', async () => {
+    const { wrapper } = await montar(App, '/fila')
+
+    expect(wrapper.findComponent(NavegacaoTopo).exists()).toBe(true)
+    expect(wrapper.findAll('header')).toHaveLength(1)
   })
 
   it('não aparece na boas-vindas (primeira visita, antes de escolher o campus)', async () => {
