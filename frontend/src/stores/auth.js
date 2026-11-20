@@ -5,13 +5,15 @@ import { ApiError, apiClient, definirAoPerderSessao } from '@/services/apiClient
 /**
  * Sessão do usuário (RF01–RF04). Sem token (ADR 0007): a sessão fica no
  * cookie HttpOnly e a store guarda só o que `/api/sessao/` devolve —
- * apelido, tipo e avisoPrivacidadePendente. Um 401 em qualquer rota limpa a
- * store (o apiClient avisa). Os corpos seguem o contrato OpenAPI v1 (BE-03).
+ * apelido, tipo e avisoPrivacidadePendente. Um 401 limpa a store (o apiClient
+ * avisa), menos no `GET /sessao/` da abertura do app e no login, em que 401
+ * quer dizer visitante ou senha errada. Os corpos seguem o contrato OpenAPI v1
+ * (BE-03).
  */
-// O backend responde o reenvio com 200 sem corpo, exista ou não a conta (RF02.2).
 // Quanto a primeira tela espera pelo `GET /sessao/` antes de seguir como visitante.
 const LIMITE_SESSAO_MS = 3000
 
+// O backend responde o reenvio com 200 sem corpo, exista ou não a conta (RF02.2).
 const MENSAGEM_REENVIO =
   'Se houver um cadastro pendente, enviamos um novo link de confirmação para o e-mail institucional.'
 
@@ -22,7 +24,8 @@ export const useAuthStore = defineStore('auth', () => {
   /** Já perguntou ao servidor se há sessão (`carregarSessao`), deu certo ou não. */
   const sessaoCarregada = ref(false)
   let carregandoSessao = null
-  // Muda a cada login ou logout: uma resposta atrasada do boot não desfaz o que veio depois.
+  // Muda a cada login que dá certo, a cada logout e a cada 401 de outra rota
+  // (`limpar`): uma resposta atrasada do boot não desfaz o que veio depois.
   let geracao = 0
 
   const estaAutenticado = computed(() => Boolean(usuario.value))
@@ -42,7 +45,8 @@ export const useAuthStore = defineStore('auth', () => {
    * Espera no máximo 3 s (rede lenta, como o Wi-Fi do RU): depois disso o app
    * segue como visitante, e se a resposta chegar mais tarde o apelido aparece.
    * Se o pedido falhar (sem conexão, 500), quem tinha sessão aparece como
-   * visitante até recarregar a página: o guarda não tenta de novo.
+   * visitante até recarregar a página (o guarda não tenta de novo), e o erro
+   * vai para o console.
    */
   function carregarSessao() {
     if (carregandoSessao) return carregandoSessao
@@ -72,7 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
     return carregandoSessao
   }
 
-  /** POST /api/sessao/ com o e-mail institucional: @aluno.unb.br ou @unb.br (BE-20). */
+  /** POST /api/sessao/ com o e-mail institucional: @aluno.unb.br ou @unb.br (#201). */
   async function entrar(emailInstitucional, senha) {
     const sessao = await apiClient.post(
       '/sessao/',

@@ -114,8 +114,9 @@ Segue o C4 nível 3/4 do frontend: nenhuma view chama a API diretamente, a sess�
 cookie HttpOnly do Django (ADR 0007, nada de token no JavaScript; ao abrir o app, o
 guarda `carregarSessaoAoAbrir` do roteador chama `GET /api/sessao/` uma vez) e apenas campus e filtros
 são persistidos no aparelho. O `apiClient` manda `X-CSRFToken` (lido do cookie `csrftoken`,
-buscado em `GET /api/csrf/` se ainda não existe) em POST, PUT, PATCH e DELETE, limpa o `authStore` quando recebe 401 e transforma erros em
-`ApiError` com `status`, `codigo` e `mensagem`.
+buscado em `GET /api/csrf/` se ainda não existe) em POST, PUT, PATCH e DELETE, limpa o `authStore` quando recebe 401
+(menos no `GET /api/sessao/` da abertura do app e no login, que pedem `avisarSessaoPerdida: false`) e transforma erros em
+`ApiError` com `status`, `codigo` e `mensagem`. Se o `GET /api/sessao/` demora mais de 3 s, o app abre como visitante.
 
 ## Contrato da API
 
@@ -128,8 +129,8 @@ todas sob `/api`:
 | `GET /csrf/` | — | `204`, grava o cookie `csrftoken` (o `apiClient` chama sozinho antes da primeira escrita) |
 | `POST /cadastro/` | `{ tipoUsuario: estudante\|professor_servidor, emailInstitucional, senha, apelido?, matriculaSiape?, aceitePrivacidade }` | `201 { emailInstitucional, status: "pendente" }`, `409 { codigo: apelido_indisponivel, apelidoSugerido }`, `422 dados_invalidos`, `429 limite_excedido` (40/h por IP) |
 | `POST /confirmar-email/{token}/` | — | `200`, `410 token_invalido_ou_expirado` |
-| `POST /reenviar-confirmacao/` | `{ matriculaSiape }` ou `{ token }` | `200` sem corpo (sempre igual; acima de 3 links/h por conta, não manda outro), `422 dados_invalidos`, `429 limite_excedido` (10/h por IP) |
-| `POST /sessao/` (login) | `{ matriculaSiape, senha }` | `200 { apelido, tipo, avisoPrivacidadePendente }`, `401 credenciais_invalidas`, `403 conta_nao_confirmada`, `422 dados_invalidos`, `429 login_bloqueado` (conta) ou `limite_excedido` (60/h por IP) |
+| `POST /reenviar-confirmacao/` | `{ emailInstitucional }` ou `{ token }` (com os dois, vale o e-mail; sem conta, o token) | `200` sem corpo (sempre igual; acima de 3 links/h por conta, não manda outro), `422 dados_invalidos`, `429 limite_excedido` (10/h por IP) |
+| `POST /sessao/` (login) | `{ emailInstitucional, senha }` (`@aluno.unb.br` ou `@unb.br`, #201) | `200 { apelido, tipo, avisoPrivacidadePendente }`, `401 credenciais_invalidas`, `403 conta_nao_confirmada`, `422 dados_invalidos`, `429 login_bloqueado` (conta) ou `limite_excedido` (60/h por IP) |
 | `GET /sessao/` (quem sou) | — | `200 { apelido, tipo, avisoPrivacidadePendente }`, `401 nao_autenticado` |
 | `DELETE /sessao/` (logout) | — | `204`, `401 nao_autenticado` |
 

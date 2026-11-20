@@ -8,7 +8,10 @@
 const DOMINIO_ESTUDANTE = /^([^@\s]+)@aluno\.unb\.br$/i
 const DOMINIO_SERVIDOR = /^([^@\s]+)@unb\.br$/i
 
-/** Login e reenvio (BE-20): `matricula@aluno.unb.br` ou `nome@unb.br` (ADR 0002). */
+/**
+ * Login (#201): confere só o domínio, `@aluno.unb.br` ou `@unb.br` (ADR 0002).
+ * O formato da matrícula é conferido só no cadastro.
+ */
 export function ehEmailInstitucional(email) {
   return DOMINIO_ESTUDANTE.test(email) || DOMINIO_SERVIDOR.test(email)
 }
