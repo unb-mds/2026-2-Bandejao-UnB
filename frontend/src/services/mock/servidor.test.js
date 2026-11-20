@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
-import { reiniciarSimulacao, tratarRequisicaoSimulada } from './servidor'
+import { banco, reiniciarSimulacao, simulacao, tratarRequisicaoSimulada } from './servidor'
 import { CONTA_DEMO } from './banco'
 
 /**
@@ -550,5 +550,139 @@ describe('limite de taxa por IP (429 limite_excedido, #123)', () => {
     })
     expect(quarto.status).toBe(200)
     expect(quarto.dados).toBeNull()
+  })
+})
+
+describe('POST /privacidade/aceite/ (RF11, RNF07.1)', () => {
+  it('sem sessão: 401 nao_autenticado', async () => {
+    const resposta = await post('/privacidade/aceite/')
+
+    expect(resposta.status).toBe(401)
+    expect(resposta.dados.codigo).toBe('nao_autenticado')
+  })
+
+  it('com sessão: 204 sem corpo, e a sessão deixa de ter o aviso pendente', async () => {
+    await entrarComDemo()
+    expect((await get('/sessao/')).dados.avisoPrivacidadePendente).toBe(true)
+
+    const resposta = await post('/privacidade/aceite/')
+
+    expect(resposta).toEqual({ status: 204, dados: null })
+    expect((await get('/sessao/')).dados.avisoPrivacidadePendente).toBe(false)
+  })
+
+  it('sem CSRF: 403 csrf_invalido', async () => {
+    await entrarComDemo()
+
+    const resposta = await post('/privacidade/aceite/', undefined, { semCsrf: true })
+
+    expect(resposta.status).toBe(403)
+    expect(resposta.dados.codigo).toBe('csrf_invalido')
+  })
+})
+
+describe('POST /checkins/ (RF11, RF12, contrato da BE-09)', () => {
+  const COORDENADAS = { latitude: -15.7631234, longitude: -47.8701234 }
+  const CHECKIN = { campus: 1, tipoRefeicao: 'almoco', coordenadas: COORDENADAS }
+
+  async function entrarComAviso() {
+    await entrarComDemo()
+    await post('/privacidade/aceite/')
+  }
+
+  it('sem sessão: 401 nao_autenticado', async () => {
+    const resposta = await post('/checkins/', CHECKIN)
+
+    expect(resposta.status).toBe(401)
+    expect(resposta.dados.codigo).toBe('nao_autenticado')
+  })
+
+  it('201 com o check-in e o bloco de pontos zerado (até a BE-14), sem coordenadas', async () => {
+    await entrarComAviso()
+
+    const resposta = await post('/checkins/', CHECKIN)
+
+    expect(resposta.status).toBe(201)
+    expect(resposta.dados).toEqual({
+      checkin: { id: expect.any(Number), campus: 1, tipoRefeicao: 'almoco', data: '2026-09-28' },
+      pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 },
+    })
+  })
+
+  it('não grava as coordenadas no "banco" (RI09)', async () => {
+    await entrarComAviso()
+
+    await post('/checkins/', CHECKIN)
+
+    const salvo = JSON.stringify(banco.estado)
+    expect(salvo).not.toContain('15.7631234')
+    expect(salvo).not.toContain('47.8701234')
+  })
+
+  it('aviso pendente: 403 aviso_privacidade_pendente', async () => {
+    await entrarComDemo()
+
+    const resposta = await post('/checkins/', CHECKIN)
+
+    expect(resposta.status).toBe(403)
+    expect(resposta.dados.codigo).toBe('aviso_privacidade_pendente')
+  })
+
+  it.each([
+    ['campus inexistente', { ...CHECKIN, campus: 99 }],
+    ['campus como texto', { ...CHECKIN, campus: 'darcy' }],
+    ['refeição inexistente', { ...CHECKIN, tipoRefeicao: 'ceia' }],
+    ['sem coordenadas', { campus: 1, tipoRefeicao: 'almoco' }],
+    ['latitude fora da faixa', { ...CHECKIN, coordenadas: { ...COORDENADAS, latitude: 91 } }],
+    ['longitude fora da faixa', { ...CHECKIN, coordenadas: { ...COORDENADAS, longitude: -181 } }],
+    ['latitude como texto', { ...CHECKIN, coordenadas: { ...COORDENADAS, latitude: '-15.7' } }],
+  ])('400 dados_invalidos: %s', async (_caso, corpo) => {
+    await entrarComAviso()
+
+    const resposta = await post('/checkins/', corpo)
+
+    expect(resposta.status).toBe(400)
+    expect(resposta.dados.codigo).toBe('dados_invalidos')
+  })
+
+  it('fora da janela da refeição: 422 fora_do_horario com a janela na mensagem', async () => {
+    await entrarComAviso()
+    vi.setSystemTime(new Date(2026, 8, 28, 16, 0))
+
+    const resposta = await post('/checkins/', CHECKIN)
+
+    expect(resposta.status).toBe(422)
+    expect(resposta.dados).toEqual({
+      codigo: 'fora_do_horario',
+      mensagem: 'O check-in do almoço só vale das 11h00 às 14h30.',
+    })
+  })
+
+  it('segundo check-in na mesma refeição: 422 checkin_duplicado (RI03)', async () => {
+    await entrarComAviso()
+    await post('/checkins/', CHECKIN)
+
+    const resposta = await post('/checkins/', { ...CHECKIN, campus: 2 })
+
+    expect(resposta.status).toBe(422)
+    expect(resposta.dados.codigo).toBe('checkin_duplicado')
+  })
+
+  it('fora do raio do RU: 422 localizacao_nao_confirmada', async () => {
+    await entrarComAviso()
+    simulacao.definirLocalizacaoConfirmada(false)
+
+    const resposta = await post('/checkins/', CHECKIN)
+
+    expect(resposta.status).toBe(422)
+    expect(resposta.dados.codigo).toBe('localizacao_nao_confirmada')
+  })
+
+  it('reiniciarSimulacao volta a confirmar a localização', async () => {
+    simulacao.definirLocalizacaoConfirmada(false)
+    reiniciarSimulacao()
+    await entrarComAviso()
+
+    expect((await post('/checkins/', CHECKIN)).status).toBe(201)
   })
 })

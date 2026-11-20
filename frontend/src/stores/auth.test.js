@@ -364,3 +364,54 @@ describe('carregarSessao com a rede lenta (tempo limite de 3 s)', () => {
     expect(auth.apelido).toBe(CONTA_DEMO.apelido)
   })
 })
+
+describe('aviso de privacidade atualizado (RF11, RNF07.1)', () => {
+  it('avisoPrivacidadePendente vem da sessão', async () => {
+    const auth = useAuthStore()
+    expect(auth.avisoPrivacidadePendente).toBe(false)
+
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+
+    expect(auth.avisoPrivacidadePendente).toBe(true)
+  })
+
+  it('registrarCienciaPrivacidade: POST /privacidade/aceite/ e a sessão deixa de ter o aviso pendente', async () => {
+    const auth = useAuthStore()
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+    const post = vi.spyOn(apiClient, 'post')
+
+    await auth.registrarCienciaPrivacidade()
+
+    expect(post).toHaveBeenCalledWith('/privacidade/aceite/')
+    expect(auth.avisoPrivacidadePendente).toBe(false)
+    expect(auth.apelido).toBe(CONTA_DEMO.apelido)
+  })
+
+  it('registrarCienciaPrivacidade que falha mantém o aviso pendente', async () => {
+    const auth = useAuthStore()
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+    vi.spyOn(apiClient, 'post').mockRejectedValueOnce(new ApiError(500))
+
+    await expect(auth.registrarCienciaPrivacidade()).rejects.toBeInstanceOf(ApiError)
+
+    expect(auth.avisoPrivacidadePendente).toBe(true)
+  })
+
+  it('marcarAvisoPrivacidadePendente: volta a pedir o aviso (403 do check-in)', async () => {
+    const auth = useAuthStore()
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+    await auth.registrarCienciaPrivacidade()
+
+    auth.marcarAvisoPrivacidadePendente()
+
+    expect(auth.avisoPrivacidadePendente).toBe(true)
+  })
+
+  it('marcarAvisoPrivacidadePendente sem sessão não cria usuário', () => {
+    const auth = useAuthStore()
+
+    auth.marcarAvisoPrivacidadePendente()
+
+    expect(auth.estaAutenticado).toBe(false)
+  })
+})
