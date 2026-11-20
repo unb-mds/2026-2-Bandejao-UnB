@@ -64,8 +64,10 @@ MENSAGENS_DO_SERIALIZER = (
 MENSAGEM_TOKEN_INVALIDO = (
     "Este link de confirmação é inválido, expirou ou já foi usado. Peça um novo link."
 )
-MENSAGEM_REENVIO_SEM_DADOS = "Informe a matrícula/SIAPE ou abra o link recebido."
-MENSAGEM_LOGIN_SEM_DADOS = "Informe a matrícula/SIAPE e a senha."
+MENSAGEM_REENVIO_SEM_DADOS = (
+    "Informe o seu e-mail institucional ou abra o link recebido."
+)
+MENSAGEM_LOGIN_SEM_DADOS = "Informe o seu e-mail institucional e a senha."
 MENSAGEM_CONTA_NAO_CONFIRMADA = (
     "Confirme seu e-mail antes de entrar. Se o link venceu, peça um novo."
 )
@@ -252,7 +254,7 @@ class ReenvioConfirmacaoView(APIView):
             422: OpenApiResponse(
                 ErroSerializer,
                 description=(
-                    "Corpo inválido: não veio `matriculaSiape` nem `token`, "
+                    "Corpo inválido: não veio `emailInstitucional` nem `token`, "
                     "ou um deles veio vazio ou com tipo errado (mesmo que o "
                     "outro esteja certo). `codigo`: `dados_invalidos`."
                 ),
@@ -267,7 +269,7 @@ class ReenvioConfirmacaoView(APIView):
 
         servico = ConfirmacaoEmailService()
         conta = servico.conta_para_reenvio(
-            matricula_siape=entrada.validated_data.get("matriculaSiape"),
+            email=entrada.validated_data.get("emailInstitucional"),
             token=entrada.validated_data.get("token"),
         )
         servico.reenviar(conta)
@@ -298,9 +300,10 @@ class SessaoView(APIView):
     @extend_schema(
         summary="Entra na conta (login)",
         description=(
-            "Matrícula (9 dígitos) ou SIAPE (7 dígitos) no mesmo campo. "
+            "E-mail institucional (`@aluno.unb.br` ou `@unb.br`, sem diferença "
+            "entre maiúsculas e minúsculas) e senha. "
             "O servidor grava o cookie de sessão (HttpOnly) e o `csrftoken`. "
-            "Um 401 aqui é senha ou matrícula errada, não sessão expirada: "
+            "Um 401 aqui é senha ou e-mail errado, não sessão expirada: "
             "a tela de login mostra a mensagem do erro (o `authStore` já "
             "está vazio, então limpá-lo de novo não causa problema). "
             "O login troca o `csrftoken`: leia o cookie de novo antes da "
@@ -329,9 +332,9 @@ class SessaoView(APIView):
             422: OpenApiResponse(
                 ErroSerializer,
                 description=(
-                    "Corpo inválido (falta `matriculaSiape` ou `senha`, ou "
-                    "um deles não é texto) ou identificador que não tem 9 "
-                    "nem 7 dígitos (RN01). Não conta como tentativa. "
+                    "Corpo inválido (falta `emailInstitucional` ou `senha`, "
+                    "ou um deles não é texto) ou e-mail fora dos domínios "
+                    "institucionais (ADR 0002). Não conta como tentativa. "
                     "`codigo`: `dados_invalidos`."
                 ),
             ),
@@ -355,7 +358,7 @@ class SessaoView(APIView):
 
         try:
             conta = LoginService().autenticar(
-                entrada.validated_data["matriculaSiape"],
+                entrada.validated_data["emailInstitucional"],
                 entrada.validated_data["senha"],
             )
         except IdentificadorInvalidoError as erro:

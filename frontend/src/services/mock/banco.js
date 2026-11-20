@@ -6,7 +6,7 @@
  */
 
 // v2: nomes do contrato OpenAPI v1 (FE-01). Dados da v1 no aparelho são ignorados.
-const CHAVE = 'bandejao:backend-simulado:v2'
+export const CHAVE = 'bandejao:backend-simulado:v2'
 
 /**
  * Resumo não reversível da senha. Apenas para a simulação: o backend real

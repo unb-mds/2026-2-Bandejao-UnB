@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { campusValido } from '@/constants/campi'
 import { usePreferenciasStore } from '@/stores/preferencias'
+import { useAuthStore } from '@/stores/auth'
 
 /**
  * Rotas nomeadas e com lazy-loading (C4 — Estratégia de roteamento).
@@ -104,6 +105,17 @@ export const routes = [
   },
 ]
 
+/**
+ * Na primeira navegação, pergunta ao servidor se há sessão (GET /api/sessao/):
+ * depois de um F5 quem estava logado continua logado (ADR 0007, FE-03).
+ * Não recusa nenhuma rota (sem sessão, o app abre como visitante, RF05), mas
+ * a primeira tela espera a resposta por no máximo 3 s (`carregarSessao`).
+ */
+export async function carregarSessaoAoAbrir() {
+  const auth = useAuthStore()
+  if (!auth.sessaoCarregada) await auth.carregarSessao()
+}
+
 /** Telas que dependem do campus mandam para a escolha de campus na primeira visita. */
 export function exigirCampus(to) {
   if (to.meta.requerCampus && !usePreferenciasStore().campusId) return { name: 'campus' }
@@ -113,12 +125,17 @@ export function atualizarTitulo(to) {
   document.title = to.meta.title ? `${to.meta.title} · Bandejão` : 'Bandejão'
 }
 
+/** Os guardas do app num lugar só: o `router` abaixo e os testes usam a mesma função. */
+export function instalarGuardas(roteador) {
+  roteador.beforeEach(carregarSessaoAoAbrir)
+  roteador.beforeEach(exigirCampus)
+  roteador.afterEach(atualizarTitulo)
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
-
-router.beforeEach(exigirCampus)
-router.afterEach(atualizarTitulo)
+instalarGuardas(router)
 
 export default router

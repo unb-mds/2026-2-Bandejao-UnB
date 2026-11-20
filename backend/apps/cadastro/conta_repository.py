@@ -1,6 +1,6 @@
 """Acesso às contas no cadastro (Cadastro N4 4a, 4b, 4c e 4d).
 
-Só o que a BE-05, a BE-06 e a BE-07 usam. `salvar` e `excluir` (exclusão de
+Só o que a BE-05, a BE-06, a BE-07 e a BE-20 usam. `salvar` e `excluir` (exclusão de
 conta, BD-12) entram nas issues que precisarem deles.
 """
 
@@ -46,13 +46,16 @@ class ContaRepository:
             .values_list("apelido_normalizado", flat=True)
         )
 
-    def buscar_por_identificador(self, identificador: str, travar: bool = False):
-        """A conta da matrícula/SIAPE, ou None se não houver.
+    def buscar_por_email(self, email: str, travar: bool = False):
+        """A conta do e-mail institucional, ou None se não houver.
 
-        `travar=True` (só dentro de `transaction.atomic`) trava a linha até o
-        fim da transação, como o login faz para contar as tentativas.
+        O e-mail é normalizado como no cadastro. `travar=True` (só dentro de
+        `transaction.atomic`) trava a linha até o fim da transação, como o
+        login faz para contar as tentativas.
         """
-        contas = get_user_model().objects.filter(matricula_siape=identificador)
+        contas = get_user_model().objects.filter(
+            email_institucional=normalizar_email(email)
+        )
         if travar:
             contas = contas.select_for_update()
         return contas.first()

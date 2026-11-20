@@ -3,7 +3,7 @@ import AppLogo from '@/components/AppLogo.vue'
 </script>
 
 <template>
-  <div class="boas-vindas">
+  <div class="boas-vindas fundo-escuro">
     <!-- Linhas decorativas -->
     <svg
       class="deco deco--topo"
