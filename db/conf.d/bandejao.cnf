@@ -1,0 +1,20 @@
+# MySQL de produção do Bandejão (BD-05, ADR 0012). Montado pelo Compose em
+# /etc/mysql/conf.d/, que a imagem oficial lê depois do /etc/my.cnf.
+#
+# Os mesmos valores que o Django pede em cada conexão (settings.py, OPTIONS do
+# DATABASES). Aqui eles valem também para o banco criado na primeira subida e
+# para o acesso direto da equipe (ADR 0004), que não passa pelo Django.
+
+[mysqld]
+# Acentos e emojis (4 bytes) nos comentários das avaliações. A collation é a
+# mesma do banco de teste (settings.py, DATABASES TEST).
+character-set-server = utf8mb4
+collation-server = utf8mb4_0900_ai_ci
+
+# O padrão do MySQL é REPEATABLE READ. O READ COMMITTED é o recomendado pelo
+# Django e evita que uma transação longa leia dados velhos (ADR 0012).
+transaction-isolation = READ-COMMITTED
+
+[client]
+# O cliente "mysql" de dentro do container, usado pela equipe.
+default-character-set = utf8mb4

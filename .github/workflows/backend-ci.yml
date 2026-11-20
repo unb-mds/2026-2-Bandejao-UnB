@@ -73,19 +73,24 @@ jobs:
           --health-retries=12
 
     env:
-      SECRET_KEY: chave-exclusiva-do-ci
+      DJANGO_SECRET_KEY: chave-exclusiva-do-ci
+      DJANGO_ALLOWED_HOSTS: localhost
       DB_ENGINE: mysql
       DB_NAME: bandejao_ci
       DB_USER: root
       DB_PASSWORD: senha-ci-descartavel
       DB_HOST: 127.0.0.1
       DB_PORT: "3306"
-      # Sem DEBUG, o settings exige o endereço do PWA e o SMTP (BE-06, #96).
-      # Os passos com manage.py rodam fora do pytest e não leem o pytest.ini,
-      # então os valores dele vêm repetidos aqui. Com o backend de memória, o
-      # settings não monta o SMTP e não pede EMAIL_HOST nem credenciais.
-      EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+      # Sem DEBUG, o settings exige o endereço do PWA, o SMTP e o remetente
+      # (BE-06, #96, BD-05), e só aceita o backend SMTP. Os passos com
+      # manage.py rodam fora do pytest e não leem o pytest.ini, então os
+      # valores dele vêm repetidos aqui. O SMTP é falso: nenhum passo envia
+      # e-mail, e nos testes o pytest-django troca o MAILERS pelo de memória.
       URL_DO_PWA: http://localhost:5173
+      EMAIL_HOST: smtp.teste.invalid
+      EMAIL_HOST_USER: usuario-teste
+      EMAIL_HOST_PASSWORD: senha-teste
+      DEFAULT_FROM_EMAIL: nao-responda@bandejaounb.com.br
 
     steps:
       - uses: actions/checkout@v5
@@ -120,6 +125,12 @@ jobs:
 
       - name: Aplicar migrations do zero
         run: python manage.py migrate --noinput
+
+      # Sem DEBUG, como em produção. Os avisos de HSTS (deixado de fora de
+      # propósito) e de SECURE_SSL_REDIRECT (o Caddy redireciona) não falham;
+      # um erro, sim.
+      - name: Conferir o settings de produção
+        run: python manage.py check --deploy
 
       - name: Executar testes no MySQL
         run: python -m pytest -rs --cov=apps --cov-branch --cov-fail-under=70
