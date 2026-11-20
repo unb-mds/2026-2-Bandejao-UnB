@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
+import AvisoLocalizacao from '@/components/AvisoLocalizacao.vue'
 import NavegacaoTopo from '@/components/NavegacaoTopo.vue'
 
 const ROTAS_SEM_NAVEGACAO = new Set(['boas-vindas'])
@@ -17,6 +18,12 @@ const mostrarNavegacaoTopo = computed(
     <div class="area-tela">
       <RouterView />
     </div>
+    <!--
+      Global (RF19): camada por cima da tela atual. Abre sozinho na abertura do
+      app ou por abrirAvisoLocalizacao() de qualquer tela. Fica fora da
+      .area-tela porque o <dialog> não participa do layout das telas.
+    -->
+    <AvisoLocalizacao />
   </div>
 </template>
 

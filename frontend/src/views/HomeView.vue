@@ -9,6 +9,7 @@ import { REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
 import { CANAL_CONTATO } from '@/constants/contato'
 import { dataPorExtenso, diaCurto, hojeISO } from '@/utils/datas'
 import { formatarNota, refeicaoPadrao, resumoRefeicao } from '@/utils/cardapio'
+import { abrirAvisoLocalizacao } from '@/composables/avisoLocalizacao'
 import AppLogo from '@/components/AppLogo.vue'
 import EstrelasNota from '@/components/EstrelasNota.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
@@ -23,6 +24,7 @@ const preferencias = usePreferenciasStore()
 const agora = new Date()
 const hoje = hojeISO(agora)
 const menuAberto = ref(false)
+const botaoPerfil = ref(null)
 
 const campusId = computed(() => preferencias.campusId)
 const semana = computed(() => cardapio.semana(campusId.value))
@@ -71,6 +73,19 @@ watch(
 function abrirCardapioDeHoje() {
   if (tipoHoje.value) preferencias.selecionar(hoje, tipoHoje.value)
   router.push({ name: 'cardapio' })
+}
+
+/**
+ * Ponto fixo do RF19: abre o aviso de novo, o passo a passo se o navegador
+ * bloqueou, a confirmação se já está liberada ou a explicação se não há como
+ * usar a localização. O menu fecha ao abrir, então o foco volta ao botão do
+ * perfil quando o aviso fecha.
+ * TODO(FE-07): levar este item para a CampusView quando ela existir.
+ */
+async function usarLocalizacao() {
+  menuAberto.value = false
+  await abrirAvisoLocalizacao()
+  botaoPerfil.value?.focus()
 }
 
 async function sair() {
@@ -126,6 +141,7 @@ async function sair() {
 
         <div class="perfil">
           <button
+            ref="botaoPerfil"
             type="button"
             class="avatar"
             :aria-label="`Perfil de ${auth.apelido}`"
@@ -150,6 +166,9 @@ async function sair() {
             <RouterLink :to="{ name: 'campus' }" class="menu-item" role="menuitem">
               <IconeSvg nome="mapa" :tamanho="16" /> Trocar campus
             </RouterLink>
+            <button type="button" class="menu-item" role="menuitem" @click="usarLocalizacao">
+              <IconeSvg nome="local" :tamanho="16" /> Usar minha localização
+            </button>
             <button
               v-if="auth.estaAutenticado"
               type="button"
