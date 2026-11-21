@@ -1,9 +1,10 @@
 """Leitura do PDF semanal do cardápio (RF06, ADR 0003, Leitor N4).
 
-Primeira versão, feita no BE-04 como teste com os PDFs reais do Gama, da
-Ceilândia e do Darcy Ribeiro. Extrai de cada página a refeição, os dias, as
-categorias, os pratos, a dieta e os marcadores de cada prato. Download,
-gravação no banco e alertas ficam para o BE-12.
+Feito no BE-04 como teste com os PDFs reais do Gama, da Ceilândia e do Darcy
+Ribeiro, e ajustado no BE-12 com os PDFs de novembro dos 5 campi. Extrai de
+cada página a refeição, os dias, as categorias, os pratos, a dieta e os
+marcadores de cada prato. Download, gravação no banco e alertas ficam nos
+outros módulos do pacote `leitor` (BE-12).
 
 Biblioteca: pdfplumber (MIT). Ela entrega, com coordenadas, as palavras, as
 bordas da tabela (retângulos finos) e as imagens dos ícones, com o conteúdo
@@ -11,8 +12,13 @@ de cada imagem. O Pillow (dependência do pdfplumber) compara os ícones.
 
 Quando algo foge do esperado, o leitor nunca devolve um cardápio vazio ou
 incompleto em silêncio:
-- `FormatoPDFInvalidoError`: o PDF inteiro é recusado (o BE-12 mantém o
-  último cardápio válido, RF06.4);
+- `FonteNaoEncontradaError` e `DownloadError` (lançadas pelo
+  `CardapioDownloader`) e `FormatoPDFInvalidoError`: o PDF inteiro é
+  recusado, e o `LeitorCardapioService` mantém o último cardápio válido
+  (RF06.4). A `FormatoPDFInvalidoError` vem daqui (PDF ilegível, fora do
+  formato ou sem nenhuma refeição), do `CardapioDownloader.baixar` (resposta
+  que não é PDF) e do `LeitorCardapioService._conferir_datas` (dia fora do
+  intervalo do link);
 - `LegendaInvalidaError` e `AssociacaoFalhouError`: só a página afetada sai
   sem marcadores, com `alergenos_indisponiveis=True` e o motivo (RF06.3).
 
@@ -55,13 +61,19 @@ ESPESSURA_MAX_BORDA = 2.5
 # Imagem mais alta que isso dentro da tabela é um erro (AssociacaoFalhouError).
 ALTURA_MAX_ICONE = 25
 # Distância média por pixel (0–255) acima da qual o ícone é "desconhecido".
-# Nos PDFs testados (Gama, Ceilândia e Darcy), o pior acerto ficou em 28 e o
-# segundo colocado ficou sempre pelo menos 1,48 vez mais longe que o certo.
+# No BE-04 (Gama, Ceilândia e Darcy), o pior acerto ficou em 28 e o segundo
+# colocado ficou sempre pelo menos 1,48 vez mais longe que o certo. Depois do
+# corte no vale de tinta (caso 27, BE-12), nos 13 PDFs testados (os 3 do
+# BE-04 e os 10 de novembro), o pior acerto caiu para 19,6 e a menor razão
+# subiu para 1,67. O limite não mudou.
 DISTANCIA_MAX_ICONE = 35
 # Abaixo desta razão (2ª distância / 1ª), o ícone é ambíguo e a associação
 # falha: melhor sem marcadores do que com um marcador errado.
 RAZAO_MIN_ICONE = 1.3
 LADO_ASSINATURA = 24
+# Ícones encostados: o vale de tinta entre dois anéis é procurado até esta
+# fração da altura da imagem para cada lado do corte pela proporção.
+RAIO_VALE_ICONE = 0.15
 
 # Valores de TipoRefeicao e Dieta em apps/cardapio/models.py.
 REFEICOES = {"cafedamanha": "cafe", "almoco": "almoco", "jantar": "jantar"}
@@ -94,10 +106,27 @@ DIAS_DA_SEMANA = {
     "domingo": 6,
 }
 RE_DATA = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4}|\d{2})$")
+# Desde a semana de 16/11/2026, o RU põe a data entre parênteses, numa linha
+# abaixo do dia: "2ª FEIRA (16/11/2026)" (caso 26 do BE-04). Só o par
+# completo é tirado; um parêntese sozinho continua sendo coluna sem data.
+RE_DATA_ENTRE_PARENTESES = re.compile(r"^\((.+)\)$")
 
 
 class LeitorCardapioError(Exception):
-    """Base das falhas do leitor: um só `except` no BE-12."""
+    """Base das cinco falhas do leitor (C4 4a). O `LeitorCardapioService`
+    trata cada filha à parte, porque umas mantêm o último cardápio válido e
+    outras publicam só em texto; erros fora delas viram "erro inesperado"."""
+
+
+class FonteNaoEncontradaError(LeitorCardapioError):
+    """Link do PDF não achado na página do RU, ou achado mas não confiável
+    (título ausente ou repetido, arquivo de outro campus, semana repetida ou
+    sem datas legíveis): mantém o último cardápio válido (ADR 0014)."""
+
+
+class DownloadError(LeitorCardapioError):
+    """Falha de rede, tempo esgotado ou HTTP diferente de 200 ao baixar a
+    página ou o PDF: mantém o último cardápio válido."""
 
 
 class FormatoPDFInvalidoError(LeitorCardapioError):
@@ -132,6 +161,10 @@ class RefeicaoEstruturada:
     categorias: list[CategoriaEstruturada]
     alergenos_indisponiveis: bool = False
     motivo: str | None = None
+    # Classe da falha que deixou a página só em texto (`LegendaInvalidaError`
+    # ou `AssociacaoFalhouError`): o serviço escolhe o tipo do alerta por
+    # ela, e não pelo texto do `motivo`.
+    falha: type[LeitorCardapioError] | None = None
 
 
 def normalizar(texto):
@@ -293,6 +326,29 @@ def _assinatura(img):
     )
 
 
+def _vale_de_tinta(soma, corte, raio):
+    """Colunas [início, fim) do vale de tinta mais fino perto de `corte`.
+
+    O vale é o mínimo de tinta numa janela de `raio` colunas para cada lado,
+    desde que fique dentro da janela, com mais tinta dos dois lados (ex.: o
+    antisserrilhado entre dois anéis quase encostados). Se o mínimo está na
+    borda da janela, os anéis se tocam ou se sobrepõem: não há vale, e o
+    corte fica onde a proporção mandou (devolve `corte, corte`).
+    """
+    inicio, fim = max(0, corte - raio), min(len(soma), corte + raio + 1)
+    janela = range(inicio, fim)
+    minimo = min(soma[x] for x in janela)
+    if minimo >= soma[inicio] or minimo >= soma[fim - 1]:
+        return corte, corte
+    centro = min(janela, key=lambda x: (soma[x], abs(x - corte)))
+    esquerda = direita = centro
+    while esquerda - 1 > inicio and soma[esquerda - 1] == minimo:
+        esquerda -= 1
+    while direita + 1 < fim - 1 and soma[direita + 1] == minimo:
+        direita += 1
+    return esquerda, direita + 1
+
+
 def _faixas_com_tinta(img, limite=100, folga=1):
     """Faixas de colunas [início, fim) com algum pixel não branco.
 
@@ -301,7 +357,9 @@ def _faixas_com_tinta(img, limite=100, folga=1):
     """
     w, h = img.size
     px = img.load()
-    tinta = [any(765 - sum(px[x, y]) > limite for y in range(h)) for x in range(w)]
+    falta = [[765 - sum(px[x, y]) for y in range(h)] for x in range(w)]
+    tinta = [any(f > limite for f in coluna) for coluna in falta]
+    soma = [sum(coluna) for coluna in falta]
     faixas, inicio, vazias = [], None, 0
     for x, t in enumerate(tinta + [False] * (folga + 1)):
         if t:
@@ -315,14 +373,23 @@ def _faixas_com_tinta(img, limite=100, folga=1):
                 inicio, vazias = None, 0
     # Descarta ruído (faixas muito estreitas para serem um ícone).
     faixas = [(i, f) for i, f in faixas if f - i >= h * 0.3]
-    # Ícones encostados (anéis se tocando) ficam numa faixa só, bem mais
-    # larga que alta: divide pela proporção.
+    # Ícones encostados ficam numa faixa só, bem mais larga que alta: divide
+    # pela proporção. Se houver um vale fino de tinta perto do ponto de corte
+    # (anéis quase encostados, só com o antisserrilhado entre eles), o corte
+    # vai para o vale, e as colunas dele ficam fora dos dois pedaços: senão,
+    # um pedaço leva uma fatia do anel vizinho (caso 27 do BE-04).
+    raio = round(h * RAIO_VALE_ICONE)
     divididas = []
     for i, f in faixas:
         n = max(1, round((f - i) / h))
-        divididas.extend(
-            (i + k * (f - i) // n, i + (k + 1) * (f - i) // n) for k in range(n)
-        )
+        inicio = i
+        for k in range(1, n):
+            fim_anterior, inicio_seguinte = _vale_de_tinta(
+                soma, i + k * (f - i) // n, raio
+            )
+            divididas.append((inicio, fim_anterior))
+            inicio = inicio_seguinte
+        divididas.append((inicio, f))
     return divididas
 
 
@@ -404,13 +471,15 @@ def _e_separador(texto):
 
 # Palavras que deixam a frase em aberto no fim da linha: a linha seguinte
 # continua o mesmo prato, mesmo começando com maiúscula ("Arroz branco e" /
-# "Integral", no PDF da Ceilândia).
+# "Integral", no PDF da Ceilândia). Vale também para vírgula, hífen e barra
+# no fim da linha: "Rosé /" / "Limão" é um prato só, porque "/" não separa
+# pratos (RF06.2; caso 28, Planaltina de 23/11).
 CONECTORES = {"e", "com", "de", "da", "do", "das", "dos", "ao", "à", "a", "em"}
 
 
 def _linha_em_aberto(palavras):
     ultima = palavras[-1]["text"].lower()
-    return ultima in CONECTORES or ultima.endswith((",", "-"))
+    return ultima in CONECTORES or ultima.endswith((",", "-", "/"))
 
 
 class CardapioEstruturador:
@@ -425,8 +494,8 @@ class CardapioEstruturador:
         - Linha nova que começa com maiúscula começa outro prato
           ("Arroz branco e integral" / "Feijão preto"); com minúscula ou "(",
           continua o prato da linha anterior (quebra de linha do texto).
-        - Exceção: se a linha anterior termina em conector ("e", "com", "de"...)
-          ou vírgula, a linha nova continua o prato mesmo com maiúscula.
+        - Exceção: se a linha anterior termina em conector ("e", "com", "de"...),
+          vírgula ou barra, a linha nova continua o prato mesmo com maiúscula.
 
         Devolve a lista de pratos, cada um com as palavras que o formam.
         """
@@ -572,14 +641,17 @@ def _dieta(nome_categoria):
 
 
 def _ler_data(texto):
-    """Dia da semana e data de uma célula do cabeçalho ("2ª FEIRA 21/9/2026").
+    """Dia da semana e data de uma célula do cabeçalho.
 
-    A data é dia/mês/ano, como nos PDFs, com ano de 4 ou 2 dígitos. Recusa
-    datas que não existem e datas que não caem no dia da semana escrito
-    acima delas (uma "2ª FEIRA 22/9/2026" é erro de digitação no PDF).
+    Aceita os dois formatos do RU: "2ª FEIRA 21/9/2026" (até a semana de
+    09/11/2026) e "2ª FEIRA (16/11/2026)" (desde 16/11/2026). A data é
+    dia/mês/ano, como nos PDFs, com ano de 4 ou 2 dígitos. Recusa datas que
+    não existem e datas que não caem no dia da semana escrito acima delas
+    (uma "2ª FEIRA 22/9/2026" é erro de digitação no PDF).
     """
     for token in texto.split():
-        m = RE_DATA.match(token)
+        entre_parenteses = RE_DATA_ENTRE_PARENTESES.match(token)
+        m = RE_DATA.match(entre_parenteses.group(1) if entre_parenteses else token)
         if not m:
             continue
         d, mes, a = (int(g) for g in m.groups())
@@ -616,8 +688,10 @@ def _nome_refeicao(pagina, coluna):
 class CardapioPDFParser:
     """Lê o PDF inteiro: uma RefeicaoEstruturada por página."""
 
-    def __init__(self, caminho):
-        self.caminho = caminho
+    def __init__(self, arquivo):
+        """`arquivo`: caminho do PDF ou arquivo binário aberto, como o
+        `io.BytesIO` com os bytes baixados pelo `CardapioDownloader`."""
+        self.arquivo = arquivo
 
     def extrair(self):
         """Devolve (refeições, avisos).
@@ -628,7 +702,7 @@ class CardapioPDFParser:
         """
         resultados, avisos = [], []
         try:
-            with pdfplumber.open(self.caminho) as pdf:
+            with pdfplumber.open(self.arquivo) as pdf:
                 for numero, pagina in enumerate(pdf.pages, start=1):
                     # O `try` de fora pega o FormatoPDFInvalidoError também
                     # da releitura só em texto, que nasce dentro do `except`.
@@ -639,6 +713,7 @@ class CardapioPDFParser:
                             refeicao = self._pagina(pagina, com_marcadores=False)
                             refeicao.alergenos_indisponiveis = True
                             refeicao.motivo = f"{type(e).__name__}: {e}"
+                            refeicao.falha = type(e)
                             avisos.append(
                                 f"pág. {numero}: só em texto ({refeicao.motivo})"
                             )
@@ -647,6 +722,10 @@ class CardapioPDFParser:
                     resultados.append(refeicao)
         except (OSError, PdfminerException, PSException) as e:
             raise FormatoPDFInvalidoError(f"não foi possível ler o PDF: {e}") from e
+        if not resultados:
+            # Um PDF válido sem páginas (exportação quebrada) não pode virar
+            # uma semana vazia: o serviço apagaria o cardápio em silêncio.
+            raise FormatoPDFInvalidoError("o PDF não tem nenhuma refeição")
         return resultados, avisos
 
     def _pagina(self, pagina, com_marcadores=True):
@@ -795,7 +874,15 @@ def main(argv):
         return 2
     refeicoes, avisos = CardapioPDFParser(argv[1]).extrair()
     if "--json" in argv:
-        print(json.dumps([asdict(r) for r in refeicoes], ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                [asdict(r) for r in refeicoes],
+                ensure_ascii=False,
+                indent=2,
+                # `falha` é a classe da exceção: sai o nome dela.
+                default=lambda classe: classe.__name__,
+            )
+        )
     else:
         for r in refeicoes:
             imprimir(r)

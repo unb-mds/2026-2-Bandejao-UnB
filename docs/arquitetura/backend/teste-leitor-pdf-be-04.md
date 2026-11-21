@@ -14,6 +14,8 @@
 | Ceilândia | 09 a 15/11/2026 | Microsoft Word | Café e almoço de 2ª a sábado; jantar de 2ª a 6ª | Juntos em imagens de 2 ou 3 |
 | Darcy Ribeiro | 09 a 15/11/2026 | Microsoft Word | As três refeições de 2ª a domingo | Juntos em imagens de 2 ou 3 |
 
+**BE-12 (21/11/2026):** foram lidos também os **10 PDFs** publicados nas semanas de 16/11 e de 23/11, dos 5 campi, inclusive Planaltina e Fazenda Água Limpa, que nunca tinham sido testados. Três casos novos apareceram (26, 27 e 28, na tabela 5) e foram corrigidos. Depois das correções, os 10 PDFs saem com todos os dias, categorias, pratos e marcadores, e a Fazenda Água Limpa sem jantar, como no PDF. Nos 13 PDFs, o pior acerto de ícone ficou em 19,6 (limite 35), e o segundo colocado ficou sempre pelo menos 1,67 vez mais longe. Ficaram nas fixtures o Gama (16/11 e 23/11), a Fazenda (16/11) e Planaltina (23/11), em `test_leitor_pdf_novembro.py`.
+
 ## 2. Resultado
 
 O leitor extrai dos três PDFs **todas** as refeições, dias, categorias, pratos, linhas de dieta e marcadores. O critério do BE-04 ("uma refeição com pratos e marcadores corretos") foi atendido com folga:
@@ -71,8 +73,9 @@ O leitor nunca devolve um cardápio vazio ou incompleto em silêncio. Todas as e
 
 | Exceção | Quando | O que acontece |
 |---|---|---|
-| `DownloadError` | Falha de rede ou HTTP | Fica para o BE-12 (`CardapioDownloader`): mantém o último cardápio válido |
-| `FormatoPDFInvalidoError` | Arquivo que não é PDF, tabela sem bordas, sem COMPOSIÇÃO, sem dias, data inválida, repetida ou fora do dia da semana, célula com pratos fora dos dias, refeição ou dieta desconhecida | O `extrair()` lança: o PDF inteiro é recusado e o BE-12 mantém o último cardápio válido (RF06.4) |
+| `FonteNaoEncontradaError` | Na página do RU: título do campus ausente ou repetido (falha do campus inteiro), ou um link reprovado (arquivo de outro campus, duas vezes a mesma semana, sem datas legíveis) | `CardapioDownloader` (BE-12): mantém o último cardápio válido e alerta |
+| `DownloadError` | Falha de rede, tempo esgotado ou HTTP diferente de 200, na página ou no PDF | `CardapioDownloader` (BE-12): mantém o último cardápio válido e alerta |
+| `FormatoPDFInvalidoError` | Arquivo que não é PDF, PDF sem nenhuma página de refeição, tabela sem bordas, sem COMPOSIÇÃO, sem dias, data inválida, repetida ou fora do dia da semana, célula com pratos fora dos dias, refeição ou dieta desconhecida. No BE-12, também a resposta do download que não começa por `%PDF` (`CardapioDownloader.baixar`) e o dia do PDF fora do intervalo do link (`LeitorCardapioService._conferir_datas`) | O `extrair()` lança: o PDF inteiro é recusado e o BE-12 mantém o último cardápio válido (RF06.4) |
 | `LegendaInvalidaError` | Legenda sem os 10 marcadores, com rótulo repetido ou imagem ilegível | O `extrair()` trata **por página**: a página sai só em texto, com `alergenos_indisponiveis=True` e o `motivo`, e gera um aviso. As outras páginas não são afetadas (RF06.3) |
 | `AssociacaoFalhouError` | Ícone desconhecido, ambíguo, sem prato, fora das células de pratos, ou imagem grande na tabela | Igual à anterior |
 
@@ -91,7 +94,7 @@ O leitor nunca devolve um cardápio vazio ou incompleto em silêncio. Todas as e
 | 9 | Subtítulo em fonte menor | "Legumes sauté" / "(batata, chuchu e cenoura)" | Fica na descrição do prato | OK; o BE-12 pode guardar à parte |
 | 10 | "Opção:" como alternativa | "Mix de doces" / "Opção: Fruta" | "Opção:" separa como "ou" e sai da descrição: vira o prato "Fruta" | OK (decidido em 08/11) |
 | 11 | Texto solto numa célula | Gama, almoço de 2ª (21/09): "Limão" na última linha da célula do prato ovolactovegetariano, abaixo do ícone de trigo do "Quibe de legumes com quinoa gratinado" | Vira um prato "Limão" | **Não tratado** (decidido em 08/11): erro de quem montou o PDF. O teste registra o que sai hoje, marcado como defeito conhecido do PDF |
-| 12 | Palavras grudadas no PDF | Ceilândia e Darcy: "Tomate recheadocom" | Lidas como estão | Erro do próprio PDF |
+| 12 | Palavras grudadas no PDF | Ceilândia e Darcy: "Tomate recheadocom". Gama e Fazenda de 16/11: "Arroz branco e integral Feijão" / "carioca", com o segundo prato começando na linha do primeiro | Lidas como estão (no segundo caso, um prato só) | Erro do próprio PDF |
 | 13 | Ícone na linha de baixo do texto | "Ovos mexidos" / [leite][ovo] | Prato da linha acima | OK |
 | 14 | Dois pratos com ícones na mesma linha | "Leite Integral [leite] OU Bebida de Soja [soja]" | Última palavra à esquerda do ícone | OK |
 | 15 | Ícones de um prato com "/" | Darcy: "Rosé [leite][ovo] / Limão" | Tudo no prato "Rosé / Limão" (a barra não separa) | OK pela regra do RF06.2 |
@@ -105,10 +108,13 @@ O leitor nunca devolve um cardápio vazio ou incompleto em silêncio. Todas as e
 | 23 | Célula vazia | OPÇÃO EXTRA na maioria dos dias | Dia sem prato na categoria | OK |
 | 24 | Peixe sem marcador | Gama e Darcy | Nenhum marcador (L04) | OK |
 | 25 | Logos são imagens | Topo da página | Só contam imagens baixas dentro da tabela | OK |
+| 26 | Data entre parênteses no cabeçalho | Todos os PDFs desde 16/11/2026: "2ª FEIRA" / "(16/11/2026)" | A data pode vir entre parênteses (só o par completo); continuam as checagens de data válida, sem repetir e no dia da semana escrito. O formato antigo continua aceito | OK (BE-12). Antes, os 10 PDFs eram recusados |
+| 27 | Ícones quase encostados, com um vale fino de tinta | Almoço de 16/11 (5 campi): "Mix de doces" com leite e amendoim numa imagem só, o anel do amendoim cortado pela borda | O corte pela proporção caía na fatia do anel do leite (distância 44,4). Agora o corte vai para o vale de tinta mais fino perto do meio (até 15% da altura para cada lado), e as colunas do vale ficam fora dos dois ícones. Sem vale (anéis que se tocam), o corte continua na proporção. O `DISTANCIA_MAX_ICONE` não mudou | OK (BE-12) |
+| 28 | Barra no fim da linha | Planaltina (16/11 e 23/11) e Darcy (23/11): "Rosé [ovo][leite] /" / "Limão" | A barra no fim da linha deixa o prato em aberto, como vírgula e conector: um prato só, "Rosé / Limão" (a barra não separa, RF06.2) | OK (BE-12) |
 
 ## 6. Para o BE-12
 
-- Rodar o leitor em mais semanas e no PDF de Planaltina e juntar aqui os casos novos. O leitor é rigoroso de propósito: qualquer coluna extra com texto no cabeçalho recusa o PDF inteiro. Observar se isso recusa PDFs bons; se recusar, rever a regra em vez de afrouxá-la em silêncio.
-- Pendências da revisão do PR #114, deixadas para o BE-12: trocar os dicionários soltos de célula e dia por dataclasses (`Celula`, `Dia`) e aceitar "Opção" sem dois-pontos, se aparecer em algum PDF.
-- Ligar o leitor ao `CardapioDownloader`, ao `CardapioRepository` e ao `AlertaEquipeService`: `DownloadError` e `FormatoPDFInvalidoError` mantêm o último válido; refeição com `alergenos_indisponiveis` grava `status_leitura = alergenos_indisponiveis` e gera alerta.
-- O leitor devolve a dieta por categoria; o model `Prato` guarda a dieta no prato. O `CardapioRepository` copia a dieta da categoria para cada prato dela.
+- Rodar o leitor em mais semanas e no PDF de Planaltina e juntar aqui os casos novos. O leitor é rigoroso de propósito: qualquer coluna extra com texto no cabeçalho recusa o PDF inteiro. Observar se isso recusa PDFs bons; se recusar, rever a regra em vez de afrouxá-la em silêncio. **Feito no BE-12:** os 10 PDFs de novembro, com os casos 26 a 28 (seção 1 e tabela 5).
+- Pendências da revisão do PR #114, deixadas para o BE-12: trocar os dicionários soltos de célula e dia por dataclasses (`Celula`, `Dia`) e aceitar "Opção" sem dois-pontos, se aparecer em algum PDF. **Continuam pendentes** (opcionais no guia da BE-12): nenhum dos 10 PDFs novos trouxe "Opção" sem dois-pontos.
+- Ligar o leitor ao `CardapioDownloader`, ao `CardapioRepository` e ao `AlertaEquipeService`: `DownloadError` e `FormatoPDFInvalidoError` mantêm o último válido; refeição com `alergenos_indisponiveis` grava `status_leitura = alergenos_indisponiveis` e gera alerta. **Feito no BE-12** (C4 do Leitor, níveis 4a a 4c).
+- O leitor devolve a dieta por categoria; o model `Prato` guarda a dieta no prato. O `CardapioRepository` copia a dieta da categoria para cada prato dela. **Feito no BE-12.**

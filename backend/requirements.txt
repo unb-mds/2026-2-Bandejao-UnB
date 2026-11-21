@@ -11,3 +11,6 @@ pdfplumber==0.11.10
 pdfminer.six==20260107
 pillow==13.0.0
 pypdfium2==5.15.1
+# Descoberta e download do PDF na página do RU (BE-12, ADR 0014).
+requests==2.34.2
+beautifulsoup4==4.15.0

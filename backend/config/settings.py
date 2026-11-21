@@ -266,6 +266,12 @@ MAILERS = {
 DEFAULT_FROM_EMAIL = config_sem_padrao_em_producao(
     "DEFAULT_FROM_EMAIL", "nao-responda@bandejaounb.com.br"
 )
+# Destinatário dos alertas do Leitor de Cardápio (ADR 0006 e 0012, BE-12).
+# Tem padrão, inclusive em produção: sem a variável no .env, os alertas vão
+# para o endereço da equipe, e o servidor sobe do mesmo jeito.
+# Vazio também cai no padrão: `EMAIL_EQUIPE=` no .env faria o Django
+# descartar o destinatário, e o e-mail sumiria sem erro.
+EMAIL_EQUIPE = config("EMAIL_EQUIPE", default="").strip() or "equipe@bandejaounb.com.br"
 
 # Endereço do PWA: o link de confirmação de e-mail aponta para a página
 # /confirmar-email dele, e não para a API. Sem padrão em produção: um link
