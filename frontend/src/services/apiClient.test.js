@@ -363,6 +363,7 @@ describe('deveUsarSimulacao (build de produção sem o servidor simulado, FE-06)
     [{ DEV: true }, true],
     [{ DEV: true, VITE_USE_MOCK: 'true' }, true],
     [{ DEV: true, VITE_USE_MOCK: 'false' }, false],
+    [{ DEV: true, VITE_USE_MOCK: 'FALSE' }, true],
   ])('%o: %s', (env, esperado) => {
     expect(deveUsarSimulacao(env)).toBe(esperado)
   })
