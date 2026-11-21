@@ -94,6 +94,10 @@ DIAS_DA_SEMANA = {
     "domingo": 6,
 }
 RE_DATA = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4}|\d{2})$")
+# Desde a semana de 16/11/2026, o RU põe a data entre parênteses, numa linha
+# abaixo do dia: "2ª FEIRA (16/11/2026)" (caso 26 do BE-04). Só o par
+# completo é tirado; um parêntese sozinho continua sendo coluna sem data.
+RE_DATA_ENTRE_PARENTESES = re.compile(r"^\((.+)\)$")
 
 
 class LeitorCardapioError(Exception):
@@ -572,14 +576,17 @@ def _dieta(nome_categoria):
 
 
 def _ler_data(texto):
-    """Dia da semana e data de uma célula do cabeçalho ("2ª FEIRA 21/9/2026").
+    """Dia da semana e data de uma célula do cabeçalho.
 
-    A data é dia/mês/ano, como nos PDFs, com ano de 4 ou 2 dígitos. Recusa
-    datas que não existem e datas que não caem no dia da semana escrito
-    acima delas (uma "2ª FEIRA 22/9/2026" é erro de digitação no PDF).
+    Aceita os dois formatos do RU: "2ª FEIRA 21/9/2026" (até a semana de
+    09/11/2026) e "2ª FEIRA (16/11/2026)" (desde 16/11/2026). A data é
+    dia/mês/ano, como nos PDFs, com ano de 4 ou 2 dígitos. Recusa datas que
+    não existem e datas que não caem no dia da semana escrito acima delas
+    (uma "2ª FEIRA 22/9/2026" é erro de digitação no PDF).
     """
     for token in texto.split():
-        m = RE_DATA.match(token)
+        entre_parenteses = RE_DATA_ENTRE_PARENTESES.match(token)
+        m = RE_DATA.match(entre_parenteses.group(1) if entre_parenteses else token)
         if not m:
             continue
         d, mes, a = (int(g) for g in m.groups())
