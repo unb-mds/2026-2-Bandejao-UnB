@@ -10,6 +10,7 @@ Toda requisição leva o `User-Agent` do projeto e tempo limite, e não há
 repetição em sequência curta: quem tenta de novo é o cron, 3 horas depois.
 """
 
+import hashlib
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from bs4 import BeautifulSoup
 from apps.cardapio.leitor.cardapio_pdf_parser import (
     DownloadError,
     FonteNaoEncontradaError,
+    FormatoPDFInvalidoError,
     normalizar,
 )
 from apps.cardapio.leitor.fonte_cardapio_config import FonteCardapioConfig
@@ -62,6 +64,12 @@ class FontePDF:
     inicio: date | None
     fim: date | None
     erro: FonteNaoEncontradaError | None = None
+
+
+@dataclass(frozen=True)
+class ArquivoPDF:
+    conteudo: bytes
+    sha256: str
 
 
 def _datas_do_link(texto):
@@ -176,6 +184,17 @@ class CardapioDownloader:
         nome = normalizar(PurePosixPath(unquote(urlsplit(url).path)).stem)
         prefixo = normalizar(self.config.prefixo_arquivo(campus))
         return nome == prefixo or nome.startswith(prefixo + "-")
+
+    # -------------------------------------------------------------- download
+
+    def baixar(self, fonte: FontePDF) -> ArquivoPDF:
+        """Baixa o PDF do link. `DownloadError` em falha de rede, tempo
+        esgotado ou HTTP diferente de 200; `FormatoPDFInvalidoError` se a
+        resposta não é um PDF (ex.: uma página de erro com status 200)."""
+        conteudo = self._get(fonte.url, "PDF").content
+        if not conteudo.startswith(b"%PDF"):
+            raise FormatoPDFInvalidoError(f"a resposta não é um PDF: {fonte.url}")
+        return ArquivoPDF(conteudo, hashlib.sha256(conteudo).hexdigest())
 
     @staticmethod
     def _get(url, o_que):
