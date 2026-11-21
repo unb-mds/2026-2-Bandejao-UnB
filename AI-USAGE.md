@@ -256,7 +256,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BE-11 — Cardápio
 
-- Issue: [#138](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/138). PR: #PR_BE11 — BE-11: `GET /api/cardapio/` com RN05 e filtros.
+- Issue: [#138](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/138). PR: #214 — BE-11: `GET /api/cardapio/` com RN05 e filtros.
 - Ferramenta: Claude (Anthropic).
 - Apoio: a partir do guia da BE-11 (21/11/2026), testes e implementação de `DietaSelecionada`, `FiltroDietaService`, `FiltroMarcadorService`, `HorarioRefeicaoResolver` (RN05 da R2, horários lidos do `HorariosRefeicaoConfig`), `SemanaCardapioResolver` e `Semana` (semana vigente pela `FonteCardapio`), `RefeicaoRepository` (só leitura, com prefetch de categorias, pratos e marcadores), `CardapioQueryService` e `CardapioView` (validação e 400 `parametros_invalidos`), além dos objetos de resposta (`CardapioFiltrado`, `CategoriaFiltrada`, `PratoFiltrado`, `StatusCardapio`) e da nota de implementação no C4 4a (`c4-nivel-4-exposicao-cardapio.md`). O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
 - TDD: cada `feat` veio depois de um commit `test` com os testes da etapa falhando (`ImportError` nas seis primeiras etapas; 53 testes falhando na da view, que ainda devolvia 501). A sequência foi conferida commit a commit: o arquivo de teste novo falha no commit `test`, e os testes do app `cardapio` passam no `feat` seguinte.
