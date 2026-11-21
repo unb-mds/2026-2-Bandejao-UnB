@@ -360,9 +360,10 @@ def test_campus_que_nao_e_inteiro_da_400(cliente, campus, valor):
 
 def assert_404_campus(resposta):
     assert resposta.status_code == 404
-    # Mesmo formato do 400 e o `codigo` que a CampusView confere (FE-08, #144),
-    # igual ao do GET /api/ranking/{campusId}/. A mensagem fica fixa: o front
-    # ainda aceita o 400 antigo comparando por ela (MENSAGEM_CAMPUS_INEXISTENTE).
+    # Mesmo formato do 400 e o `codigo` que a store do cardápio confere
+    # (`campusInexistente`, FE-08, #144), o mesmo do contrato do ranking. A
+    # mensagem é a mesma do antigo 400 (`MENSAGEM_CAMPUS_INEXISTENTE`), para o
+    # texto não mudar.
     assert resposta.json() == {
         "codigo": "campus_nao_encontrado",
         "mensagem": "Não existe campus com esse id.",
@@ -376,7 +377,7 @@ def test_campus_inexistente_da_404(cliente, campus):
 
 def test_campus_com_zeros_a_esquerda_inexistente_da_404(cliente, campus):
     # "000" é só dígitos: passa no formato e cai na consulta ao banco (pk 0
-    # nunca existe).
+    # não existe no banco de teste).
     assert_404_campus(pedir(cliente, campus="000"))
 
 
@@ -392,11 +393,49 @@ def test_campus_inexistente_com_filtros_validos_da_404(cliente, campus):
     assert_404_campus(resposta)
 
 
+@pytest.mark.parametrize("valor", ["9223372036854775808", "9" * 19])
+def test_campus_acima_do_bigint_da_404(cliente, campus, valor):
+    # 2**63 e o maior número de 19 dígitos: só dígitos, então não é 400, e
+    # não cabem no pk. Hoje o IntegerFieldOverflow do Django (>= 5) dá o 404;
+    # este teste avisa se o Django ou o tipo do pk mudarem.
+    assert_404_campus(pedir(cliente, campus=valor))
+
+
+@pytest.mark.parametrize(
+    "valor",
+    [
+        "99999999999999999999",
+        "1" + "0" * 30,
+        "9" * 5000,  # acima do limite de 4300 dígitos do int() do Python
+    ],
+)
+def test_campus_com_mais_digitos_que_o_maior_id_da_404_sem_consulta(
+    cliente, campus, valor, django_assert_num_queries
+):
+    # Mais dígitos que o maior pk: nem vai ao banco, e o int() de um número
+    # enorme não vira 500.
+    with django_assert_num_queries(0):
+        resposta = pedir(cliente, campus=valor)
+
+    assert_404_campus(resposta)
+
+
+def test_campus_no_limite_do_bigint_ainda_consulta_o_banco(
+    cliente, campus, django_assert_num_queries
+):
+    # 2**63 - 1 com zeros à esquerda ainda cabe: vai ao banco e dá 404.
+    with django_assert_num_queries(1):
+        resposta = pedir(cliente, campus="000" + str(2**63 - 1))
+
+    assert_404_campus(resposta)
+
+
 @pytest.mark.parametrize(
     ("parametros", "trecho"),
     [
         ({"dia": "2026-02-30"}, "dia"),
         ({"semana": "amanha"}, "semana"),
+        ({"semana": "1999-12-31"}, "semana"),
         ({"semana": "2026-11-23", "dia": "2026-11-30"}, "semana"),
         ({"refeicao": "lanche"}, "refeição"),
         ({"dieta": "vegano"}, "dieta"),
@@ -408,8 +447,7 @@ def test_campus_inexistente_com_filtros_validos_da_404(cliente, campus):
 def test_campus_inexistente_com_outro_parametro_invalido_da_400(
     cliente, campus, parametros, trecho
 ):
-    # O 400 ganha: é erro do próprio PWA e precisa aparecer mesmo quando o
-    # campus também não existe. O 404 só sai com o resto do pedido válido.
+    # O 400 vem antes: o 404 só sai com o resto do pedido válido.
     assert_400(pedir(cliente, campus=campus.pk + 100, **parametros), trecho)
 
 
