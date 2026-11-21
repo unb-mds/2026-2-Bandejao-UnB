@@ -190,6 +190,71 @@ def test_sha256_diferente_na_mesma_url_le_de_novo_e_atualiza(gama, site, usuario
     assert Avaliacao.objects.filter(refeicao=jantar_quinta).count() == 1
 
 
+def test_releitura_mantem_as_refeicoes_que_continuam_no_pdf(gama, site, usuario):
+    # Revisão #218: P1 no serviço. As refeições que continuam no PDF são as
+    # mesmas linhas (PK igual), e a avaliação de um almoço que continua
+    # sobrevive à releitura.
+    _processar(gama)
+    continuam = dict(
+        Refeicao.objects.filter(campus=gama, data__lt=SEGUNDA_23)
+        .exclude(tipo="jantar")
+        .values_list("pk", "data")
+    )
+    almoco = Refeicao.objects.get(campus=gama, data=date(2026, 11, 18), tipo="almoco")
+    avaliacao = Avaliacao.objects.create(usuario=usuario, refeicao=almoco, nota=5)
+    site.conteudos[URL_GAMA_16] = pdf("Fazenda-Semana-01-16-11-a-20-11-2.pdf")
+
+    _processar(gama, SABADO_10H + timedelta(hours=3))
+
+    assert (
+        dict(
+            Refeicao.objects.filter(campus=gama, data__lt=SEGUNDA_23).values_list(
+                "pk", "data"
+            )
+        )
+        == continuam
+    )
+    assert Avaliacao.objects.filter(pk=avaliacao.pk, refeicao=almoco).exists()
+
+
+def test_mesmo_sha256_em_url_nova_e_lido_e_atualiza_a_url(gama, site):
+    _processar(gama)
+    nova = URL_GAMA_16.replace("-1.pdf", "-2.pdf")
+    site.trocar_no_html(URL_GAMA_16, nova)
+    site.conteudos[nova] = site.conteudos[URL_GAMA_16]
+    depois = SABADO_10H + timedelta(hours=3)
+
+    with _espiar_parser() as extrair:
+        resultado = _processar(gama, depois)
+
+    assert extrair.call_count == 1
+    assert resultado.lidas == 1
+    fonte = FonteCardapio.objects.get(campus=gama, semana_inicio=SEGUNDA_16)
+    assert (fonte.url, fonte.processado_em) == (nova, depois)
+    assert set(
+        Refeicao.objects.filter(data__lt=SEGUNDA_23).values_list(
+            "fonte_pdf_url", flat=True
+        )
+    ) == {nova}
+
+
+def test_refeicao_mantida_por_ter_avaliacao_gera_alerta(gama, site, usuario):
+    # Revisão #218, item 9: a refeição que saiu do PDF mas tem avaliação
+    # fica com os pratos antigos; a equipe precisa saber.
+    _processar(gama)
+    sexta = Refeicao.objects.get(campus=gama, data=date(2026, 11, 20), tipo="jantar")
+    Avaliacao.objects.create(usuario=usuario, refeicao=sexta, nota=3)
+    site.conteudos[URL_GAMA_16] = pdf("Fazenda-Semana-01-16-11-a-20-11-2.pdf")
+
+    _processar(gama, SABADO_10H + timedelta(hours=3))
+
+    alertas = AlertaLeituraCardapio.objects.filter(refeicao=sexta)
+    [alerta] = alertas
+    assert alerta.tipo == FALHA
+    assert "avaliação" in alerta.mensagem and "20/11/2026" in alerta.mensagem
+    assert usuario.email_institucional not in alerta.mensagem
+
+
 def test_execucao_sem_alerta_zera_o_contador_do_campus(gama, site):
     ContadorAlerta.objects.create(
         campus=gama,

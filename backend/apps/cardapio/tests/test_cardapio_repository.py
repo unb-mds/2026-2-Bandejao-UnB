@@ -383,7 +383,8 @@ def test_refeicao_que_sumiu_mas_tem_avaliacao_fica_com_aviso(
     corrigido = _sem_o_jantar_de_sexta(lidas["jantar"])
     gravadas = repositorio.salvar(gama, _fonte(gama), corrigido)
     with caplog.at_level(logging.WARNING):
-        repositorio.remover_ausentes(gama, _fonte(gama), gravadas)
+        mantidas = repositorio.remover_ausentes(gama, _fonte(gama), gravadas)
+    assert mantidas == [sexta]
     assert Refeicao.objects.filter(pk=sexta.pk).exists()
     assert Avaliacao.objects.filter(refeicao=sexta).count() == 1
     avisos = [r for r in caplog.records if r.levelno == logging.WARNING]
@@ -394,6 +395,66 @@ def test_refeicao_que_sumiu_mas_tem_avaliacao_fica_com_aviso(
     )
     # Nenhum dado de usuário no log.
     assert usuario.email_institucional not in mensagem
+
+
+def test_refeicao_mantida_por_avaliacao_volta_na_lista_uma_vez(gama, lidas, usuario):
+    # Duas avaliações na mesma refeição: um aviso e um item só (distinct).
+    from django.contrib.auth import get_user_model
+
+    outra = get_user_model().objects.create_user(
+        matricula_siape="202400002",
+        tipo_usuario="estudante",
+        apelido="alana",
+        email_institucional="202400002@aluno.unb.br",
+        aceite_privacidade_em=usuario.aceite_privacidade_em,
+        versao_aviso_aceita="teste",
+        password="senha-forte-123",
+    )
+    repositorio = CardapioRepository()
+    repositorio.salvar(gama, _fonte(gama), lidas["jantar"])
+    sexta = Refeicao.objects.get(campus=gama, data=DIAS[4], tipo="jantar")
+    _criar_avaliacao(usuario, sexta)
+    _criar_avaliacao(outra, sexta)
+    gravadas = repositorio.salvar(
+        gama, _fonte(gama), _sem_o_jantar_de_sexta(lidas["jantar"])
+    )
+    assert repositorio.remover_ausentes(gama, _fonte(gama), gravadas) == [sexta]
+
+
+def test_cada_refeicao_apagada_fica_no_log(gama, lidas, caplog):
+    # Revisão #218, item 9: as apagadas também deixam rastro.
+    repositorio = CardapioRepository()
+    repositorio.salvar(gama, _fonte(gama), lidas["jantar"])
+    gravadas = repositorio.salvar(
+        gama, _fonte(gama), _sem_o_jantar_de_sexta(lidas["jantar"])
+    )
+    with caplog.at_level(logging.INFO, logger="apps.cardapio.leitor"):
+        assert repositorio.remover_ausentes(gama, _fonte(gama), gravadas) == []
+    apagadas = [r.getMessage() for r in caplog.records if "apagada" in r.getMessage()]
+    assert len(apagadas) == 1
+    assert "2026-11-20" in apagadas[0] and "jantar" in apagadas[0]
+
+
+def _uma_refeicao(data):
+    return RefeicaoEstruturada(
+        refeicao="almoco",
+        dias=[{"dia": "", "data": data.isoformat()}],
+        categorias=[],
+    )
+
+
+def test_limites_do_p1_sao_o_inicio_e_o_fim_do_link(gama):
+    # Link de 16 a 22/11: as refeições de 16 e de 22 somem se não estão no
+    # PDF relido; a de 23 (fim + 1) é de outra semana e fica.
+    repositorio = CardapioRepository()
+    for dia in (16, 22, 23):
+        repositorio.salvar(gama, _fonte(gama), _uma_refeicao(date(2026, 11, dia)))
+    gravadas = repositorio.salvar(gama, _fonte(gama), _uma_refeicao(date(2026, 11, 17)))
+    repositorio.remover_ausentes(gama, _fonte(gama), gravadas)
+    assert sorted(Refeicao.objects.values_list("data", flat=True)) == [
+        date(2026, 11, 17),
+        date(2026, 11, 23),
+    ]
 
 
 def test_remover_ausentes_so_mexe_na_semana_do_pdf_e_no_campus(gama, lidas):

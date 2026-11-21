@@ -335,6 +335,34 @@ def test_dois_links_para_a_mesma_semana_com_a_outra_semana_valida(pagina):
     ]
 
 
+def test_link_com_mais_de_sete_dias_e_reprovado(pagina):
+    # Revisão #218, item 9: um intervalo errado ("16/11 a 29/11") faria o P1
+    # apagar refeições da semana seguinte, lida por outro link.
+    pagina.html = trocar_texto_do_link(
+        pagina.html, "Gama-Semana-01", "ISM &#8211; 16/11/2026 À 29/11/2026"
+    )
+    fontes = _localizar("Gama")
+    assert isinstance(fontes[0].erro, FonteNaoEncontradaError)
+    assert "mais de 7 dias" in str(fontes[0].erro)
+    # A semana dele continua conhecida (para o "não publicado").
+    assert (fontes[0].inicio, fontes[0].fim) == (SEMANA_16[0], SEMANA_23[1])
+
+
+def test_links_sobrepostos_reprovam_os_dois(pagina):
+    pagina.html = trocar_texto_do_link(
+        pagina.html, "Gama-Semana-02", "ISM &#8211; 20/11/2026 À 26/11/2026"
+    )
+    fontes = _localizar("Gama")
+    assert [f.erro is None for f in fontes] == [False, False]
+    assert all("sobreposto" in str(f.erro) for f in fontes)
+    # Os outros campi não são afetados.
+    assert _resumo(_localizar("Planaltina")) == _esperado("Planaltina")
+
+
+def test_link_de_sete_dias_exatos_e_aceito(pagina):
+    assert [f.erro for f in _localizar("Gama")] == [None, None]
+
+
 @pytest.mark.parametrize(
     "texto",
     [
@@ -493,7 +521,8 @@ def test_baixar_devolve_o_conteudo_e_o_sha256():
         return_value=_resposta(conteudo),
     ) as get:
         arquivo = CardapioDownloader().baixar(_fonte())
-    assert arquivo == ArquivoPDF(conteudo, hashlib.sha256(conteudo).hexdigest())
+    assert arquivo.conteudo == conteudo
+    assert arquivo.sha256 == hashlib.sha256(conteudo).hexdigest()
     assert len(arquivo.sha256) == 64
     (url,), kwargs = get.call_args
     assert url == UPLOADS + "Gama-Semana-02-23-11-a-29-11.pdf"
@@ -536,6 +565,19 @@ def test_resposta_que_nao_e_pdf_e_formato_invalido():
         pytest.raises(FormatoPDFInvalidoError, match="não é um PDF"),
     ):
         CardapioDownloader().baixar(_fonte())
+
+
+def test_fonte_pdf_sem_erro_exige_as_datas_e_nao_muda_depois():
+    campus = CAMPI["Gama"]
+    with pytest.raises(ValueError, match="datas"):
+        FontePDF(campus, "u", "t", None, None)
+    reprovada = FontePDF(campus, "u", "t", None, None, FonteNaoEncontradaError("x"))
+    with pytest.raises(AttributeError):
+        reprovada.erro = None
+
+
+def test_sha256_sai_do_conteudo():
+    assert ArquivoPDF(b"%PDF-1.7").sha256 == hashlib.sha256(b"%PDF-1.7").hexdigest()
 
 
 # ------------------------------------------------------ FonteCardapioConfig
