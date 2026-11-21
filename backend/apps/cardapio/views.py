@@ -54,6 +54,13 @@ def _if_none_match_bate(request, etag):
 SO_DIGITOS = re.compile(r"[0-9]+")
 # AAAA-MM-DD: `date.fromisoformat` aceitaria também "20261123".
 FORMATO_DATA = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+# Faixa aceita em `semana` e `dia`. Longe dos extremos do `date` (anos 1 e
+# 9999), onde somar ou subtrair a semana daria OverflowError (500).
+DATA_MINIMA = date(2000, 1, 1)
+DATA_MAXIMA = date(2099, 12, 31)
+# Os únicos parâmetros do contrato. Um nome errado (`marcador`, o
+# `marcadores[]` do axios) daria 200 sem filtro nenhum, como se fosse seguro.
+PARAMETROS = ("campus", "semana", "dia", "refeicao", "marcadores", "dieta")
 
 
 class ParametrosInvalidos(ParseError):
@@ -85,11 +92,17 @@ def _ler_data(valor, nome):
     try:
         if not FORMATO_DATA.fullmatch(valor):
             raise ValueError
-        return date.fromisoformat(valor)
+        data = date.fromisoformat(valor)
     except ValueError:
         raise ParametrosInvalidos(
             f"O parâmetro {nome} deve ser uma data válida no formato AAAA-MM-DD."
         ) from None
+    if not DATA_MINIMA <= data <= DATA_MAXIMA:
+        raise ParametrosInvalidos(
+            f"O parâmetro {nome} deve ser uma data entre "
+            f"{DATA_MINIMA.isoformat()} e {DATA_MAXIMA.isoformat()}."
+        )
+    return data
 
 
 def _ler_opcao(valor, opcoes, mensagem):
@@ -124,8 +137,30 @@ def _ler_marcadores(valor):
     return nomes
 
 
+def _conferir_nomes(query):
+    """Só os parâmetros do contrato, cada um uma vez.
+
+    O `QueryDict.get` fica com o último valor de um parâmetro repetido: com
+    `marcadores=ovo&marcadores=soja`, o `ovo` sumiria sem aviso.
+    """
+    desconhecidos = [nome for nome in query if nome not in PARAMETROS]
+    if len(desconhecidos) == 1:
+        raise ParametrosInvalidos(f"Parâmetro desconhecido: {desconhecidos[0]}.")
+    if desconhecidos:
+        raise ParametrosInvalidos(
+            f"Parâmetros desconhecidos: {', '.join(desconhecidos)}."
+        )
+    repetidos = [nome for nome in PARAMETROS if len(query.getlist(nome)) > 1]
+    if repetidos:
+        raise ParametrosInvalidos(
+            f"Parâmetro enviado mais de uma vez: {', '.join(repetidos)}. "
+            "Para vários marcadores, use um só, separado por vírgulas."
+        )
+
+
 def _ler_parametros(query):
     """Valida a query string inteira antes de consultar o cardápio."""
+    _conferir_nomes(query)
     campus = _ler_campus(query.get("campus"))
     semana = _ler_data(query.get("semana"), "semana")
     dia = _ler_data(query.get("dia"), "dia")
