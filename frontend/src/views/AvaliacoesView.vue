@@ -21,6 +21,7 @@ import NavegacaoInferior from '@/components/NavegacaoInferior.vue'
 const auth = useAuthStore()
 const avaliacoes = useAvaliacoesStore()
 const cardapio = useCardapioStore()
+cardapio.carregarCampi()
 const preferencias = usePreferenciasStore()
 
 const campusId = computed(() => preferencias.campusId)
@@ -30,7 +31,7 @@ const alvo = computed(() => ({ campus: campusId.value, data: data.value, refeica
 const dados = computed(() => (tipo.value && data.value ? avaliacoes.daRefeicao(alvo.value) : null))
 
 const subtitulo = computed(() => {
-  const partes = [preferencias.campus?.nome]
+  const partes = [cardapio.buscarCampus(campusId.value)?.nome]
   if (tipo.value && data.value) {
     partes.push(REFEICOES[tipo.value].rotulo, `${diaCurto(data.value)}, ${diaMes(data.value)}`)
   }

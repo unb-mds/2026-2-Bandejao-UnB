@@ -1,121 +1,123 @@
 <script setup>
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
-import { CAMPI, siglaCampus } from '@/constants/campi'
-import AppLogo from '@/components/AppLogo.vue'
+import { CAMPUS_COM_EXECUTIVO, idDeCampusValido } from '@/constants/campi'
+import { ORDEM_REFEICOES, REFEICOES } from '@/constants/refeicoes'
+import { refeicaoPadrao } from '@/utils/cardapio'
+import { hojeISO, minutosAgora, minutosDoDia } from '@/utils/datas'
+import AvisoExecutivo from '@/components/AvisoExecutivo.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
+import NavegacaoInferior from '@/components/NavegacaoInferior.vue'
+import CardapioView from './CardapioView.vue'
+import FilaView from './FilaView.vue'
 
-/** Escolha do campus no início da jornada (RF07). Fica lembrado no aparelho. */
-const router = useRouter()
+const props = defineProps({
+  campusId: { type: String, required: true },
+})
+
+const route = useRoute()
+const cardapio = useCardapioStore()
 const preferencias = usePreferenciasStore()
+const agora = ref(new Date())
 
-function escolher(id) {
-  preferencias.escolherCampus(id)
-  router.push({ name: 'inicio' })
-}
+const id = computed(() => idDeCampusValido(props.campusId))
+const campus = computed(() => cardapio.buscarCampus(id.value))
+const naoEncontrado = computed(() => !id.value || (cardapio.campiCarregados && !campus.value))
+const temExecutivo = computed(() => campus.value?.nome === CAMPUS_COM_EXECUTIVO)
+
+const refeicaoDaFila = computed(() => {
+  const selecionada = preferencias.refeicaoSelecionada
+  if (preferencias.dataSelecionada === hojeISO(agora.value) && REFEICOES[selecionada]) {
+    return selecionada
+  }
+  return refeicaoPadrao(ORDEM_REFEICOES, agora.value)
+})
+const refeicaoEncerrada = computed(
+  () => minutosAgora(agora.value) > minutosDoDia(REFEICOES[refeicaoDaFila.value].fim),
+)
+
+onMounted(async () => {
+  cardapio.carregarCampi()
+  if (route.hash === '#fila') {
+    await nextTick()
+    document.getElementById('fila')?.scrollIntoView?.()
+  }
+})
+
+watch(
+  campus,
+  (atual) => {
+    if (atual) preferencias.escolherCampus(atual.id)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
   <div class="tela">
-    <header class="cabecalho cabecalho-campus fundo-escuro">
-      <div class="marca">
-        <AppLogo :tamanho="36" />
-        <span class="nome">bandejão</span>
+    <header class="cabecalho cabecalho-tela-campus fundo-escuro">
+      <div class="linha-campus">
+        <h1 class="titulo-tela">{{ campus?.nome ?? 'Campus' }}</h1>
+        <RouterLink :to="{ name: 'campus' }" class="trocar">
+          Trocar
+          <IconeSvg nome="chevron" :tamanho="14" cor="currentColor" espessura="2.5" />
+        </RouterLink>
       </div>
-      <h1 class="titulo-tela">Qual campus<br />você frequenta?</h1>
-      <p class="subtitulo-tela subtitulo">Pode trocar depois a qualquer momento</p>
     </header>
 
-    <ul class="conteudo sem-barra pilha-3 lista">
-      <li v-for="campus in CAMPI" :key="campus.id">
-        <button
-          type="button"
-          class="cartao cartao-clicavel campus"
-          :class="{ 'campus--atual': preferencias.campusId === campus.id }"
-          @click="escolher(campus.id)"
-        >
-          <span class="sigla">{{ siglaCampus(campus.nome) }}</span>
-          <span class="textos">
-            <span class="nome-campus">{{ campus.nome }}</span>
-            <span class="descricao">{{ campus.descricao }}</span>
-          </span>
-          <IconeSvg nome="chevron" :tamanho="16" cor="var(--borda)" espessura="2.5" />
-        </button>
-      </li>
-    </ul>
+    <AvisoExecutivo v-if="temExecutivo" />
+
+    <main v-if="naoEncontrado" class="conteudo sem-barra estado">
+      <p class="estado-titulo">Campus não encontrado</p>
+      <RouterLink :to="{ name: 'campus' }" class="botao botao--primario">Escolher o campus</RouterLink>
+    </main>
+
+    <main v-else class="conteudo sem-barra">
+      <CardapioView :campus-id="id" />
+      <FilaView :campus-id="id" :tipo-refeicao="refeicaoDaFila" :encerrada="refeicaoEncerrada" />
+    </main>
+
+    <NavegacaoInferior />
   </div>
 </template>
 
 <style scoped>
-.cabecalho-campus {
-  padding-bottom: 32px;
+.cabecalho-tela-campus {
+  padding-bottom: 16px;
 }
 
-.marca {
+.linha-campus {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  margin-bottom: 24px;
 }
 
-.nome {
-  font-family: var(--fonte-titulo);
-  font-weight: 900;
-  font-size: 20px;
-  letter-spacing: -0.5px;
-  color: #fff;
-}
-
-.subtitulo {
-  margin-top: 8px;
-}
-
-.lista {
-  list-style: none;
-  padding: 20px 16px 32px;
-}
-
-.campus {
-  display: flex;
+.trocar {
+  display: inline-flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
-}
-.campus--atual {
-  border-color: var(--verde-escuro);
-}
-
-.sigla {
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--raio-md);
-  background: var(--verde-escuro);
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: -0.3px;
-  color: #fff;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dourado);
+  text-decoration: none;
 }
 
-.textos {
-  flex: 1;
+.estado {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 48px 20px;
+  text-align: center;
 }
 
-.nome-campus {
+.estado-titulo {
   font-family: var(--fonte-titulo);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--texto-escuro);
-}
-
-.descricao {
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--texto-claro);
 }
 </style>

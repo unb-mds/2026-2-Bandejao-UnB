@@ -19,6 +19,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const avaliacoes = useAvaliacoesStore()
 const cardapio = useCardapioStore()
+cardapio.carregarCampi()
 const preferencias = usePreferenciasStore()
 
 const agora = new Date()
@@ -135,7 +136,7 @@ async function sair() {
           <AppLogo :tamanho="34" />
           <div>
             <span class="nome">bandejão</span>
-            <p class="campus-atual">{{ preferencias.campus?.nome }}</p>
+            <p class="campus-atual">{{ cardapio.buscarCampus(preferencias.campusId)?.nome }}</p>
           </div>
         </div>
 

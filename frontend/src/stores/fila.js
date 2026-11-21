@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { ApiError, apiClient, mensagemDeErro } from '@/services/apiClient'
-import { buscarCampus } from '@/constants/campi'
+import { idDeCampusValido } from '@/constants/campi'
 import { mensagemForaDoHorario } from '@/constants/refeicoes'
 
 /**
@@ -16,8 +16,7 @@ import { mensagemForaDoHorario } from '@/constants/refeicoes'
  */
 
 // 400 dados_invalidos só acontece se o próprio PWA montar o corpo errado (por
-// exemplo, um `idApi` que não bate com o `pk` do banco): tentar de novo não
-// resolve.
+// exemplo, um campus que não existe no banco): tentar de novo não resolve.
 const MENSAGEM_ERRO_DO_APP =
   'Não foi possível registrar o check-in por um problema no aplicativo. Se continuar, avise a equipe do Bandejão.'
 const MENSAGEM_CAMPUS_DESCONHECIDO =
@@ -57,16 +56,16 @@ export const useFilaStore = defineStore('fila', () => {
    *   checkin_duplicado, localizacao_nao_confirmada);
    * - 'aviso_privacidade_pendente' (403): quem chamou mostra o aviso de novo;
    * - 'nao_autenticado' (401): o apiClient já limpou o authStore;
-   * - 'erro': `{ codigo, mensagem }` (400 dados_invalidos, campus sem `idApi`,
+   * - 'erro': `{ codigo, mensagem }` (400 dados_invalidos, campus inválido,
    *   201 sem `checkin`, sem conexão, 5xx). Os erros do próprio app vão para
    *   o console, sem as coordenadas (RI09).
    *
-   * @param {{ campusId: string, tipoRefeicao: string, coordenadas: { latitude: number, longitude: number } }} pedido
+   * @param {{ campusId: number, tipoRefeicao: string, coordenadas: { latitude: number, longitude: number } }} pedido
    */
   async function confirmarCheckin({ campusId, tipoRefeicao, coordenadas }) {
-    const idApi = buscarCampus(campusId)?.idApi
+    const idApi = idDeCampusValido(campusId)
     if (!idApi) {
-      console.error('Check-in sem o id do campus no backend.', { campusId })
+      console.error('Check-in sem um id de campus válido.', { campusId })
       return {
         desfecho: 'erro',
         codigo: 'campus_desconhecido',
