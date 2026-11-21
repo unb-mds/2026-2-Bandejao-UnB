@@ -15,7 +15,15 @@ import { mensagemForaDoHorario } from '@/constants/refeicoes'
  * devolve (sem coordenadas) e o bloco `pontos`.
  */
 
-const MENSAGEM_ERRO_CHECKIN = 'Não foi possível registrar o check-in. Tente de novo.'
+// 400 dados_invalidos só acontece se o próprio PWA montar o corpo errado (por
+// exemplo, um `idApi` que não bate com o `pk` do banco): tentar de novo não
+// resolve.
+const MENSAGEM_ERRO_DO_APP =
+  'Não foi possível registrar o check-in por um problema no aplicativo. Se continuar, avise a equipe do Bandejão.'
+const MENSAGEM_CAMPUS_DESCONHECIDO =
+  'Não foi possível identificar o campus. Escolha o campus de novo e tente outra vez.'
+const MENSAGEM_RESPOSTA_INCOMPLETA =
+  'O check-in pode ter sido registrado, mas a resposta veio incompleta. Recarregue a página antes de tentar de novo.'
 
 /** Mensagem por `codigo` do 422 (contrato da BE-09). */
 const MENSAGENS_RECUSA = {
@@ -49,36 +57,57 @@ export const useFilaStore = defineStore('fila', () => {
    *   checkin_duplicado, localizacao_nao_confirmada);
    * - 'aviso_privacidade_pendente' (403): quem chamou mostra o aviso de novo;
    * - 'nao_autenticado' (401): o apiClient já limpou o authStore;
-   * - 'erro': `{ codigo, mensagem }` (400 dados_invalidos, sem conexão, 5xx).
+   * - 'erro': `{ codigo, mensagem }` (400 dados_invalidos, campus sem `idApi`,
+   *   201 sem `checkin`, sem conexão, 5xx). Os erros do próprio app vão para
+   *   o console, sem as coordenadas (RI09).
    *
    * @param {{ campusId: string, tipoRefeicao: string, coordenadas: { latitude: number, longitude: number } }} pedido
    */
   async function confirmarCheckin({ campusId, tipoRefeicao, coordenadas }) {
     const idApi = buscarCampus(campusId)?.idApi
-    if (!idApi) return { desfecho: 'erro', codigo: null, mensagem: MENSAGEM_ERRO_CHECKIN }
+    if (!idApi) {
+      console.error('Check-in sem o id do campus no backend.', { campusId })
+      return {
+        desfecho: 'erro',
+        codigo: 'campus_desconhecido',
+        mensagem: MENSAGEM_CAMPUS_DESCONHECIDO,
+      }
+    }
 
+    // Só o POST fica no `try`: um erro depois do 201 não pode virar "Algo deu
+    // errado", porque o check-in já foi gravado.
     enviandoCheckin.value = true
+    let resposta
     try {
-      const resposta = await apiClient.post('/checkins/', {
+      resposta = await apiClient.post('/checkins/', {
         campus: idApi,
         tipoRefeicao,
         // Só latitude e longitude, mesmo que venha mais coisa (RI09).
         coordenadas: { latitude: coordenadas.latitude, longitude: coordenadas.longitude },
       })
-      ultimoCheckin.value = copiarCheckin(resposta.checkin)
-      ultimosPontos.value = { ...resposta.pontos }
-      return { desfecho: 'confirmado', checkin: ultimoCheckin.value, pontos: ultimosPontos.value }
     } catch (falha) {
-      return desfechoDaFalha(falha, tipoRefeicao)
+      return desfechoDaFalha(falha, { idApi, tipoRefeicao })
     } finally {
       enviandoCheckin.value = false
     }
+
+    if (!resposta?.checkin) {
+      console.error('201 do check-in sem o bloco checkin.')
+      return {
+        desfecho: 'erro',
+        codigo: 'resposta_invalida',
+        mensagem: MENSAGEM_RESPOSTA_INCOMPLETA,
+      }
+    }
+    ultimoCheckin.value = copiarCheckin(resposta.checkin)
+    ultimosPontos.value = { ...resposta.pontos }
+    return { desfecho: 'confirmado', checkin: ultimoCheckin.value, pontos: ultimosPontos.value }
   }
 
   return { enviandoCheckin, ultimoCheckin, ultimosPontos, confirmarCheckin }
 })
 
-function desfechoDaFalha(falha, tipoRefeicao) {
+function desfechoDaFalha(falha, { idApi, tipoRefeicao }) {
   if (!(falha instanceof ApiError)) {
     return { desfecho: 'erro', codigo: null, mensagem: mensagemDeErro(falha) }
   }
@@ -92,9 +121,14 @@ function desfechoDaFalha(falha, tipoRefeicao) {
   if (recusa) {
     return { desfecho: 'recusado', codigo: falha.codigo, mensagem: recusa(falha, tipoRefeicao) }
   }
-  // 400 dados_invalidos só acontece se o próprio PWA errar o corpo.
   if (falha.status === 400) {
-    return { desfecho: 'erro', codigo: falha.codigo, mensagem: MENSAGEM_ERRO_CHECKIN }
+    // Sem as coordenadas (RI09).
+    console.error('Check-in recusado pelo formato do corpo.', {
+      codigo: falha.codigo,
+      idApi,
+      tipoRefeicao,
+    })
+    return { desfecho: 'erro', codigo: falha.codigo, mensagem: MENSAGEM_ERRO_DO_APP }
   }
   return { desfecho: 'erro', codigo: falha.codigo, mensagem: falha.message }
 }
