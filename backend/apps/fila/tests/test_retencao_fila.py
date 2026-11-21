@@ -1,10 +1,12 @@
 """Retenção de 4 semanas dos registros de fila (BD-11, #163).
 
 Fila N4 (4d) e RNF07.3: depois de 4 semanas, `Checkin` e `TentativaCheckin`
-perdem o vínculo com a conta e a hora exata; campus, tipo, data, faixa, tempo
-de espera e marcador de pontos ficam, porque a previsão de pico (RF13) usa
-esses campos. O mesmo serviço retira o vínculo de uma conta excluída
-(`desvincular_conta`, usado pelo `RemoverContaCommand` da BD-12, RNF07.4).
+perdem a conta, `registrado_em` e `data_hora`. Campus, tipo, data, faixa e
+tempo de espera ficam para a previsão de pico (RF13, RF22); o marcador de
+pontos fica para a gamificação (ADR 0011). Os horários da pergunta e da
+resposta de saída também ficam, sem conta. O mesmo serviço retira o vínculo
+de uma conta excluída (`desvincular_conta`, que o `RemoverContaCommand` da
+BD-12 vai chamar, RNF07.4).
 """
 
 import logging
@@ -16,7 +18,8 @@ from unittest import mock
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.db.models import Avg, Count
+from django.db import DatabaseError
+from django.db.models import Avg, Count, QuerySet
 from django.utils import timezone
 
 from apps.fila.checkin_repository import CheckinRepository
@@ -177,8 +180,9 @@ def test_rodar_de_novo_nao_conta_o_que_ja_foi_desvinculado(conta, darcy):
 def test_checkins_da_mesma_refeicao_de_contas_diferentes_ficam_sem_conta(
     conta, outra_conta, darcy
 ):
-    """O UNIQUE (conta, campus, tipo, data) continua valendo com a conta nula:
-    NULL não colide no SQLite nem no MySQL."""
+    """Com a conta nula, o UNIQUE (conta, campus, tipo, data) não restringe
+    nada: NULL não colide no SQLite nem no MySQL, então a retenção não bate
+    nele."""
     criar_checkin(conta, darcy, CINCO_SEMANAS)
     criar_checkin(outra_conta, darcy, CINCO_SEMANAS)
 
@@ -231,6 +235,82 @@ def test_resposta_de_saida_perde_o_vinculo_junto_com_o_checkin(conta, darcy):
 
     assert RespostaSaida.objects.count() == 1
     assert not RespostaSaida.objects.filter(pergunta__checkin__usuario=conta).exists()
+    # A pergunta continua, ligada ao mesmo check-in (agora sem conta).
+    pergunta.refresh_from_db()
+    assert pergunta.checkin_id == checkin.pk
+    assert pergunta.checkin.usuario_id is None
+
+
+@pytest.mark.parametrize("modelo", [Checkin, TentativaCheckin])
+def test_registro_sem_conta_mas_com_hora_tambem_perde_a_hora(conta, darcy, modelo):
+    """Conta apagada sem passar pelo `desvincular_conta` (pelo admin, por
+    exemplo): o `SET_NULL` anula a conta e deixa a hora. A retenção apaga a
+    hora mesmo assim."""
+    criar = criar_checkin if modelo is Checkin else criar_tentativa
+    registro = criar(conta, darcy, CINCO_SEMANAS)
+    modelo.objects.filter(pk=registro.pk).update(usuario=None)
+
+    assert RetencaoFilaService().desvincular_antigos(HOJE) == 1
+
+    recarregar(registro)
+    assert registro.usuario_id is None
+    hora = "registrado_em" if modelo is Checkin else "data_hora"
+    assert getattr(registro, hora) is None
+
+
+@pytest.mark.parametrize("modelo", [Checkin, TentativaCheckin])
+def test_registro_com_conta_e_sem_hora_tambem_perde_a_conta(conta, darcy, modelo):
+    criar = criar_checkin if modelo is Checkin else criar_tentativa
+    registro = criar(conta, darcy, CINCO_SEMANAS)
+    hora = "registrado_em" if modelo is Checkin else "data_hora"
+    modelo.objects.filter(pk=registro.pk).update(**{hora: None})
+
+    assert RetencaoFilaService().desvincular_antigos(HOJE) == 1
+
+    recarregar(registro)
+    assert registro.usuario_id is None
+
+
+def test_horarios_da_pergunta_e_do_marcador_ficam(conta, darcy):
+    """O que a retenção anula é só a conta, `registrado_em` e `data_hora`.
+    `pontos_concedidos_em` (gamificação, ADR 0011) e os horários da pergunta
+    e da resposta de saída ficam, sem conta (decisão registrada no C4 4d)."""
+    checkin = criar_checkin(conta, darcy, CINCO_SEMANAS)
+    pergunta = PerguntaSaida.objects.create(
+        checkin=checkin,
+        devida_em=momento(CINCO_SEMANAS),
+        expira_em=momento(CINCO_SEMANAS),
+    )
+
+    RetencaoFilaService().desvincular_antigos(HOJE)
+
+    recarregar(checkin, pergunta)
+    assert checkin.pontos_concedidos_em == momento(CINCO_SEMANAS)
+    assert pergunta.devida_em == momento(CINCO_SEMANAS)
+    assert pergunta.expira_em == momento(CINCO_SEMANAS)
+
+
+def test_falha_numa_tabela_desfaz_a_outra(conta, darcy):
+    """As duas tabelas mudam na mesma transação: se o UPDATE da tentativa
+    falhar, o check-in continua com a conta."""
+    checkin = criar_checkin(conta, darcy, CINCO_SEMANAS)
+    criar_tentativa(conta, darcy, CINCO_SEMANAS)
+    update_original = QuerySet.update
+
+    def update_que_falha_na_tentativa(self, **campos):
+        if self.model is TentativaCheckin:
+            raise DatabaseError("falha simulada")
+        return update_original(self, **campos)
+
+    with (
+        mock.patch.object(QuerySet, "update", update_que_falha_na_tentativa),
+        pytest.raises(DatabaseError),
+    ):
+        RetencaoFilaService().desvincular_antigos(HOJE)
+
+    recarregar(checkin)
+    assert checkin.usuario_id == conta.pk
+    assert checkin.registrado_em is not None
 
 
 def test_prazo_vem_do_anexo_a(conta, darcy):
@@ -263,7 +343,7 @@ def test_desvincular_conta_retira_todos_os_registros_da_conta(
     de_outra = criar_checkin(outra_conta, darcy, HOJE)
     tentativa_de_outra = criar_tentativa(outra_conta, darcy, HOJE)
 
-    RetencaoFilaService().desvincular_conta(conta)
+    assert RetencaoFilaService().desvincular_conta(conta) == 3
 
     recarregar(*da_conta, tentativa, de_outra, tentativa_de_outra)
     for checkin in da_conta:
@@ -289,7 +369,7 @@ def test_desvincular_conta_mantem_os_registros_para_a_previsao(conta, darcy):
 
 
 def test_desvincular_conta_sem_registros_nao_falha(conta):
-    RetencaoFilaService().desvincular_conta(conta)
+    assert RetencaoFilaService().desvincular_conta(conta) == 0
 
 
 # --- repositório -----------------------------------------------------------
@@ -322,6 +402,38 @@ def test_job_usa_o_dia_de_brasilia(conta, darcy):
 
     recarregar(checkin)
     assert checkin.usuario_id == conta.pk
+
+
+def test_job_desvincula_o_dia_anterior_ao_limite_de_brasilia(conta, darcy):
+    """No mesmo instante, o check-in de 22/10 (um dia antes do limite de
+    Brasília) sai. Pega um erro de um dia para trás no limite."""
+    checkin = criar_checkin(conta, darcy, date(2026, 10, 22))
+
+    with mock.patch(
+        "django.utils.timezone.now",
+        return_value=datetime(2026, 11, 21, 1, 0, tzinfo=UTC),
+    ):
+        assert DesvincularRegistrosFilaJob().executar() == 1
+
+    recarregar(checkin)
+    assert checkin.usuario_id is None
+
+
+def test_falha_do_job_vai_para_o_log_e_e_propagada(caplog):
+    """O erro sai no formato de log do projeto e o comando termina com erro
+    (o cron da BD-07 guarda o status)."""
+
+    class ServicoQueFalha:
+        def desvincular_antigos(self, hoje):
+            raise DatabaseError("falha simulada")
+
+    with (
+        caplog.at_level(logging.ERROR, logger="apps"),
+        pytest.raises(DatabaseError),
+    ):
+        DesvincularRegistrosFilaJob(servico=ServicoQueFalha()).executar()
+
+    assert "Falha na retenção dos registros de fila" in caplog.text
 
 
 def test_comando_desvincula_e_escreve_so_a_contagem(conta, darcy, caplog):
