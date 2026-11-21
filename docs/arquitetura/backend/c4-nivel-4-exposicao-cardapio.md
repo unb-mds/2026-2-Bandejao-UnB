@@ -310,11 +310,17 @@ classDiagram
   - **400 `parametros_invalidos`** (`{codigo, mensagem}`): parâmetro fora
     dos seis do contrato (ex.: `marcador`, `marcadores[]`) ou repetido (os
     marcadores vão num parâmetro só, separados por vírgula); `campus`
-    ausente, que não seja só dígitos ou inexistente; `semana` ou `dia` fora
+    ausente ou que não seja só dígitos; `semana` ou `dia` fora
     de `AAAA-MM-DD`, inválida ou fora de 2000-01-01 a 2099-12-31; `refeicao` ou `dieta` fora do enum; item vazio
     em `marcadores` ou nome que não está na tabela `MARCADOR` (a mensagem
     cita os nomes). Espaços em volta e nomes repetidos são aceitos, e
     `marcadores` vazio é o mesmo que nenhum.
+  - **404 `campus_nao_encontrado`** (`{codigo, mensagem}`, #217): `campus`
+    só com dígitos, mas sem registro em `CAMPUS` (link antigo ou campus
+    removido). É o mesmo `codigo` do `GET /api/ranking/{campusId}/`, e a tela
+    do campus decide por ele para mostrar "Campus não encontrado" (FE-08,
+    #144). Todos os 400 acima são conferidos antes: com o campus inexistente
+    e outro parâmetro inválido, a resposta é o 400.
   - **`avisoSujeitoAAlteracao`** é o aviso curto do RF07.1, o mesmo texto da
     `CardapioView.vue`, numa constante única (`AVISO_SUJEITO_A_ALTERACAO`).
     O aviso longo do filtro (RF08, L04) continua no front.

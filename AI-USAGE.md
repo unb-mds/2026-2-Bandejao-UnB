@@ -365,3 +365,14 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Sabotagem da segunda revisão: 12 alterações novas. Na primeira rodada, uma sobreviveu (os alertas de uma transação desfeita contando no resumo), porque o teste derrubava a transação antes do alerta. O teste passou a derrubar a transação no último passo, e as 12 derrubam ao menos um teste.
 - Validação após a segunda revisão: `pytest` com 1524 testes aprovados e 1 ignorado, cobertura de `apps` de 98,65% (100% nos módulos novos do `leitor`, 98% no parser); `ruff check`, `ruff format --check`, `bandit -lll` e `makemigrations --check` aprovados; os três diagramas do C4 do Leitor renderizam no `mmdc`.
 - Situação: ajustes da segunda revisão aplicados; aguardando o recheck de AlvaroBento12. Para a dupla do banco: o campo novo `email_enviado_em` (migração `0005`) e a mudança do `zerar_contador` estão no N4.
+
+## BE-11 follow-up — 404 `campus_nao_encontrado` no `GET /api/cardapio/`
+
+- Issue: [#217](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/217) (pendência da revisão do #216, bloqueia parte da FE-08, #144).
+- Ferramenta: Claude (Anthropic).
+- Apoio: a partir do texto da issue, testes e implementação do 404 `campus_nao_encontrado` no `GET /api/cardapio/` (`_ler_campus` dividido em `_ler_id_do_campus`, só o formato, e `_buscar_campus`, conferido depois de todos os 400), resposta 404 no `extend_schema` da `CardapioView` e no de `ResumoDoDiaView` e `PrevisaoView` (item 4, só contrato: as duas ainda devolvem 501), `openapi.yaml` regerado e nota do 404 no C4 4a (`c4-nivel-4-exposicao-cardapio.md`). O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Decisões: com o campus inexistente e outro parâmetro inválido, o 400 ganha (sugestão da issue); `campus=000` é só dígitos e dá 404. Item 4: o 404 entra no contrato dos outros dois endpoints agora, para a FE-09 (#145) e a FE-11 (#172) já tratarem o caso pelo `codigo`; a lógica vem na BE de cada um.
+- TDD: commit `test` com 10 testes falhando (o 404 ainda saía 400, e o 400 de outro parâmetro perdia para o campus inexistente), passando no `feat` seguinte.
+- Sabotagem manual: 5 alterações (404 antes dos 400, busca do campus antes dos marcadores, `NotFound` sem `code=`, volta ao 400 e 404 fora do contrato); todas derrubam ao menos um teste.
+- Validação local (SQLite, Python 3.13): `pytest` com 1561 testes aprovados e 1 ignorado (eram 1550 na `develop` em `fe06c0a`), cobertura de `apps` (com branches) de 98,67%; `ruff check`, `ruff format --check`, `bandit -lll` e `spectacular --validate --fail-on-warn` aprovados. `semgrep`, `pip-audit` e `testes-mysql` ficam com o CI.
+- Revisão humana: pendente (AlvaroBento12; o `openapi.yaml` também precisa da revisão do FE).
