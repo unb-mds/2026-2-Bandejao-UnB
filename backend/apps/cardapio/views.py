@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.cache import parse_etags, patch_cache_control, quote_etag
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework.exceptions import ParseError
+from rest_framework.exceptions import NotFound, ParseError
 from rest_framework.permissions import AllowAny
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
@@ -76,14 +76,26 @@ class ParametrosInvalidos(ParseError):
         super().__init__(mensagem, code="parametros_invalidos")
 
 
-def _ler_campus(valor):
+def _ler_id_do_campus(valor):
+    """Só o formato: ausente ou fora de "só dígitos" é erro do próprio PWA."""
     if valor is None:
         raise ParametrosInvalidos("Informe o campus.")
     if not SO_DIGITOS.fullmatch(valor):
         raise ParametrosInvalidos("O campus deve ser o id numérico de GET /api/campi/.")
-    campus = Campus.objects.filter(pk=int(valor)).first()
+    return int(valor)
+
+
+def _buscar_campus(campus_id):
+    """404 `campus_nao_encontrado` para id bem formado que não está no banco.
+
+    É o caso do link antigo ou do campus removido: a tela do campus mostra
+    "Campus não encontrado" decidindo por este `codigo` (FE-08, #144, #217),
+    o mesmo do GET /api/ranking/{campusId}/. O `code=` é o que o
+    `tratador_de_excecoes` usa; sem ele, sairia `nao_encontrado`.
+    """
+    campus = Campus.objects.filter(pk=campus_id).first()
     if campus is None:
-        raise ParametrosInvalidos("Não existe campus com esse id.")
+        raise NotFound("Não existe campus com esse id.", code="campus_nao_encontrado")
     return campus
 
 
@@ -160,9 +172,13 @@ def _conferir_nomes(query):
 
 
 def _ler_parametros(query):
-    """Valida a query string inteira antes de consultar o cardápio."""
+    """Valida a query string inteira antes de consultar o cardápio.
+
+    Todos os 400 vêm antes do 404 do campus (#217): com o campus inexistente
+    e outro parâmetro inválido, ganha o 400, que é erro do próprio PWA.
+    """
     _conferir_nomes(query)
-    campus = _ler_campus(query.get("campus"))
+    campus_id = _ler_id_do_campus(query.get("campus"))
     semana = _ler_data(query.get("semana"), "semana")
     dia = _ler_data(query.get("dia"), "dia")
     if semana and dia and not semana <= dia <= semana + DURACAO_SEMANA:
@@ -177,12 +193,13 @@ def _ler_parametros(query):
         DietaSelecionada,
         "A dieta deve ser sem_filtro, ovolactovegetariano ou vegetariano_estrito.",
     )
+    marcadores_selecionados = _ler_marcadores(query.get("marcadores"))
     return {
-        "campus": campus,
+        "campus": _buscar_campus(campus_id),
         "semana": semana,
         "dia": dia,
         "refeicao": refeicao,
-        "marcadores_selecionados": _ler_marcadores(query.get("marcadores")),
+        "marcadores_selecionados": marcadores_selecionados,
         "dieta": DietaSelecionada(dieta or DietaSelecionada.SEM_FILTRO),
     }
 
@@ -386,10 +403,17 @@ class CardapioView(APIView):
             400: OpenApiResponse(
                 ErroSerializer,
                 description=(
-                    "Parâmetro ausente ou inválido, como `campus`; parâmetro "
-                    "fora da lista acima ou repetido; data fora da faixa ou "
-                    "`dia` fora da `semana`. `codigo`: `parametros_invalidos`."
+                    "Parâmetro ausente ou inválido, como `campus` ausente ou "
+                    "que não seja só dígitos; parâmetro fora da lista acima "
+                    "ou repetido; data fora da faixa ou `dia` fora da "
+                    "`semana`. Vem antes do 404: com o campus inexistente e "
+                    "outro parâmetro inválido, a resposta é este 400. "
+                    "`codigo`: `parametros_invalidos`."
                 ),
+            ),
+            404: OpenApiResponse(
+                ErroSerializer,
+                description="Campus inexistente. `codigo`: `campus_nao_encontrado`.",
             ),
         },
     )

@@ -195,9 +195,15 @@ class PrevisaoView(APIView):
             400: OpenApiResponse(
                 ErroSerializer,
                 description=(
-                    "Parâmetro ausente ou inválido, como `campus`. "
+                    "Parâmetro ausente ou inválido, como `campus` ausente ou "
+                    "que não seja só dígitos. Vem antes do 404. "
                     "`codigo`: `parametros_invalidos`."
                 ),
+            ),
+            # Mesmo critério do GET /api/cardapio/ (#217).
+            404: OpenApiResponse(
+                ErroSerializer,
+                description="Campus inexistente. `codigo`: `campus_nao_encontrado`.",
             ),
         },
     )

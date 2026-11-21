@@ -98,7 +98,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Parâmetro ausente ou inválido, como `campus`. `codigo`: `parametros_invalidos`.'
+          description: 'Parâmetro ausente ou inválido, como `campus` ausente ou que
+            não seja só dígitos. Vem antes do 404. `codigo`: `parametros_invalidos`.'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Campus inexistente. `codigo`: `campus_nao_encontrado`.'
   /api/cadastro/:
     post:
       operationId: cadastro_create
@@ -283,9 +290,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Parâmetro ausente ou inválido, como `campus`; parâmetro fora
-            da lista acima ou repetido; data fora da faixa ou `dia` fora da `semana`.
-            `codigo`: `parametros_invalidos`.'
+          description: 'Parâmetro ausente ou inválido, como `campus` ausente ou que
+            não seja só dígitos; parâmetro fora da lista acima ou repetido; data fora
+            da faixa ou `dia` fora da `semana`. Vem antes do 404: com o campus inexistente
+            e outro parâmetro inválido, a resposta é este 400. `codigo`: `parametros_invalidos`.'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Campus inexistente. `codigo`: `campus_nao_encontrado`.'
   /api/checkins/:
     post:
       operationId: checkins_create
@@ -437,7 +451,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Parâmetro ausente ou inválido, como `campus`. `codigo`: `parametros_invalidos`.'
+          description: 'Parâmetro ausente ou inválido, como `campus` ausente ou que
+            não seja só dígitos. Vem antes do 404. `codigo`: `parametros_invalidos`.'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Campus inexistente. `codigo`: `campus_nao_encontrado`.'
   /api/gamificacao/adesao/:
     post:
       operationId: gamificacao_adesao_create
