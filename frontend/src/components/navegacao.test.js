@@ -14,7 +14,7 @@ import NavegacaoTopo from './NavegacaoTopo.vue'
 async function montar(componente, caminho = '/cardapio') {
   const pinia = createPinia()
   setActivePinia(pinia)
-  usePreferenciasStore().escolherCampus('darcy')
+  usePreferenciasStore().escolherCampus(1)
   const router = createRouter({ history: createMemoryHistory(), routes })
   router.push(caminho)
   await router.isReady()
@@ -51,6 +51,8 @@ const item = (rotulo) => ITENS_NAVEGACAO.find((i) => i.rotulo === rotulo)
 describe('itemAtivo', () => {
   it.each([
     ['Cardápio', 'cardapio', true],
+    ['Cardápio', 'campus-tela', true],
+    ['Fila', 'campus-tela', false],
     ['Cardápio', 'cardapio-campus', true],
     ['Fila', 'fila', true],
     ['Fila', 'filas-historico', false],
@@ -106,12 +108,24 @@ describe('NavegacaoTopo e NavegacaoInferior', () => {
     ['NavegacaoTopo', NavegacaoTopo],
     ['NavegacaoInferior', NavegacaoInferior],
   ])('%s marca a página atual com aria-current', async (_nome, componente) => {
-    const { wrapper } = await montar(componente, '/fila')
+    const { wrapper } = await montar(componente, '/avaliacoes')
 
     const atuais = wrapper.findAll('[aria-current="page"]')
 
     expect(atuais).toHaveLength(1)
-    expect(atuais[0].text()).toBe('Fila')
+    expect(atuais[0].text()).toBe('Avaliações')
+  })
+
+  it.each([
+    ['NavegacaoTopo', NavegacaoTopo],
+    ['NavegacaoInferior', NavegacaoInferior],
+  ])('%s marca "Cardápio" na tela do campus', async (_nome, componente) => {
+    const { wrapper } = await montar(componente, '/campus/1')
+
+    const atuais = wrapper.findAll('[aria-current="page"]')
+
+    expect(atuais).toHaveLength(1)
+    expect(atuais[0].text()).toBe('Cardápio')
   })
 
   it.each([
@@ -158,7 +172,7 @@ describe('App: navegação do topo', () => {
   it('aparece quando a primeira rota é resolvida', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
-    usePreferenciasStore().escolherCampus('darcy')
+    usePreferenciasStore().escolherCampus(1)
     const router = createRouter({ history: createMemoryHistory(), routes })
     const wrapper = mount(App, { global: { plugins: [pinia, router] } })
     expect(wrapper.findComponent(NavegacaoTopo).exists()).toBe(false)

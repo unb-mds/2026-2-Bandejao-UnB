@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, criarApiClient, definirAoPerderSessao, mensagemDeErro } from './apiClient'
+import {
+  ApiError,
+  criarApiClient,
+  definirAoPerderSessao,
+  deveUsarSimulacao,
+  mensagemDeErro,
+} from './apiClient'
 
 /**
  * Testes do apiClient falando HTTP de verdade (com o `fetch` trocado por um
@@ -347,5 +353,18 @@ describe('mensagemDeErro (o que as telas mostram)', () => {
     expect(console).toHaveBeenCalledWith(falha)
 
     console.mockRestore()
+  })
+})
+
+describe('deveUsarSimulacao (build de produção sem o servidor simulado, FE-06)', () => {
+  it.each([
+    [{ DEV: false }, false],
+    [{ DEV: false, VITE_USE_MOCK: 'true' }, false],
+    [{ DEV: true }, true],
+    [{ DEV: true, VITE_USE_MOCK: 'true' }, true],
+    [{ DEV: true, VITE_USE_MOCK: 'false' }, false],
+    [{ DEV: true, VITE_USE_MOCK: 'FALSE' }, true],
+  ])('%o: %s', (env, esperado) => {
+    expect(deveUsarSimulacao(env)).toBe(esperado)
   })
 })

@@ -1,33 +1,22 @@
-/**
- * Campi da UnB com restaurante universitário (glossário: "Campus").
- * O Restaurante Executivo do Darcy Ribeiro está fora do escopo (RI08).
- *
- * `idApi` é o id do campus no backend (`GET /api/campi/`), o que vai no
- * corpo do `POST /api/checkins/`. São os `pk` da fixture
- * `backend/apps/cardapio/fixtures/campi.json`.
- * TODO(FE-E3): ler a lista de `GET /api/campi/` em vez de fixar os ids aqui.
- */
-export const CAMPI = [
-  { id: 'darcy', idApi: 1, nome: 'Darcy Ribeiro', descricao: 'Asa Norte, Brasília' },
-  { id: 'ceilandia', idApi: 2, nome: 'Ceilândia', descricao: 'Campus FCE' },
-  { id: 'gama', idApi: 3, nome: 'Gama (FGA)', descricao: 'Campus Gama' },
-  { id: 'planaltina', idApi: 4, nome: 'Planaltina', descricao: 'Campus FUP' },
-  { id: 'fal', idApi: 5, nome: 'Fazenda Água Limpa', descricao: 'Campus FAL' },
-]
+export const ID_CAMPUS_COM_EXECUTIVO = 1
 
-export function buscarCampus(id) {
-  return CAMPI.find((campus) => campus.id === id) ?? null
+export const CAMPI_ANTIGOS = {
+  darcy: 1,
+  ceilandia: 2,
+  gama: 3,
+  planaltina: 4,
+  fal: 5,
 }
 
-export function buscarCampusPorIdApi(idApi) {
-  return CAMPI.find((campus) => campus.idApi === idApi) ?? null
+export function idDeCampusValido(valor) {
+  const id = typeof valor === 'string' && /^[1-9]\d*$/.test(valor) ? Number(valor) : valor
+  return Number.isInteger(id) && id > 0 ? id : null
 }
 
-export function campusValido(id) {
-  return CAMPI.some((campus) => campus.id === id)
+export function idDoCampusAntigo(valor) {
+  return Object.hasOwn(CAMPI_ANTIGOS, valor) ? CAMPI_ANTIGOS[valor] : null
 }
 
-/** Monograma exibido na lista de campi (ex.: "Darcy Ribeiro" → "DR"). */
 export function siglaCampus(nome) {
   return nome
     .split(' ')

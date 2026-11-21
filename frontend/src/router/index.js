@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { campusValido } from '@/constants/campi'
+import { idDeCampusValido, idDoCampusAntigo } from '@/constants/campi'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { useAuthStore } from '@/stores/auth'
 
@@ -7,16 +7,35 @@ import { useAuthStore } from '@/stores/auth'
  * Rotas nomeadas e com lazy-loading (C4 — Estratégia de roteamento).
  *
  * Fluxo do protótipo: Boas-vindas → (Entrar | Continuar sem login) → Campus
- * → Início → Cardápio / Fila / Avaliações. Na raiz, quem já escolheu o
- * campus cai direto no cardápio (RF05, RNF03); na primeira visita, nas
+ * → tela do campus (cardápio e fila). Na raiz, quem já escolheu o campus cai
+ * direto na tela dele (RN04, RF05, RNF03); na primeira visita, nas
  * boas-vindas. Nenhuma rota exige login: ações restritas mostram um convite
  * ao login dentro da própria tela (RF05, RI06).
  */
+function telaDoCampusLembrado(destinoSemCampus, hash = '') {
+  const campusId = usePreferenciasStore().campusId
+  if (!campusId) return { name: destinoSemCampus, params: {} }
+  return { name: 'campus-tela', params: { campusId: String(campusId) }, hash }
+}
+
+function telaDoCampusDoLinkAntigo(to) {
+  const campusId = idDeCampusValido(to.params.campusId) ?? idDoCampusAntigo(to.params.campusId)
+  if (!campusId) {
+    return {
+      name: 'nao-encontrada',
+      params: { pathMatch: to.path.slice(1).split('/') },
+      query: {},
+      hash: '',
+    }
+  }
+  return { name: 'campus-tela', params: { campusId: String(campusId) } }
+}
+
 export const routes = [
   {
     path: '/',
     name: 'raiz',
-    redirect: () => ({ name: usePreferenciasStore().campusId ? 'cardapio' : 'boas-vindas' }),
+    redirect: () => telaDoCampusLembrado('boas-vindas'),
   },
   {
     path: '/boas-vindas',
@@ -27,8 +46,15 @@ export const routes = [
   {
     path: '/campus',
     name: 'campus',
-    component: () => import('@/views/CampusView.vue'),
+    component: () => import('@/components/SeletorCampus.vue'),
     meta: { title: 'Escolha o campus' },
+  },
+  {
+    path: '/campus/:campusId',
+    name: 'campus-tela',
+    component: () => import('@/views/CampusView.vue'),
+    props: true,
+    meta: { title: 'Cardápio e fila' },
   },
   {
     path: '/inicio',
@@ -39,21 +65,12 @@ export const routes = [
   {
     path: '/cardapio',
     name: 'cardapio',
-    component: () => import('@/views/CardapioView.vue'),
-    meta: { title: 'Cardápio', requerCampus: true },
+    redirect: () => telaDoCampusLembrado('campus'),
   },
   {
-    // Link compartilhável do cardápio de um campus: também passa a ser o campus lembrado.
     path: '/cardapio/:campusId',
     name: 'cardapio-campus',
-    component: () => import('@/views/CardapioView.vue'),
-    meta: { title: 'Cardápio' },
-    beforeEnter: (to) => {
-      if (!campusValido(to.params.campusId)) {
-        return { name: 'nao-encontrada', params: { pathMatch: to.path.slice(1).split('/') } }
-      }
-      usePreferenciasStore().escolherCampus(to.params.campusId)
-    },
+    redirect: telaDoCampusDoLinkAntigo,
   },
   {
     path: '/avaliacoes',
@@ -64,8 +81,7 @@ export const routes = [
   {
     path: '/fila',
     name: 'fila',
-    component: () => import('@/views/FilaView.vue'),
-    meta: { title: 'Fila do RU', requerCampus: true },
+    redirect: () => telaDoCampusLembrado('campus', '#fila'),
   },
   {
     path: '/login',

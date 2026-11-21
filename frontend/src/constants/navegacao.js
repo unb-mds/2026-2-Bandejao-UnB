@@ -1,6 +1,6 @@
 export const ITENS_NAVEGACAO = [
   { rotulo: 'Início', rota: 'inicio', icone: 'casa', preenche: true },
-  { rotulo: 'Cardápio', rota: 'cardapio', icone: 'talheres' },
+  { rotulo: 'Cardápio', rota: 'cardapio', icone: 'talheres', ativaEm: 'campus-tela' },
   { rotulo: 'Fila', rota: 'fila', icone: 'relogio' },
   { rotulo: 'Avaliações', rota: 'avaliacoes', icone: 'estrela', preenche: true },
   // "Perfil" é um atalho para a Início, onde ficam o apelido, o campus e o login.
@@ -21,5 +21,5 @@ export function itemAtivo(item, nomeDaRota, { marcarInicio = false } = {}) {
   if (!nomeDaRota || item.atalhoDaInicio) return false
   const nome = String(nomeDaRota)
   if (item.rota === 'inicio') return marcarInicio && nome === 'inicio'
-  return nome === item.rota || nome.startsWith(`${item.rota}-`)
+  return nome === item.rota || nome === item.ativaEm || nome.startsWith(`${item.rota}-`)
 }

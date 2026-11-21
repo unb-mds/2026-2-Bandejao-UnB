@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useFilaStore } from '@/stores/fila'
 import { usePreferenciasStore } from '@/stores/preferencias'
@@ -28,8 +28,8 @@ import IconeSvg from './IconeSvg.vue'
  * Quem decide raio e horário é sempre o backend.
  */
 const props = defineProps({
-  /** Id do campus no PWA (constants/campi), ex.: 'darcy'. */
-  campusId: { type: String, required: true },
+  /** Id do campus no backend (`GET /api/campi/`). */
+  campusId: { type: Number, required: true },
   /** 'cafe' | 'almoco' | 'jantar' */
   tipoRefeicao: { type: String, required: true },
 })
@@ -45,9 +45,10 @@ const mensagem = ref('')
 const erroCiencia = ref('')
 const enviandoCiencia = ref(false)
 const pontosRecebidos = ref(0)
-// Muda a cada troca de campus ou refeição e a cada volta ao início: um fluxo
-// que já estava rodando confere depois de cada `await` e, se ela mudou,
-// descarta o resultado sem mexer na tela (mesmo padrão do `authStore`).
+// Muda a cada troca de campus ou refeição, a cada volta ao início e quando o
+// botão sai da tela (ex.: a refeição encerrou): um fluxo que já estava
+// rodando confere depois de cada `await` e, se ela mudou, descarta o
+// resultado sem mexer na tela nem mandar o POST (mesmo padrão do `authStore`).
 let geracao = 0
 
 const ocupado = computed(() => etapa.value === 'localizando' || etapa.value === 'enviando')
@@ -81,6 +82,10 @@ function voltarAoInicio(texto = '') {
   etapa.value = 'inicial'
   mensagem.value = texto
 }
+
+onBeforeUnmount(() => {
+  geracao++
+})
 
 // Outra refeição ou outro campus: outro check-in.
 watch(
