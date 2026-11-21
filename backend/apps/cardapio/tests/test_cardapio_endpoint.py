@@ -1,7 +1,8 @@
 """GET /api/cardapio/ (BE-11, #138, RF05, RF07, RF08, RF09, RN05, ADR 0005).
 
 Integração com o APIClient do DRF: validação dos parâmetros (400
-`parametros_invalidos` no formato `{codigo, mensagem}`), resposta igual ao
+`parametros_invalidos` no formato `{codigo, mensagem}`), campus inexistente
+(404 `campus_nao_encontrado`, #217), resposta igual ao
 `CardapioFiltradoSerializer` e o relógio lido uma vez, na view. O relógio é
 simulado com `unittest.mock.patch` em `django.utils.timezone.now`.
 """
@@ -354,8 +355,69 @@ def test_campus_que_nao_e_inteiro_da_400(cliente, campus, valor):
     assert_400(pedir(cliente, campus=valor), "campus")
 
 
-def test_campus_inexistente_da_400(cliente, campus):
-    assert_400(pedir(cliente, campus=campus.pk + 100), "campus")
+# --- 404 campus_nao_encontrado (#217) --------------------------------------
+
+
+def assert_404_campus(resposta):
+    assert resposta.status_code == 404
+    # Mesmo formato do 400 e o `codigo` que a CampusView confere (FE-08, #144),
+    # igual ao do GET /api/ranking/{campusId}/.
+    assert resposta.json() == {
+        "codigo": "campus_nao_encontrado",
+        "mensagem": "Não existe campus com esse id.",
+    }
+
+
+def test_campus_inexistente_da_404(cliente, campus):
+    # Id bem formado que não está no banco: link antigo ou campus removido.
+    assert_404_campus(pedir(cliente, campus=campus.pk + 100))
+
+
+def test_campus_com_zeros_a_esquerda_inexistente_da_404(cliente, campus):
+    # "000" é só dígitos: passa no formato e cai na consulta ao banco (pk 0
+    # nunca existe).
+    assert_404_campus(pedir(cliente, campus="000"))
+
+
+def test_campus_inexistente_com_filtros_validos_da_404(cliente, campus):
+    resposta = pedir(
+        cliente,
+        campus=campus.pk + 100,
+        refeicao="almoco",
+        dieta="vegetariano_estrito",
+        marcadores="ovo,soja",
+    )
+
+    assert_404_campus(resposta)
+
+
+@pytest.mark.parametrize(
+    ("parametros", "trecho"),
+    [
+        ({"dia": "2026-02-30"}, "dia"),
+        ({"semana": "amanha"}, "semana"),
+        ({"semana": "2026-11-23", "dia": "2026-11-30"}, "semana"),
+        ({"refeicao": "lanche"}, "refeição"),
+        ({"dieta": "vegano"}, "dieta"),
+        ({"marcadores": "leite"}, "leite"),
+        ({"marcadores": "ovo,,soja"}, "marcadores"),
+        ({"marcador": "ovo"}, "marcador"),
+    ],
+)
+def test_campus_inexistente_com_outro_parametro_invalido_da_400(
+    cliente, campus, parametros, trecho
+):
+    # O 400 ganha: é erro do próprio PWA e precisa aparecer mesmo quando o
+    # campus também não existe. O 404 só sai com o resto do pedido válido.
+    assert_400(pedir(cliente, campus=campus.pk + 100, **parametros), trecho)
+
+
+def test_campus_repetido_e_inexistente_da_400(cliente, campus):
+    inexistente = campus.pk + 100
+    with relogio(TERCA, time(12, 0)):
+        resposta = cliente.get(f"{ROTA}?campus={inexistente}&campus={inexistente}")
+
+    assert_400(resposta, "campus")
 
 
 @pytest.mark.parametrize("parametro", ["semana", "dia"])
