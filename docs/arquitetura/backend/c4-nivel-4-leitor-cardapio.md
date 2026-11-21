@@ -511,6 +511,9 @@ classDiagram
   - Página fora do ar ou HTTP diferente de 200 na página é `DownloadError`
     (ADR 0014), tratado pelo serviço como falha do campus inteiro, igual ao
     título ausente: alerta, nenhum link baixado e sem "não publicado".
+  - A página é lida uma vez por execução (o comando cria um
+    `CardapioDownloader` só, que guarda a página ou a falha dela), e não uma
+    vez por campus.
   - As requisições levam `User-Agent` `BandejaoUnB/1.0
     (+https://bandejaounb.com.br)`, tempo limite de 30 s, nenhuma repetição
     e não seguem redirecionamento (um redirecionamento vira falha visível).
