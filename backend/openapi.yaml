@@ -99,7 +99,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Erro'
           description: 'Parâmetro ausente ou inválido, como `campus` ausente ou que
-            não seja só dígitos. Vem antes do 404. `codigo`: `parametros_invalidos`.'
+            não seja só dígitos. Com o campus inexistente e outro parâmetro inválido,
+            a resposta é este 400. `codigo`: `parametros_invalidos`.'
         '404':
           content:
             application/json:
@@ -292,8 +293,8 @@ paths:
                 $ref: '#/components/schemas/Erro'
           description: 'Parâmetro ausente ou inválido, como `campus` ausente ou que
             não seja só dígitos; parâmetro fora da lista acima ou repetido; data fora
-            da faixa ou `dia` fora da `semana`. Vem antes do 404: com o campus inexistente
-            e outro parâmetro inválido, a resposta é este 400. `codigo`: `parametros_invalidos`.'
+            da faixa ou `dia` fora da `semana`. Com o campus inexistente e outro parâmetro
+            inválido, a resposta é este 400. `codigo`: `parametros_invalidos`.'
         '404':
           content:
             application/json:
@@ -452,7 +453,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Erro'
           description: 'Parâmetro ausente ou inválido, como `campus` ausente ou que
-            não seja só dígitos. Vem antes do 404. `codigo`: `parametros_invalidos`.'
+            não seja só dígitos. Com o campus inexistente e outro parâmetro inválido,
+            a resposta é este 400. `codigo`: `parametros_invalidos`.'
         '404':
           content:
             application/json:

@@ -52,6 +52,9 @@ def _if_none_match_bate(request, etag):
 
 # Só dígitos ASCII: `int()` aceitaria " 1", "+1" e dígitos de outras escritas.
 SO_DIGITOS = re.compile(r"[0-9]+")
+# Dígitos do maior pk possível (BigAutoField, 2**63 - 1). Um id com mais
+# dígitos não existe em banco nenhum e nem chega ao `int()`.
+DIGITOS_DO_MAIOR_ID = len(str(2**63 - 1))
 # AAAA-MM-DD: `date.fromisoformat` aceitaria também "20261123".
 FORMATO_DATA = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 # Faixa aceita em `semana` e `dia`. Longe dos extremos do `date` (anos 1 e
@@ -77,23 +80,35 @@ class ParametrosInvalidos(ParseError):
 
 
 def _ler_id_do_campus(valor):
-    """Só o formato: ausente ou fora de "só dígitos" é erro do próprio PWA."""
+    """Confere só o formato e devolve o id como `int`, ou None se não cabe.
+
+    Ausente ou fora de "só dígitos" dá 400. Só dígitos, mas com mais dígitos
+    que o maior pk, devolve None: o campus não existe, e `_buscar_campus` dá o
+    404. Sem esse corte, o `int()` levantaria `ValueError` acima de 4300
+    dígitos (500). Entre o 2**63 e os 19 dígitos, o estouro fica com o
+    IntegerFieldOverflow do Django, conferido em teste.
+    """
     if valor is None:
         raise ParametrosInvalidos("Informe o campus.")
     if not SO_DIGITOS.fullmatch(valor):
         raise ParametrosInvalidos("O campus deve ser o id numérico de GET /api/campi/.")
-    return int(valor)
+    digitos = valor.lstrip("0") or "0"
+    if len(digitos) > DIGITOS_DO_MAIOR_ID:
+        return None
+    return int(digitos)
 
 
 def _buscar_campus(campus_id):
     """404 `campus_nao_encontrado` para id bem formado que não está no banco.
 
-    É o caso do link antigo ou do campus removido: a tela do campus mostra
-    "Campus não encontrado" decidindo por este `codigo` (FE-08, #144, #217),
-    o mesmo do GET /api/ranking/{campusId}/. O `code=` é o que o
-    `tratador_de_excecoes` usa; sem ele, sairia `nao_encontrado`.
+    É o caso do link antigo ou do campus removido (#217). O `codigo` é o
+    mesmo do contrato do ranking, e a store do cardápio decide por ele
+    (FE-08, #144). O `code=` é o que o `tratador_de_excecoes` usa; sem ele,
+    sairia `nao_encontrado`. `campus_id` None é o id que não cabe no pk.
     """
-    campus = Campus.objects.filter(pk=campus_id).first()
+    campus = None
+    if campus_id is not None:
+        campus = Campus.objects.filter(pk=campus_id).first()
     if campus is None:
         raise NotFound("Não existe campus com esse id.", code="campus_nao_encontrado")
     return campus
@@ -175,7 +190,7 @@ def _ler_parametros(query):
     """Valida a query string inteira antes de consultar o cardápio.
 
     Todos os 400 vêm antes do 404 do campus (#217): com o campus inexistente
-    e outro parâmetro inválido, ganha o 400, que é erro do próprio PWA.
+    e outro parâmetro inválido, ganha o 400, que é erro de quem chamou.
     """
     _conferir_nomes(query)
     campus_id = _ler_id_do_campus(query.get("campus"))
@@ -195,6 +210,7 @@ def _ler_parametros(query):
     )
     marcadores_selecionados = _ler_marcadores(query.get("marcadores"))
     return {
+        # Por último: depois de todos os 400.
         "campus": _buscar_campus(campus_id),
         "semana": semana,
         "dia": dia,
@@ -406,8 +422,8 @@ class CardapioView(APIView):
                     "Parâmetro ausente ou inválido, como `campus` ausente ou "
                     "que não seja só dígitos; parâmetro fora da lista acima "
                     "ou repetido; data fora da faixa ou `dia` fora da "
-                    "`semana`. Vem antes do 404: com o campus inexistente e "
-                    "outro parâmetro inválido, a resposta é este 400. "
+                    "`semana`. Com o campus inexistente e outro parâmetro "
+                    "inválido, a resposta é este 400. "
                     "`codigo`: `parametros_invalidos`."
                 ),
             ),
