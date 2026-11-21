@@ -194,7 +194,8 @@ logado (RF26.3)."]
   subgraph secaoCardapio["Seção Cardápio (antiga CardapioView)"]
     direction LR
     abasSemana["🧩 AbasSemana
-Semana vigente e seguinte (RF07.1, RF18)."]
+Segunda a sábado da semana
+vigente (RF07.1, RF18)."]
     seletorRefeicao["🧩 SeletorRefeicao
 Refeições do dia com nota
 média de cada uma (RF20.3)."]
@@ -642,7 +643,7 @@ separação por app do backend (RNF06):
 |---|---|---|
 | `authStore` | Sessão do usuário: apelido, tipo de usuário e `avisoPrivacidadePendente`, lidos de `GET /api/sessao/`. Login com e-mail institucional e senha (`entrar(emailInstitucional, senha)`, ADR 0016), logout, cadastro, reenvio de confirmação (pelo e-mail ou pelo token) e pedido de recuperação de senha pelo e-mail. **Sem token** (ADR 0007) | Nenhuma no PWA: a sessão está no cookie `HttpOnly`; a store é recarregada ao abrir o app |
 | `preferenciasStore` | Campus lembrado, escolha manual depois da última detecção, campus detectado, refeição selecionada, filtros de marcador e dieta, "Agora não" do aviso de localização | `localStorage` (RF07, RF08, RF09, RF19, RN04), exceto o campus detectado (memória) |
-| `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, semana, dia, refeição e filtros, com erro e carregamento por pedido, e a lista de campi (`GET /api/campi/`, com `carregandoCampi` e `erroCampi`) | Em memória |
+| `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, dia, refeição e filtros, com erro e carregamento por pedido; a resposta que depende do relógio e a de "não publicado" valem 5 minutos, e a lista de campi (`GET /api/campi/`, com `carregandoCampi` e `erroCampi`) | Em memória |
 | `avaliacoesStore` | Resumo do dia (notas de todas as refeições, `GET /api/avaliacoes/resumo/`), comentários com `distintivo` e envio/edição da avaliação do usuário | Em memória |
 | `filaStore` | Previsão (com espera estimada), check-in e pergunta de saída pendente | Em memória; nunca guarda coordenadas (RI09) |
 | `gamificacaoStore` | Progresso, adesão ao ranking, posição própria por campus, posição do semestre anterior, Bandeja de Ouro própria, ranking por campus e último bloco `pontos` | Em memória |
@@ -669,12 +670,12 @@ sequenceDiagram
   participant BE as Backend API
 
   V->>CV: Abre a tela do campus
-  CV->>CS: carregarCardapio(campus, semana, dia, refeição, filtros)
+  CV->>CS: carregarRefeicao({ campus, dia, refeicao, marcadores, dieta }, { forcar })
   alt cache válido
     CS-->>CV: retorna dados em cache
-  else sem cache
+  else sem cache, cache vencido ou forcar
     CS->>AC: solicita dados
-    AC->>BE: GET /api/cardapio/?campus=&semana=&dia=&refeicao=&marcadores=&dieta= [HTTPS]
+    AC->>BE: GET /api/cardapio/?campus=&dia=&refeicao=&marcadores=&dieta= [HTTPS]
     BE-->>AC: 200 OK (JSON do cardápio)
     AC-->>CS: repassa resposta
     CS-->>CS: atualiza cache
@@ -688,7 +689,12 @@ Exposição do Cardápio: campus, semana, dia e refeição (opcional, com a
 padrão da RN05) e, como parâmetros de consulta, os marcadores selecionados e
 a dieta, lidos da `preferenciasStore`. O backend devolve o cardápio já
 filtrado; por isso o cache do `cardapioStore` é por combinação de campus,
-semana, dia, refeição e filtros.
+dia, refeição e filtros (a `semana` do contrato não é mandada: as abas são
+da semana vigente). O pedido sem dia ou sem refeição, que o backend resolve
+pelo relógio (RN05), e a resposta "não publicado" valem 5 minutos; a
+resposta também fica guardada pelo dia e pela refeição que trouxe, e essa
+vale pela sessão. O mesmo pedido feito duas vezes ao mesmo tempo sai uma
+vez só.
 
 Desde a FE-08, a seção do cardápio da `CampusView` segue esse fluxo: a
 dieta e os marcadores vão com os nomes do backend (`sem_filtro`,
@@ -697,7 +703,13 @@ dieta e os marcadores vão com os nomes do backend (`sem_filtro`,
 abrir o app. O filtro no cliente saiu: os pratos com marcador selecionado
 continuam na tela, sinalizados (`contemMarcadorSelecionado`), e a categoria
 sem opção mostra o aviso (`semOpcaoCompativel`, RF08). O `SeletorRefeicao`
-mostra a nota de cada refeição pelo resumo do dia. A `HomeView` e a
+mostra a nota de cada refeição pelo resumo do dia; enquanto o resumo
+responde 501, mostra café, almoço e jantar sem nota, e uma refeição que o
+dia não serve aparece como "Esta refeição não é servida neste dia". O dia
+sem serviço vem pelo campo `semServico` (proposto ao backend na revisão do
+PR #219; o simulado já o manda) ou por uma `data` diferente do dia pedido. Um
+400 com filtros salvos oferece "Limpar filtros" em vez de "Tentar
+novamente". A `HomeView` e a
 `AvaliacoesView` ainda leem a semana inteira do cardápio no formato do MVP
 (só no servidor simulado) até a FE-09 e a FE-E5.
 
@@ -1141,6 +1153,7 @@ sequenceDiagram
 | `SeletorCampus` / `CampusDetectadoAviso` | RF07.2, RF20.2, RN04 | ✅ 4d |
 | `AvisoExecutivo` | RF20.4, RI08, L11 | — |
 | `AbasSemana` | RF07.1, RF18 | — |
+| `SeletorRefeicao` | RF07, RF20.3 | — |
 | `FiltroCardapio` | RF08, RF09 | — |
 | `AvaliacaoWidget` | RF15, RF15.2, RI01, RI10 | — |
 | `AvaliacoesView` | RF16 | — |
