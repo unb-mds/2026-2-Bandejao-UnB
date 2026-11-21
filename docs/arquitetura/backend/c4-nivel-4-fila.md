@@ -748,6 +748,27 @@ classDiagram
   check-in. O mesmo serviço tem `desvincularConta`, usado pelo
   `RemoverContaCommand` do Cadastro/Autenticação quando uma conta é excluída
   (RNF07.4).
+- **Implementação da BD-11 (#163).** O que o código entrega, em relação ao
+  diagrama:
+  - Nomes em Python: `RetencaoFilaService.desvincular_antigos` e
+    `desvincular_conta` (`apps/fila/retencao_fila_service.py`),
+    `CheckinRepository.desvincular_antes_de` e `desvincular_conta`, e o
+    comando `python manage.py desvincular_registros_fila` com a classe
+    `DesvincularRegistrosFilaJob`.
+  - O prazo é o `retencao_semanas` da `ParametrosFilaConfig`. Sai o que tem
+    `data` **anterior** a 4 semanas antes de hoje, e o próprio dia-limite
+    fica: em 21/11, o check-in de 24/10 continua da conta e o de 23/10 não.
+    "Hoje" é o dia de Brasília (`timezone.localdate()`), o mesmo da `data` do
+    check-in.
+  - `desvincular_conta` também apaga a hora exata, como a retenção, e vale
+    para todos os registros da conta, até os de hoje. Os dois métodos
+    devolvem quantos registros mudaram (no diagrama, `desvincularConta`
+    devolve `void`); um registro já sem conta e sem hora não conta de novo.
+  - Um `UPDATE` por tabela, sem carregar as linhas. O agendamento diário no
+    cron é da BD-07 (#147).
+  - A `PerguntaSaida` e a `RespostaSaida` guardam horários (`devida_em`,
+    `expira_em`, `respondida_em`), mas não a conta: depois da retenção,
+    esses horários ficam sem dono, como o resto do registro.
 
 ## Notas gerais
 

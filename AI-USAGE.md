@@ -295,3 +295,14 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - testes do `SeletorCampus` e de `idDeCampusValido` (`'01'` passou a ser recusado), "Usar minha localização" no cabeçalho da tela do campus e o C4 atualizado.
 - Validação: `npm run test:ci` com 477 testes passando (cobertura de 90,74% de linhas / 82,9% de ramos), `npm run lint:ci` sem achados e `npm run build` sem erro, no PC da autora.
 - Situação: aguardando nova revisão.
+
+## BD-11 — Retenção de 4 semanas no app fila
+
+- Issue: [#163](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/163).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `RetencaoFilaService` (`desvincular_antigos` e `desvincular_conta`), `CheckinRepository.desvincular_antes_de` e `desvincular_conta`, comando `desvincular_registros_fila` com o `DesvincularRegistrosFilaJob`, testes em `backend/apps/fila/tests/test_retencao_fila.py` e nota da implementação no Nível 4 da Fila (4d).
+- TDD: testes no commit `a90291b`, antes do código; a coleta falhava porque o serviço, o método do repositório e o comando ainda não existiam.
+- Testes: registro de 5 semanas sem conta e sem hora; campus, tipo, data, faixa, tempo de espera e marcador de pontos mantidos; borda de 4 semanas (o dia-limite fica); contagem e segunda rodada sem efeito; dois check-ins da mesma refeição sem conta (UNIQUE com NULL); agregação da previsão (contagem e média de espera por campus, tipo, data e faixa) igual antes e depois; resposta de saída sem vínculo; prazo lido da `ParametrosFilaConfig`; exclusão de conta só nos registros dela; dia de Brasília no job; saída e log do comando só com a contagem.
+- Validação local (SQLite): `pytest` com 1348 testes aprovados e 1 ignorado (específico do MySQL), cobertura de 98%; `ruff check` e `ruff format --check` sem achados.
+- Fora deste PR: o agendamento diário no cron fica com a BD-07 (#147); a previsão (BE-15) ainda não existe, então o teste confere a agregação que ela usa, e não a `PrevisaoView`.
+- Situação: PR aberto, aguardando o CI e a revisão.
