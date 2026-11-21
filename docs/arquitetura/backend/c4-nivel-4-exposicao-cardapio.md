@@ -248,6 +248,48 @@ classDiagram
   classe nova**: `PratoFiltrado.marcadores` já carrega essa informação
   independentemente do filtro estar ativo ou não; falta só a interface
   exibir os ícones sem exigir interação, o que é responsabilidade do PWA.
+- **Implementação na BE-11 (#138, decisões de 21/11/2026).** O que o
+  diagrama não dizia e ficou assim no código (`backend/apps/cardapio/`, um
+  módulo por classe; os métodos em snake_case, como `obter_cardapio`):
+  - **A semana vem da `FonteCardapio`.** A semana de um dia é a linha da
+    `FonteCardapio` do campus cujo intervalo `[semana_inicio,
+    semana_inicio + 6 dias]` contém o dia exibido (primeiro e último dia
+    incluídos). `existeCardapioPublicado` é verdadeiro quando essa linha
+    existe. Sem linha, `status = NAO_PUBLICADO`, mesmo com `Refeicao` no
+    banco: não há fallback pelas refeições. Um cardápio cadastrado à mão só
+    aparece se a linha da semana também for criada. Na R2,
+    `semanasDisponiveis` entrega só a semana do dia (a vigente); a semana
+    seguinte (RF18) fica para outra tarefa.
+  - **O relógio é lido uma vez, na `CardapioView`** (`timezone.localtime()`),
+    e passado adiante: `obterCardapio` recebe `agora` e
+    `semanasDisponiveis` recebe o dia. Nenhuma outra classe lê o relógio.
+  - **Início e fim do horário incluídos**: às 9h30 ainda é café, às 9h31
+    não. É a mesma comparação do `JanelaCheckinValidator` da Fila. O
+    resolver não importa o validador, para o Cardápio não passar a chamar a
+    Fila (a dependência do Nível 3 tem um sentido só); um teste compara os
+    dois no início e no fim de cada refeição.
+  - **`refeicaoEncerrada` é "a refeição exibida já terminou"**: dia passado,
+    ou hoje depois do fim do horário. Na refeição padrão, coincide com o
+    item 3 da RN05; vale também para a refeição pedida pelo seletor.
+  - **Dia futuro ou passado sem `refeicao`**: a primeira refeição do dia
+    futuro e a última (encerrada) do dia passado.
+  - **Sem dia com serviço** do dia pedido em diante: `NAO_PUBLICADO`, com o
+    dia pedido e a refeição escolhida pelos horários do Anexo A.
+  - **Refeição pedida que o PDF não traz no dia** (ex.: `refeicao=cafe` num
+    dia só com almoço): `PUBLICADO`, com `categorias` vazia. O contrato
+    ainda não diz quais refeições existem em cada dia (ponto em aberto com o
+    front, na #144).
+  - **`semana` sem `dia`**: o dia corrente, se estiver na semana pedida;
+    senão, o primeiro dia dela. `dia` fora da `semana` pedida dá 400.
+  - **400 `parametros_invalidos`** (`{codigo, mensagem}`): `campus` ausente,
+    que não seja só dígitos ou inexistente; `semana` ou `dia` fora de
+    `AAAA-MM-DD` ou inválida; `refeicao` ou `dieta` fora do enum; item vazio
+    em `marcadores` ou nome que não está na tabela `MARCADOR` (a mensagem
+    cita os nomes). Espaços em volta e nomes repetidos são aceitos, e
+    `marcadores` vazio é o mesmo que nenhum.
+  - **`avisoSujeitoAAlteracao`** é o aviso curto do RF07.1, o mesmo texto da
+    `CardapioView.vue`, numa constante única (`AVISO_SUJEITO_A_ALTERACAO`).
+    O aviso longo do filtro (RF08, L04) continua no front.
 
 ## Nível 4b — Lista de campi para a detecção
 
