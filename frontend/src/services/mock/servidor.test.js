@@ -658,14 +658,24 @@ describe('POST /checkins/ (RF11, RF12, contrato da BE-09)', () => {
     })
   })
 
-  it('segundo check-in na mesma refeição: 422 checkin_duplicado (RI03)', async () => {
+  it('segundo check-in na mesma refeição e no mesmo campus: 422 checkin_duplicado (RI03)', async () => {
+    await entrarComAviso()
+    await post('/checkins/', CHECKIN)
+
+    const resposta = await post('/checkins/', CHECKIN)
+
+    expect(resposta.status).toBe(422)
+    expect(resposta.dados.codigo).toBe('checkin_duplicado')
+  })
+
+  it('mesma refeição em outro campus: 201, como no UNIQUE do backend', async () => {
     await entrarComAviso()
     await post('/checkins/', CHECKIN)
 
     const resposta = await post('/checkins/', { ...CHECKIN, campus: 2 })
 
-    expect(resposta.status).toBe(422)
-    expect(resposta.dados.codigo).toBe('checkin_duplicado')
+    expect(resposta.status).toBe(201)
+    expect(resposta.dados.checkin.campus).toBe(2)
   })
 
   it('fora do raio do RU: 422 localizacao_nao_confirmada', async () => {
