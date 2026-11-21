@@ -3,3 +3,5 @@
 *.sh text eol=lf
 db/** text eol=lf
 Caddyfile text eol=lf
+# Arquivos do cron e do logrotate da VM (BD-07): o cron ignora a linha com \r.
+deploy/** text eol=lf

@@ -295,3 +295,24 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - testes do `SeletorCampus` e de `idDeCampusValido` (`'01'` passou a ser recusado), "Usar minha localização" no cabeçalho da tela do campus e o C4 atualizado.
 - Validação: `npm run test:ci` com 477 testes passando (cobertura de 90,74% de linhas / 82,9% de ramos), `npm run lint:ci` sem achados e `npm run build` sem erro, no PC da autora.
 - Situação: aguardando nova revisão.
+
+## BD-07 — Cron do sistema operacional
+
+- Issue: [#147](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/147).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `deploy/cron/bandejao`, para o `/etc/cron.d/`, com o `excluir_cadastros_pendentes` de hora em hora, o `ler_cardapio` de 3 em 3 horas, e o `clearsessions` e o `desvincular_registros_fila` uma vez por dia;
+  - `deploy/cron/rodar-comando.sh`, que roda o comando no container do backend, com log por comando e trava `flock`;
+  - `deploy/cron/logrotate`;
+  - a regra `deploy/** text eol=lf` no `.gitattributes`;
+  - a seção "Tarefas periódicas (cron)" no guia de deploy;
+  - os testes em `backend/tests/test_cron_producao.py`.
+- TDD: testes no commit `225bead`, antes dos arquivos.
+- O que os testes conferem:
+  - no arquivo do cron: os quatro comandos, a agenda de cada um, os diários de madrugada e em minutos diferentes, o `azureuser`, `SHELL` e `PATH`, a quebra de linha no fim, nenhum CRLF, o nome sem ponto e cada comando registrado no Django;
+  - no script, rodado com um `docker` falso: os argumentos repassados, a pasta do repositório, o log com início, saída e status, o status de erro devolvido, nomes inválidos recusados sem chamar o `docker`, o uso sem argumento e a segunda execução simultânea pulada com o status 75 (só onde há `flock`, como no CI);
+  - o `logrotate` e a regra de LF.
+- Comandos ainda fora da `develop`: o `ler_cardapio` (#218) e o `desvincular_registros_fila` (#220) já estão no arquivo do cron. O teste de existência deles é pulado com o motivo enquanto os dois PRs não entram, e passa a conferir sozinho depois dos merges.
+- Validação local (Windows, `sh` do Git, sem `flock`): `pytest` com os testes novos passando (3 pulados: os dois comandos acima e a trava).
+- Fora deste PR: instalar o cron na VM e conferir os logs, que fica com quem tem acesso SSH, pelo roteiro do guia. O fechamento do semestre da Gamificação, citado no Nível 3, não é da BD-07 e ainda não tem comando.
+- Situação: PR aberto, aguardando o CI e a revisão.

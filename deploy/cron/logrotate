@@ -1,0 +1,15 @@
+# Rotação dos logs do cron do Bandejão (BD-07, #147). Instalar:
+#   sudo install -m 644 -o root -g root deploy/cron/logrotate /etc/logrotate.d/bandejao
+#
+# Uma cópia por semana, guardada por 4 semanas. Os logs só têm contagens e
+# mensagens de erro, sem dado de usuário (RNF07).
+/var/log/bandejao/*.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    su azureuser azureuser
+    create 0640 azureuser azureuser
+}

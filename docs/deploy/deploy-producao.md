@@ -365,6 +365,9 @@ Só os containers cujas imagens mudaram são recriados. As migrations novas são
 aplicadas na subida do backend. Os dados do banco e os certificados ficam nos
 volumes e não se perdem.
 
+Se o merge mudou algum arquivo de `deploy/cron/`, reinstale-o como em
+[Tarefas periódicas](#tarefas-periódicas-cron).
+
 Se mudar só o `Caddyfile`, basta recarregar o Caddy:
 
 ```bash
@@ -440,6 +443,82 @@ Anote a data e o resultado de cada passo na issue #142 (FE-06) e na #148
 (BD-08). Se um passo falhar, os logs ficam em
 `docker compose logs --tail 100 backend`.
 
+## Tarefas periódicas (cron)
+
+As tarefas periódicas são comandos do Django chamados pelo **cron da VM**
+(ADRs 0003, 0007, 0012 e 0014; BD-07). Os arquivos ficam em `deploy/cron/`:
+
+| Arquivo | Vai para | O que faz |
+|---|---|---|
+| `bandejao` | `/etc/cron.d/bandejao` | A agenda das tarefas |
+| `rodar-comando.sh` | (fica no repositório) | Roda o comando no container do backend, grava o log e impede duas execuções do mesmo comando ao mesmo tempo |
+| `logrotate` | `/etc/logrotate.d/bandejao` | Guarda os logs por 4 semanas, uma cópia por semana |
+
+| Comando | Quando (Brasília) | Para quê |
+|---|---|---|
+| `excluir_cadastros_pendentes` | de hora em hora | Apaga o cadastro sem confirmação há mais de 24 h (RF02.3) |
+| `ler_cardapio` | de 3 em 3 horas, todos os dias | Lê o PDF do cardápio de cada campus (ADR 0014) |
+| `clearsessions` | todo dia, 03h15 | Apaga as sessões expiradas do Django (ADR 0007) |
+| `desvincular_registros_fila` | todo dia, 03h30 | Retira a conta dos registros de fila com mais de 4 semanas (RNF07.3) |
+
+Os horários do arquivo estão em **UTC**, o fuso da VM (Brasília é UTC-3).
+O `ler_cardapio` e o `desvincular_registros_fila` só existem depois dos
+merges do #218 (BE-12) e do #220 (BD-11). Antes disso, o log deles mostra
+`Unknown command` e `status 1`, sem efeito nenhum.
+
+### Instalar
+
+Uma vez, na VM, da pasta do repositório:
+
+```bash
+cd ~/2026-2-Bandejao-UnB
+timedatectl | grep "Time zone"     # deve ser UTC (Etc/UTC)
+sudo install -d -o azureuser -g azureuser -m 750 /var/log/bandejao
+sudo install -m 644 -o root -g root deploy/cron/bandejao /etc/cron.d/bandejao
+sudo install -m 644 -o root -g root deploy/cron/logrotate /etc/logrotate.d/bandejao
+systemctl is-active cron           # deve responder "active"
+```
+
+O cron lê o `/etc/cron.d/` sozinho, sem reiniciar. Ele ignora o arquivo se o
+dono não for o root ou se outro usuário puder escrever nele: por isso o
+`install` com `-o root` e `-m 644`. O `azureuser` está no grupo `docker`, então
+as tarefas não precisam de root.
+
+Se a VM não estiver em UTC, ajuste as horas do `bandejao` antes de instalar.
+
+### Conferir
+
+Rode cada comando uma vez à mão, pelo mesmo script do cron, e veja o log:
+
+```bash
+sh deploy/cron/rodar-comando.sh clearsessions
+sh deploy/cron/rodar-comando.sh excluir_cadastros_pendentes
+tail -n 5 /var/log/bandejao/*.log
+```
+
+Cada execução grava no log do comando três tipos de linha: `início`, a saída
+do comando (só contagens, sem dado de usuário) e `fim: status N`. O status 0
+é sucesso. O status 75 quer dizer que a execução foi pulada porque a anterior
+do mesmo comando ainda estava rodando. Qualquer outro status é erro, e a
+mensagem dele fica nas linhas de cima.
+
+Depois do horário de cada tarefa, confira que a linha nova apareceu:
+
+```bash
+ls -l /var/log/bandejao/
+grep CRON /var/log/syslog | tail -n 20   # o cron registra cada disparo
+sudo logrotate -d /etc/logrotate.d/bandejao   # simula a rotação, sem mexer
+```
+
+### Mudar ou desligar
+
+Se o `deploy/cron/bandejao` ou o `logrotate` mudar num merge, repita o
+`sudo install` correspondente depois do `git pull`. O `rodar-comando.sh` é
+usado direto do repositório e não precisa ser reinstalado.
+
+Para desligar todas as tarefas, apague o arquivo:
+`sudo rm /etc/cron.d/bandejao`.
+
 ## Ver logs
 
 ```bash
@@ -449,6 +528,9 @@ docker compose logs --tail 100 caddy
 ```
 
 Cada container guarda no máximo 3 arquivos de 10 MB de log.
+
+As tarefas do cron têm o próprio log, um arquivo por comando, em
+`/var/log/bandejao/` (ver [Tarefas periódicas](#tarefas-periódicas-cron)).
 
 ## Cuidados
 

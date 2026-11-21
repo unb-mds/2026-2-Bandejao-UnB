@@ -168,7 +168,8 @@ SH = shutil.which("sh")
 precisa_de_sh = pytest.mark.skipif(SH is None, reason="sem sh no PATH")
 
 DOCKER_FALSO = """#!/bin/sh
-printf '%s\\n' "$PWD" > "$SAIDA_DOCKER"
+# `pwd -W` dá o caminho do Windows no sh do Git; no Linux, vale o `pwd`.
+{ pwd -W 2>/dev/null || pwd; } > "$SAIDA_DOCKER"
 for arg in "$@"; do printf '%s\\n' "$arg" >> "$SAIDA_DOCKER"; done
 echo "saida-do-comando"
 if [ -n "${ESPERA_DOCKER:-}" ]; then sleep "$ESPERA_DOCKER"; fi
