@@ -175,9 +175,57 @@ describe('CheckinBotao — aviso de privacidade antes do GPS (RF11, RNF07.1)', (
     expect(wrapper.find('[data-teste="aviso-privacidade"]').exists()).toBe(true)
     expect(auth.avisoPrivacidadePendente).toBe(true)
   })
+
+  it('depois do 403, dar ciência lê o GPS de novo e confirma o check-in', async () => {
+    const auth = await entrar({ comAviso: false })
+    auth.usuario = { ...auth.usuario, avisoPrivacidadePendente: false }
+    const post = vi.spyOn(apiClient, 'post')
+    const wrapper = await montar()
+    await tocarNoBotao(wrapper)
+
+    await wrapper.get('[data-teste="aviso-privacidade-ciente"]').trigger('click')
+    await flushPromises()
+
+    expect(post.mock.calls.map(([caminho]) => caminho)).toEqual([
+      '/checkins/',
+      '/privacidade/aceite/',
+      '/checkins/',
+    ])
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2)
+    expect(texto(wrapper)).toContain('Check-in confirmado')
+  })
 })
 
 describe('CheckinBotao — permissão de localização (RF19)', () => {
+  it('navegador sem Permissions API, nunca permitido: abre o AvisoLocalizacao', async () => {
+    getCurrentPosition = vi.fn((ok) => boaLeitura({ ok }))
+    vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } })
+    abrirAvisoLocalizacao.mockResolvedValue('concedida')
+    await entrar()
+    const wrapper = await montar()
+
+    await tocarNoBotao(wrapper)
+
+    expect(abrirAvisoLocalizacao).toHaveBeenCalledOnce()
+    expect(texto(wrapper)).toContain('Check-in confirmado')
+  })
+
+  it.each([
+    ['inseguro', 'endereço seguro (https://)'],
+    ['indisponivel', 'Este navegador não oferece localização'],
+  ])('desfecho %s: mostra a mensagem e não envia', async (desfecho, trecho) => {
+    simularNavegador({ estado: 'prompt' })
+    abrirAvisoLocalizacao.mockResolvedValue(desfecho)
+    await entrar()
+    const post = vi.spyOn(apiClient, 'post')
+    const wrapper = await montar()
+
+    await tocarNoBotao(wrapper)
+
+    expect(texto(wrapper)).toContain(trecho)
+    expect(post).not.toHaveBeenCalled()
+  })
+
   it('permissão ainda não pedida: abre o AvisoLocalizacao antes de ler', async () => {
     simularNavegador({ estado: 'prompt' })
     abrirAvisoLocalizacao.mockResolvedValue('concedida')
@@ -376,6 +424,61 @@ describe('CheckinBotao — respostas do POST /api/checkins/', () => {
     responder()
     await flushPromises()
     expect(texto(wrapper)).toContain('Check-in confirmado')
+  })
+
+  it('trocar de refeição durante a leitura: descarta o fluxo antigo, sem POST', async () => {
+    let responder
+    simularNavegador({ aoLer: (callbacks) => (responder = () => boaLeitura(callbacks)) })
+    await entrar()
+    const post = vi.spyOn(apiClient, 'post')
+    const wrapper = await montar()
+    await tocarNoBotao(wrapper)
+
+    await wrapper.setProps({ tipoRefeicao: 'jantar' })
+    responder()
+    await flushPromises()
+
+    expect(post).not.toHaveBeenCalled()
+    expect(texto(wrapper)).not.toContain('Check-in confirmado')
+    const botao = wrapper.get('[data-teste="checkin-botao"]')
+    expect(botao.attributes('disabled')).toBeUndefined()
+    expect(botao.text()).toContain('Estou no RU')
+  })
+
+  it('trocar de campus com o POST em andamento: a resposta antiga não mexe na tela', async () => {
+    await entrar()
+    let liberar
+    vi.spyOn(apiClient, 'post').mockImplementationOnce(
+      () =>
+        new Promise((resolver) => {
+          liberar = () =>
+            resolver({
+              checkin: { id: 9, campus: 1, tipoRefeicao: 'almoco', data: '2026-11-09' },
+              pontos: { total: 5 },
+            })
+        }),
+    )
+    const wrapper = await montar()
+    await tocarNoBotao(wrapper)
+
+    await wrapper.setProps({ campusId: 'gama' })
+    liberar()
+    await flushPromises()
+
+    expect(texto(wrapper)).not.toContain('Check-in confirmado')
+    expect(wrapper.get('[data-teste="checkin-botao"]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('erro inesperado no meio do fluxo: o botão não fica travado', async () => {
+    await entrar()
+    const wrapper = await montar()
+    vi.spyOn(useFilaStore(), 'confirmarCheckin').mockRejectedValueOnce(new Error('inesperado'))
+
+    await tocarNoBotao(wrapper)
+
+    const botao = wrapper.get('[data-teste="checkin-botao"]')
+    expect(botao.attributes('disabled')).toBeUndefined()
+    expect(botao.text()).toContain('Estou no RU')
   })
 
   it('trocar de refeição volta ao botão inicial', async () => {
