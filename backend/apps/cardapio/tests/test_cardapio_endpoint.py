@@ -361,7 +361,8 @@ def test_campus_que_nao_e_inteiro_da_400(cliente, campus, valor):
 def assert_404_campus(resposta):
     assert resposta.status_code == 404
     # Mesmo formato do 400 e o `codigo` que a CampusView confere (FE-08, #144),
-    # igual ao do GET /api/ranking/{campusId}/.
+    # igual ao do GET /api/ranking/{campusId}/. A mensagem fica fixa: o front
+    # ainda aceita o 400 antigo comparando por ela (MENSAGEM_CAMPUS_INEXISTENTE).
     assert resposta.json() == {
         "codigo": "campus_nao_encontrado",
         "mensagem": "Não existe campus com esse id.",

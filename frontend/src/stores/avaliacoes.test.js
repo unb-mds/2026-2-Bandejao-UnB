@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAvaliacoesStore } from './avaliacoes'
 import { useAuthStore } from './auth'
+import { ApiError, apiClient } from '@/services/apiClient'
 import { CONTA_DEMO } from '@/services/mock/banco'
-import { reiniciarSimulacao } from '@/services/mock/servidor'
+import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
 
 /** avaliacoesStore com o servidor simulado (Plano de Testes 3.1; módulo crítico). */
 
@@ -20,6 +21,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe('avaliacoesStore', () => {
@@ -78,5 +80,56 @@ describe('avaliacoesStore', () => {
     avaliacoes.limparCache()
 
     expect(avaliacoes.daRefeicao(ALMOCO_HOJE)).toBeNull()
+  })
+})
+
+describe('avaliacoesStore: resumo do dia (GET /api/avaliacoes/resumo/)', () => {
+  it('carrega as notas de todas as refeições do dia numa chamada só', async () => {
+    const avaliacoes = useAvaliacoesStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    const resumo = await avaliacoes.carregarResumoDoDia(1, '2026-09-28')
+
+    expect(get).toHaveBeenCalledWith('/avaliacoes/resumo/?campus=1&data=2026-09-28')
+    expect(resumo.map((r) => r.tipo)).toEqual(['cafe', 'almoco', 'jantar'])
+    expect(avaliacoes.daResumoDoDia(1, '2026-09-28')).toEqual(resumo)
+    expect(avaliacoes.daResumoDoDia(1, '2026-09-29')).toBeNull()
+  })
+
+  it('resumo do dia em 501: devolve null, fica "indisponível" e não mexe no erro da tela', async () => {
+    const avaliacoes = useAvaliacoesStore()
+    simulacao.definirResumoDoDiaDisponivel(false)
+    const log = vi.spyOn(console, 'error')
+
+    expect(await avaliacoes.carregarResumoDoDia(1, '2026-09-28')).toBeNull()
+
+    expect(avaliacoes.erro).toBeNull()
+    expect(avaliacoes.situacaoDoResumoDoDia(1, '2026-09-28')).toBe('indisponivel')
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('501 que chega depois de carregar() não aparece como erro nas Avaliações', async () => {
+    const avaliacoes = useAvaliacoesStore()
+    simulacao.definirResumoDoDiaDisponivel(false)
+
+    const resumo = avaliacoes.carregarResumoDoDia(1, '2026-09-28')
+    await avaliacoes.carregar(ALMOCO_HOJE)
+    await resumo
+
+    expect(avaliacoes.erro).toBeNull()
+  })
+
+  it('outra falha do resumo do dia é registrada no console, sem mexer no erro da tela', async () => {
+    const avaliacoes = useAvaliacoesStore()
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }),
+    )
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    expect(await avaliacoes.carregarResumoDoDia(1, '2026-09-28')).toBeNull()
+
+    expect(avaliacoes.erro).toBeNull()
+    expect(avaliacoes.situacaoDoResumoDoDia(1, '2026-09-28')).toBe('erro')
+    expect(log).toHaveBeenCalledTimes(1)
   })
 })

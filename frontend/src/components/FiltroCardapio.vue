@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { usePreferenciasStore } from '@/stores/preferencias'
-import { DIETAS } from '@/constants/dietas'
+import { DIETA_PADRAO, DIETAS } from '@/constants/dietas'
 import { MARCADORES } from '@/constants/marcadores'
 import IconeSvg from './IconeSvg.vue'
 
@@ -33,7 +33,7 @@ function alternarMarcador(id) {
 }
 
 function limpar() {
-  dietaPendente.value = 'todos'
+  dietaPendente.value = DIETA_PADRAO
   marcadoresPendentes.value = []
 }
 

@@ -366,6 +366,30 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação após a segunda revisão: `pytest` com 1524 testes aprovados e 1 ignorado, cobertura de `apps` de 98,65% (100% nos módulos novos do `leitor`, 98% no parser); `ruff check`, `ruff format --check`, `bandit -lll` e `makemigrations --check` aprovados; os três diagramas do C4 do Leitor renderizam no `mmdc`.
 - Situação: ajustes da segunda revisão aplicados; aguardando o recheck de AlvaroBento12. Para a dupla do banco: o campo novo `email_enviado_em` (migração `0005`) e a mudança do `zerar_contador` estão no N4.
 
+## FE-08 — Seção do cardápio ligada à API
+
+- Issue: [#144](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/144). PR: [#219 — FE-08: seção do cardápio ligada à API](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/219).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `cardapioStore.carregarRefeicao` ligado ao `GET /api/cardapio/` com campus, dia, refeição, marcadores e dieta como parâmetros (ADR 0005) e cache por combinação, `avaliacoesStore.carregarResumoDoDia` (`GET /api/avaliacoes/resumo/`), `AbasSemana` e `SeletorRefeicao` com a nota média, `CardapioView` com os avisos de "não publicado", "nenhuma opção" e filtro de marcadores desativado, dietas e marcadores com os nomes do backend (com a conversão dos filtros salvos com os nomes antigos), filtro no cliente retirado e servidor simulado no contrato do `GET /cardapio/` e do resumo do dia. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- Contrato da BE-11 (#214) conferido com os comentários da #144: o simulado também dá 400 para marcador desconhecido, item vazio, parâmetro fora da lista e data fora da faixa; o fim do horário entra na refeição (9h30 ainda é café); um dia sem serviço pedido sem refeição passa ao próximo dia com serviço, e a tela avisa "Sem refeições neste dia" mantendo a aba. Enquanto o resumo do dia (`GET /api/avaliacoes/resumo/`) não sai do 501, o `SeletorRefeicao` mostra café, almoço e jantar sem nota.
+- TDD, em três pares, sempre com o `test` antes do código:
+  - `4438b55` → `0c64c85`: filtros persistidos e mandados como parâmetros, estados vazios, dia sem serviço, contrato do simulado e stores.
+  - `84386ee` → `06cd8b5`: sobre a FE-07 revisada (#216). Erro e carregamento do cardápio por pedido, e o campus inexistente (400 "Não existe campus com esse id.") virando "Campus não encontrado".
+  - casos da revisão → `fix`: os ajustes listados abaixo.
+- Revisão humana: Álvaro Bento revisou o PR #219. Ajustes aplicados:
+  - o 501 do resumo do dia não mexe mais no erro da tela de Avaliações (situação do resumo por dia, 501 como "indisponível" e as outras falhas no console);
+  - o dia sem serviço vem pelo campo `semServico`, proposto ao backend e já mandado pelo simulado;
+  - a refeição que o dia não serve vem publicada e vazia, como no backend, e aparece como "Esta refeição não é servida neste dia";
+  - respostas que dependem do relógio e "não publicado" valem 5 minutos no cache, e o mesmo pedido ao mesmo tempo sai uma vez só;
+  - o código `campus_nao_encontrado` também é aceito, e um teste do backend fixa a frase do campus inexistente;
+  - um 400 com filtros oferece "Limpar filtros";
+  - a resposta do cardápio é validada e os marcadores migrados não se repetem;
+  - o simulado recusa `" 1"`, `01` e datas que não existem, e responde 501 no resumo com `simulacao.definirResumoDoDiaDisponivel(false)`;
+  - testes de resposta fora de ordem, "Tentar novamente", troca de campus e dietas antigas, o C4 e os comentários desatualizados.
+  - Ficam com o backend o `semServico` e o código `campus_nao_encontrado` no `GET /api/cardapio/`.
+- Validação: `npm run test:ci` com 557 testes passando (cobertura de 91,84% de linhas / 85,22% de ramos), `npm run lint:ci` sem achados e `npm run build` sem erro, no PC da autora.
+- Situação: aguardando nova revisão.
+
 ## BE-11 follow-up — 404 `campus_nao_encontrado` no `GET /api/cardapio/`
 
 - Issue: [#217](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/217) (pendência da revisão do #216, bloqueia parte da FE-08, #144).
@@ -375,4 +399,5 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - TDD: commit `test` com 10 testes falhando (o 404 ainda saía 400, e o 400 de outro parâmetro perdia para o campus inexistente), passando no `feat` seguinte.
 - Sabotagem manual: 5 alterações (404 antes dos 400, busca do campus antes dos marcadores, `NotFound` sem `code=`, volta ao 400 e 404 fora do contrato); todas derrubam ao menos um teste.
 - Validação local (SQLite, Python 3.13): `pytest` com 1561 testes aprovados e 1 ignorado (eram 1550 na `develop` em `fe06c0a`), cobertura de `apps` (com branches) de 98,67%; `ruff check`, `ruff format --check`, `bandit -lll` e `spectacular --validate --fail-on-warn` aprovados. `semgrep`, `pip-audit` e `testes-mysql` ficam com o CI.
+- Merge da `develop` (com a FE-08, #219): conflito em `AI-USAGE.md` (as duas entradas mantidas) e em `test_cardapio_endpoint.py`, onde o `test_campus_inexistente_da_400` com a mensagem fixada pela FE-08 deu lugar ao `test_campus_inexistente_da_404`, que confere o corpo inteiro e portanto a mesma mensagem. O front aceita os dois formatos (`codigo` `campus_nao_encontrado` ou 400 com `MENSAGEM_CAMPUS_INEXISTENTE`), então nada muda no `frontend/`.
 - Revisão humana: pendente (AlvaroBento12; o `openapi.yaml` também precisa da revisão do FE).
