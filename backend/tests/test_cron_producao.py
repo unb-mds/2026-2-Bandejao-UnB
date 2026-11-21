@@ -149,7 +149,15 @@ def test_crontab_define_shell_e_path():
     assert "/usr/bin" in caminho.group(1).split(":")
 
 
-@pytest.mark.parametrize("arquivo", [CRONTAB, SCRIPT, LOGROTATE])
+# Todos os arquivos de deploy/, para um arquivo novo entrar sozinho.
+ARQUIVOS_DE_DEPLOY = sorted(p for p in (RAIZ / "deploy").rglob("*") if p.is_file())
+
+
+def test_arquivos_de_deploy_encontrados():
+    assert {CRONTAB, SCRIPT, LOGROTATE} <= set(ARQUIVOS_DE_DEPLOY)
+
+
+@pytest.mark.parametrize("arquivo", ARQUIVOS_DE_DEPLOY, ids=lambda p: p.name)
 def test_arquivos_terminam_com_quebra_de_linha_e_sem_crlf(arquivo):
     """O cron ignora a última linha sem `\\n`; um `\\r` entra no comando e a
     tarefa falha."""
@@ -179,7 +187,7 @@ GIT = shutil.which("git")
 
 
 @pytest.mark.skipif(GIT is None, reason="sem git no PATH")
-@pytest.mark.parametrize("arquivo", [CRONTAB, SCRIPT, LOGROTATE])
+@pytest.mark.parametrize("arquivo", ARQUIVOS_DE_DEPLOY, ids=lambda p: p.name)
 def test_git_grava_os_arquivos_do_cron_com_lf(arquivo):
     """Num clone no Windows, o Git troca o LF por CRLF sem a regra."""
     resultado = subprocess.run(
@@ -234,14 +242,20 @@ def ambiente(tmp_path):
 
 @pytest.fixture
 def rodar(ambiente):
-    def rodar(*argumentos, falha=None, espera=None, fundo=False, **extra):
+    def rodar(*argumentos, falha=None, espera=None, fundo=False, caminho=None, **extra):
         env = {
             k: v
             for k, v in os.environ.items()
-            if k not in ("FALHA_DOCKER", "ESPERA_DOCKER", "BANDEJAO_TEMPO_LIMITE")
+            if k
+            not in (
+                "FALHA_DOCKER",
+                "ESPERA_DOCKER",
+                "BANDEJAO_TEMPO_LIMITE",
+                "BANDEJAO_TEMPO_LIMITE_CLIENTE",
+            )
         }
         env.update(
-            PATH=str(ambiente["bin"]) + os.pathsep + os.environ["PATH"],
+            PATH=str(ambiente["bin"]) + os.pathsep + (caminho or os.environ["PATH"]),
             SAIDA_DOCKER=ambiente["docker"].as_posix(),
             SAIDA_LOGGER=ambiente["logger"].as_posix(),
             BANDEJAO_LOGS=ambiente["logs"].as_posix(),
@@ -278,6 +292,13 @@ def ler_linhas(arquivo):
 
 def log_de(resultado, comando):
     return (resultado.logs / f"{comando}.log").read_text(encoding="utf-8")
+
+
+def chamadas_do_docker_terminadas(resultado):
+    """Quantas vezes o docker falso chegou ao fim (o `.vezes` é gravado no
+    final dele)."""
+    vezes = resultado.logs.parent / "docker.txt.vezes"
+    return len(ler_linhas(vezes) or [])
 
 
 def chamadas_do_docker(ambiente):
@@ -331,6 +352,28 @@ def test_tempo_esgotado_vai_para_o_log_e_para_o_syslog(rodar):
 
 
 @precisa_de_sh
+def test_encerrado_com_kill_vai_para_o_log(rodar):
+    """Se o processo ignora o TERM, o `--kill-after` mata com KILL e o
+    `timeout` sai com 137 (128 + 9), e não com 124."""
+    resultado = rodar("ler_cardapio", falha=137)
+
+    assert resultado.returncode == 137
+    assert "encerrado à força" in log_de(resultado, "ler_cardapio")
+
+
+@precisa_de_sh
+def test_cliente_do_docker_travado_tambem_tem_tempo_limite(rodar):
+    """Um `timeout` no host, um pouco maior que o do container, cobre o
+    `docker compose exec` travado (daemon sem resposta), que seguraria a
+    trava para sempre."""
+    resultado = rodar("ler_cardapio", espera=10, BANDEJAO_TEMPO_LIMITE_CLIENTE="1s")
+
+    assert resultado.returncode == 124
+    assert "tempo esgotado" in log_de(resultado, "ler_cardapio")
+    assert chamadas_do_docker_terminadas(resultado) == 0
+
+
+@precisa_de_sh
 def test_grava_inicio_saida_e_fim_no_log_do_comando(rodar):
     resultado = rodar("clearsessions")
 
@@ -380,6 +423,12 @@ def test_status_75_do_comando_nao_vira_pulado(rodar):
 
     assert resultado.returncode == 75
     assert "pulado" not in log_de(resultado, "clearsessions")
+    # No syslog também: é erro do comando, e não um pulo normal.
+    assert any(
+        "-p user.err" in chamada and "status 75" in chamada
+        for chamada in resultado.logger
+    )
+    assert not any("pulado" in chamada for chamada in resultado.logger)
 
 
 @precisa_de_sh
@@ -424,9 +473,13 @@ def test_pasta_de_logs_que_nao_pode_ser_criada(rodar, ambiente, tmp_path):
 
     resultado = rodar("clearsessions", BANDEJAO_LOGS=(arquivo / "logs").as_posix())
 
-    assert resultado.returncode != 0
+    assert resultado.returncode == 1
     assert resultado.docker is None
-    assert any("-p user.err" in chamada for chamada in resultado.logger)
+    assert "não foi possível criar" in resultado.stderr
+    assert any(
+        "-p user.err" in chamada and "não foi possível criar" in chamada
+        for chamada in resultado.logger
+    )
 
 
 @precisa_de_sh
@@ -434,33 +487,42 @@ def test_pasta_de_logs_que_nao_pode_ser_criada(rodar, ambiente, tmp_path):
     hasattr(os, "geteuid") and os.geteuid() == 0,
     reason="o root grava mesmo em arquivo sem permissão",
 )
-def test_log_sem_permissao_de_escrita_nao_para_em_silencio(rodar, ambiente):
+@pytest.mark.parametrize("arquivo", ["clearsessions.log", "clearsessions.lock"])
+def test_log_sem_permissao_de_escrita_nao_para_em_silencio(rodar, ambiente, arquivo):
     """O caso de quem rodou o script com sudo uma vez: o log fica do root e o
     `azureuser` não grava mais. A tarefa avisa o syslog e sai com 73, sem
     chamar o docker (e sem o `status: parameter not set` do `set -u`)."""
     ambiente["logs"].mkdir()
-    log = ambiente["logs"] / "clearsessions.log"
-    log.write_text("", encoding="utf-8")
-    log.chmod(stat.S_IREAD)
+    sem_escrita = ambiente["logs"] / arquivo
+    sem_escrita.write_text("", encoding="utf-8")
+    sem_escrita.chmod(stat.S_IREAD)
     try:
         resultado = rodar("clearsessions")
     finally:
-        log.chmod(stat.S_IREAD | stat.S_IWRITE)
+        sem_escrita.chmod(stat.S_IREAD | stat.S_IWRITE)
 
     assert resultado.returncode == 73
     assert resultado.docker is None
     assert "parameter not set" not in resultado.stderr
     assert any(
-        "-p user.err" in chamada and "clearsessions.log" in chamada
-        for chamada in resultado.logger
+        "-p user.err" in chamada and arquivo in chamada for chamada in resultado.logger
     )
 
 
-@pytest.mark.skipif(
-    SH is None or TEM_FLOCK, reason="só onde não há flock (o sh do Git no Windows)"
-)
-def test_sem_flock_avisa_no_log_que_rodou_sem_trava(rodar):
-    resultado = rodar("clearsessions")
+@precisa_de_sh
+def test_sem_flock_avisa_no_log_que_rodou_sem_trava(rodar, tmp_path):
+    """Onde há `flock` (o CI), o PATH fica só com o que o script usa, sem
+    ele; no sh do Git, que não tem `flock`, vale o PATH normal."""
+    caminho = None
+    if TEM_FLOCK:
+        minimo = tmp_path / "bin-minimo"
+        minimo.mkdir()
+        for nome in ("dirname", "mkdir", "date", "timeout", "sleep"):
+            (minimo / nome).symlink_to(shutil.which(nome))
+        caminho = str(minimo)
+        assert shutil.which("flock", path=caminho) is None
+
+    resultado = rodar("clearsessions", caminho=caminho)
 
     assert resultado.returncode == 0
     assert "sem flock" in log_de(resultado, "clearsessions")
@@ -484,7 +546,6 @@ def test_segunda_execucao_simultanea_e_pulada(rodar, ambiente):
     primeira = rodar("ler_cardapio", espera=3, fundo=True)
     try:
         esperar_o_docker(ambiente, primeira)
-        assert (ambiente["logs"] / "ler_cardapio.lock").exists()
         resultado = rodar("ler_cardapio")
         primeira.wait(timeout=10)
     finally:
