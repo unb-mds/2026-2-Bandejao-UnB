@@ -7,6 +7,7 @@ calendário (SemanaCardapioResolver) se a semana já saiu, à despensa
 da dieta (que tira travessas), depois o do marcador (que só sinaliza).
 """
 
+import logging
 from datetime import date, datetime
 
 from django.utils import timezone
@@ -27,6 +28,8 @@ from apps.cardapio.semana_cardapio_resolver import (
     DURACAO_SEMANA,
     SemanaCardapioResolver,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def dia_pedido(semana: date | None, dia: date | None, hoje: date) -> date:
@@ -84,6 +87,15 @@ class CardapioQueryService:
                 campus, self.horarios.refeicao_padrao(agora, sem_pdf)
             )
         if not self._publicado(campus, padrao.dia):
+            if self.repositorio.refeicoes_do_dia(campus, padrao.dia):
+                # Há refeição no banco, mas a semana não tem a linha da
+                # FonteCardapio (ex.: cadastro à mão sem a linha da semana).
+                logger.warning(
+                    "Refeição do campus %s em %s sem FonteCardapio da semana: "
+                    "exibida como não publicada.",
+                    campus.pk,
+                    padrao.dia.isoformat(),
+                )
             return self._nao_publicado(campus, padrao)
 
         encontrada = self.repositorio.buscar_refeicao(
