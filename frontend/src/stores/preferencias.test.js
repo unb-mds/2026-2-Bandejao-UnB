@@ -157,16 +157,37 @@ describe('preferenciasStore: filtros com os nomes da API (ADR 0005)', () => {
     expect(preferencias.filtrosAtivos).toBe(0)
   })
 
-  it('filtros salvos com os nomes antigos continuam valendo', () => {
+  it('filtros salvos com os nomes antigos continuam valendo; o desconhecido sai com aviso', () => {
     localStorage.setItem(
       CHAVE,
       JSON.stringify({ dieta: 'ovolacto', marcadores: ['leite', 'trigo', 'suino', 'peixe'] }),
     )
     setActivePinia(createPinia())
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     const preferencias = usePreferenciasStore()
     expect(preferencias.dieta).toBe('ovolactovegetariano')
     expect(preferencias.marcadores).toEqual(['leite_e_derivados', 'trigo_gluten', 'suino'])
+    expect(aviso).toHaveBeenCalledTimes(1)
+    expect(aviso.mock.calls[0][1]).toEqual(['peixe'])
+  })
+
+  it.each([
+    ['todos', 'sem_filtro'],
+    ['ovolacto', 'ovolactovegetariano'],
+    ['vegano', 'vegetariano_estrito'],
+  ])('dieta salva com o nome antigo %s vira %s', (antiga, atual) => {
+    localStorage.setItem(CHAVE, JSON.stringify({ dieta: antiga }))
+    setActivePinia(createPinia())
+
+    expect(usePreferenciasStore().dieta).toBe(atual)
+  })
+
+  it('o nome antigo e o novo do mesmo marcador viram um só', () => {
+    localStorage.setItem(CHAVE, JSON.stringify({ marcadores: ['leite', 'leite_e_derivados'] }))
+    setActivePinia(createPinia())
+
+    expect(usePreferenciasStore().marcadores).toEqual(['leite_e_derivados'])
   })
 
   it('nome salvo que é propriedade de objeto não vira dieta nem marcador', () => {
@@ -175,6 +196,7 @@ describe('preferenciasStore: filtros com os nomes da API (ADR 0005)', () => {
       JSON.stringify({ dieta: 'toString', marcadores: ['constructor', 'ovo'] }),
     )
     setActivePinia(createPinia())
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     const preferencias = usePreferenciasStore()
     expect(preferencias.dieta).toBe('sem_filtro')

@@ -305,4 +305,86 @@ describe('cardapioStore: GET /api/cardapio/ já filtrado (ADR 0005)', () => {
     )
     expect(cardapio.campusInexistente(1)).toBe(false)
   })
+
+  it('pedido que depende do relógio vale 5 minutos; depois, pede de novo', async () => {
+    const cardapio = useCardapioStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await cardapio.carregarRefeicao({ campus: 1 })
+    await cardapio.carregarRefeicao({ campus: 1 })
+    expect(get).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(new Date(2026, 8, 28, 19, 0))
+    const depois = await cardapio.carregarRefeicao({ campus: 1 })
+
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(depois.refeicao).toBe('jantar')
+  })
+
+  it('dia e refeição resolvidos e publicados ficam no cache pela sessão', async () => {
+    const cardapio = useCardapioStore()
+    const get = vi.spyOn(apiClient, 'get')
+    const pedido = { campus: 1, dia: '2026-09-29', refeicao: 'almoco' }
+
+    await cardapio.carregarRefeicao(pedido)
+    vi.setSystemTime(new Date(2026, 8, 28, 23, 0))
+    await cardapio.carregarRefeicao(pedido)
+
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
+  it('"não publicado" vale 5 minutos, mesmo com dia e refeição', async () => {
+    const cardapio = useCardapioStore()
+    const get = vi.spyOn(apiClient, 'get')
+    const pedido = { campus: 5, dia: '2026-09-28', refeicao: 'almoco' }
+
+    expect((await cardapio.carregarRefeicao(pedido)).status).toBe('nao_publicado')
+    vi.setSystemTime(new Date(2026, 8, 28, 12, 6))
+    await cardapio.carregarRefeicao(pedido)
+
+    expect(get).toHaveBeenCalledTimes(2)
+  })
+
+  it('o mesmo pedido ao mesmo tempo sai uma vez só e fica "carregando" até acabar', async () => {
+    const cardapio = useCardapioStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    const primeiro = cardapio.carregarRefeicao({ campus: 1 })
+    const segundo = cardapio.carregarRefeicao({ campus: 1 })
+    expect(cardapio.estaCarregandoRefeicao({ campus: 1 })).toBe(true)
+    const [a, b] = await Promise.all([primeiro, segundo])
+
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(a).toBe(b)
+    expect(cardapio.estaCarregandoRefeicao({ campus: 1 })).toBe(false)
+  })
+
+  it.each([[null], [{ status: 'publicado' }], [{ status: 'outro', categorias: [] }]])(
+    'resposta fora do contrato (%o) vira erro',
+    async (resposta) => {
+      const cardapio = useCardapioStore()
+      vi.spyOn(apiClient, 'get').mockResolvedValueOnce(resposta)
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      expect(await cardapio.carregarRefeicao({ campus: 1 })).toBeNull()
+
+      expect(cardapio.erroDaRefeicao({ campus: 1 })).not.toBeNull()
+      expect(cardapio.daRefeicao({ campus: 1 })).toBeNull()
+      expect(log).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it('código campus_nao_encontrado também marca o campus; carregar depois desmarca', async () => {
+    const cardapio = useCardapioStore()
+    const { ApiError } = await import('@/services/apiClient')
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(404, { codigo: 'campus_nao_encontrado', mensagem: 'Campus não encontrado.' }),
+    )
+
+    await cardapio.carregarRefeicao({ campus: 1 })
+    expect(cardapio.campusInexistente(1)).toBe(true)
+
+    await cardapio.carregarRefeicao({ campus: 1 }, { forcar: true })
+    expect(cardapio.campusInexistente(1)).toBe(false)
+  })
 })

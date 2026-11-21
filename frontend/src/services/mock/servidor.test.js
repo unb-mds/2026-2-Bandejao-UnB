@@ -547,6 +547,65 @@ describe('GET /cardapio/ (contrato da BE-11, ADR 0005)', () => {
     })
   })
 
+  it('refeição que o dia não serve: publicado, a refeição pedida e nenhuma categoria', async () => {
+    const { status, dados } = await get('/cardapio/?campus=4&dia=2026-09-28&refeicao=jantar')
+
+    expect(status).toBe(200)
+    expect(dados).toMatchObject({
+      status: 'publicado',
+      data: '2026-09-28',
+      refeicao: 'jantar',
+      semServico: false,
+      categorias: [],
+    })
+  })
+
+  it('dia sem serviço e sem próximo dia na semana: semServico, com a data pedida', async () => {
+    const { status, dados } = await get('/cardapio/?campus=3&dia=2026-10-03')
+
+    expect(status).toBe(200)
+    expect(dados).toMatchObject({
+      status: 'publicado',
+      data: '2026-10-03',
+      semServico: true,
+      categorias: [],
+    })
+  })
+
+  it('dia sem serviço com a refeição pedida: publicado e vazio, sem semServico', async () => {
+    const { dados } = await get('/cardapio/?campus=3&dia=2026-10-03&refeicao=almoco')
+
+    expect(dados).toMatchObject({
+      status: 'publicado',
+      data: '2026-10-03',
+      refeicao: 'almoco',
+      semServico: false,
+      categorias: [],
+    })
+  })
+
+  it('dia com serviço: semServico falso', async () => {
+    const { dados } = await get('/cardapio/?campus=1')
+
+    expect(dados.semServico).toBe(false)
+  })
+
+  it.each([['%201'], ['01'], ['1.0']])('campus %s: 400, como no backend', async (valor) => {
+    const { status, dados } = await get(`/cardapio/?campus=${valor}`)
+
+    expect(status).toBe(400)
+    expect(dados.codigo).toBe('parametros_invalidos')
+  })
+
+  it.each([['2026-02-30'], ['2026-13-01'], ['2026-09-31']])(
+    'data que não existe (%s): 400',
+    async (dia) => {
+      const { status } = await get(`/cardapio/?campus=1&dia=${dia}`)
+
+      expect(status).toBe(400)
+    },
+  )
+
   it('campus inexistente: 400 com a mensagem do backend', async () => {
     const resposta = await get('/cardapio/?campus=99')
 
@@ -592,6 +651,30 @@ describe('GET /avaliacoes/resumo/?campus=&data= (resumo do dia)', () => {
     const { dados } = await get('/avaliacoes/resumo/?campus=4&data=2026-10-03')
 
     expect(dados).toEqual([])
+  })
+
+  it('campus inexistente: 400 parametros_invalidos, como no contrato', async () => {
+    const { status, dados } = await get('/avaliacoes/resumo/?campus=99&data=2026-09-28')
+
+    expect(status).toBe(400)
+    expect(dados.codigo).toBe('parametros_invalidos')
+  })
+
+  it('simulacao.definirResumoDoDiaDisponivel(false): 501 sem corpo, como o backend hoje', async () => {
+    simulacao.definirResumoDoDiaDisponivel(false)
+
+    const resposta = await get('/avaliacoes/resumo/?campus=1&data=2026-09-28')
+
+    expect(resposta.status).toBe(501)
+  })
+
+  it('reiniciarSimulacao volta o resumo do dia a responder', async () => {
+    simulacao.definirResumoDoDiaDisponivel(false)
+    reiniciarSimulacao()
+
+    const { status } = await get('/avaliacoes/resumo/?campus=1&data=2026-09-28')
+
+    expect(status).toBe(200)
   })
 })
 

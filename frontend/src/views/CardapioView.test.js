@@ -5,7 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { instalarGuardas, routes } from '@/router'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { ApiError, apiClient } from '@/services/apiClient'
-import { reiniciarSimulacao } from '@/services/mock/servidor'
+import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
 import App from '@/App.vue'
 
 const SEGUNDA_MEIO_DIA = new Date(2026, 8, 28, 12, 0)
@@ -21,6 +21,28 @@ async function montarEm(caminho) {
   await vi.waitFor(() => expect(wrapper.find('.prato, .estado-titulo').exists()).toBe(true))
   return wrapper
 }
+
+async function montarComRouter(caminho) {
+  const router = createRouter({ history: createMemoryHistory(), routes })
+  instalarGuardas(router)
+  router.push(caminho)
+  await router.isReady()
+  const wrapper = mount(App, { global: { plugins: [pinia, router] }, attachTo: document.body })
+  await flushPromises()
+  await vi.waitFor(() => expect(wrapper.find('.prato, .estado-titulo').exists()).toBe(true))
+  return { wrapper, router }
+}
+
+function adiada() {
+  let resolver
+  const promessa = new Promise((ok) => {
+    resolver = ok
+  })
+  return { promessa, resolver }
+}
+
+const abasDaSemana = (wrapper) =>
+  wrapper.findAll('[role="tablist"][aria-label="Dia da semana"] [role="tab"]')
 
 const pedidosDoCardapio = (get) =>
   get.mock.calls
@@ -133,6 +155,60 @@ describe('CardapioView ligada ao GET /api/cardapio/ (FE-08)', () => {
   })
 })
 
+describe('CardapioView: seleção, troca de campus e respostas fora de ordem (FE-08)', () => {
+  it('resposta atrasada de outro dia não tira a aba escolhida por último', async () => {
+    const getOriginal = apiClient.get.bind(apiClient)
+    const atrasos = {}
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) => {
+      const dia = new URL(caminho, 'http://x').searchParams.get('dia')
+      if (caminho.startsWith('/cardapio/?') && ['2026-09-29', '2026-09-30'].includes(dia)) {
+        atrasos[dia] = adiada()
+        return atrasos[dia].promessa.then(() => getOriginal(caminho, opcoes))
+      }
+      return getOriginal(caminho, opcoes)
+    })
+    const wrapper = await montarEm('/campus/1')
+    const abas = abasDaSemana(wrapper)
+
+    await abas[1].trigger('click')
+    await abas[2].trigger('click')
+    atrasos['2026-09-30'].resolver()
+    await flushPromises()
+    atrasos['2026-09-29'].resolver()
+    await flushPromises()
+
+    expect(abas[2].attributes('aria-selected')).toBe('true')
+    expect(abas[1].attributes('aria-selected')).toBe('false')
+    expect(usePreferenciasStore().dataSelecionada).toBe('2026-09-30')
+  })
+
+  it('trocar de campus limpa dia e refeição e faz um pedido só para o novo campus', async () => {
+    const get = vi.spyOn(apiClient, 'get')
+    const { wrapper, router } = await montarComRouter('/campus/1')
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-teste="refeicao-jantar"]').exists()).toBe(true),
+    )
+    await wrapper.get('[data-teste="refeicao-jantar"]').trigger('click')
+    await flushPromises()
+    const antes = pedidosDoCardapio(get).length
+
+    await router.push('/campus/3')
+    await flushPromises()
+
+    const novos = pedidosDoCardapio(get).slice(antes)
+    expect(novos).toEqual([{ campus: '3' }])
+  })
+
+  it('dia escolhido numa semana que já passou é descartado ao abrir a seção', async () => {
+    usePreferenciasStore().selecionar('2026-09-21', 'jantar')
+    const get = vi.spyOn(apiClient, 'get')
+
+    await montarEm('/campus/1')
+
+    expect(pedidosDoCardapio(get)[0]).toEqual({ campus: '1' })
+  })
+})
+
 describe('CardapioView: dias e refeições da semana (RF07.1)', () => {
   it('sem o resumo do dia, o seletor ainda deixa escolher café, almoço e jantar', async () => {
     const getOriginal = apiClient.get.bind(apiClient)
@@ -150,7 +226,36 @@ describe('CardapioView: dias e refeições da semana (RF07.1)', () => {
     expect(wrapper.get('[data-teste="refeicao-cafe"]').text()).toContain('Sem nota')
   })
 
-  it('dia sem serviço: avisa e mantém a aba escolhida', async () => {
+  it('sábado sem serviço e sem próximo dia na semana: "Sem refeições neste dia" (resposta do simulado)', async () => {
+    const wrapper = await montarEm('/campus/3')
+
+    const abas = abasDaSemana(wrapper)
+    await abas[5].trigger('click')
+    await flushPromises()
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Sem refeições neste dia'))
+    expect(wrapper.text()).not.toContain('Cardápio ainda não publicado')
+    expect(abas[5].attributes('aria-selected')).toBe('true')
+  })
+
+  it('refeição que o dia não serve: avisa, sem mandar ajustar filtros', async () => {
+    simulacao.definirResumoDoDiaDisponivel(false)
+    const wrapper = await montarEm('/campus/4')
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-teste="refeicao-jantar"]').exists()).toBe(true),
+    )
+
+    await wrapper.get('[data-teste="refeicao-jantar"]').trigger('click')
+    await flushPromises()
+
+    await vi.waitFor(() =>
+      expect(wrapper.text()).toContain('Esta refeição não é servida neste dia.'),
+    )
+    expect(wrapper.get('[data-teste="refeicao-jantar"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.text()).not.toContain('Tente ajustar os filtros')
+  })
+
+  it('backend que responde com o próximo dia: avisa e mantém a aba escolhida', async () => {
     const getOriginal = apiClient.get.bind(apiClient)
     vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) => {
       const url = new URL(caminho, 'http://x')
@@ -178,12 +283,73 @@ describe('CardapioView: estados vazios e avisos (FE-08)', () => {
     expect(wrapper.text()).toContain('Cardápio ainda não publicado')
   })
 
-  it('nenhuma categoria depois dos filtros: "Nenhuma opção encontrada"', async () => {
+  it('nenhuma categoria depois do filtro de dieta: "Nenhuma opção encontrada"', async () => {
+    localStorage.setItem(
+      'bandejao:preferencias',
+      JSON.stringify({ campusId: 1, dieta: 'vegetariano_estrito', marcadores: [] }),
+    )
+    setActivePinia((pinia = createPinia()))
     responderCardapio({ categorias: [] })
 
     const wrapper = await montarEm('/campus/1')
 
     expect(wrapper.text()).toContain('Nenhuma opção encontrada')
+    expect(wrapper.text()).toContain('Tente ajustar os filtros')
+  })
+
+  it('400 com filtros salvos: oferece "Limpar filtros" em vez de "Tentar novamente"', async () => {
+    localStorage.setItem(
+      'bandejao:preferencias',
+      JSON.stringify({ campusId: 1, dieta: 'sem_filtro', marcadores: ['soja'] }),
+    )
+    setActivePinia((pinia = createPinia()))
+    const getOriginal = apiClient.get.bind(apiClient)
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) => {
+      const url = new URL(caminho, 'http://x')
+      if (url.pathname === '/cardapio/' && url.searchParams.has('marcadores')) {
+        return Promise.reject(
+          new ApiError(400, {
+            codigo: 'parametros_invalidos',
+            mensagem: 'Marcador desconhecido: soja.',
+          }),
+        )
+      }
+      return getOriginal(caminho, opcoes)
+    })
+
+    const wrapper = await montarEm('/campus/1')
+
+    expect(wrapper.text()).toContain('Marcador desconhecido: soja.')
+    expect(wrapper.text()).not.toContain('Tentar novamente')
+    await wrapper.get('[data-teste="limpar-filtros"]').trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
+    expect(usePreferenciasStore().marcadores).toEqual([])
+  })
+
+  it('"Tentar novamente" depois de uma falha pede de novo e mostra o cardápio', async () => {
+    const getOriginal = apiClient.get.bind(apiClient)
+    let falhar = true
+    const get = vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) => {
+      if (caminho.startsWith('/cardapio/?') && falhar) {
+        falhar = false
+        return Promise.reject(
+          new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }),
+        )
+      }
+      return getOriginal(caminho, opcoes)
+    })
+
+    const wrapper = await montarEm('/campus/1')
+    expect(wrapper.text()).toContain('Fora do ar.')
+
+    await wrapper
+      .findAll('button')
+      .find((botao) => botao.text() === 'Tentar novamente')
+      .trigger('click')
+
+    await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
+    expect(pedidosDoCardapio(get)).toHaveLength(2)
   })
 
   it('filtro de marcadores desativado: avisa o motivo e não mostra "Contém"', async () => {
