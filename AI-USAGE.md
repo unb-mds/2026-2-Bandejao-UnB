@@ -296,6 +296,76 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação: `npm run test:ci` com 477 testes passando (cobertura de 90,74% de linhas / 82,9% de ramos), `npm run lint:ci` sem achados e `npm run build` sem erro, no PC da autora.
 - Situação: aguardando nova revisão.
 
+## BD-11 — Retenção de 4 semanas no app fila
+
+- Issue: [#163](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/163). PR: [#220 — feat(banco): retenção de 4 semanas no app fila (BD-11)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/220).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `RetencaoFilaService` (`desvincular_antigos` e `desvincular_conta`), `CheckinRepository.desvincular_antes_de` e `desvincular_conta`, comando `desvincular_registros_fila` com o `DesvincularRegistrosFilaJob`, testes em `backend/apps/fila/tests/test_retencao_fila.py` e nota da implementação no Nível 4 da Fila (4d).
+- TDD: testes no commit `a90291b`, antes do código; a coleta falhava porque o serviço, o método do repositório e o comando ainda não existiam.
+- Testes: registro de 5 semanas sem conta e sem hora; campus, tipo, data, faixa, tempo de espera e marcador de pontos mantidos; borda de 4 semanas (o dia-limite fica); contagem e segunda rodada sem efeito; dois check-ins da mesma refeição sem conta (UNIQUE com NULL); agregação da previsão (contagem e média de espera por campus, tipo, data e faixa) igual antes e depois; resposta de saída sem vínculo; prazo lido da `ParametrosFilaConfig`; exclusão de conta só nos registros dela; dia de Brasília no job; saída e log do comando só com a contagem.
+- Validação local (SQLite): `pytest` com 1348 testes aprovados e 1 ignorado (específico do MySQL), cobertura de 98%; `ruff check` e `ruff format --check` sem achados.
+- Fora deste PR: o agendamento diário no cron fica com a BD-07 (#147); a previsão (BE-15) ainda não existe, então o teste confere a agregação que ela usa, e não a `PrevisaoView`.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/220#issuecomment-7068712623), sem bloqueio para o merge, com quatro ajustes e sugestões.
+- Ajustes da revisão (TDD: testes em `6fcee7c`, antes do código):
+  - os docstrings e o C4 (4d) dizem exatamente o que é anulado (a conta, `registrado_em` e `data_hora`) e registram os horários que ficam, sem conta (`pontos_concedidos_em` e os da pergunta e da resposta de saída), a confirmar pela equipe;
+  - a justificativa do marcador de pontos passou a ser a gamificação (ADR 0011);
+  - testes dos dois lados do `OR` do `_desvincular` (sem conta e com hora, pelo `SET_NULL`; com conta e sem hora), nas duas tabelas; a mutação que tira a hora do filtro faz dois deles falharem (conferido localmente);
+  - teste de rollback entre as duas tabelas (falha sem o `transaction.atomic()`, conferido localmente), contagens do `desvincular_conta`, a pergunta de saída mantida e o dia anterior ao limite de Brasília;
+  - a falha do job vai para o log (`logger.exception`) e é propagada;
+  - parâmetro `limite` no repositório, docstrings sem descrever como existente o que ainda não existe, `int` no diagrama e a explicação do UNIQUE com a conta nula.
+- Sugestão não aplicada: as contagens separadas por tabela no log. O contrato continua `int`, como no C4, e os testes conferem cada tabela.
+- Validação local depois da revisão (SQLite): `pytest` com 1356 testes aprovados e 1 ignorado, cobertura de 98%; `ruff check` e `ruff format --check` sem achados.
+- Situação: ajustes da revisão aplicados, aguardando o recheck.
+
+## BE-12 — Leitor do PDF
+
+- Issue: [#139](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/139). PR: [#218 — BE-12: leitor do PDF do cardápio](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/218).
+- Ferramenta: Claude (Anthropic).
+- Apoio: a partir do guia da BE-12 (21/11/2026) e dos arquivos baixados do RU nessa data (HTML da página e os 10 PDFs das semanas de 16/11 e 23/11), testes e implementação de: correção do cabeçalho com a data entre parênteses (caso 26), divisão dos ícones quase encostados pelo vale de tinta (caso 27, sem mudar o `DISTANCIA_MAX_ICONE`), barra no fim da linha (caso 28, achado nos PDFs de Planaltina e do Darcy); `FonteNaoEncontradaError`, `DownloadError` e leitura do PDF em memória; `FonteCardapioConfig`, `CardapioDownloader` (página lida uma vez por execução, `localizar_pdfs` pelo título do campus, só `h1`–`h6`, conferência do host, da pasta, do prefixo do arquivo e das datas do link; `baixar` com SHA-256), `CardapioRepository` (atualiza a `Refeicao`, troca só categorias e pratos; decisões P1 e P2), `AlertaEquipeService` (3 e-mails por dia, 6 h de intervalo, `EMAIL_EQUIPE`), `LeitorCardapioService` (transação por semana, SHA-256, `_conferir_datas`, `_semana_atrasada`, `zerar_contador`) e o comando `ler_cardapio`. Docs: C4 do Leitor (4a, 4b e 4c com as assinaturas do código, P1 e P2), casos 26 a 28 no teste do BE-04, nota P2 no N4 do banco, `EMAIL_EQUIPE` no `.env.example` e no guia de deploy. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- TDD: cada `feat`/`fix` veio depois de um commit `test` com os testes da etapa falhando (`ImportError` nas etapas de classe nova; 7, 4 e 2 testes falhando nas três correções do parser). A sequência foi conferida commit a commit: os arquivos de teste de cada commit `test` falham nele e passam no commit seguinte. Um par `test` → `fix` a mais veio da conferência final com a ADR 0014 (a página era pedida uma vez por campus, e não uma por execução). Dois commits `test` são só de caracterização e já passam ao entrar: o ponta a ponta com a BE-11 e a borda do prazo de segunda, 12h (este, escrito porque uma sabotagem sobreviveu).
+- Fixtures: HTML real da página (`tests/fixtures/pagina_ru/`) e 4 dos 10 PDFs (Gama de 16/11 e 23/11, Fazenda de 16/11 e Planaltina de 23/11). As variações do HTML (blocos em outra ordem, título ausente ou repetido, link de outro campus, semana repetida, datas ilegíveis, host ou pasta errados) são geradas no teste. Os 10 PDFs foram lidos à mão antes e depois de cada correção do parser: só mudaram as páginas afetadas (o almoço de 16/11 dos 5 campi passou a sair com marcadores, com o mesmo texto; três molhos com barra no fim da linha viraram um prato só). Nos 13 PDFs, o pior acerto de ícone ficou em 19,6 (limite 35) e a menor razão entre o 2º e o 1º colocado, em 1,67 (mínimo 1,3).
+- Sabotagem manual (módulo crítico): 39 alterações (mais a do cache da página, coberta pelo último par) nas regras novas, entre elas as duas do QA-10 ("associar o link pela posição do bloco" e "ignorar o ícone de um marcador"). Na primeira rodada, uma sobreviveu (o prazo de segunda, 12h, trocado de `>=` para `>`): entrou o teste da borda, e as 39 passaram a derrubar ao menos um teste.
+- Validação local (SQLite, Python 3.13): `pytest` com 1475 testes aprovados e 1 ignorado (específico do MySQL; eram 1330 na `develop` em `94e0f25`), cobertura de `apps` (com branches) de 98,59%, 100% nos módulos novos do `leitor` e 97% no parser; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` e `pip-audit` aprovados. Os três diagramas do C4 do Leitor renderizam no `mmdc`. `semgrep` (sem acesso às regras daqui) e `testes-mysql` ficam com o CI.
+- Checklist do Plano de Testes (3.10): toda asserção é sobre o resultado; os valores esperados saem da imagem das páginas dos PDFs, do HTML real, do RF06, das ADRs 0006 e 0014 e do guia; nenhum mock da própria unidade (só a rede, com o `SiteDoRUFalso`, o e-mail, o relógio, e falhas injetadas num colaborador: o `remover_ausentes` levantando `DatabaseError` no teste da transação e o `processar` levantando erro num campus no teste do comando).
+- Dependências novas: `requests==2.34.2` e `beautifulsoup4==4.15.0` (trazem `urllib3`, `certifi`, `idna`, `charset-normalizer`, `soupsieve` e `typing-extensions`).
+- Revisão humana: revisão de AlvaroBento12 no PR #218. Três correções obrigatórias: o comando sempre saía com código 0; um erro fora das cinco exceções do Leitor (ex.: `DataError` do MySQL estrito) não gerava alerta; um PDF sem páginas apagava a semana em silêncio. Seis pontos importantes: o limite de e-mails podia prender para sempre o "não publicado"; o `zerar_contador` apagava o `ultimo_envio_em`; o `_enviar` não capturava erro de configuração; um alerta cujo e-mail falhou nunca era reenviado; os alertas da página só em texto ficavam fora da transação; e o P1 apagava sem rastro, confiando nas datas do link. Também testes, documentação e sugestões.
+- Ajustes da revisão:
+  - O comando sai com código 1 (`CommandError`) quando um campus termina em erro inesperado, depois de processar todos, e grava um alerta para ele.
+  - O serviço trata qualquer outra exceção por semana: desfaz a transação, alerta "erro inesperado" e segue para a próxima semana.
+  - Um PDF sem refeições é `FormatoPDFInvalidoError`.
+  - Os alertas são só gravados durante a execução (os da página só em texto, dentro da transação da semana). No fim, sai **um** e-mail por campus com todos os pendentes dos tipos que o limite deixa enviar. Para isso entrou o campo `ALERTA_LEITURA_CARDAPIO.email_enviado_em`, na migração `0005`.
+  - O `zerar_contador` zera só a quantidade.
+  - O envio captura qualquer exceção.
+  - O tipo do alerta vem de `RefeicaoEstruturada.falha`.
+  - O Downloader reprova link de mais de 7 dias ou sobreposto a outro. O P1 registra cada refeição apagada no log e alerta a equipe sobre a mantida por ter avaliação.
+  - Sugestões feitas: `FontePDF` imutável e com datas garantidas, `ArquivoPDF` com o SHA-256 calculado do conteúdo, incremento do contador com `F()` e dependências opcionais no `LeitorCardapioService`.
+  - Testes: fuso UTC (contador, prazo do "não publicado" e hora do e-mail), rollback de uma releitura, P1 no serviço (PKs e avaliação preservadas) e nos limites da semana, mesmo SHA-256 em URL nova e PDF de 0 páginas. A falha só em texto passou a ser simulada no ponto da associação (`apoio_leitor.falhar_associacao_na_refeicao`), e as trocas no HTML passaram a ser feitas pelo href do link (`trocar_texto_do_link`), sem depender da ordem dos blocos.
+  - Documentação: C4 do Leitor, N4 do banco, teste do BE-04, deploy e `.env.example`.
+- Ficaram para outro PR (sugestões): download com `stream=True` e teto de tamanho, as exceções do Downloader num `leitor/erros.py` e um `assert` de transação aberta no `CardapioRepository`.
+- TDD dos ajustes: quatro pares `test` → `fix`, com 5, 8, 31 e 8 testes falhando antes de cada correção, conferidos commit a commit. Três commits `test` são de caracterização e passam ao entrar: o relógio em UTC, a sobreposição de um dia só e a semana vigente no domingo à noite em UTC. Os dois últimos foram escritos porque duas sabotagens sobreviveram.
+- Sabotagem dos ajustes: 30 alterações novas, entre elas as cinco que a revisão apontou como invisíveis à suíte. Na primeira rodada sobreviveram duas (`timezone.localtime` trocado por `agora` no cálculo da segunda-feira vigente, e a sobreposição estrita); entraram os testes, e as 30 derrubam ao menos um teste. As 39 da primeira entrega continuam derrubando (7 delas reescritas para o código novo).
+- Validação após os ajustes: `pytest` com 1514 testes aprovados e 1 ignorado, cobertura de `apps` de 98,63% (100% nos módulos novos do `leitor`, 98% no parser); `ruff check`, `ruff format --check`, `bandit -lll` e `makemigrations --check` aprovados; os três diagramas do C4 do Leitor renderizam no `mmdc`.
+- Segunda revisão de AlvaroBento12. Três pontos ainda impediam o merge:
+  - (A) erro inesperado capturado nas semanas voltava a sair com código 0;
+  - (B) `send_mail` que devolve 0 (com `EMAIL_EQUIPE=` vazio) contava como enviado;
+  - (C) o corpo do PR estava duplicado em HTML.
+- Ajustes da segunda revisão:
+  - O `ResultadoLeitura` ganhou `inesperados` e `email_falhou`, e o comando sai com código 1 nos dois casos, depois de processar todos os campi.
+  - `enviar_pendentes` devolve `ResultadoEnvio(enviados, falhou)`.
+  - `send_mail` diferente de 1 é falha, e o log traz o código SMTP.
+  - `EMAIL_EQUIPE` vazio cai no padrão.
+  - O alerta do erro inesperado no comando tem `try` e log separados para gravar e enviar, e usa o `AlertaEquipeService` do serviço.
+  - O link reprovado por datas, 7 dias ou prefixo não reprova o link certo por sobreposição.
+  - O e-mail lista os alertas mais antigos primeiro.
+  - Os alertas de uma transação desfeita não entram no resumo.
+  - `ParametrosLeitorConfig` passou a ser injetável.
+  - A ADR 0006 e o C4 registram o máximo de 4 e-mails numa falha intermitente e que execuções simultâneas não são suportadas.
+  - O corpo do PR foi refeito.
+- TDD da segunda revisão: um par `test` → `fix`, com 38 testes falhando antes da correção e passando depois (conferido commit a commit), e um commit `test` a mais com dois testes que fecharam brechas achadas na sabotagem.
+- Sabotagem da segunda revisão: 12 alterações novas. Na primeira rodada, uma sobreviveu (os alertas de uma transação desfeita contando no resumo), porque o teste derrubava a transação antes do alerta. O teste passou a derrubar a transação no último passo, e as 12 derrubam ao menos um teste.
+- Validação após a segunda revisão: `pytest` com 1524 testes aprovados e 1 ignorado, cobertura de `apps` de 98,65% (100% nos módulos novos do `leitor`, 98% no parser); `ruff check`, `ruff format --check`, `bandit -lll` e `makemigrations --check` aprovados; os três diagramas do C4 do Leitor renderizam no `mmdc`.
+- Situação: ajustes da segunda revisão aplicados; aguardando o recheck de AlvaroBento12. Para a dupla do banco: o campo novo `email_enviado_em` (migração `0005`) e a mudança do `zerar_contador` estão no N4.
+
 ## FE-08 — Seção do cardápio ligada à API
 
 - Issue: [#144](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/144). PR: [#219 — FE-08: seção do cardápio ligada à API](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/219).
