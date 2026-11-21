@@ -107,7 +107,9 @@ RE_DATA_ENTRE_PARENTESES = re.compile(r"^\((.+)\)$")
 
 
 class LeitorCardapioError(Exception):
-    """Base das falhas do leitor: um só `except` no BE-12."""
+    """Base das cinco falhas do leitor (C4 4a). O `LeitorCardapioService`
+    trata cada filha à parte, porque umas mantêm o último cardápio válido e
+    outras publicam só em texto; erros fora delas viram "erro inesperado"."""
 
 
 class FonteNaoEncontradaError(LeitorCardapioError):
@@ -153,6 +155,10 @@ class RefeicaoEstruturada:
     categorias: list[CategoriaEstruturada]
     alergenos_indisponiveis: bool = False
     motivo: str | None = None
+    # Classe da falha que deixou a página só em texto (`LegendaInvalidaError`
+    # ou `AssociacaoFalhouError`): o serviço escolhe o tipo do alerta por
+    # ela, e não pelo texto do `motivo`.
+    falha: type[LeitorCardapioError] | None = None
 
 
 def normalizar(texto):
@@ -701,6 +707,7 @@ class CardapioPDFParser:
                             refeicao = self._pagina(pagina, com_marcadores=False)
                             refeicao.alergenos_indisponiveis = True
                             refeicao.motivo = f"{type(e).__name__}: {e}"
+                            refeicao.falha = type(e)
                             avisos.append(
                                 f"pág. {numero}: só em texto ({refeicao.motivo})"
                             )
@@ -709,6 +716,10 @@ class CardapioPDFParser:
                     resultados.append(refeicao)
         except (OSError, PdfminerException, PSException) as e:
             raise FormatoPDFInvalidoError(f"não foi possível ler o PDF: {e}") from e
+        if not resultados:
+            # Um PDF válido sem páginas (exportação quebrada) não pode virar
+            # uma semana vazia: o serviço apagaria o cardápio em silêncio.
+            raise FormatoPDFInvalidoError("o PDF não tem nenhuma refeição")
         return resultados, avisos
 
     def _pagina(self, pagina, com_marcadores=True):
@@ -857,7 +868,15 @@ def main(argv):
         return 2
     refeicoes, avisos = CardapioPDFParser(argv[1]).extrair()
     if "--json" in argv:
-        print(json.dumps([asdict(r) for r in refeicoes], ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                [asdict(r) for r in refeicoes],
+                ensure_ascii=False,
+                indent=2,
+                # `falha` é a classe da exceção: sai o nome dela.
+                default=lambda classe: classe.__name__,
+            )
+        )
     else:
         for r in refeicoes:
             imprimir(r)

@@ -21,6 +21,7 @@ from django.utils import timezone
 from apps.cardapio.leitor.alerta_equipe_service import AlertaEquipeService
 from apps.cardapio.leitor.cardapio_downloader import CardapioDownloader, FontePDF
 from apps.cardapio.leitor.cardapio_pdf_parser import (
+    AssociacaoFalhouError,
     CardapioPDFParser,
     DownloadError,
     FonteNaoEncontradaError,
@@ -31,6 +32,12 @@ from apps.cardapio.leitor.cardapio_pdf_parser import (
 from apps.cardapio.leitor.cardapio_repository import CardapioRepository
 from apps.cardapio.models import Campus, FonteCardapio, Refeicao, TipoAlerta
 from config.parametros import ParametrosLeitorConfig
+
+# Classe da falha guardada pelo parser na página só em texto -> tipo do alerta.
+TIPO_DO_ALERTA_SO_EM_TEXTO = {
+    LegendaInvalidaError: TipoAlerta.LEGENDA_INVALIDA,
+    AssociacaoFalhouError: TipoAlerta.ASSOCIACAO_FALHOU,
+}
 
 
 def _data(dia: date | None) -> str:
@@ -214,11 +221,7 @@ class LeitorCardapioService:
     ) -> None:
         """Uma linha de alerta por página (refeição da semana), presa à
         refeição do primeiro dia; os dias vão na mensagem."""
-        tipo = (
-            TipoAlerta.LEGENDA_INVALIDA
-            if refeicao.motivo.startswith(LegendaInvalidaError.__name__)
-            else TipoAlerta.ASSOCIACAO_FALHOU
-        )
+        tipo = TIPO_DO_ALERTA_SO_EM_TEXTO[refeicao.falha]
         dias = [date.fromisoformat(d["data"]) for d in refeicao.dias]
         primeira = Refeicao.objects.get(
             campus=campus, data=dias[0], tipo=refeicao.refeicao
