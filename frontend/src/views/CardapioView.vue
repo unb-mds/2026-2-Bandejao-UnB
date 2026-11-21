@@ -3,18 +3,19 @@ import { computed, ref, watch } from 'vue'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
 import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
-import { ORDEM_REFEICOES, REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
-import { rotuloDieta } from '@/constants/dietas'
+import { ORDEM_REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
+import { DIETA_PADRAO, rotuloDieta } from '@/constants/dietas'
 import { rotuloMarcador } from '@/constants/marcadores'
-import { diaCurto, diaMes } from '@/utils/datas'
-import { filtrarCategorias, formatarNota } from '@/utils/cardapio'
+import { diasDaSemanaVigente, formatarNota } from '@/utils/cardapio'
+import AbasSemana from '@/components/AbasSemana.vue'
 import EstrelasNota from '@/components/EstrelasNota.vue'
 import FiltroCardapio from '@/components/FiltroCardapio.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
+import SeletorRefeicao from '@/components/SeletorRefeicao.vue'
 
 /**
  * Seção do cardápio da CampusView (RF05–RF09): um dia e uma refeição por vez,
- * com filtros de dieta e de marcadores. Acessível sem login.
+ * já filtrados pela API (ADR 0005). Acessível sem login.
  */
 const props = defineProps({
   campusId: { type: Number, required: true },
@@ -25,76 +26,81 @@ const cardapio = useCardapioStore()
 const preferencias = usePreferenciasStore()
 
 const filtroAberto = ref(false)
-const mostrarTodas = ref(false) // RF09: reverte temporariamente o filtro de dieta
+const mostrarTodas = ref(false)
+const dias = diasDaSemanaVigente()
 
-const campusId = computed(() => props.campusId)
-const semana = computed(() => cardapio.semana(campusId.value))
-const dias = computed(() => semana.value?.dias ?? [])
-const diaAtual = computed(
-  () => dias.value.find((d) => d.data === preferencias.dataSelecionada) ?? null,
-)
-const tiposDoDia = computed(() =>
-  ORDEM_REFEICOES.filter((tipo) => diaAtual.value?.refeicoes.some((r) => r.tipo === tipo)),
-)
-const refeicao = computed(
-  () => diaAtual.value?.refeicoes.find((r) => r.tipo === preferencias.refeicaoSelecionada) ?? null,
-)
-const semAlergenos = computed(() => Boolean(refeicao.value?.alergenosIndisponiveis))
+if (preferencias.dataSelecionada && !dias.includes(preferencias.dataSelecionada)) {
+  preferencias.selecionar(null, null)
+}
 
-const dietaEfetiva = computed(() => (mostrarTodas.value ? 'todos' : preferencias.dieta))
-const marcadoresEfetivos = computed(() => (semAlergenos.value ? [] : preferencias.marcadores))
-const categorias = computed(() =>
-  refeicao.value
-    ? filtrarCategorias(refeicao.value.categorias, {
-        dieta: dietaEfetiva.value,
-        marcadores: marcadoresEfetivos.value,
-      })
-    : [],
-)
-const nenhumPrato = computed(() => categorias.value.every((c) => c.pratos.length === 0))
-
-const alvo = computed(() => ({
-  campus: campusId.value,
-  data: preferencias.dataSelecionada,
+const pedido = computed(() => ({
+  campus: props.campusId,
+  dia: preferencias.dataSelecionada,
   refeicao: preferencias.refeicaoSelecionada,
+  marcadores: preferencias.marcadores,
+  dieta: mostrarTodas.value ? DIETA_PADRAO : preferencias.dieta,
 }))
-const notas = computed(() => (refeicao.value ? avaliacoes.daRefeicao(alvo.value) : null))
+const atual = computed(() => cardapio.daRefeicao(pedido.value))
+const semServico = computed(
+  () => Boolean(pedido.value.dia && atual.value && atual.value.data !== pedido.value.dia),
+)
+const diaExibido = computed(() =>
+  semServico.value ? pedido.value.dia : (atual.value?.data ?? preferencias.dataSelecionada),
+)
+const resumo = computed(() =>
+  diaExibido.value ? avaliacoes.daResumoDoDia(props.campusId, diaExibido.value) : null,
+)
+const refeicoesDoDia = computed(() => {
+  if (semServico.value || atual.value?.status !== 'publicado') return []
+  if (resumo.value?.length) return resumo.value
+  return ORDEM_REFEICOES.map((tipo) => ({ tipo, media: null }))
+})
+const notaAtual = computed(
+  () => resumo.value?.find((r) => r.tipo === atual.value?.refeicao) ?? null,
+)
+const marcadoresAtivos = computed(() =>
+  atual.value?.filtroMarcadorDesativado ? [] : preferencias.marcadores,
+)
+
+async function carregar(valor, opcoes) {
+  const resposta = await cardapio.carregarRefeicao(valor, opcoes)
+  const aindaAtual = valor.campus === props.campusId && valor.dia === preferencias.dataSelecionada
+  const mesmoDia = !valor.dia || resposta?.data === valor.dia
+  if (resposta && aindaAtual && mesmoDia && (!valor.dia || !valor.refeicao)) {
+    preferencias.selecionar(resposta.data, resposta.refeicao)
+  }
+}
+
+watch(pedido, (valor) => carregar(valor), { immediate: true, deep: true })
 
 watch(
-  campusId,
-  async (id) => {
-    const carregada = await cardapio.carregar(id)
-    if (carregada) preferencias.ajustarSelecao(carregada.dias)
+  () => [props.campusId, diaExibido.value],
+  ([campus, dia]) => {
+    if (dia && !avaliacoes.daResumoDoDia(campus, dia)) avaliacoes.carregarResumoDoDia(campus, dia)
   },
   { immediate: true },
 )
 
 watch(
-  alvo,
-  (valor) => {
-    if (refeicao.value && !avaliacoes.daRefeicao(valor)) avaliacoes.carregar(valor)
-  },
-  { immediate: true },
+  () => props.campusId,
+  () => preferencias.selecionar(null, null),
 )
 
-// Qualquer mudança nos filtros encerra o "mostrar todas".
 watch(
   () => [preferencias.dieta, preferencias.marcadores],
   () => (mostrarTodas.value = false),
 )
 
 function escolherDia(dia) {
-  const tipos = dia.refeicoes.map((r) => r.tipo)
-  const tipo = tipos.includes(preferencias.refeicaoSelecionada)
-    ? preferencias.refeicaoSelecionada
-    : tipos[0]
-  preferencias.selecionar(dia.data, tipo)
+  preferencias.selecionar(dia, null)
+}
+
+function escolherRefeicao(tipo) {
+  preferencias.selecionar(diaExibido.value, tipo)
 }
 
 function tentarNovamente() {
-  cardapio.carregar(campusId.value, { forcar: true }).then((carregada) => {
-    if (carregada) preferencias.ajustarSelecao(carregada.dias)
-  })
+  carregar(pedido.value, { forcar: true })
 }
 </script>
 
@@ -116,60 +122,56 @@ function tentarNovamente() {
         </button>
       </div>
 
-      <div v-if="dias.length" class="dias sem-barra" role="tablist" aria-label="Dia da semana">
-        <button
-          v-for="dia in dias"
-          :key="dia.data"
-          type="button"
-          role="tab"
-          class="dia"
-          :class="{ 'dia--ativo': dia.data === preferencias.dataSelecionada }"
-          :aria-selected="dia.data === preferencias.dataSelecionada"
-          @click="escolherDia(dia)"
-        >
-          <span class="dia-semana">{{ diaCurto(dia.data) }}</span>
-          <span class="dia-data">{{ diaMes(dia.data) }}</span>
-        </button>
-      </div>
+      <AbasSemana :dias="dias" :selecionado="diaExibido" @escolher="escolherDia" />
 
-      <div v-if="tiposDoDia.length" class="refeicoes" role="tablist" aria-label="Refeição">
-        <button
-          v-for="tipo in tiposDoDia"
-          :key="tipo"
-          type="button"
-          role="tab"
-          class="refeicao"
-          :class="{ 'refeicao--ativa': tipo === preferencias.refeicaoSelecionada }"
-          :aria-selected="tipo === preferencias.refeicaoSelecionada"
-          @click="preferencias.selecionar(preferencias.dataSelecionada, tipo)"
-        >
-          {{ REFEICOES[tipo].rotulo }}
-        </button>
-      </div>
+      <SeletorRefeicao
+        v-if="refeicoesDoDia.length"
+        :refeicoes="refeicoesDoDia"
+        :selecionada="atual?.refeicao ?? preferencias.refeicaoSelecionada"
+        @escolher="escolherRefeicao"
+      />
     </div>
 
-    <RouterLink v-if="refeicao" :to="{ name: 'avaliacoes' }" class="barra-avaliacao">
-      <template v-if="notas?.quantidade">
-        <EstrelasNota :valor="notas.media" :tamanho="12" />
-        <span class="nota">{{ formatarNota(notas.media) }}</span>
-        <span class="suave">({{ notas.quantidade }} avaliações)</span>
+    <RouterLink
+      v-if="atual?.status === 'publicado' && !semServico"
+      :to="{ name: 'avaliacoes' }"
+      class="barra-avaliacao"
+    >
+      <template v-if="notaAtual?.quantidade">
+        <EstrelasNota :valor="notaAtual.media" :tamanho="12" />
+        <span class="nota">{{ formatarNota(notaAtual.media) }}</span>
+        <span class="suave">({{ notaAtual.quantidade }} avaliações)</span>
       </template>
       <span v-else class="suave">Sem avaliações ainda</span>
-      <span class="suave horario">{{ horarioRefeicao(preferencias.refeicaoSelecionada) }}</span>
+      <span class="suave horario">{{ horarioRefeicao(atual.refeicao) }}</span>
     </RouterLink>
 
     <div class="corpo">
-      <p v-if="cardapio.carregando && !semana" class="estado" role="status">Carregando cardápio…</p>
+      <p v-if="!atual && cardapio.carregandoRefeicao" class="estado" role="status">
+        Carregando cardápio…
+      </p>
 
-      <div v-else-if="cardapio.erro && !semana" class="estado">
+      <div v-else-if="!atual && cardapio.erroRefeicao" class="estado">
         <p class="estado-titulo">Não foi possível carregar o cardápio</p>
-        <p class="estado-texto">{{ cardapio.erro }}</p>
+        <p class="estado-texto">{{ cardapio.erroRefeicao }}</p>
         <button type="button" class="botao-pequeno tentar" @click="tentarNovamente">
           Tentar novamente
         </button>
       </div>
 
-      <div v-else-if="semana && !semana.publicado" class="estado">
+      <div v-else-if="semServico" class="estado">
+        <IconeSvg
+          class="estado-icone"
+          nome="talheres"
+          :tamanho="40"
+          cor="var(--borda)"
+          espessura="1.5"
+        />
+        <p class="estado-titulo">Sem refeições neste dia</p>
+        <p class="estado-texto">O RU deste campus não abre neste dia.</p>
+      </div>
+
+      <div v-else-if="atual?.status === 'nao_publicado'" class="estado">
         <IconeSvg
           class="estado-icone"
           nome="talheres"
@@ -178,37 +180,39 @@ function tentarNovamente() {
           espessura="1.5"
         />
         <p class="estado-titulo">Cardápio ainda não publicado</p>
-        <p class="estado-texto">
-          O RU deste campus ainda não publicou o cardápio desta semana.
-        </p>
+        <p class="estado-texto">O RU deste campus ainda não publicou o cardápio deste dia.</p>
       </div>
 
-      <template v-else-if="refeicao">
+      <template v-else-if="atual">
         <div
-          v-if="preferencias.dieta !== 'todos' || marcadoresEfetivos.length"
+          v-if="preferencias.dieta !== DIETA_PADRAO || marcadoresAtivos.length"
           class="filtros-ativos"
         >
-          <p v-if="preferencias.dieta !== 'todos'">
+          <p v-if="preferencias.dieta !== DIETA_PADRAO">
             <template v-if="mostrarTodas">Exibindo todas as linhas de prato.</template>
             <template v-else>
               Dieta: <strong>{{ rotuloDieta(preferencias.dieta) }}</strong
               >.
             </template>
             <button type="button" class="alternar-dieta" @click="mostrarTodas = !mostrarTodas">
-              {{ mostrarTodas ? `Voltar ao filtro` : 'Mostrar todas' }}
+              {{ mostrarTodas ? 'Voltar ao filtro' : 'Mostrar todas' }}
             </button>
           </p>
-          <p v-if="marcadoresEfetivos.length">
-            Ocultando pratos com: {{ marcadoresEfetivos.map(rotuloMarcador).join(', ') }}.
+          <p v-if="marcadoresAtivos.length">
+            Evitando: {{ marcadoresAtivos.map(rotuloMarcador).join(', ') }}.
           </p>
         </div>
 
-        <p v-if="semAlergenos" class="mensagem mensagem--alerta alergenos">
+        <p
+          v-if="atual.filtroMarcadorDesativado"
+          class="mensagem mensagem--alerta alergenos"
+          data-teste="filtro-desativado"
+        >
           <strong>Informação de alérgenos indisponível</strong> para esta refeição. O filtro de
           marcadores está desativado.
         </p>
 
-        <div v-if="nenhumPrato" class="estado">
+        <div v-if="!atual.categorias.length" class="estado">
           <IconeSvg
             class="estado-icone"
             nome="proibido"
@@ -221,20 +225,28 @@ function tentarNovamente() {
         </div>
 
         <div v-else class="pilha-5">
-          <section v-for="categoria in categorias" :key="categoria.rotulo" class="categoria">
+          <section v-for="categoria in atual.categorias" :key="categoria.nome" class="categoria">
             <h3 class="categoria-titulo">
-              <span>{{ categoria.rotulo }}</span>
+              <span>{{ categoria.nome }}</span>
             </h3>
 
-            <p v-if="categoria.pratos.length === 0" class="sem-opcao">
+            <p v-if="categoria.semOpcaoCompativel" class="sem-opcao">
               Sem opção compatível com o filtro ativo
             </p>
-            <ul v-else class="pratos pilha-3">
-              <li v-for="prato in categoria.pratos" :key="prato.nome" class="prato">
+            <ul class="pratos pilha-3">
+              <li
+                v-for="prato in categoria.pratos"
+                :key="prato.descricao"
+                class="prato"
+                :class="{ 'prato--alerta': prato.contemMarcadorSelecionado }"
+              >
                 <span class="marcador-lista" aria-hidden="true" />
                 <div>
-                  <p class="prato-nome">{{ prato.nome }}</p>
-                  <div v-if="prato.marcadores.length && !semAlergenos" class="contem">
+                  <p class="prato-nome">{{ prato.descricao }}</p>
+                  <div
+                    v-if="prato.marcadores.length && !atual.filtroMarcadorDesativado"
+                    class="contem"
+                  >
                     <span class="contem-rotulo">Contém:</span>
                     <span v-for="marcador in prato.marcadores" :key="marcador" class="chip">
                       {{ rotuloMarcador(marcador) }}
@@ -245,15 +257,15 @@ function tentarNovamente() {
             </ul>
           </section>
 
-          <p class="aviso-alteracao">
-            Cardápio sujeito a alteração. A ausência de marcador não garante que o prato esteja
-            livre do ingrediente.
-          </p>
+          <p class="aviso-alteracao">{{ atual.avisoSujeitoAAlteracao }}</p>
         </div>
       </template>
     </div>
 
-    <FiltroCardapio v-model:aberto="filtroAberto" :marcadores-indisponiveis="semAlergenos" />
+    <FiltroCardapio
+      v-model:aberto="filtroAberto"
+      :marcadores-indisponiveis="Boolean(atual?.filtroMarcadorDesativado)"
+    />
   </section>
 </template>
 
@@ -299,65 +311,6 @@ function tentarNovamente() {
   font-size: 9px;
   font-weight: 900;
   background: var(--dourado);
-  color: #fff;
-}
-
-.dias {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 0 16px 12px;
-}
-
-.dia {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 6px 14px;
-  border-radius: var(--raio-md);
-  background: var(--branco-08);
-  transition: all 0.15s;
-}
-.dia--ativo {
-  background: #fff;
-}
-
-.dia-semana {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--branco-45);
-}
-.dia--ativo .dia-semana {
-  color: var(--texto-suave);
-}
-
-.dia-data {
-  font-size: 12px;
-  font-weight: 900;
-  color: var(--branco-75);
-}
-.dia--ativo .dia-data {
-  color: var(--verde-escuro);
-}
-
-.refeicoes {
-  display: flex;
-  border-top: 1px solid var(--branco-08);
-}
-
-.refeicao {
-  flex: 1;
-  padding: 12px 0;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 700;
-  border-bottom: 2px solid transparent;
-  color: var(--branco-40);
-  transition: all 0.15s;
-}
-.refeicao--ativa {
-  border-color: #fff;
   color: #fff;
 }
 
@@ -482,6 +435,10 @@ function tentarNovamente() {
   margin-top: 7px;
   border-radius: 50%;
   background: var(--verde-medio);
+}
+
+.prato--alerta .prato-nome {
+  font-weight: 700;
 }
 
 .prato-nome {

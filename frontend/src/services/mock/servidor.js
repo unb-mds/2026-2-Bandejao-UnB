@@ -20,10 +20,17 @@
  * ainda têm o formato do MVP: entram no contrato nas tarefas FE-08, FE-09 e
  * FE-E2.
  */
-import { REFEICOES, horaInicio, mensagemForaDoHorario } from '@/constants/refeicoes'
+import {
+  ORDEM_REFEICOES,
+  REFEICOES,
+  horaInicio,
+  mensagemForaDoHorario,
+} from '@/constants/refeicoes'
+import { refeicaoPadrao } from '@/utils/cardapio'
 import { hojeISO, minutosAgora, minutosDoDia } from '@/utils/datas'
 import { banco, resumoSenha } from './banco'
 import { CAMPI_DO_BANCO, idDoCampus, montarCardapioSemana, refeicaoExiste } from './cardapios'
+import { IDS_MARCADORES } from '@/constants/marcadores'
 import { APELIDOS_SEMENTE, avaliacoesSemente } from './sementes'
 import {
   analisarEmailEstudante,
@@ -418,6 +425,133 @@ function obterCardapio(valor, agora) {
   return ok(montarCardapioSemana(campus, agora))
 }
 
+const AVISO_SUJEITO_A_ALTERACAO =
+  'Cardápio sujeito a alteração. A ausência de marcador não garante que o prato esteja livre do ingrediente.'
+
+const DIETA_DA_LINHA = {
+  todas: null,
+  padrao: 'padrao',
+  ovolacto: 'ovolacto',
+  vegano: 'vegetariano_estrito',
+}
+
+const DIETAS_ACEITAS = {
+  sem_filtro: null,
+  ovolactovegetariano: [null, 'ovolacto', 'vegetariano_estrito'],
+  vegetariano_estrito: [null, 'vegetariano_estrito'],
+}
+
+const ehDataISO = (valor) => /^\d{4}-\d{2}-\d{2}$/.test(valor ?? '')
+const dataNaFaixa = (valor) => ehDataISO(valor) && valor >= '2000-01-01' && valor <= '2099-12-31'
+const PARAMETROS_DO_CARDAPIO = ['campus', 'semana', 'dia', 'refeicao', 'marcadores', 'dieta']
+const parametrosInvalidos = (mensagem = 'Parâmetros do cardápio inválidos.') =>
+  erro(400, 'parametros_invalidos', mensagem)
+
+function filtrarRefeicao(refeicao, { dieta, marcadores }) {
+  const linhas = DIETAS_ACEITAS[dieta]
+  const desativado = refeicao.alergenosIndisponiveis
+  return refeicao.categorias
+    .filter((categoria) => !linhas || linhas.includes(DIETA_DA_LINHA[categoria.dieta]))
+    .map((categoria) => {
+      const pratos = categoria.pratos.map((prato) => ({
+        descricao: prato.nome,
+        marcadores: [...prato.marcadores],
+        contemMarcadorSelecionado:
+          !desativado && prato.marcadores.some((m) => marcadores.includes(m)),
+      }))
+      return {
+        nome: categoria.rotulo,
+        pratos,
+        semOpcaoCompativel:
+          pratos.length > 0 && pratos.every((prato) => prato.contemMarcadorSelecionado),
+      }
+    })
+}
+
+function cardapioFiltrado(parametros, agora) {
+  const campus = idDoCampus(parametros.campus)
+  const dieta = parametros.dieta ?? 'sem_filtro'
+  if (
+    !campus ||
+    Object.keys(parametros).some((nome) => !PARAMETROS_DO_CARDAPIO.includes(nome)) ||
+    !Object.hasOwn(DIETAS_ACEITAS, dieta) ||
+    (parametros.refeicao && !REFEICOES[parametros.refeicao]) ||
+    (parametros.dia !== undefined && !dataNaFaixa(parametros.dia)) ||
+    (parametros.semana !== undefined && !dataNaFaixa(parametros.semana))
+  ) {
+    return parametrosInvalidos()
+  }
+  const marcadores = parametros.marcadores === undefined ? [] : parametros.marcadores.split(',')
+  if (marcadores.some((nome) => !nome)) return parametrosInvalidos()
+  const desconhecido = marcadores.find((nome) => !IDS_MARCADORES.includes(nome))
+  if (desconhecido) return parametrosInvalidos(`Marcador desconhecido: ${desconhecido}.`)
+  const hoje = hojeISO(agora)
+  const semana = montarCardapioSemana(campus, agora)
+  const base = {
+    campus,
+    avisoSujeitoAAlteracao: AVISO_SUJEITO_A_ALTERACAO,
+    alergenosIndisponivel: false,
+    filtroMarcadorDesativado: false,
+    refeicaoEncerrada: false,
+    categorias: [],
+  }
+  const naoPublicado = (data) =>
+    ok({
+      ...base,
+      status: 'nao_publicado',
+      data,
+      refeicao: parametros.refeicao ?? refeicaoPadrao(ORDEM_REFEICOES, agora),
+    })
+
+  if (!semana.publicado) return naoPublicado(parametros.dia ?? hoje)
+  const pedido = parametros.dia ?? hoje
+  const dia =
+    semana.dias.find((d) => d.data === pedido) ??
+    (parametros.refeicao ? null : semana.dias.find((d) => d.data > pedido))
+  if (!dia) return naoPublicado(parametros.dia ?? hoje)
+
+  const tipos = ORDEM_REFEICOES.filter((tipo) => dia.refeicoes.some((r) => r.tipo === tipo))
+  const tipo = tipos.includes(parametros.refeicao)
+    ? parametros.refeicao
+    : dia.data === hoje
+      ? refeicaoPadrao(tipos, agora)
+      : tipos[0]
+  const refeicao = dia.refeicoes.find((r) => r.tipo === tipo)
+  const ultima = tipos.at(-1)
+  return ok({
+    ...base,
+    status: 'publicado',
+    data: dia.data,
+    refeicao: tipo,
+    alergenosIndisponivel: refeicao.alergenosIndisponiveis,
+    filtroMarcadorDesativado: refeicao.alergenosIndisponiveis,
+    refeicaoEncerrada:
+      dia.data === hoje &&
+      tipo === ultima &&
+      minutosAgora(agora) > minutosDoDia(REFEICOES[ultima].fim),
+    categorias: filtrarRefeicao(refeicao, { dieta, marcadores }),
+  })
+}
+
+const idDaRefeicao = (campus, data, tipo) =>
+  Number(`${campus}${data.replaceAll('-', '')}${ORDEM_REFEICOES.indexOf(tipo)}`)
+
+function resumoDoDia(campus, data, agora) {
+  const dia = montarCardapioSemana(campus, agora).dias.find((d) => d.data === data)
+  if (!dia) return ok([])
+  return ok(
+    ORDEM_REFEICOES.filter((tipo) => dia.refeicoes.some((r) => r.tipo === tipo)).map((tipo) => {
+      const { soma, quantidade } = avaliacoesDaRefeicao(campus, data, tipo, agora)
+      return {
+        refeicaoId: idDaRefeicao(campus, data, tipo),
+        tipo,
+        media: quantidade ? soma / quantidade : null,
+        quantidade,
+      }
+    }),
+  )
+}
+
 function avaliacoesDaRefeicao(campus, data, refeicao, agora) {
   const semente = avaliacoesSemente(campus, data, refeicao, agora)
   const reais = banco.estado.avaliacoes.filter(
@@ -467,6 +601,12 @@ function listarAvaliacoes(parametros, agora) {
 function resumoSemana(parametros, agora) {
   const campus = idDoCampus(parametros.campus)
   if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
+  if (parametros.data !== undefined) {
+    if (!ehDataISO(parametros.data)) {
+      return erro(400, 'parametros_invalidos', 'Parâmetros do resumo inválidos.')
+    }
+    return resumoDoDia(campus, parametros.data, agora)
+  }
   const { dias } = montarCardapioSemana(campus, agora)
   let somaSemana = 0
   let quantidadeSemana = 0
@@ -655,6 +795,7 @@ const ROTAS = [
   ['POST', /^\/recuperar-senha\/$/, ({ corpo, agora }) => solicitarRecuperacao(corpo, agora)],
   ['POST', /^\/redefinir-senha\/$/, ({ corpo, agora }) => redefinirSenha(corpo, agora)],
   ['GET', /^\/campi\/$/, () => listarCampi()],
+  ['GET', /^\/cardapio\/$/, ({ parametros, agora }) => cardapioFiltrado(parametros, agora)],
   ['GET', /^\/cardapio\/([\w-]+)\/$/, ({ agora }, [campus]) => obterCardapio(campus, agora)],
   ['GET', /^\/avaliacoes\/resumo\/$/, ({ parametros, agora }) => resumoSemana(parametros, agora)],
   ['GET', /^\/avaliacoes\/$/, ({ parametros, agora }) => listarAvaliacoes(parametros, agora)],

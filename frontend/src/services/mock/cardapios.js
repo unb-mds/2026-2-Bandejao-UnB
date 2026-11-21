@@ -23,10 +23,10 @@ const ALMOCOS = [
       p('Frango grelhado ao molho de ervas'),
     ]),
     cat('Prato Principal — Ovolactovegetariano', 'ovolacto', [
-      p('Omelete de legumes', 'ovo', 'leite'),
+      p('Omelete de legumes', 'ovo', 'leite_e_derivados'),
     ]),
     cat('Prato Principal — Vegetariano Estrito', 'vegano', [p('Tofu grelhado ao shoyu', 'soja')]),
-    cat('Guarnição', 'todas', [p('Purê de batata', 'leite')]),
+    cat('Guarnição', 'todas', [p('Purê de batata', 'leite_e_derivados')]),
     cat('Acompanhamentos', 'todas', [p('Arroz branco'), p('Arroz integral'), p('Feijão carioca')]),
     cat('Salada', 'todas', [p('Folhas verdes com tomate e cenoura')]),
     cat('Sobremesa', 'todas', [p('Gelatina de morango'), p('Banana')]),
@@ -39,38 +39,40 @@ const ALMOCOS = [
       p('Linguiça acebolada', 'suino'),
     ]),
     cat('Prato Principal — Ovolactovegetariano', 'ovolacto', [
-      p('Lasanha de berinjela', 'leite', 'trigo'),
+      p('Lasanha de berinjela', 'leite_e_derivados', 'trigo_gluten'),
     ]),
     cat('Prato Principal — Vegetariano Estrito', 'vegano', [
       p('Estrogonofe de grão-de-bico com cogumelos', 'cogumelo'),
     ]),
-    cat('Guarnição', 'todas', [p('Macarrão alho e óleo', 'trigo')]),
+    cat('Guarnição', 'todas', [p('Macarrão alho e óleo', 'trigo_gluten')]),
     cat('Acompanhamentos', 'todas', [p('Arroz branco'), p('Arroz integral'), p('Feijão preto')]),
     cat('Salada', 'todas', [p('Repolho roxo com cenoura ralada')]),
-    cat('Sobremesa', 'todas', [p('Doce de leite', 'leite'), p('Laranja')]),
+    cat('Sobremesa', 'todas', [p('Doce de leite', 'leite_e_derivados'), p('Laranja')]),
   ],
   [
     cat('Bebidas', 'todas', [p('Suco de acerola'), p('Água')]),
     cat('Sopa', 'todas', [p('Sopa de abóbora com gengibre', 'pimenta')]),
     cat('Prato Principal — Padrão', 'padrao', [p('Frango xadrez', 'soja', 'amendoim')]),
     cat('Prato Principal — Ovolactovegetariano', 'ovolacto', [
-      p('Torta de legumes', 'ovo', 'trigo', 'leite'),
+      p('Torta de legumes', 'ovo', 'trigo_gluten', 'leite_e_derivados'),
     ]),
-    cat('Prato Principal — Vegetariano Estrito', 'vegano', [p('Hambúrguer de lentilha', 'trigo')]),
+    cat('Prato Principal — Vegetariano Estrito', 'vegano', [
+      p('Hambúrguer de lentilha', 'trigo_gluten'),
+    ]),
     cat('Guarnição', 'todas', [p('Farofa de cenoura')]),
     cat('Acompanhamentos', 'todas', [p('Arroz branco'), p('Arroz integral'), p('Feijão carioca')]),
     cat('Salada', 'todas', [p('Alface americana com beterraba')]),
-    cat('Sobremesa', 'todas', [p('Pudim de chocolate', 'leite', 'ovo'), p('Maçã')]),
+    cat('Sobremesa', 'todas', [p('Pudim de chocolate', 'leite_e_derivados', 'ovo'), p('Maçã')]),
   ],
   [
     cat('Bebidas', 'todas', [p('Suco de manga'), p('Água')]),
-    cat('Sopa', 'todas', [p('Creme de milho', 'leite')]),
+    cat('Sopa', 'todas', [p('Creme de milho', 'leite_e_derivados')]),
     cat('Prato Principal — Padrão', 'padrao', [
-      p('Peixe empanado', 'trigo', 'ovo'),
+      p('Peixe empanado', 'trigo_gluten', 'ovo'),
       p('Costela suína ao barbecue', 'suino', 'pimenta'),
     ]),
     cat('Prato Principal — Ovolactovegetariano', 'ovolacto', [
-      p('Panqueca de ricota com espinafre', 'leite', 'ovo', 'trigo'),
+      p('Panqueca de ricota com espinafre', 'leite_e_derivados', 'ovo', 'trigo_gluten'),
     ]),
     cat('Prato Principal — Vegetariano Estrito', 'vegano', [
       p('Moqueca de banana-da-terra com castanhas', 'oleaginosa', 'pimenta'),
@@ -78,14 +80,14 @@ const ALMOCOS = [
     cat('Guarnição', 'todas', [p('Couve refogada')]),
     cat('Acompanhamentos', 'todas', [p('Arroz branco'), p('Arroz integral'), p('Feijão preto')]),
     cat('Salada', 'todas', [p('Tomate com pepino e cebola')]),
-    cat('Sobremesa', 'todas', [p('Mousse de maracujá', 'leite'), p('Mexerica')]),
+    cat('Sobremesa', 'todas', [p('Mousse de maracujá', 'leite_e_derivados'), p('Mexerica')]),
   ],
   [
     cat('Bebidas', 'todas', [p('Suco de uva'), p('Água')]),
-    cat('Sopa', 'todas', [p('Sopa de feijão com macarrão', 'trigo')]),
+    cat('Sopa', 'todas', [p('Sopa de feijão com macarrão', 'trigo_gluten')]),
     cat('Prato Principal — Padrão', 'padrao', [p('Feijoada', 'suino')]),
     cat('Prato Principal — Ovolactovegetariano', 'ovolacto', [
-      p('Feijoada vegetariana com queijo coalho', 'leite'),
+      p('Feijoada vegetariana com queijo coalho', 'leite_e_derivados'),
     ]),
     cat('Prato Principal — Vegetariano Estrito', 'vegano', [
       p('Feijoada vegana com shitake', 'cogumelo', 'soja'),
@@ -101,7 +103,7 @@ const ALMOCO_SABADO = [
   cat('Bebidas', 'todas', [p('Suco de laranja'), p('Água')]),
   cat('Prato Principal — Padrão', 'padrao', [p('Frango assado com ervas')]),
   cat('Prato Principal — Ovolactovegetariano', 'ovolacto', [
-    p('Quiche de alho-poró', 'ovo', 'leite', 'trigo'),
+    p('Quiche de alho-poró', 'ovo', 'leite_e_derivados', 'trigo_gluten'),
   ]),
   cat('Prato Principal — Vegetariano Estrito', 'vegano', [p('Risoto de cogumelos', 'cogumelo')]),
   cat('Acompanhamentos', 'todas', [p('Arroz branco'), p('Feijão carioca')]),
@@ -111,13 +113,13 @@ const ALMOCO_SABADO = [
 
 const CAFES = [
   [
-    cat('Bebidas', 'todas', [p('Café com leite', 'leite'), p('Suco de laranja')]),
+    cat('Bebidas', 'todas', [p('Café com leite', 'leite_e_derivados'), p('Suco de laranja')]),
     cat('Complemento — Ovolactovegetariano', 'ovolacto', [
-      p('Pão francês com manteiga', 'trigo', 'leite'),
-      p('Queijo minas', 'leite'),
+      p('Pão francês com manteiga', 'trigo_gluten', 'leite_e_derivados'),
+      p('Queijo minas', 'leite_e_derivados'),
     ]),
     cat('Complemento — Vegetariano Estrito', 'vegano', [
-      p('Pão integral', 'trigo'),
+      p('Pão integral', 'trigo_gluten'),
       p('Geleia de morango'),
     ]),
     cat('Fruta', 'todas', [p('Mamão')]),
@@ -125,7 +127,7 @@ const CAFES = [
   [
     cat('Bebidas', 'todas', [p('Café preto'), p('Chá de camomila com mel', 'mel')]),
     cat('Complemento — Ovolactovegetariano', 'ovolacto', [
-      p('Pão de queijo', 'leite', 'ovo'),
+      p('Pão de queijo', 'leite_e_derivados', 'ovo'),
       p('Ovos mexidos', 'ovo'),
     ]),
     cat('Complemento — Vegetariano Estrito', 'vegano', [
@@ -135,10 +137,10 @@ const CAFES = [
     cat('Fruta', 'todas', [p('Melancia')]),
   ],
   [
-    cat('Bebidas', 'todas', [p('Achocolatado', 'leite'), p('Suco de abacaxi')]),
+    cat('Bebidas', 'todas', [p('Achocolatado', 'leite_e_derivados'), p('Suco de abacaxi')]),
     cat('Complemento — Ovolactovegetariano', 'ovolacto', [
-      p('Bolo de fubá', 'ovo', 'leite', 'trigo'),
-      p('Requeijão', 'leite'),
+      p('Bolo de fubá', 'ovo', 'leite_e_derivados', 'trigo_gluten'),
+      p('Requeijão', 'leite_e_derivados'),
     ]),
     cat('Complemento — Vegetariano Estrito', 'vegano', [
       p('Cuscuz de milho'),
@@ -153,7 +155,7 @@ const JANTARES = [
     cat('Bebidas', 'todas', [p('Suco de maracujá'), p('Água')]),
     cat('Prato Principal — Padrão', 'padrao', [p('Filé de peixe ao limão')]),
     cat('Prato Principal — Ovolactovegetariano', 'ovolacto', [
-      p('Quiche de espinafre', 'ovo', 'leite', 'trigo'),
+      p('Quiche de espinafre', 'ovo', 'leite_e_derivados', 'trigo_gluten'),
     ]),
     cat('Prato Principal — Vegetariano Estrito', 'vegano', [p('Lentilha ensopada com legumes')]),
     cat('Guarnição', 'todas', [p('Mandioca cozida')]),
@@ -163,14 +165,14 @@ const JANTARES = [
       p('Farofa temperada'),
     ]),
     cat('Salada', 'todas', [p('Alface com tomate e pepino')]),
-    cat('Sobremesa', 'todas', [p('Pudim de leite', 'leite', 'ovo')]),
+    cat('Sobremesa', 'todas', [p('Pudim de leite', 'leite_e_derivados', 'ovo')]),
   ],
   [
     cat('Bebidas', 'todas', [p('Suco de limão'), p('Água')]),
     cat('Sopa', 'todas', [p('Canja de legumes')]),
-    cat('Prato Principal — Padrão', 'padrao', [p('Almôndegas ao sugo', 'trigo', 'ovo')]),
+    cat('Prato Principal — Padrão', 'padrao', [p('Almôndegas ao sugo', 'trigo_gluten', 'ovo')]),
     cat('Prato Principal — Ovolactovegetariano', 'ovolacto', [
-      p('Nhoque ao molho branco', 'trigo', 'leite'),
+      p('Nhoque ao molho branco', 'trigo_gluten', 'leite_e_derivados'),
     ]),
     cat('Prato Principal — Vegetariano Estrito', 'vegano', [
       p('Escondidinho de mandioca com proteína de soja', 'soja'),
@@ -183,7 +185,7 @@ const JANTARES = [
     cat('Bebidas', 'todas', [p('Suco de tangerina'), p('Água')]),
     cat('Prato Principal — Padrão', 'padrao', [p('Lombo suíno assado', 'suino')]),
     cat('Prato Principal — Ovolactovegetariano', 'ovolacto', [
-      p('Omelete de queijo', 'ovo', 'leite'),
+      p('Omelete de queijo', 'ovo', 'leite_e_derivados'),
     ]),
     cat('Prato Principal — Vegetariano Estrito', 'vegano', [p('Curry de grão-de-bico', 'pimenta')]),
     cat('Guarnição', 'todas', [p('Batata sauté')]),

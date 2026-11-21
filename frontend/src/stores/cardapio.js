@@ -1,6 +1,10 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { apiClient, mensagemDeErro } from '@/services/apiClient'
+import { DIETA_PADRAO } from '@/constants/dietas'
+
+const chaveDaRefeicao = ({ campus, dia, refeicao, marcadores = [], dieta = DIETA_PADRAO }) =>
+  JSON.stringify([campus, dia ?? null, refeicao ?? null, [...marcadores].sort(), dieta])
 
 /** Cache do cardápio da semana vigente, por campus (RF06/RF07). */
 export const useCardapioStore = defineStore('cardapio', () => {
@@ -11,6 +15,38 @@ export const useCardapioStore = defineStore('cardapio', () => {
   const campiCarregados = ref(false)
   const erroCampi = ref(null)
   let carregandoCampi = null
+  const refeicoes = ref({})
+  const carregandoRefeicao = ref(false)
+  const erroRefeicao = ref(null)
+
+  function daRefeicao(pedido) {
+    return refeicoes.value[chaveDaRefeicao(pedido)] ?? null
+  }
+
+  async function carregarRefeicao(pedido, { forcar = false } = {}) {
+    if (!pedido.campus) return null
+    const chave = chaveDaRefeicao(pedido)
+    if (refeicoes.value[chave] && !forcar) return refeicoes.value[chave]
+    const parametros = new URLSearchParams({ campus: String(pedido.campus) })
+    if (pedido.dia) parametros.set('dia', pedido.dia)
+    if (pedido.refeicao) parametros.set('refeicao', pedido.refeicao)
+    if (pedido.marcadores?.length) parametros.set('marcadores', pedido.marcadores.join(','))
+    if (pedido.dieta && pedido.dieta !== DIETA_PADRAO) parametros.set('dieta', pedido.dieta)
+    carregandoRefeicao.value = true
+    erroRefeicao.value = null
+    try {
+      const resposta = await apiClient.get(`/cardapio/?${parametros}`)
+      refeicoes.value[chave] = resposta
+      const resolvida = { ...pedido, dia: resposta.data, refeicao: resposta.refeicao }
+      refeicoes.value[chaveDaRefeicao(resolvida)] = resposta
+      return resposta
+    } catch (falha) {
+      erroRefeicao.value = mensagemDeErro(falha)
+      return null
+    } finally {
+      carregandoRefeicao.value = false
+    }
+  }
 
   function carregarCampi({ forcar = false } = {}) {
     if (campiCarregados.value && !forcar) return Promise.resolve(campi.value)
@@ -69,6 +105,11 @@ export const useCardapioStore = defineStore('cardapio', () => {
     campi,
     campiCarregados,
     erroCampi,
+    refeicoes,
+    carregandoRefeicao,
+    erroRefeicao,
+    daRefeicao,
+    carregarRefeicao,
     carregar,
     carregarCampi,
     buscarCampus,

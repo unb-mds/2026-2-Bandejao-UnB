@@ -1,8 +1,8 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { idDeCampusValido } from '@/constants/campi'
-import { IDS_MARCADORES } from '@/constants/marcadores'
-import { DIETAS } from '@/constants/dietas'
+import { IDS_MARCADORES, MARCADORES_ANTIGOS } from '@/constants/marcadores'
+import { DIETA_PADRAO, DIETAS, DIETAS_ANTIGAS } from '@/constants/dietas'
 import { contarFiltrosAtivos, selecaoPadrao } from '@/utils/cardapio'
 
 const CHAVE = 'bandejao:preferencias'
@@ -20,11 +20,14 @@ function lerSalvas() {
 
 function lerPreferencias() {
   const salvas = lerSalvas()
+  const dieta = DIETAS_ANTIGAS[salvas.dieta] ?? salvas.dieta
   return {
     campusId: Number.isInteger(salvas.campusId) ? idDeCampusValido(salvas.campusId) : null,
-    dieta: DIETAS.some((d) => d.id === salvas.dieta) ? salvas.dieta : 'todos',
+    dieta: DIETAS.some((d) => d.id === dieta) ? dieta : DIETA_PADRAO,
     marcadores: Array.isArray(salvas.marcadores)
-      ? salvas.marcadores.filter((m) => IDS_MARCADORES.includes(m))
+      ? salvas.marcadores
+          .map((m) => MARCADORES_ANTIGOS[m] ?? m)
+          .filter((m) => IDS_MARCADORES.includes(m))
       : [],
     avisoLocalizacaoAdiado: salvas.avisoLocalizacaoAdiado === true,
     localizacaoPermitida: salvas.localizacaoPermitida === true,

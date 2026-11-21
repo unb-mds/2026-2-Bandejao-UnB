@@ -8,7 +8,23 @@ const chaveRefeicao = ({ campus, data, refeicao }) => `${campus}|${data}|${refei
 export const useAvaliacoesStore = defineStore('avaliacoes', () => {
   const porRefeicao = ref({})
   const resumoPorCampus = ref({})
+  const resumoDoDia = ref({})
   const erro = ref(null)
+
+  function daResumoDoDia(campus, data) {
+    return resumoDoDia.value[`${campus}|${data}`] ?? null
+  }
+
+  async function carregarResumoDoDia(campus, data) {
+    const parametros = new URLSearchParams({ campus: String(campus), data })
+    const chave = `${campus}|${data}`
+    try {
+      resumoDoDia.value[chave] = await apiClient.get(`/avaliacoes/resumo/?${parametros}`)
+    } catch (falha) {
+      erro.value = mensagemDeErro(falha)
+    }
+    return daResumoDoDia(campus, data)
+  }
 
   function daRefeicao(alvo) {
     return porRefeicao.value[chaveRefeicao(alvo)] ?? null
@@ -49,7 +65,10 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
   return {
     porRefeicao,
     resumoPorCampus,
+    resumoDoDia,
     erro,
+    daResumoDoDia,
+    carregarResumoDoDia,
     daRefeicao,
     carregar,
     carregarResumo,
