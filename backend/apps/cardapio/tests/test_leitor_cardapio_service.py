@@ -438,6 +438,22 @@ def test_vigente_ausente_antes_de_segunda_12h_nao_alerta(gama, site):
     assert not ContadorAlerta.objects.exists()
 
 
+def test_vigente_ausente_exatamente_na_segunda_12h_ja_alerta(gama, site):
+    # O prazo do Anexo A é "a partir de segunda, 12h": 12h00 já conta.
+    _processar(gama, datetime(2026, 11, 30, 12, 0, tzinfo=BRASILIA))
+    [(_, mensagem)] = _alertas(gama)
+    assert "não publicado" in mensagem
+
+
+def test_link_sem_datas_alerta_com_o_texto_do_link(gama, site):
+    site.trocar_no_html(LINK_23, "ISM &#8211; Semana 2", 3)
+    _processar(gama)
+    [(tipo, mensagem)] = _alertas(gama)
+    assert tipo == FALHA
+    assert "link 'ISM – Semana 2'" in mensagem
+    assert "datas legíveis" in mensagem
+
+
 def test_domingo_conta_na_semana_da_segunda_anterior(gama, site):
     # Domingo, 29/11: a semana vigente é a de 23/11, que está na página.
     _processar(gama, datetime(2026, 11, 29, 20, 0, tzinfo=BRASILIA))
