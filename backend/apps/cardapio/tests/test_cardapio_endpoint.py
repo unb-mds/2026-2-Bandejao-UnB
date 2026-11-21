@@ -355,7 +355,9 @@ def test_campus_que_nao_e_inteiro_da_400(cliente, campus, valor):
 
 
 def test_campus_inexistente_da_400(cliente, campus):
-    assert_400(pedir(cliente, campus=campus.pk + 100), "campus")
+    resposta = pedir(cliente, campus=campus.pk + 100)
+    assert_400(resposta)
+    assert resposta.json()["mensagem"] == "Não existe campus com esse id."
 
 
 @pytest.mark.parametrize("parametro", ["semana", "dia"])

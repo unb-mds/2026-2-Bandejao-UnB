@@ -1,6 +1,6 @@
 import { REFEICOES, ORDEM_REFEICOES } from '@/constants/refeicoes'
-import { LINHAS_VISIVEIS } from '@/constants/dietas'
-import { hojeISO, minutosAgora, minutosDoDia } from './datas'
+import { DIETA_PADRAO } from '@/constants/dietas'
+import { hojeISO, inicioDaSemana, minutosAgora, minutosDoDia, somarDias } from './datas'
 
 /**
  * Refeição exibida por padrão (RF07): a que está em andamento; se nenhuma
@@ -27,30 +27,14 @@ export function selecaoPadrao(dias, agora = new Date()) {
   return { data: dia.data, refeicao }
 }
 
-/**
- * Aplica os filtros de dieta (RF09) e de marcadores (RF08) às categorias de
- * uma refeição.
- *
- * - Dieta: oculta as categorias de linhas incompatíveis; categorias comuns
- *   ("todas") continuam visíveis.
- * - Marcadores: pratos que contêm algum marcador selecionado são ocultados.
- *   A categoria continua na lista com `pratos` vazio, para a tela exibir
- *   "sem opção compatível".
- */
-export function filtrarCategorias(categorias, { dieta = 'todos', marcadores = [] } = {}) {
-  const linhas = LINHAS_VISIVEIS[dieta] ?? LINHAS_VISIVEIS.todos
-  return categorias
-    .filter((categoria) => linhas.includes(categoria.dieta))
-    .map((categoria) => ({
-      ...categoria,
-      pratos: categoria.pratos.filter(
-        (prato) => !prato.marcadores.some((m) => marcadores.includes(m)),
-      ),
-    }))
+export function diasDaSemanaVigente(agora = new Date()) {
+  const segunda = inicioDaSemana(agora)
+  const inicio = agora.getDay() === 0 ? somarDias(segunda, 7) : segunda
+  return Array.from({ length: 6 }, (_, i) => somarDias(inicio, i))
 }
 
 export function contarFiltrosAtivos(dieta, marcadores) {
-  return (dieta !== 'todos' ? 1 : 0) + marcadores.length
+  return (dieta !== DIETA_PADRAO ? 1 : 0) + marcadores.length
 }
 
 /**

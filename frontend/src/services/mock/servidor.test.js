@@ -450,6 +450,234 @@ describe('cardápio (RF06, RF07)', () => {
   })
 })
 
+describe('GET /cardapio/ (contrato da BE-11, ADR 0005)', () => {
+  const categoria = (dados, nome) => dados.categorias.find((c) => c.nome === nome)
+  const nomes = (dados) => dados.categorias.map((c) => c.nome)
+
+  it('sem dia nem refeição: hoje e a refeição padrão da RN05', async () => {
+    const { status, dados } = await get('/cardapio/?campus=1')
+
+    expect(status).toBe(200)
+    expect(dados).toMatchObject({
+      campus: 1,
+      status: 'publicado',
+      data: '2026-09-28',
+      refeicao: 'almoco',
+      refeicaoEncerrada: false,
+      alergenosIndisponivel: false,
+      filtroMarcadorDesativado: false,
+    })
+    expect(dados.avisoSujeitoAAlteracao).toContain('sujeito a alteração')
+    expect(categoria(dados, 'Prato Principal — Padrão').pratos[0]).toEqual({
+      descricao: 'Bife acebolado',
+      marcadores: ['suino'],
+      contemMarcadorSelecionado: false,
+    })
+  })
+
+  it('dieta ovolactovegetariano tira a linha padrão; vegetariano estrito deixa só a dela', async () => {
+    const ovolacto = (await get('/cardapio/?campus=1&dieta=ovolactovegetariano')).dados
+    const estrito = (await get('/cardapio/?campus=1&dieta=vegetariano_estrito')).dados
+
+    expect(nomes(ovolacto)).not.toContain('Prato Principal — Padrão')
+    expect(nomes(ovolacto)).toContain('Prato Principal — Ovolactovegetariano')
+    expect(nomes(estrito)).not.toContain('Prato Principal — Ovolactovegetariano')
+    expect(nomes(estrito)).toContain('Prato Principal — Vegetariano Estrito')
+    expect(nomes(estrito)).toContain('Guarnição')
+  })
+
+  it('marcadores sinalizam os pratos, sem escondê-los (RF08)', async () => {
+    const { dados } = await get('/cardapio/?campus=1&marcadores=leite_e_derivados,suino')
+
+    const pure = categoria(dados, 'Guarnição')
+    expect(pure.pratos[0]).toMatchObject({
+      descricao: 'Purê de batata',
+      contemMarcadorSelecionado: true,
+    })
+    expect(pure.semOpcaoCompativel).toBe(true)
+    const padrao = categoria(dados, 'Prato Principal — Padrão')
+    expect(padrao.pratos.map((p) => p.contemMarcadorSelecionado)).toEqual([true, false])
+    expect(padrao.semOpcaoCompativel).toBe(false)
+  })
+
+  it('refeição sem informação de alérgenos: filtro de marcadores desativado', async () => {
+    const { dados } = await get(
+      '/cardapio/?campus=2&dia=2026-09-30&refeicao=jantar&marcadores=leite_e_derivados',
+    )
+
+    expect(dados).toMatchObject({ alergenosIndisponivel: true, filtroMarcadorDesativado: true })
+    expect(dados.categorias.every((c) => !c.semOpcaoCompativel)).toBe(true)
+  })
+
+  it('campus que não publicou: status nao_publicado e sem categorias (RF18)', async () => {
+    const { dados } = await get('/cardapio/?campus=5')
+
+    expect(dados).toMatchObject({ status: 'nao_publicado', categorias: [] })
+  })
+
+  it('depois da última refeição do dia: a última, encerrada (RN05)', async () => {
+    vi.setSystemTime(new Date(2026, 8, 28, 21, 0))
+
+    const { dados } = await get('/cardapio/?campus=1')
+
+    expect(dados).toMatchObject({ refeicao: 'jantar', refeicaoEncerrada: true })
+  })
+
+  it('dia sem serviço, sem refeição: passa ao próximo dia com serviço (RN05)', async () => {
+    const { dados } = await get('/cardapio/?campus=3&dia=2026-09-27')
+
+    expect(dados).toMatchObject({ status: 'publicado', data: '2026-09-28' })
+  })
+
+  it('o fim do horário ainda é da refeição: às 9h30 é café', async () => {
+    vi.setSystemTime(new Date(2026, 8, 28, 9, 30))
+    expect((await get('/cardapio/?campus=1')).dados.refeicao).toBe('cafe')
+
+    vi.setSystemTime(new Date(2026, 8, 28, 9, 31))
+    expect((await get('/cardapio/?campus=1')).dados.refeicao).toBe('almoco')
+  })
+
+  it('marcador desconhecido: 400 citando o nome', async () => {
+    const resposta = await get('/cardapio/?campus=1&marcadores=ovo,leite')
+
+    expect(resposta.status).toBe(400)
+    expect(resposta.dados).toEqual({
+      codigo: 'parametros_invalidos',
+      mensagem: 'Marcador desconhecido: leite.',
+    })
+  })
+
+  it('refeição que o dia não serve: publicado, a refeição pedida e nenhuma categoria', async () => {
+    const { status, dados } = await get('/cardapio/?campus=4&dia=2026-09-28&refeicao=jantar')
+
+    expect(status).toBe(200)
+    expect(dados).toMatchObject({
+      status: 'publicado',
+      data: '2026-09-28',
+      refeicao: 'jantar',
+      semServico: false,
+      categorias: [],
+    })
+  })
+
+  it('dia sem serviço e sem próximo dia na semana: semServico, com a data pedida', async () => {
+    const { status, dados } = await get('/cardapio/?campus=3&dia=2026-10-03')
+
+    expect(status).toBe(200)
+    expect(dados).toMatchObject({
+      status: 'publicado',
+      data: '2026-10-03',
+      semServico: true,
+      categorias: [],
+    })
+  })
+
+  it('dia sem serviço com a refeição pedida: publicado e vazio, sem semServico', async () => {
+    const { dados } = await get('/cardapio/?campus=3&dia=2026-10-03&refeicao=almoco')
+
+    expect(dados).toMatchObject({
+      status: 'publicado',
+      data: '2026-10-03',
+      refeicao: 'almoco',
+      semServico: false,
+      categorias: [],
+    })
+  })
+
+  it('dia com serviço: semServico falso', async () => {
+    const { dados } = await get('/cardapio/?campus=1')
+
+    expect(dados.semServico).toBe(false)
+  })
+
+  it.each([['%201'], ['01'], ['1.0']])('campus %s: 400, como no backend', async (valor) => {
+    const { status, dados } = await get(`/cardapio/?campus=${valor}`)
+
+    expect(status).toBe(400)
+    expect(dados.codigo).toBe('parametros_invalidos')
+  })
+
+  it.each([['2026-02-30'], ['2026-13-01'], ['2026-09-31']])(
+    'data que não existe (%s): 400',
+    async (dia) => {
+      const { status } = await get(`/cardapio/?campus=1&dia=${dia}`)
+
+      expect(status).toBe(400)
+    },
+  )
+
+  it('campus inexistente: 400 com a mensagem do backend', async () => {
+    const resposta = await get('/cardapio/?campus=99')
+
+    expect(resposta.status).toBe(400)
+    expect(resposta.dados).toEqual({
+      codigo: 'parametros_invalidos',
+      mensagem: 'Não existe campus com esse id.',
+    })
+  })
+
+  it.each([
+    ['sem campus', '/cardapio/'],
+    ['campus inexistente', '/cardapio/?campus=99'],
+    ['dieta desconhecida', '/cardapio/?campus=1&dieta=todos'],
+    ['refeição desconhecida', '/cardapio/?campus=1&refeicao=lanche'],
+    ['parâmetro fora do contrato', '/cardapio/?campus=1&_=123'],
+    ['item vazio em marcadores', '/cardapio/?campus=1&marcadores=ovo,'],
+    ['dia fora da faixa', '/cardapio/?campus=1&dia=1999-12-31'],
+  ])('%s: 400 parametros_invalidos', async (_caso, caminho) => {
+    const resposta = await get(caminho)
+
+    expect(resposta.status).toBe(400)
+    expect(resposta.dados.codigo).toBe('parametros_invalidos')
+  })
+})
+
+describe('GET /avaliacoes/resumo/?campus=&data= (resumo do dia)', () => {
+  it('uma linha por refeição do dia, com nota média e quantidade', async () => {
+    const { status, dados } = await get('/avaliacoes/resumo/?campus=1&data=2026-09-28')
+
+    expect(status).toBe(200)
+    expect(dados.map((r) => r.tipo)).toEqual(['cafe', 'almoco', 'jantar'])
+    expect(dados[0]).toEqual({
+      refeicaoId: expect.any(Number),
+      tipo: 'cafe',
+      media: expect.any(Number),
+      quantidade: expect.any(Number),
+    })
+    expect(dados[2]).toMatchObject({ tipo: 'jantar', media: null, quantidade: 0 })
+  })
+
+  it('dia sem refeições: lista vazia', async () => {
+    const { dados } = await get('/avaliacoes/resumo/?campus=4&data=2026-10-03')
+
+    expect(dados).toEqual([])
+  })
+
+  it('campus inexistente: 400 parametros_invalidos, como no contrato', async () => {
+    const { status, dados } = await get('/avaliacoes/resumo/?campus=99&data=2026-09-28')
+
+    expect(status).toBe(400)
+    expect(dados.codigo).toBe('parametros_invalidos')
+  })
+
+  it('simulacao.definirResumoDoDiaDisponivel(false): 501 sem corpo, como o backend hoje', async () => {
+    simulacao.definirResumoDoDiaDisponivel(false)
+
+    const resposta = await get('/avaliacoes/resumo/?campus=1&data=2026-09-28')
+
+    expect(resposta.status).toBe(501)
+  })
+
+  it('reiniciarSimulacao volta o resumo do dia a responder', async () => {
+    simulacao.definirResumoDoDiaDisponivel(false)
+    reiniciarSimulacao()
+
+    const { status } = await get('/avaliacoes/resumo/?campus=1&data=2026-09-28')
+
+    expect(status).toBe(200)
+  })
+})
+
 describe('avaliações (RF15)', () => {
   const ALMOCO_HOJE = { campus: 3, data: '2026-09-28', refeicao: 'almoco' }
   const consulta = `/avaliacoes/?campus=3&data=2026-09-28&refeicao=almoco`

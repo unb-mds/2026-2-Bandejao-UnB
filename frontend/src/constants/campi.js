@@ -1,5 +1,7 @@
 export const ID_CAMPUS_COM_EXECUTIVO = 1
 
+export const MENSAGEM_CAMPUS_INEXISTENTE = 'Não existe campus com esse id.'
+
 export const CAMPI_ANTIGOS = {
   darcy: 1,
   ceilandia: 2,
