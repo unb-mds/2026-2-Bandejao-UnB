@@ -656,6 +656,34 @@ def test_le_data_com_ano_de_quatro_ou_dois_digitos():
     )
 
 
+def test_le_data_entre_parenteses_do_cabecalho_novo():
+    # Formato do RU desde a semana de 16/11/2026 (caso 26 do BE-04).
+    assert leitor._ler_data("2ª FEIRA (16/11/2026)") == (
+        "2ª FEIRA",
+        datetime.date(2026, 11, 16),
+    )
+    assert leitor._ler_data("SÁBADO (21/11/26)") == (
+        "SÁBADO",
+        datetime.date(2026, 11, 21),
+    )
+
+
+def test_data_entre_parenteses_continua_conferindo_o_dia_da_semana():
+    with pytest.raises(FormatoPDFInvalidoError, match="não cai nesse dia da semana"):
+        leitor._ler_data("2ª FEIRA (17/11/2026)")
+    with pytest.raises(FormatoPDFInvalidoError, match="data inválida"):
+        leitor._ler_data("2ª FEIRA (31/02/2026)")
+    with pytest.raises(FormatoPDFInvalidoError, match="dia da semana desconhecido"):
+        leitor._ler_data("FERIADO (16/11/2026)")
+
+
+def test_parenteses_pela_metade_nao_sao_aceitos():
+    # Só a data inteira entre parênteses: "(16/11/2026" seria erro no PDF.
+    for texto in ("2ª FEIRA (16/11/2026", "2ª FEIRA 16/11/2026)", "2ª FEIRA ()"):
+        with pytest.raises(FormatoPDFInvalidoError, match="sem data"):
+            leitor._ler_data(texto)
+
+
 def test_data_e_lida_como_dia_mes_ano():
     # 9 de novembro de 2026 é segunda; lida como mês/dia, seria 11 de setembro.
     assert leitor._ler_data("2ª FEIRA 09/11/2026")[1] == datetime.date(2026, 11, 9)
