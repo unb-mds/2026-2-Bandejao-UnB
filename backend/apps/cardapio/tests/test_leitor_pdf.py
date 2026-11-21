@@ -907,6 +907,44 @@ def test_faixas_dividem_icones_encostados_pela_proporcao():
     assert len(leitor._faixas_com_tinta(_aneis([0, 52, 104], 156))) == 3
 
 
+AZUL, VINHO, ROSA_CLARO = (56, 182, 255), (125, 56, 56), (210, 186, 186)
+
+
+def _dois_aneis_com_vale_fino():
+    """Como o par leite + amendoim do almoço de 16/11 (caso 27).
+
+    Anel azul de 0 a 50, um vale de 2 colunas só com o rosa-claro do
+    antisserrilhado e o anel vinho a partir da coluna 53, cortado pela borda
+    direita da imagem. Sem coluna branca entre eles, a divisão vai para a
+    proporção, e o corte no meio (coluna 50) cairia em cima do anel azul.
+    """
+    img = Image.new("RGB", (101, 52), (255, 255, 255))
+    desenho = ImageDraw.Draw(img)
+    desenho.ellipse((0, 1, 50, 50), outline=AZUL, width=4)
+    desenho.rectangle((51, 20, 52, 30), fill=ROSA_CLARO)
+    desenho.ellipse((53, 1, 103, 50), outline=VINHO, width=4)
+    return img
+
+
+def _cores(img):
+    return {cor for _, cor in img.getcolors(img.width * img.height)}
+
+
+def test_icones_encostados_sao_cortados_no_vale_de_tinta():
+    img = _dois_aneis_com_vale_fino()
+    faixas = leitor._faixas_com_tinta(img)
+    assert len(faixas) == 2
+    esquerda, direita = (img.crop((i, 0, f, img.height)) for i, f in faixas)
+    # Nenhum pedaço leva tinta do anel vizinho.
+    assert VINHO not in _cores(esquerda) and AZUL in _cores(esquerda)
+    assert AZUL not in _cores(direita) and VINHO in _cores(direita)
+
+
+def test_corte_pela_proporcao_continua_quando_os_aneis_se_tocam():
+    # Anéis sobrepostos, sem vale entre eles: o corte é no meio, como antes.
+    assert leitor._faixas_com_tinta(_aneis([0, 48], 98)) == [(0, 49), (49, 98)]
+
+
 def test_tabela_sem_bordas_e_formato_invalido():
     pagina_sem_bordas = SimpleNamespace(rects=[])
     with pytest.raises(FormatoPDFInvalidoError):
