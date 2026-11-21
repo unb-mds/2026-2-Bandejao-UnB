@@ -62,6 +62,9 @@ DISTANCIA_MAX_ICONE = 35
 # falha: melhor sem marcadores do que com um marcador errado.
 RAZAO_MIN_ICONE = 1.3
 LADO_ASSINATURA = 24
+# Ícones encostados: o vale de tinta entre dois anéis é procurado até esta
+# fração da altura da imagem para cada lado do corte pela proporção.
+RAIO_VALE_ICONE = 0.15
 
 # Valores de TipoRefeicao e Dieta em apps/cardapio/models.py.
 REFEICOES = {"cafedamanha": "cafe", "almoco": "almoco", "jantar": "jantar"}
@@ -297,6 +300,29 @@ def _assinatura(img):
     )
 
 
+def _vale_de_tinta(soma, corte, raio):
+    """Colunas [início, fim) do vale de tinta mais fino perto de `corte`.
+
+    O vale é o mínimo de tinta numa janela de `raio` colunas para cada lado,
+    desde que fique dentro da janela, com mais tinta dos dois lados (ex.: o
+    antisserrilhado entre dois anéis quase encostados). Se o mínimo está na
+    borda da janela, os anéis se tocam ou se sobrepõem: não há vale, e o
+    corte fica onde a proporção mandou (devolve `corte, corte`).
+    """
+    inicio, fim = max(0, corte - raio), min(len(soma), corte + raio + 1)
+    janela = range(inicio, fim)
+    minimo = min(soma[x] for x in janela)
+    if minimo >= soma[inicio] or minimo >= soma[fim - 1]:
+        return corte, corte
+    centro = min(janela, key=lambda x: (soma[x], abs(x - corte)))
+    esquerda = direita = centro
+    while esquerda - 1 > inicio and soma[esquerda - 1] == minimo:
+        esquerda -= 1
+    while direita + 1 < fim - 1 and soma[direita + 1] == minimo:
+        direita += 1
+    return esquerda, direita + 1
+
+
 def _faixas_com_tinta(img, limite=100, folga=1):
     """Faixas de colunas [início, fim) com algum pixel não branco.
 
@@ -305,7 +331,9 @@ def _faixas_com_tinta(img, limite=100, folga=1):
     """
     w, h = img.size
     px = img.load()
-    tinta = [any(765 - sum(px[x, y]) > limite for y in range(h)) for x in range(w)]
+    falta = [[765 - sum(px[x, y]) for y in range(h)] for x in range(w)]
+    tinta = [any(f > limite for f in coluna) for coluna in falta]
+    soma = [sum(coluna) for coluna in falta]
     faixas, inicio, vazias = [], None, 0
     for x, t in enumerate(tinta + [False] * (folga + 1)):
         if t:
@@ -319,14 +347,23 @@ def _faixas_com_tinta(img, limite=100, folga=1):
                 inicio, vazias = None, 0
     # Descarta ruído (faixas muito estreitas para serem um ícone).
     faixas = [(i, f) for i, f in faixas if f - i >= h * 0.3]
-    # Ícones encostados (anéis se tocando) ficam numa faixa só, bem mais
-    # larga que alta: divide pela proporção.
+    # Ícones encostados ficam numa faixa só, bem mais larga que alta: divide
+    # pela proporção. Se houver um vale fino de tinta perto do ponto de corte
+    # (anéis quase encostados, só com o antisserrilhado entre eles), o corte
+    # vai para o vale, e as colunas dele ficam fora dos dois pedaços: senão,
+    # um pedaço leva uma fatia do anel vizinho (caso 27 do BE-04).
+    raio = round(h * RAIO_VALE_ICONE)
     divididas = []
     for i, f in faixas:
         n = max(1, round((f - i) / h))
-        divididas.extend(
-            (i + k * (f - i) // n, i + (k + 1) * (f - i) // n) for k in range(n)
-        )
+        inicio = i
+        for k in range(1, n):
+            fim_anterior, inicio_seguinte = _vale_de_tinta(
+                soma, i + k * (f - i) // n, raio
+            )
+            divididas.append((inicio, fim_anterior))
+            inicio = inicio_seguinte
+        divididas.append((inicio, f))
     return divididas
 
 
