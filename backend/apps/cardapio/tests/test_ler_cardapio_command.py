@@ -65,6 +65,9 @@ def test_comando_processa_os_cinco_campi_com_um_relogio_so(campi, site):
     assert FonteCardapio.objects.count() == 4
     assert "Gama: 2 lidas, 0 sem mudança, 0 alertas" in saida
     assert "Darcy Ribeiro: 0 lidas, 0 sem mudança, 2 alertas" in saida
+    # A página do RU é pedida uma vez na execução, não uma por campus.
+    paginas = [u for u in site.pedidos if "cardapio-refeitorio" in u]
+    assert paginas == ["https://ru.unb.br/cardapio-refeitorio/"]
 
 
 def test_falha_inesperada_num_campus_nao_para_os_outros(campi, site, caplog):

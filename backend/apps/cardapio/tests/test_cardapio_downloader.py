@@ -446,6 +446,26 @@ def test_pagina_com_http_diferente_de_200_e_download_error(status):
         _localizar("Gama")
 
 
+def test_a_pagina_e_lida_uma_vez_por_downloader(pagina):
+    # ADR 0014: uma requisição à página por execução, não uma por campus.
+    downloader = CardapioDownloader()
+    for nome in ESPERADO:
+        assert _resumo(downloader.localizar_pdfs(CAMPI[nome])) == _esperado(nome)
+    assert pagina.get.call_count == 1
+
+
+def test_pagina_fora_do_ar_nao_e_pedida_de_novo_na_mesma_execucao():
+    downloader = CardapioDownloader()
+    with mock.patch(
+        "apps.cardapio.leitor.cardapio_downloader.requests.get",
+        side_effect=requests.ConnectionError("sem rede"),
+    ) as get:
+        for nome in ("Gama", "Planaltina"):
+            with pytest.raises(DownloadError, match="página do RU"):
+                downloader.localizar_pdfs(CAMPI[nome])
+    assert get.call_count == 1
+
+
 # ------------------------------------------------------------------ baixar
 
 PDF_GAMA = (
