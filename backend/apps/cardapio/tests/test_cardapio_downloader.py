@@ -359,6 +359,14 @@ def test_links_sobrepostos_reprovam_os_dois(pagina):
     assert _resumo(_localizar("Planaltina")) == _esperado("Planaltina")
 
 
+def test_links_que_dividem_um_dia_so_tambem_sao_sobrepostos(pagina):
+    # 16 a 22/11 e 22 a 28/11: o domingo 22 estaria nas duas semanas.
+    pagina.html = trocar_texto_do_link(
+        pagina.html, "Gama-Semana-02", "ISM &#8211; 22/11/2026 À 28/11/2026"
+    )
+    assert all("sobreposto" in str(f.erro) for f in _localizar("Gama"))
+
+
 def test_link_de_sete_dias_exatos_e_aceito(pagina):
     assert [f.erro for f in _localizar("Gama")] == [None, None]
 

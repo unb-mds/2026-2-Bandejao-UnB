@@ -622,6 +622,14 @@ def test_domingo_a_noite_em_utc_ainda_e_da_semana_de_23(gama, site):
     assert _alertas(gama) == []
 
 
+def test_nao_publicado_no_domingo_a_noite_em_utc_cita_a_semana_certa(gama, site):
+    # Domingo 06/12, 23h de Brasília = segunda 07/12, 02h UTC. A semana
+    # vigente é a de 30/11 (que não está na página), e não a de 07/12.
+    _processar(gama, datetime(2026, 12, 7, 2, 0, tzinfo=UTC))
+    [(_, mensagem)] = _alertas(gama)
+    assert "semana de 30/11/2026 a 06/12/2026" in mensagem
+
+
 def test_domingo_conta_na_semana_da_segunda_anterior(gama, site):
     # Domingo, 29/11: a semana vigente é a de 23/11, que está na página.
     _processar(gama, datetime(2026, 11, 29, 20, 0, tzinfo=BRASILIA))
