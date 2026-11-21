@@ -10,16 +10,26 @@ Os campi vêm da fixture `campi.json` (BD-03), sem banco: o Downloader só lê
 o rótulo e o prefixo de cada um.
 """
 
+import hashlib
 import json
 from datetime import date
 from pathlib import Path
 from unittest import mock
 
 import pytest
+import requests
 from bs4 import BeautifulSoup
 
-from apps.cardapio.leitor.cardapio_downloader import CardapioDownloader, FontePDF
-from apps.cardapio.leitor.cardapio_pdf_parser import FonteNaoEncontradaError
+from apps.cardapio.leitor.cardapio_downloader import (
+    ArquivoPDF,
+    CardapioDownloader,
+    FontePDF,
+)
+from apps.cardapio.leitor.cardapio_pdf_parser import (
+    DownloadError,
+    FonteNaoEncontradaError,
+    FormatoPDFInvalidoError,
+)
 from apps.cardapio.leitor.fonte_cardapio_config import FonteCardapioConfig
 from apps.cardapio.models import Campus
 
@@ -399,6 +409,112 @@ def test_fonte_pdf_guarda_os_dados_do_c4():
         "t",
         None,
     )
+
+
+# -------------------------------------------------------- página fora do ar
+
+
+@pytest.mark.parametrize(
+    "falha",
+    [
+        requests.ConnectionError("sem rede"),
+        requests.Timeout("demorou"),
+        requests.TooManyRedirects("laço"),
+    ],
+)
+def test_pagina_fora_do_ar_e_download_error(falha):
+    with (
+        mock.patch(
+            "apps.cardapio.leitor.cardapio_downloader.requests.get", side_effect=falha
+        ) as get,
+        pytest.raises(DownloadError, match="página do RU"),
+    ):
+        _localizar("Gama")
+    # Nenhuma repetição em sequência curta: quem tenta de novo é o cron.
+    assert get.call_count == 1
+
+
+@pytest.mark.parametrize("status", [301, 404, 500, 503])
+def test_pagina_com_http_diferente_de_200_e_download_error(status):
+    with (
+        mock.patch(
+            "apps.cardapio.leitor.cardapio_downloader.requests.get",
+            return_value=_resposta("<h3>Cardápio Gama</h3>", status),
+        ),
+        pytest.raises(DownloadError, match=f"HTTP {status}"),
+    ):
+        _localizar("Gama")
+
+
+# ------------------------------------------------------------------ baixar
+
+PDF_GAMA = (
+    Path(__file__).parent
+    / "fixtures"
+    / "cardapios"
+    / "Gama-Semana-02-23-11-a-29-11.pdf"
+)
+
+
+def _fonte():
+    return FontePDF(
+        CAMPI["Gama"],
+        UPLOADS + "Gama-Semana-02-23-11-a-29-11.pdf",
+        "ISM – 23/11/2026 À 29/11/2026",
+        *SEMANA_23,
+    )
+
+
+def test_baixar_devolve_o_conteudo_e_o_sha256():
+    conteudo = PDF_GAMA.read_bytes()
+    with mock.patch(
+        "apps.cardapio.leitor.cardapio_downloader.requests.get",
+        return_value=_resposta(conteudo),
+    ) as get:
+        arquivo = CardapioDownloader().baixar(_fonte())
+    assert arquivo == ArquivoPDF(conteudo, hashlib.sha256(conteudo).hexdigest())
+    assert len(arquivo.sha256) == 64
+    (url,), kwargs = get.call_args
+    assert url == UPLOADS + "Gama-Semana-02-23-11-a-29-11.pdf"
+    assert "BandejaoUnB" in kwargs["headers"]["User-Agent"]
+    assert 0 < kwargs["timeout"] <= 30
+    assert kwargs["allow_redirects"] is False
+
+
+@pytest.mark.parametrize("status", [302, 403, 404, 500])
+def test_baixar_com_http_diferente_de_200_e_download_error(status):
+    with (
+        mock.patch(
+            "apps.cardapio.leitor.cardapio_downloader.requests.get",
+            return_value=_resposta(b"%PDF-1.7", status),
+        ),
+        pytest.raises(DownloadError, match=f"HTTP {status}.*Gama-Semana-02"),
+    ):
+        CardapioDownloader().baixar(_fonte())
+
+
+def test_baixar_com_tempo_esgotado_e_download_error():
+    with (
+        mock.patch(
+            "apps.cardapio.leitor.cardapio_downloader.requests.get",
+            side_effect=requests.Timeout("demorou"),
+        ) as get,
+        pytest.raises(DownloadError, match="Timeout"),
+    ):
+        CardapioDownloader().baixar(_fonte())
+    assert get.call_count == 1
+
+
+def test_resposta_que_nao_e_pdf_e_formato_invalido():
+    # Página de erro do WordPress com status 200.
+    with (
+        mock.patch(
+            "apps.cardapio.leitor.cardapio_downloader.requests.get",
+            return_value=_resposta("<html><body>Página não encontrada</body></html>"),
+        ),
+        pytest.raises(FormatoPDFInvalidoError, match="não é um PDF"),
+    ):
+        CardapioDownloader().baixar(_fonte())
 
 
 # ------------------------------------------------------ FonteCardapioConfig
