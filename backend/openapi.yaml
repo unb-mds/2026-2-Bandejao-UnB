@@ -228,7 +228,10 @@ paths:
         schema:
           type: string
           format: date
-        description: 'Dia a exibir. Omitido: dia corrente.'
+        description: 'Dia a exibir (AAAA-MM-DD, dentro da `semana`, se ela vier).
+          Omitido: o dia corrente ou, se a `semana` pedida não contém hoje, o primeiro
+          dia dela. Sem `refeicao`, um dia sem serviço passa ao próximo dia com serviço
+          (RN05), e `data` na resposta diz qual.'
       - in: query
         name: dieta
         schema:
@@ -242,7 +245,9 @@ paths:
         name: marcadores
         schema:
           type: string
-        description: Marcadores selecionados, separados por vírgula.
+        description: 'Marcadores selecionados, num parâmetro só, separados por vírgula
+          (ex.: `ovo,soja`), com os nomes de `MARCADOR`. Nome desconhecido ou item
+          vazio dão 400.'
       - in: query
         name: refeicao
         schema:
@@ -257,7 +262,10 @@ paths:
         schema:
           type: string
           format: date
-        description: 'Início da semana. Omitido: semana vigente.'
+        description: 'Semana a exibir, pela data do primeiro dia (AAAA-MM-DD, entre
+          2000-01-01 e 2099-12-31). Serve só para escolher o dia quando `dia` é omitido;
+          se a semana está publicada, quem diz é a data do PDF lido do campus. Omitida:
+          semana vigente.'
       tags:
       - cardapio
       security:
@@ -275,7 +283,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Parâmetro ausente ou inválido, como `campus`. `codigo`: `parametros_invalidos`.'
+          description: 'Parâmetro ausente ou inválido, como `campus`; parâmetro fora
+            da lista acima ou repetido; data fora da faixa ou `dia` fora da `semana`.
+            `codigo`: `parametros_invalidos`.'
   /api/checkins/:
     post:
       operationId: checkins_create
