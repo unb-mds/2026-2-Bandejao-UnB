@@ -37,6 +37,15 @@ PRODUCAO = {
 }
 
 
+def test_email_da_equipe_tem_padrao_e_vem_do_ambiente(carregar_settings):
+    # Destinatário dos alertas do Leitor (ADR 0006 e 0012, BE-12): com o
+    # padrão, o servidor sobe mesmo sem a variável no .env da VM.
+    padrao = carregar_settings(**PRODUCAO)
+    assert padrao.EMAIL_EQUIPE == "equipe@bandejaounb.com.br"
+    trocado = carregar_settings(**PRODUCAO, EMAIL_EQUIPE="outra@exemplo.br")
+    assert trocado.EMAIL_EQUIPE == "outra@exemplo.br"
+
+
 def mailer(modulo):
     return modulo.MAILERS["default"]
 
