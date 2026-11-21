@@ -315,15 +315,20 @@ classDiagram
     em `marcadores` ou nome que não está na tabela `MARCADOR` (a mensagem
     cita os nomes). Espaços em volta e nomes repetidos são aceitos, e
     `marcadores` vazio é o mesmo que nenhum.
-  - **404 `campus_nao_encontrado`** (`{codigo, mensagem}`, #217): `campus`
-    só com dígitos, mas sem registro em `CAMPUS` (link antigo ou campus
-    removido). É o mesmo `codigo` do `GET /api/ranking/{campusId}/`, e a tela
-    do campus decide por ele para mostrar "Campus não encontrado" (FE-08,
-    #144). Todos os 400 acima são conferidos antes: com o campus inexistente
-    e outro parâmetro inválido, a resposta é o 400.
   - **`avisoSujeitoAAlteracao`** é o aviso curto do RF07.1, o mesmo texto da
     `CardapioView.vue`, numa constante única (`AVISO_SUJEITO_A_ALTERACAO`).
     O aviso longo do filtro (RF08, L04) continua no front.
+- **Campus inexistente (#217, decisão de 21/11/2026).** `campus` só com
+  dígitos, mas sem registro em `CAMPUS` (link antigo ou campus removido),
+  responde **404 `campus_nao_encontrado`**:
+  `{"codigo": "campus_nao_encontrado", "mensagem": "Não existe campus com esse id."}`.
+  O `codigo` é o mesmo do contrato do `GET /api/ranking/{campusId}/`, e a
+  mensagem é a do antigo 400. Um id com mais dígitos que o maior pk (19) dá o
+  mesmo 404 sem consultar o banco. Todos os 400 acima são conferidos antes:
+  com o campus inexistente e outro parâmetro inválido, a resposta é o 400,
+  que é erro de quem chamou. O mesmo 404 está no contrato de
+  `GET /api/avaliacoes/resumo/` e `GET /api/fila/previsao/` (as duas views
+  ainda devolvem 501).
 
 ## Nível 4b — Lista de campi para a detecção
 
