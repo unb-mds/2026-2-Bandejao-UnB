@@ -324,4 +324,23 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - TDD dos ajustes: quatro pares `test` → `fix`, com 5, 8, 31 e 8 testes falhando antes de cada correção, conferidos commit a commit. Três commits `test` são de caracterização e passam ao entrar: o relógio em UTC, a sobreposição de um dia só e a semana vigente no domingo à noite em UTC. Os dois últimos foram escritos porque duas sabotagens sobreviveram.
 - Sabotagem dos ajustes: 30 alterações novas, entre elas as cinco que a revisão apontou como invisíveis à suíte. Na primeira rodada sobreviveram duas (`timezone.localtime` trocado por `agora` no cálculo da segunda-feira vigente, e a sobreposição estrita); entraram os testes, e as 30 derrubam ao menos um teste. As 39 da primeira entrega continuam derrubando (7 delas reescritas para o código novo).
 - Validação após os ajustes: `pytest` com 1514 testes aprovados e 1 ignorado, cobertura de `apps` de 98,63% (100% nos módulos novos do `leitor`, 98% no parser); `ruff check`, `ruff format --check`, `bandit -lll` e `makemigrations --check` aprovados; os três diagramas do C4 do Leitor renderizam no `mmdc`.
-- Situação: ajustes da revisão aplicados; aguardando o recheck de AlvaroBento12. Para a dupla do banco: o campo novo `email_enviado_em` (migração `0005`) e a mudança do `zerar_contador` estão no N4.
+- Segunda revisão de AlvaroBento12. Três pontos ainda impediam o merge:
+  - (A) erro inesperado capturado nas semanas voltava a sair com código 0;
+  - (B) `send_mail` que devolve 0 (com `EMAIL_EQUIPE=` vazio) contava como enviado;
+  - (C) o corpo do PR estava duplicado em HTML.
+- Ajustes da segunda revisão:
+  - O `ResultadoLeitura` ganhou `inesperados` e `email_falhou`, e o comando sai com código 1 nos dois casos, depois de processar todos os campi.
+  - `enviar_pendentes` devolve `ResultadoEnvio(enviados, falhou)`.
+  - `send_mail` diferente de 1 é falha, e o log traz o código SMTP.
+  - `EMAIL_EQUIPE` vazio cai no padrão.
+  - O alerta do erro inesperado no comando tem `try` e log separados para gravar e enviar, e usa o `AlertaEquipeService` do serviço.
+  - O link reprovado por datas, 7 dias ou prefixo não reprova o link certo por sobreposição.
+  - O e-mail lista os alertas mais antigos primeiro.
+  - Os alertas de uma transação desfeita não entram no resumo.
+  - `ParametrosLeitorConfig` passou a ser injetável.
+  - A ADR 0006 e o C4 registram o máximo de 4 e-mails numa falha intermitente e que execuções simultâneas não são suportadas.
+  - O corpo do PR foi refeito.
+- TDD da segunda revisão: um par `test` → `fix`, com 38 testes falhando antes da correção e passando depois (conferido commit a commit), e um commit `test` a mais com dois testes que fecharam brechas achadas na sabotagem.
+- Sabotagem da segunda revisão: 12 alterações novas. Na primeira rodada, uma sobreviveu (os alertas de uma transação desfeita contando no resumo), porque o teste derrubava a transação antes do alerta. O teste passou a derrubar a transação no último passo, e as 12 derrubam ao menos um teste.
+- Validação após a segunda revisão: `pytest` com 1524 testes aprovados e 1 ignorado, cobertura de `apps` de 98,65% (100% nos módulos novos do `leitor`, 98% no parser); `ruff check`, `ruff format --check`, `bandit -lll` e `makemigrations --check` aprovados; os três diagramas do C4 do Leitor renderizam no `mmdc`.
+- Situação: ajustes da segunda revisão aplicados; aguardando o recheck de AlvaroBento12. Para a dupla do banco: o campo novo `email_enviado_em` (migração `0005`) e a mudança do `zerar_contador` estão no N4.

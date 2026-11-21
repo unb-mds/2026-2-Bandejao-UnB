@@ -82,7 +82,7 @@ classDiagram
   }
   class AlertaEquipeService {
     +registrar_alerta(tipo: TipoAlerta, campus: Campus, detalhe: str, refeicao) AlertaLeituraCardapio
-    +enviar_pendentes(campus: Campus, agora: datetime) int
+    +enviar_pendentes(campus: Campus, agora: datetime) ResultadoEnvio
     +zerar_contador(campus: Campus, agora: datetime) void
     -_deve_enviar(tipo: TipoAlerta, campus: Campus, agora: datetime) bool
     +MAX_AVISOS_POR_DIA: int = 3
@@ -214,7 +214,7 @@ classDiagram
   }
   class AlertaEquipeService {
     +registrar_alerta(tipo: TipoAlerta, campus: Campus, detalhe: str, refeicao) AlertaLeituraCardapio
-    +enviar_pendentes(campus: Campus, agora: datetime) int
+    +enviar_pendentes(campus: Campus, agora: datetime) ResultadoEnvio
     +zerar_contador(campus: Campus, agora: datetime) void
     -_deve_enviar(tipo: TipoAlerta, campus: Campus, agora: datetime) bool
     +MAX_AVISOS_POR_DIA: int = 3
@@ -282,6 +282,26 @@ classDiagram
   primeiro, e diz quantos ficaram de fora da lista. Falha no envio
   (`SMTPException`, `OSError` ou qualquer outra exceção, como configuração
   ou cabeçalho) vai para o log e não derruba a leitura (ADR 0006).
+- **Segunda revisão do PR #218.**
+  - O e-mail lista os alertas **mais antigos** primeiro, para a causa
+    original de uma sequência longa de falhas aparecer.
+  - `enviar_pendentes` devolve `ResultadoEnvio(enviados, falhou)`: "nada
+    pendente" e "limite" são `(0, False)`; o envio que falhou é `(0, True)`.
+  - Um `send_mail` que devolve 0 sem levantar (destinatário descartado)
+    conta como falha. O log traz o código SMTP (`smtp_code`), que separa
+    senha errada (535) de destinatário recusado (550).
+  - `EMAIL_EQUIPE` vazio no `.env` cai no padrão.
+  - O `ResultadoLeitura` ganhou `inesperados` (erros fora das cinco exceções,
+    já transformados em alerta) e `email_falhou`. O comando sai com código 1
+    se algum campus teve erro inesperado ou e-mail que não saiu, depois de
+    processar todos os campi. As falhas esperadas da leitura viram alerta e
+    não mudam o código de saída.
+  - Os alertas gravados dentro de uma transação desfeita não entram no
+    resumo do comando.
+  - **Execuções simultâneas do `ler_cardapio` não são suportadas:** o cron
+    dispara uma de cada vez. Duas ao mesmo tempo poderiam passar do limite
+    de e-mails, e a `CHECK` de `CONTADOR_ALERTA` desfaria o registro de um
+    e-mail já enviado.
   Decisão registrada na ADR 0006
   (`docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md`), que compara o
   e-mail com log passivo e consulta manual ao banco. O e-mail de destino
@@ -429,7 +449,7 @@ classDiagram
   class DownloadError
   class AlertaEquipeService {
     +registrar_alerta(tipo: TipoAlerta, campus: Campus, detalhe: str, refeicao) AlertaLeituraCardapio
-    +enviar_pendentes(campus: Campus, agora: datetime) int
+    +enviar_pendentes(campus: Campus, agora: datetime) ResultadoEnvio
     +zerar_contador(campus: Campus, agora: datetime) void
   }
   class SiteRU["Site do RU (externo)"] {
@@ -538,6 +558,11 @@ classDiagram
   - As datas do texto do link são lidas depois de tirar acentos e
     maiúsculas: aceitam "À", "a", "até", hífen, meia-risca e travessão
     entre elas, e precisam estar em ordem.
+  - A conferência de semana repetida ou sobreposta só considera os links
+    que passaram nas conferências do próprio link (datas, 7 dias e prefixo
+    do arquivo): um link errado ("16/11 a 29/11") não derruba o certo
+    ("23/11 a 29/11"). O link errado continua contando para o "não
+    publicado", e a equipe recebe o alerta dele (segunda revisão do PR #218).
   - O prefixo do arquivo é comparado seguido de "-" (`Gama` não aceita
     `Gamaxyz-…`), ou o nome é só o prefixo. Os dois PDFs da Fazenda
     (`Fazenda-Semana-…` e `Fazenda-Agua-Limpa-Semana-…`) passam.
