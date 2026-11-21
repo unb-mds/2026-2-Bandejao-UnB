@@ -418,3 +418,90 @@ def test_marcador_existe_na_tabela_e_nao_numa_lista_fixa(cliente, campus):
     Marcador.objects.filter(nome="mel").delete()
 
     assert_400(pedir(cliente, campus=campus.pk, marcadores="mel"), "mel")
+
+
+# --- Revisão do PR #214: parâmetro repetido, desconhecido e datas extremas ---
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "marcadores=ovo&marcadores=soja",
+        "dieta=sem_filtro&dieta=vegetariano_estrito",
+        "refeicao=almoco&refeicao=jantar",
+        "dia=2026-11-24&dia=2026-11-25",
+    ],
+)
+def test_parametro_repetido_da_400(cliente, campus, almoco, query):
+    # `QueryDict.get` ficaria só com o último valor: com marcadores, o `ovo`
+    # sumiria sem aviso.
+    with relogio(TERCA, time(12, 0)):
+        resposta = cliente.get(f"{ROTA}?campus={campus.pk}&{query}")
+
+    assert_400(resposta, "mais de uma vez")
+
+
+def test_campus_repetido_da_400(cliente, campus):
+    with relogio(TERCA, time(12, 0)):
+        resposta = cliente.get(f"{ROTA}?campus={campus.pk}&campus={campus.pk}")
+
+    assert_400(resposta, "campus")
+
+
+@pytest.mark.parametrize("nome", ["marcadores[]", "marcador", "Marcadores", "dietas"])
+def test_parametro_desconhecido_da_400_com_o_nome(cliente, campus, almoco, nome):
+    # Um filtro de alergênico com o nome errado não pode virar "sem filtro".
+    resposta = pedir(cliente, campus=campus.pk, **{nome: "ovo"})
+
+    assert_400(resposta)
+    assert resposta.json()["mensagem"] == f"Parâmetro desconhecido: {nome}."
+
+
+def test_varios_parametros_desconhecidos_saem_todos(cliente, campus):
+    resposta = pedir(cliente, campus=campus.pk, marcador="ovo", tipo="almoco")
+
+    assert_400(resposta)
+    assert resposta.json()["mensagem"] == "Parâmetros desconhecidos: marcador, tipo."
+
+
+@pytest.mark.parametrize("parametro", ["semana", "dia"])
+@pytest.mark.parametrize(
+    "valor", ["0001-01-01", "1999-12-31", "2100-01-01", "9999-12-31"]
+)
+def test_data_fora_da_faixa_aceita_da_400_e_nao_500(cliente, campus, parametro, valor):
+    resposta = pedir(cliente, campus=campus.pk, refeicao="almoco", **{parametro: valor})
+
+    assert_400(resposta, parametro)
+
+
+@pytest.mark.parametrize("valor", ["2000-01-01", "2099-12-31"])
+def test_datas_nos_limites_da_faixa_sao_aceitas(cliente, campus, valor):
+    resposta = pedir(cliente, campus=campus.pk, dia=valor, refeicao="almoco")
+
+    assert resposta.status_code == 200
+    assert resposta.json()["data"] == valor
+
+
+def test_semana_e_dia_nos_extremos_da_faixa(cliente, campus):
+    resposta = pedir(cliente, campus=campus.pk, semana="2099-12-30", dia="2099-12-31")
+
+    assert resposta.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "dia, valido",
+    [
+        ("2026-11-22", False),  # semana - 1
+        ("2026-11-23", True),  # primeiro dia
+        ("2026-11-29", True),  # semana + 6
+        ("2026-11-30", False),  # semana + 7
+    ],
+)
+def test_limites_do_dia_dentro_da_semana(cliente, campus, dia, valido):
+    resposta = pedir(cliente, campus=campus.pk, semana="2026-11-23", dia=dia)
+
+    if valido:
+        assert resposta.status_code == 200
+        assert resposta.json()["data"] == dia
+    else:
+        assert_400(resposta, "semana")
