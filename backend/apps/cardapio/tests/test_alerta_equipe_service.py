@@ -44,12 +44,19 @@ def gama(db):
     return Campus.objects.get(nome="Gama")
 
 
-def _execucao(campus, agora, *alertas):
+def _envio(campus, agora, *alertas):
     """Uma execução do Leitor no campus: registra os alertas e envia."""
     servico = AlertaEquipeService()
     for tipo, detalhe in alertas or [(FALHA, "download: HTTP 503")]:
         servico.registrar_alerta(tipo, campus, detalhe)
     return servico.enviar_pendentes(campus, agora=agora)
+
+
+def _execucao(campus, agora, *alertas):
+    """Quantos alertas foram no e-mail da execução."""
+    envio = _envio(campus, agora, *alertas)
+    assert envio.falhou is False
+    return envio.enviados
 
 
 def _contador(campus, tipo=FALHA, dia=SEGUNDA):
@@ -125,7 +132,7 @@ def test_destinatario_vem_do_settings(gama, settings):
 
 
 def test_sem_pendentes_nao_envia(gama):
-    assert AlertaEquipeService().enviar_pendentes(gama, agora=SEGUNDA_9H) == 0
+    assert AlertaEquipeService().enviar_pendentes(gama, agora=SEGUNDA_9H) == (0, False)
     assert mail.outbox == []
     assert not ContadorAlerta.objects.exists()
 
@@ -133,7 +140,7 @@ def test_sem_pendentes_nao_envia(gama):
 def test_alerta_resolvido_nao_e_enviado(gama):
     AlertaEquipeService().registrar_alerta(FALHA, gama, "velho")
     AlertaLeituraCardapio.objects.update(resolvido=True)
-    assert AlertaEquipeService().enviar_pendentes(gama, agora=SEGUNDA_9H) == 0
+    assert AlertaEquipeService().enviar_pendentes(gama, agora=SEGUNDA_9H) == (0, False)
 
 
 # ------------------------------------------------------------------ limite
@@ -224,10 +231,12 @@ def test_email_lista_no_maximo_vinte_alertas(gama):
     servico = AlertaEquipeService()
     for numero in range(25):
         servico.registrar_alerta(FALHA, gama, f"alerta número {numero:02d}")
-    assert servico.enviar_pendentes(gama, agora=SEGUNDA_9H) == 25
+    assert servico.enviar_pendentes(gama, agora=SEGUNDA_9H).enviados == 25
     corpo = mail.outbox[0].body
-    assert "alerta número 24" in corpo  # os mais recentes primeiro
-    assert "alerta número 04" not in corpo
+    # Os mais antigos primeiro: numa sequência longa de falhas, a causa
+    # original aparece na lista (segunda revisão do PR #218).
+    assert corpo.index("alerta número 00") < corpo.index("alerta número 19")
+    assert "alerta número 20" not in corpo
     assert "e mais 5 alertas" in corpo
 
 
@@ -313,7 +322,7 @@ def test_falha_no_envio_nao_derruba_e_deixa_os_alertas_pendentes(gama, caplog, e
         ),
         caplog.at_level(logging.ERROR),
     ):
-        assert _execucao(gama, SEGUNDA_9H) == 0
+        assert _envio(gama, SEGUNDA_9H) == (0, True)
     assert (
         AlertaLeituraCardapio.objects.filter(email_enviado_em__isnull=True).count() == 1
     )
@@ -323,6 +332,36 @@ def test_falha_no_envio_nao_derruba_e_deixa_os_alertas_pendentes(gama, caplog, e
     assert _execucao(gama, SEGUNDA_9H + timedelta(hours=1)) == 2
     assert len(mail.outbox) == 1
     assert _contador(gama).quantidade_enviada == 1
+
+
+def test_send_mail_que_nao_envia_nada_nao_conta_como_enviado(gama, caplog):
+    # Segunda revisão #218, item B: com o destinatário descartado, o
+    # `send_mail` devolve 0 sem levantar.
+    with (
+        mock.patch(
+            "apps.cardapio.leitor.alerta_equipe_service.send_mail", return_value=0
+        ),
+        caplog.at_level(logging.ERROR),
+    ):
+        assert _envio(gama, SEGUNDA_9H) == (0, True)
+    assert AlertaLeituraCardapio.objects.get().email_enviado_em is None
+    assert not ContadorAlerta.objects.exists()
+    assert "nenhum e-mail" in caplog.text
+
+
+def test_log_da_falha_traz_o_codigo_smtp(gama, caplog):
+    # Senha do Brevo trocada (535) e destinatário recusado (550) se separam
+    # pelo código; nenhum dos dois traz dado de usuário.
+    erro = smtplib.SMTPAuthenticationError(535, b"Authentication failed")
+    with (
+        mock.patch(
+            "apps.cardapio.leitor.alerta_equipe_service.send_mail", side_effect=erro
+        ),
+        caplog.at_level(logging.ERROR),
+    ):
+        _envio(gama, SEGUNDA_9H)
+    assert "SMTPAuthenticationError" in caplog.text
+    assert "535" in caplog.text
 
 
 def test_email_nao_leva_dado_de_usuario(gama, usuario):

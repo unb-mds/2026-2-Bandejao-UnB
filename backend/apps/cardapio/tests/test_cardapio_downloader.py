@@ -367,6 +367,31 @@ def test_links_que_dividem_um_dia_so_tambem_sao_sobrepostos(pagina):
     assert all("sobreposto" in str(f.erro) for f in _localizar("Gama"))
 
 
+def test_link_reprovado_por_mais_de_7_dias_nao_reprova_o_link_certo(pagina):
+    # Segunda revisão #218: o RU erra "16/11 a 29/11" e publica certo
+    # "23/11 a 29/11". O errado é reprovado; o certo continua valendo.
+    pagina.html = trocar_texto_do_link(
+        pagina.html, "Gama-Semana-01", "ISM &#8211; 16/11/2026 À 29/11/2026"
+    )
+    fontes = _localizar("Gama")
+    assert "mais de 7 dias" in str(fontes[0].erro)
+    assert fontes[1].erro is None
+
+
+def test_link_de_outro_campus_nao_reprova_o_link_certo_por_sobreposicao(pagina):
+    pagina.html = trocar_texto_do_link(
+        pagina.html, "Gama-Semana-02", "ISM &#8211; 20/11/2026 À 26/11/2026"
+    )
+    pagina.html = _trocar(
+        pagina.html,
+        "Gama-Semana-02-23-11-a-29-11.pdf",
+        "Planaltina-Semana-02-23-11-a-29-11.pdf",
+    )
+    fontes = _localizar("Gama")
+    assert fontes[0].erro is None
+    assert "não começa por" in str(fontes[1].erro)
+
+
 def test_link_de_sete_dias_exatos_e_aceito(pagina):
     assert [f.erro for f in _localizar("Gama")] == [None, None]
 

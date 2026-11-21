@@ -5,6 +5,7 @@ vez, processa os 5 campi, e a falha de um campus não impede os outros.
 """
 
 import logging
+import smtplib
 from datetime import datetime
 from io import StringIO
 from unittest import mock
@@ -13,9 +14,10 @@ from zoneinfo import ZoneInfo
 import pytest
 from django.core.management import ManagementUtility, call_command
 from django.core.management.base import CommandError
-from django.db import OperationalError
+from django.db import DataError, OperationalError
 
 from apps.cardapio.leitor.alerta_equipe_service import AlertaEquipeService
+from apps.cardapio.leitor.cardapio_repository import CardapioRepository
 from apps.cardapio.leitor.leitor_cardapio_service import LeitorCardapioService
 from apps.cardapio.management.commands.ler_cardapio import LerCardapioCommand
 from apps.cardapio.models import (
@@ -149,6 +151,73 @@ def test_alerta_do_erro_inesperado_falhando_nao_esconde_o_erro(campi, site, capl
     ):
         _rodar()
     assert "alerta" in caplog.text.lower()
+
+
+def test_erro_inesperado_em_todas_as_semanas_sai_com_codigo_diferente_de_zero(
+    campi, site
+):
+    # Segunda revisão #218, item A: o serviço captura o erro da semana (para
+    # alertar), mas o cron ainda precisa ver a falha pelo código de saída.
+    saida = StringIO()
+    with (
+        mock.patch.object(
+            CardapioRepository, "salvar", side_effect=DataError("Data too long")
+        ),
+        mock.patch("django.utils.timezone.now", return_value=SABADO_10H),
+        pytest.raises(CommandError, match="erro inesperado") as erro,
+    ):
+        call_command("ler_cardapio", stdout=saida)
+    # Os PDFs que estão nas fixtures falham ao gravar: Gama (2), Planaltina e
+    # Fazenda (1 cada).
+    assert "Gama" in str(erro.value) and "Fazenda Água Limpa" in str(erro.value)
+    assert "Darcy Ribeiro" not in str(erro.value)
+    assert "Gama: 0 lidas, 0 sem mudança, 2 alertas, 2 erros inesperados" in (
+        saida.getvalue()
+    )
+    assert not FonteCardapio.objects.exists()
+
+
+def test_email_de_alertas_que_falhou_sai_com_codigo_diferente_de_zero(
+    campi, site, caplog
+):
+    # Recomendação da segunda revisão: senha do Brevo trocada deixaria os
+    # alertas pendentes para sempre com o cron em código 0.
+    erro = smtplib.SMTPAuthenticationError(535, b"Authentication failed")
+    saida = StringIO()
+    with (
+        mock.patch(
+            "apps.cardapio.leitor.alerta_equipe_service.send_mail", side_effect=erro
+        ),
+        mock.patch("django.utils.timezone.now", return_value=SABADO_10H),
+        caplog.at_level(logging.ERROR),
+        pytest.raises(CommandError, match="e-mail") as falha,
+    ):
+        call_command("ler_cardapio", stdout=saida)
+    assert "Darcy Ribeiro" in str(falha.value)
+    assert "Darcy Ribeiro: 0 lidas, 0 sem mudança, 2 alertas, e-mail falhou" in (
+        saida.getvalue()
+    )
+    # O Gama não teve alerta: não houve e-mail para falhar.
+    assert "Gama: 2 lidas, 0 sem mudança, 0 alertas\n" in saida.getvalue()
+
+
+def test_falha_no_envio_do_alerta_do_erro_inesperado_tem_log_proprio(
+    campi, site, caplog
+):
+    with (
+        _darcy_quebra(RuntimeError("bug no Darcy")),
+        mock.patch.object(
+            AlertaEquipeService,
+            "enviar_pendentes",
+            side_effect=OperationalError("banco fora do ar"),
+        ),
+        caplog.at_level(logging.ERROR),
+        pytest.raises(CommandError),
+    ):
+        _rodar()
+    darcy = Campus.objects.get(nome="Darcy Ribeiro")
+    assert AlertaLeituraCardapio.objects.filter(campus=darcy).exists()
+    assert "Não foi possível enviar o e-mail" in caplog.text
 
 
 def test_execucao_sem_erro_inesperado_termina_com_codigo_zero(campi, site):

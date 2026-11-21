@@ -44,6 +44,12 @@ def test_email_da_equipe_tem_padrao_e_vem_do_ambiente(carregar_settings):
     assert padrao.EMAIL_EQUIPE == "equipe@bandejaounb.com.br"
     trocado = carregar_settings(**PRODUCAO, EMAIL_EQUIPE="outra@exemplo.br")
     assert trocado.EMAIL_EQUIPE == "outra@exemplo.br"
+    # `EMAIL_EQUIPE=` vazio no .env também cai no padrão: um destinatário
+    # vazio faria o e-mail sumir sem erro (segunda revisão do PR #218).
+    for vazio in ("", "   "):
+        assert carregar_settings(**PRODUCAO, EMAIL_EQUIPE=vazio).EMAIL_EQUIPE == (
+            "equipe@bandejaounb.com.br"
+        )
 
 
 def mailer(modulo):

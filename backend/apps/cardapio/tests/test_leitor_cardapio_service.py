@@ -447,6 +447,39 @@ def test_erro_inesperado_numa_semana_nao_impede_a_outra(gama, site):
     assert any("não publicado" in m for m in mensagens)
 
 
+def test_erros_inesperados_sao_contados_no_resultado(gama, site):
+    with _salvar_falha_na_semana(SEGUNDA_23, DataError("Data too long")):
+        resultado = _processar(gama)
+    assert (resultado.lidas, resultado.inesperados) == (1, 1)
+
+
+def test_alertas_desfeitos_com_a_transacao_nao_entram_no_resumo(gama, site):
+    # Pode ficar para depois (segunda revisão): o alerta só em texto gravado
+    # dentro da transação desfeita não conta no `resultado.alertas`.
+    site.conteudos[URL_GAMA_23] = 404
+    with (
+        falhar_associacao_na_refeicao("almoco"),
+        mock.patch.object(
+            CardapioRepository,
+            "remover_ausentes",
+            side_effect=DatabaseError("caiu no meio"),
+        ),
+    ):
+        resultado = _processar(gama)
+    assert resultado.alertas == AlertaLeituraCardapio.objects.count() == 2
+    assert resultado.inesperados == 1
+
+
+def test_email_que_falhou_aparece_no_resultado(gama, site):
+    site.conteudos[URL_GAMA_23] = 500
+    with mock.patch(
+        "apps.cardapio.leitor.alerta_equipe_service.send_mail", return_value=0
+    ):
+        resultado = _processar(gama)
+    assert resultado.email_falhou is True
+    assert _processar(gama, SABADO_10H + timedelta(hours=3)).email_falhou is False
+
+
 def test_erro_inesperado_na_descoberta_vira_alerta(gama, site):
     with mock.patch.object(
         CardapioDownloader, "_blocos_por_titulo", side_effect=AttributeError("bs4")
