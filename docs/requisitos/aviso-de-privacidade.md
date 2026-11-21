@@ -2,6 +2,8 @@
 
 **Versão:** 2026-11-14
 
+**Revisado em:** 2026-11-19 (o login passou a usar o e-mail institucional, §2; ajuste sem nova ciência, §11)
+
 O Bandejão é um aplicativo feito por estudantes da disciplina de Métodos de
 Desenvolvimento de Software (MDS) da UnB para a comunidade acadêmica. **Não é
 um serviço oficial da UnB nem do Restaurante Universitário.** Este aviso
@@ -30,8 +32,8 @@ Nesse caso, o Bandejão não guarda nenhum dado que identifique você:
 | Dado | Para quê |
 |---|---|
 | Tipo de usuário (estudante ou professor/servidor) | Saber quais campos pedir no cadastro |
-| Matrícula (estudante) ou SIAPE (professor/servidor) | Entrar na conta e garantir uma conta por pessoa |
-| E-mail institucional (`@aluno.unb.br` ou `@unb.br`) | Confirmar a conta e enviar o link de redefinição de senha |
+| Matrícula (estudante) ou SIAPE (professor/servidor) | Garantir uma conta por pessoa |
+| E-mail institucional (`@aluno.unb.br` ou `@unb.br`) | Entrar na conta, confirmar a conta e enviar o link de redefinição de senha |
 | Apelido | Identificar você nas avaliações e, se quiser, no ranking |
 | Senha | Entrar na conta. Guardamos só uma versão embaralhada (hash), nunca a senha em si |
 | Data e versão deste aviso que você aceitou | Comprovar o seu consentimento |
@@ -178,6 +180,11 @@ Nacional de Proteção de Dados (ANPD).
 
 ## 11. Mudanças neste aviso
 
-Quando este aviso mudar, a data da versão no topo muda junto. Na próxima vez
-que você entrar, o aplicativo mostra o novo texto para você dar ciência, e o
-check-in só volta a funcionar depois disso.
+Quando mudar o que guardamos ou para quê (um dado novo ou uma finalidade
+nova), a data da versão no topo muda junto. Na próxima vez que você entrar, o
+aplicativo mostra o novo texto para você dar ciência, e o check-in só volta a
+funcionar depois disso.
+
+Um ajuste que não traz dado nem finalidade nova (uma correção de redação, ou
+passar a usar para entrar um dado que já guardávamos para a sua conta) fica
+anotado logo abaixo da versão, em "Revisado em", sem pedir nova ciência.

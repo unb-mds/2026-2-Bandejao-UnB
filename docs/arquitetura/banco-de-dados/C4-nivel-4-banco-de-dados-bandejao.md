@@ -253,7 +253,7 @@ Conta de acesso ao aplicativo (não a pessoa; glossário: "Usuário").
 | `matricula_siape` | CharField(9) | NOT NULL, **UNIQUE**, index | 9 dígitos (estudante, extraída do e-mail) ou 7 dígitos (professor/servidor, digitada). Dado privado (RI10, RNF07): nunca retornado em resposta de API pública. |
 | `apelido` | CharField(20) | NOT NULL, 3–20 chars, sem espaço | Nome público exibido nas avaliações. Definido uma única vez no cadastro (RF01); imutável depois. |
 | `apelido_normalizado` | CharField(20) | NOT NULL, **UNIQUE** | `apelido` sem acentos e em minúsculas, gerado na gravação. Garante a unicidade sem distinção de maiúsculas/minúsculas (RF01) e de acentos, de forma idêntica em SQLite e MySQL (ver seção de migração). |
-| `email_institucional` | EmailField | NOT NULL, **UNIQUE** | `matricula@aluno.unb.br` (estudante) ou `nome@unb.br` (professor/servidor). Único canal de confirmação e recuperação (RF02, RF04, L07). |
+| `email_institucional` | EmailField | NOT NULL, **UNIQUE** | `matricula@aluno.unb.br` (estudante) ou `nome.sobrenome@unb.br` (professor/servidor; qualquer texto antes do `@unb.br`, ADR 0002). Gravado sem espaços nas pontas e em minúsculas (`normalizar_email`). Identificador do login (RF03, ADR 0016) e único canal de confirmação e recuperação (RF02, RF04, L07). O `UNIQUE` já cria o índice usado na busca do login. |
 | `senha_hash` | CharField(128) | NOT NULL | Hash da senha (Django `PBKDF2`/`Argon2`); nunca texto plano (RI04, RNF04). |
 | `email_confirmado` | BooleanField | NOT NULL, default `false` | Conta só autentica com `true` (RF02, RF03). |
 | `status` | CharField(20) | NOT NULL, choices, default `pendente` | `pendente` \| `ativo` \| `suspenso` (RNF08 — moderação manual da equipe). Não há `removido`: a exclusão de conta apaga a linha (RNF07.4, revisão da ADR 0004). |
@@ -514,7 +514,7 @@ Link de uso único para confirmação de e-mail e redefinição de senha (RF02, 
 | `usuario_id` | ForeignKey → `USUARIO` | NOT NULL, `ON DELETE CASCADE` | Conta dona do token. |
 | `tipo` | CharField(20) | NOT NULL, choices | `confirmacao_email` (RF02) \| `redefinicao_senha` (RF04). |
 | `token_hash` | CharField(64) | NOT NULL, **UNIQUE** | SHA-256 do token enviado por e-mail; o token em si nunca é persistido em claro (RNF04: "token aleatório imprevisível"). |
-| `criado_em` | DateTimeField | NOT NULL, auto | Usado também para aplicar o limite de "3 solicitações de redefinição por hora por matrícula/SIAPE" (Anexo A, RF04), contando linhas de `tipo = redefinicao_senha` na última hora. |
+| `criado_em` | DateTimeField | NOT NULL, auto | Usado também para aplicar o limite de "3 solicitações de redefinição por hora por e-mail institucional" (Anexo A, RF04), contando as linhas de `tipo = redefinicao_senha` da conta com aquele e-mail na última hora. |
 | `expira_em` | DateTimeField | NOT NULL | `criado_em` + 24h (confirmação) ou + 1h (redefinição), conforme Anexo A. |
 | `usado_em` | DateTimeField | nullable | Preenchido no uso; um token com `usado_em` preenchido ou `expira_em` no passado é inválido (validado na aplicação). |
 
@@ -551,7 +551,7 @@ duas categorias.
 | Avaliação oculta pela moderação não é exibida nem entra na nota média | RNF08, ADR 0004 | **Aplicação**: consultas públicas de avaliação (comentários, resumo do dia e histórico) filtram `AVALIACAO.oculta = false`. **Banco**: só a coluna com default `false`; quem a altera é a equipe, por acesso direto ao banco. |
 | Senha nunca em texto plano | RI04, RNF04 | **Aplicação**: Django `AbstractBaseUser`/hashers cuidam do hash antes de qualquer `INSERT`/`UPDATE`; o banco só enxerga o hash. |
 | Matrícula/SIAPE e e-mail nunca expostos a outros usuários | RI10 | **Aplicação**: Serializers de leitura pública de `USUARIO` (ex.: autor de uma avaliação) nunca incluem `matricula_siape` nem `email_institucional` — não é uma constraint de banco, é uma escolha de quais colunas cada Serializer expõe. |
-| Limite de 3 solicitações de redefinição de senha por hora por matrícula/SIAPE | RF04, Anexo A | **Aplicação**: `COUNT` de linhas em `TOKEN` (`tipo = redefinicao_senha`, `usuario_id`, `criado_em` na última hora) antes de criar uma nova. |
+| Limite de 3 solicitações de redefinição de senha por hora por e-mail institucional | RF04, Anexo A | **Aplicação**: `COUNT` de linhas em `TOKEN` (`tipo = redefinicao_senha`, `usuario_id`, `criado_em` na última hora) antes de criar uma nova. |
 | Bloqueio de login após 5 tentativas em 10 minutos | RF03, Anexo A | **Aplicação**: `USUARIO.tentativas_login_falhas`, `primeira_falha_login_em` e `bloqueado_ate`, geridos pelo `TentativaLoginTracker` (chamado pelo `LoginService`, com a linha travada por `select_for_update`). |
 | Avaliações de conta excluída ficam anônimas ("usuário removido") | RNF07.4 | **Aplicação**: o `RemoverContaCommand` apaga a linha de `USUARIO` pelo ORM (LGPD, revisão da ADR 0004), e a exibição mostra "usuário removido" quando `usuario_id` é nulo. **Banco**: `AVALIACAO.usuario_id` nullable com `ON DELETE SET NULL` (como `on_delete` é do ORM do Django, a exclusão não deve ser feita com DELETE direto no banco). |
 | Nenhuma coordenada de localização armazenada | RI09 | **Banco**: ausência deliberada de coluna de latitude/longitude do usuário em qualquer tabela (`CAMPUS.ru_*` e `CAMPUS.centro_*` são do **RU** e do **campus**, não do usuário). |

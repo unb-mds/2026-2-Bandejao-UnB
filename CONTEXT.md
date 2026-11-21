@@ -23,7 +23,7 @@ Um alimento específico oferecido dentro de uma `Refeição`, classificado por u
 Classificação de um `ItemCardápio` dentro de uma `Refeição`. Lista fechada, igual em todos os RUs e datas: guarnição, salada, sobremesa, bebida/refresco, prato principal, prato vegetariano, prato ovolactovegetariano, prato vegetariano estrito.
 
 **Usuário**
-Pessoa com conta no sistema, com um `Papel`: Aluno (login via matrícula) ou Servidor (login via matrícula funcional para professores, ou SIAPE para os demais). Só um `Usuário` autenticado pode criar um `Relato`. O campus visualizado na tela é livre — não é vinculado à conta, qualquer `Usuário` ou `Visitante` pode ver/reportar em qualquer RU.
+Pessoa com conta no sistema, com um `Papel`: Aluno (cadastro com a matrícula) ou Servidor (cadastro com a matrícula funcional, para professores, ou o SIAPE, para os demais). Desde a Release 2, os dois entram com o e-mail institucional e a senha (ADR 0016); no MVP, entravam com a matrícula/SIAPE. Só um `Usuário` autenticado pode criar um `Relato`. O campus visualizado na tela é livre — não é vinculado à conta, qualquer `Usuário` ou `Visitante` pode ver/reportar em qualquer RU.
 
 **Visitante**
 Pessoa que acessa o sistema sem login. Pode visualizar a `Fila` e o `Cardápio` semanal de qualquer campus, mas não pode criar `Relato`.

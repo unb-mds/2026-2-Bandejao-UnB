@@ -1,7 +1,7 @@
 # ADR 0002 — Matrícula e apelido extraídos do e-mail institucional
 
 **Status:** Aceita
-**Data:** 2026-09-24 (revisada em 2026-11-14: limitações conhecidas da matrícula de estudante e prefixo conferido só pelo ano)
+**Data:** 2026-09-24 (revisada em 2026-11-14: limitações conhecidas da matrícula de estudante e prefixo conferido só pelo ano; nota de 2026-11-19 sobre o login, ADR 0016)
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
 ## Contexto
@@ -49,10 +49,11 @@ de Requisitos (L10 e L16):
   calendário letivo da UnB. O método mantém o nome do Nível 4
   (`validarPrefixoAnoSemestre`).
 - **O tamanho de 9 dígitos continua sendo uma suposição para os outros
-  níveis.** O login usa o tamanho para separar matrícula (9) de SIAPE (7)
-  (RF03.1). Se a matrícula de outro nível tiver outro tamanho, essa pessoa
-  não consegue se cadastrar, e a correção exige revisar a RN01 e o RF03.1
-  juntos.
+  níveis.** Se a matrícula de outro nível tiver outro tamanho, essa pessoa
+  não consegue se cadastrar, e a correção exige revisar a RN01. *Nota de
+  2026-11-19:* o login usava o tamanho para separar matrícula (9) de SIAPE
+  (7). Desde a ADR 0016, ele usa o e-mail institucional e confere só o
+  domínio desta ADR (`@aluno.unb.br` ou `@unb.br`), sem depender do tamanho.
 - **A defesa real é a confirmação do e-mail.** A matrícula sai do e-mail, e
   a conta só funciona depois que a pessoa abre o link enviado para aquela
   caixa (RF02). Uma matrícula inventada gera um e-mail que não existe, e a
@@ -61,4 +62,4 @@ de Requisitos (L10 e L16):
   segurança.
 
 **Pendente:** confirmar o formato da matrícula com estudantes de outros
-níveis de ensino. Se for diferente, revisar a RN01, o RF03.1 e esta ADR.
+níveis de ensino. Se for diferente, revisar a RN01 e esta ADR.
