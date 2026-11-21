@@ -14,6 +14,8 @@ ocultada; com Vegetariano estrito, aparece só a linha vegetariana estrita",
 e "as demais categorias (saladas, guarnição, sopa etc.) continuam visíveis".
 """
 
+import logging
+
 import pytest
 
 from apps.cardapio.dieta_selecionada import DietaSelecionada
@@ -157,3 +159,29 @@ def test_categoria_com_um_prato_de_dieta_proibida_sai(db):
     )
 
     assert categorias == []
+
+
+def test_categoria_com_dietas_misturadas_deixa_aviso_no_log(db, caplog):
+    criar_marcadores()
+    refeicao = criar_refeicao(criar_campus(), TERCA)
+    categoria = criar_categoria(
+        refeicao,
+        ESTRITO,
+        1,
+        [("Tofu", Dieta.VEGETARIANO_ESTRITO, []), ("Omelete", Dieta.OVOLACTO, [])],
+    )
+
+    with caplog.at_level(logging.WARNING, logger="apps.cardapio.filtro_dieta_service"):
+        FiltroDietaService().aplicar(refeicao, DietaSelecionada.VEGETARIANO_ESTRITO)
+
+    [registro] = caplog.records
+    assert "dietas diferentes" in registro.getMessage()
+    assert str(categoria.pk) in registro.getMessage()
+
+
+def test_categorias_normais_nao_vao_para_o_log(almoco, caplog):
+    with caplog.at_level(logging.DEBUG, logger="apps.cardapio.filtro_dieta_service"):
+        for dieta in DietaSelecionada:
+            FiltroDietaService().aplicar(almoco, dieta)
+
+    assert caplog.records == []

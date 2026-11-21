@@ -10,6 +10,7 @@ domingo -> segunda) da tabela 9.2 do guia estão aqui, porque dependem do
 banco. Os outros horários estão em test_horario_refeicao_resolver.py.
 """
 
+import logging
 from datetime import time, timedelta
 
 import pytest
@@ -532,3 +533,47 @@ def test_dia_pedido_com_semana_e_sem_dia(hoje, esperado):
 def test_dia_pedido_sem_semana_e_hoje_e_com_dia_e_o_dia():
     assert dia_pedido(None, None, TERCA) == TERCA
     assert dia_pedido(SEGUNDA, QUARTA, TERCA) == QUARTA
+
+
+# --- Logs de configuração (revisão do PR #214, item 9) -----------------------
+
+LOGGER_SERVICO = "apps.cardapio.cardapio_query_service"
+
+
+def test_refeicao_sem_fonte_cardapio_deixa_aviso_no_log(campus, caplog):
+    # Ex.: cardápio cadastrado à mão sem a linha da semana (plano B da BE-12).
+    servir(campus, TERCA, ALMOCO)
+
+    with caplog.at_level(logging.WARNING, logger=LOGGER_SERVICO):
+        obter(campus, em_brasilia(TERCA, time(12, 0)))
+
+    [registro] = caplog.records
+    assert registro.levelno == logging.WARNING
+    assert "FonteCardapio" in registro.getMessage()
+    assert str(campus.pk) in registro.getMessage()
+    assert TERCA.isoformat() in registro.getMessage()
+
+
+def test_semana_sem_nada_no_banco_nao_vai_para_o_log(campus, caplog):
+    # Segunda de manhã, antes de o PDF sair: situação normal, sem aviso.
+    with caplog.at_level(logging.DEBUG, logger=LOGGER_SERVICO):
+        obter(campus, em_brasilia(TERCA, time(12, 0)))
+
+    assert caplog.records == []
+
+
+def test_cardapio_publicado_nao_vai_para_o_log(campus, caplog):
+    publicar_semana(campus, SEGUNDA)
+    servir(campus, TERCA, ALMOCO)
+
+    with caplog.at_level(logging.DEBUG, logger=LOGGER_SERVICO):
+        obter(campus, em_brasilia(TERCA, time(12, 0)))
+
+    assert caplog.records == []
+
+
+def test_refeicao_pedida_sem_nada_no_banco_nao_vai_para_o_log(campus, caplog):
+    with caplog.at_level(logging.DEBUG, logger=LOGGER_SERVICO):
+        obter(campus, em_brasilia(TERCA, time(12, 0)), refeicao=ALMOCO)
+
+    assert caplog.records == []
