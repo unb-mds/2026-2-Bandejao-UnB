@@ -8,6 +8,8 @@ conferem. A ordem dos blocos na página nunca é usada.
 
 Toda requisição leva o `User-Agent` do projeto e tempo limite, e não há
 repetição em sequência curta: quem tenta de novo é o cron, 3 horas depois.
+A página é lida uma vez por instância (uma por execução do comando), e não
+uma por campus: se ela falha, os outros campi recebem a mesma falha.
 """
 
 import hashlib
@@ -99,6 +101,8 @@ def _e_pdf_do_ru(url):
 class CardapioDownloader:
     def __init__(self, config: FonteCardapioConfig | None = None):
         self.config = config or FonteCardapioConfig()
+        # Conteúdo da página ou o `DownloadError` da primeira tentativa.
+        self._pagina: bytes | DownloadError | None = None
 
     # ------------------------------------------------------------ descoberta
 
@@ -150,7 +154,14 @@ class CardapioDownloader:
         return fontes
 
     def _ler_pagina(self) -> bytes:
-        return self._get(self.config.url_pagina, "página do RU").content
+        if self._pagina is None:
+            try:
+                self._pagina = self._get(self.config.url_pagina, "página do RU").content
+            except DownloadError as exc:
+                self._pagina = exc
+        if isinstance(self._pagina, DownloadError):
+            raise self._pagina
+        return self._pagina
 
     def _blocos_por_titulo(self, html) -> dict[str, list[list[tuple[str, str]]]]:
         """Rótulo normalizado -> blocos com esse título; cada bloco é a lista
