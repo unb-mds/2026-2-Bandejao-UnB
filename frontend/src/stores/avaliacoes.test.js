@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAvaliacoesStore } from './avaliacoes'
 import { useAuthStore } from './auth'
+import { apiClient } from '@/services/apiClient'
 import { CONTA_DEMO } from '@/services/mock/banco'
 import { reiniciarSimulacao } from '@/services/mock/servidor'
 
@@ -78,5 +79,19 @@ describe('avaliacoesStore', () => {
     avaliacoes.limparCache()
 
     expect(avaliacoes.daRefeicao(ALMOCO_HOJE)).toBeNull()
+  })
+})
+
+describe('avaliacoesStore: resumo do dia (GET /api/avaliacoes/resumo/)', () => {
+  it('carrega as notas de todas as refeições do dia numa chamada só', async () => {
+    const avaliacoes = useAvaliacoesStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    const resumo = await avaliacoes.carregarResumoDoDia(1, '2026-09-28')
+
+    expect(get).toHaveBeenCalledWith('/avaliacoes/resumo/?campus=1&data=2026-09-28')
+    expect(resumo.map((r) => r.tipo)).toEqual(['cafe', 'almoco', 'jantar'])
+    expect(avaliacoes.daResumoDoDia(1, '2026-09-28')).toEqual(resumo)
+    expect(avaliacoes.daResumoDoDia(1, '2026-09-29')).toBeNull()
   })
 })

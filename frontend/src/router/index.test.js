@@ -150,44 +150,48 @@ describe('navegação do protótipo', () => {
 describe('cardápio', () => {
   it('pratos com marcador aparecem com o alerta "Contém" quando não há filtro (RF08)', async () => {
     const { wrapper } = await montarEm('/cardapio', { campus: 1 })
+    await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
     const bife = wrapper.findAll('.prato').find((p) => p.text().includes('Bife acebolado'))
     expect(bife.text()).toContain('Contém:')
     expect(bife.text()).toContain('Suíno')
   })
 
-  it('com o marcador selecionado, os pratos que o contêm são ocultados (RF08)', async () => {
+  it('com o marcador selecionado, os pratos continuam e a categoria sem opção é sinalizada (RF08)', async () => {
     localStorage.setItem(
       'bandejao:preferencias',
-      JSON.stringify({ campusId: 1, dieta: 'todos', marcadores: ['leite'] }),
+      JSON.stringify({ campusId: 1, dieta: 'sem_filtro', marcadores: ['leite_e_derivados'] }),
     )
     const { wrapper } = await montarEm('/cardapio')
-    expect(wrapper.text()).not.toContain('Purê de batata')
+    await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
+    const pure = wrapper.findAll('.prato').find((p) => p.text().includes('Purê de batata'))
+    expect(pure.classes()).toContain('prato--alerta')
     expect(wrapper.text()).toContain('Sem opção compatível com o filtro ativo')
   })
 
   it('filtro de dieta oculta a linha padrão e "mostrar todas" reverte (RF09)', async () => {
     localStorage.setItem(
       'bandejao:preferencias',
-      JSON.stringify({ campusId: 1, dieta: 'ovolacto', marcadores: [] }),
+      JSON.stringify({ campusId: 1, dieta: 'ovolactovegetariano', marcadores: [] }),
     )
     const { wrapper } = await montarEm('/cardapio')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Omelete de legumes'))
     expect(wrapper.text()).not.toContain('Bife acebolado')
-    expect(wrapper.text()).toContain('Omelete de legumes')
 
     await wrapper
       .findAll('button')
       .find((b) => b.text() === 'Mostrar todas')
       .trigger('click')
-    expect(wrapper.text()).toContain('Bife acebolado')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Bife acebolado'))
   })
 
   it('campus sem cardápio publicado mostra o aviso (RF07)', async () => {
     const { wrapper } = await montarEm('/cardapio', { campus: 5 })
-    expect(wrapper.text()).toContain('Cardápio ainda não publicado')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Cardápio ainda não publicado'))
   })
 
   it('o filtro aplicado fica lembrado no aparelho', async () => {
     const { wrapper } = await montarEm('/cardapio', { campus: 1 })
+    await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
     await wrapper.find('button[aria-label="Filtros alimentares"]').trigger('click')
     await wrapper
       .findAll('.opcao-marcador')
@@ -199,7 +203,10 @@ describe('cardápio', () => {
       .trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('Bife acebolado')
+    await vi.waitFor(() => {
+      const bife = wrapper.findAll('.prato').find((p) => p.text().includes('Bife acebolado'))
+      expect(bife.classes()).toContain('prato--alerta')
+    })
     expect(JSON.parse(localStorage.getItem('bandejao:preferencias')).marcadores).toEqual(['suino'])
   })
 })

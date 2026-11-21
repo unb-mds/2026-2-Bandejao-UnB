@@ -112,3 +112,72 @@ describe('cardapioStore: campi (GET /api/campi/)', () => {
     expect(cardapio.campi).toHaveLength(5)
   })
 })
+
+describe('cardapioStore: GET /api/cardapio/ já filtrado (ADR 0005)', () => {
+  it('manda campus, dia, refeição, marcadores e dieta como parâmetros', async () => {
+    const cardapio = useCardapioStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await cardapio.carregarRefeicao({
+      campus: 1,
+      dia: '2026-09-28',
+      refeicao: 'almoco',
+      marcadores: ['suino', 'leite_e_derivados'],
+      dieta: 'ovolactovegetariano',
+    })
+
+    const url = new URL(get.mock.calls[0][0], 'http://x')
+    expect(url.pathname).toBe('/cardapio/')
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      campus: '1',
+      dia: '2026-09-28',
+      refeicao: 'almoco',
+      marcadores: 'suino,leite_e_derivados',
+      dieta: 'ovolactovegetariano',
+    })
+  })
+
+  it('sem filtro: não manda marcadores nem dieta', async () => {
+    const cardapio = useCardapioStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await cardapio.carregarRefeicao({ campus: 1, marcadores: [], dieta: 'sem_filtro' })
+
+    expect(get).toHaveBeenCalledWith('/cardapio/?campus=1')
+  })
+
+  it('guarda a resposta pelo pedido e pelo dia e refeição que ela trouxe', async () => {
+    const cardapio = useCardapioStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    const padrao = await cardapio.carregarRefeicao({ campus: 1 })
+    await cardapio.carregarRefeicao({ campus: 1, dia: padrao.data, refeicao: padrao.refeicao })
+
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(cardapio.daRefeicao({ campus: 1, dia: '2026-09-28', refeicao: 'almoco' })).toEqual(
+      padrao,
+    )
+  })
+
+  it('a ordem dos marcadores não muda o cache', async () => {
+    const cardapio = useCardapioStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await cardapio.carregarRefeicao({ campus: 1, marcadores: ['ovo', 'soja'] })
+    await cardapio.carregarRefeicao({ campus: 1, marcadores: ['soja', 'ovo'] })
+
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
+  it('falha: guarda a mensagem e devolve null', async () => {
+    const cardapio = useCardapioStore()
+    const { ApiError } = await import('@/services/apiClient')
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }),
+    )
+
+    expect(await cardapio.carregarRefeicao({ campus: 1 })).toBeNull()
+    expect(cardapio.erroRefeicao).toBe('Fora do ar.')
+    expect(cardapio.carregandoRefeicao).toBe(false)
+  })
+})

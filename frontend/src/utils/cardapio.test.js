@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  filtrarCategorias,
+  diasDaSemanaVigente,
   formatarNota,
   refeicaoPadrao,
   resumoRefeicao,
@@ -26,62 +26,10 @@ const CATEGORIAS = [
   { rotulo: 'Salada', dieta: 'todas', pratos: [p('Folhas')] },
 ]
 
-const rotulos = (categorias) => categorias.map((c) => c.rotulo)
 const aLas = (hhmm) => {
   const [h, m] = hhmm.split(':').map(Number)
   return new Date(2026, 8, 28, h, m)
 }
-
-describe('filtrarCategorias — dieta (RF09)', () => {
-  it('sem filtro exibe todas as linhas', () => {
-    expect(filtrarCategorias(CATEGORIAS)).toHaveLength(CATEGORIAS.length)
-  })
-
-  it('ovolactovegetariano oculta só a linha padrão', () => {
-    const visiveis = rotulos(filtrarCategorias(CATEGORIAS, { dieta: 'ovolacto' }))
-    expect(visiveis).not.toContain('Prato Principal — Padrão')
-    expect(visiveis).toContain('Prato Principal — Ovolactovegetariano')
-    expect(visiveis).toContain('Prato Principal — Vegetariano Estrito')
-    expect(visiveis).toContain('Salada')
-  })
-
-  it('vegetariano estrito mantém só a linha vegana e as comuns', () => {
-    const visiveis = rotulos(filtrarCategorias(CATEGORIAS, { dieta: 'vegano' }))
-    expect(visiveis).toEqual([
-      'Bebidas',
-      'Prato Principal — Vegetariano Estrito',
-      'Guarnição',
-      'Acompanhamentos',
-      'Salada',
-    ])
-  })
-})
-
-describe('filtrarCategorias — marcadores (RF08)', () => {
-  it('oculta os pratos que contêm um marcador selecionado', () => {
-    const [, padrao] = filtrarCategorias(CATEGORIAS, { marcadores: ['suino'] })
-    expect(padrao.pratos.map((prato) => prato.nome)).toEqual(['Frango'])
-  })
-
-  it('mantém a categoria vazia para exibir "sem opção compatível"', () => {
-    const guarnicao = filtrarCategorias(CATEGORIAS, { marcadores: ['leite'] }).find(
-      (c) => c.rotulo === 'Guarnição',
-    )
-    expect(guarnicao.pratos).toEqual([])
-  })
-
-  it('combina dieta e marcadores', () => {
-    const resultado = filtrarCategorias(CATEGORIAS, { dieta: 'vegano', marcadores: ['soja'] })
-    const vegana = resultado.find((c) => c.dieta === 'vegano')
-    expect(vegana.pratos).toEqual([])
-    expect(resultado.some((c) => c.dieta === 'padrao')).toBe(false)
-  })
-
-  it('não altera os dados originais', () => {
-    filtrarCategorias(CATEGORIAS, { marcadores: ['suino', 'leite'] })
-    expect(CATEGORIAS[1].pratos).toHaveLength(2)
-  })
-})
 
 describe('refeicaoPadrao (RF07)', () => {
   const TODAS = ['cafe', 'almoco', 'jantar']
@@ -147,5 +95,22 @@ describe('formatarNota', () => {
   it('usa vírgula decimal e traço quando não há nota', () => {
     expect(formatarNota(4.2857)).toBe('4,3')
     expect(formatarNota(null)).toBe('–')
+  })
+})
+
+describe('diasDaSemanaVigente (AbasSemana, RF07.1)', () => {
+  it('de segunda a sábado da semana atual', () => {
+    expect(diasDaSemanaVigente(new Date(2026, 8, 30, 12))).toEqual([
+      '2026-09-28',
+      '2026-09-29',
+      '2026-09-30',
+      '2026-10-01',
+      '2026-10-02',
+      '2026-10-03',
+    ])
+  })
+
+  it('no domingo, já mostra a semana seguinte', () => {
+    expect(diasDaSemanaVigente(new Date(2026, 9, 4, 12))[0]).toBe('2026-10-05')
   })
 })
