@@ -70,7 +70,7 @@ classDiagram
     +registrarTentativa(tentativa: TentativaCheckin) void
     +contarPorFaixa(campus: Campus, tipoRefeicao: str, datas: list~date~, faixas: list~FaixaHorario~) list~ContagemDia~
     +desvincularAntesDe(data: date) int
-    +desvincularConta(conta: Conta) void
+    +desvincularConta(conta: Conta) int
   }
   class CheckinDuplicadoError
   class ConfirmacaoLocalizacaoService {
@@ -541,7 +541,7 @@ classDiagram
     +contarPorFaixa(campus: Campus, tipoRefeicao: str, datas: list~date~, faixas: list~FaixaHorario~) list~ContagemDia~
     +temposDeEspera(campus: Campus, tipoRefeicao: str, datas: list~date~) list~Checkin~
     +desvincularAntesDe(data: date) int
-    +desvincularConta(conta: Conta) void
+    +desvincularConta(conta: Conta) int
   }
   class ContagemDia {
     +data: date
@@ -688,11 +688,11 @@ classDiagram
     +registrarTentativa(tentativa: TentativaCheckin) void
     +contarPorFaixa(campus: Campus, tipoRefeicao: str, datas: list~date~, faixas: list~FaixaHorario~) list~ContagemDia~
     +desvincularAntesDe(data: date) int
-    +desvincularConta(conta: Conta) void
+    +desvincularConta(conta: Conta) int
   }
   class RetencaoFilaService {
     +desvincularAntigos(hoje: date) int
-    +desvincularConta(conta: Conta) void
+    +desvincularConta(conta: Conta) int
   }
   class DesvincularRegistrosFilaJob {
     <<management command, disparado por cron>>
@@ -748,6 +748,36 @@ classDiagram
   check-in. O mesmo serviço tem `desvincularConta`, usado pelo
   `RemoverContaCommand` do Cadastro/Autenticação quando uma conta é excluída
   (RNF07.4).
+- **Implementação da BD-11 (#163).** O que o código entrega, em relação ao
+  diagrama:
+  - Nomes em Python: `RetencaoFilaService.desvincular_antigos` e
+    `desvincular_conta` (`apps/fila/retencao_fila_service.py`),
+    `CheckinRepository.desvincular_antes_de` e `desvincular_conta`, e o
+    comando `python manage.py desvincular_registros_fila` com a classe
+    `DesvincularRegistrosFilaJob`.
+  - O prazo é o `retencao_semanas` da `ParametrosFilaConfig`. Sai o que tem
+    `data` **anterior** a 4 semanas antes de hoje, e o próprio dia-limite
+    fica: em 21/11, o check-in de 24/10 continua da conta e o de 23/10 não.
+    "Hoje" é o dia de Brasília (`timezone.localdate()`), o mesmo da `data` do
+    check-in.
+  - O que é anulado: a conta, `Checkin.registrado_em` e
+    `TentativaCheckin.data_hora`. `desvincular_conta` anula os mesmos campos
+    e vale para todos os registros da conta, até os de hoje. Os dois métodos
+    devolvem quantos registros mudaram (por isso `int` no diagrama, nas
+    duas classes); um registro já sem conta e sem hora não conta de novo.
+  - O filtro pega também o registro sem conta e com hora, que sobra quando
+    a conta é apagada sem passar pelo `desvincular_conta` (o `SET_NULL` só
+    anula a conta).
+  - Um `UPDATE` por tabela, sem carregar as linhas, os dois na mesma
+    transação. O agendamento diário no cron é da BD-07 (#147).
+  - **Horários que ficam, sem conta:** `Checkin.pontos_concedidos_em`
+    (marcador da gamificação, ADR 0011), `PerguntaSaida.devida_em` e
+    `expira_em` (check-in + 15 e + 60 min) e `RespostaSaida.respondida_em`.
+    Com eles dá para reconstruir a hora aproximada do check-in, mas não de
+    quem ele foi, então o RNF07.3 continua atendido. Mantê-los foi uma
+    escolha consciente na revisão do #220, a confirmar pela equipe; se
+    preferirem apagá-los também, o lugar é o `_desvincular` do
+    `CheckinRepository`.
 
 ## Notas gerais
 
