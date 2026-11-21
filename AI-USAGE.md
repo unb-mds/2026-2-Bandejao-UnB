@@ -253,3 +253,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Revisão humana: duas revisões de AlvaroBento12 no PR #208 (sobras no `README.md` e no `CONTEXT.md`, login que confere só o domínio, reenvio sem conferir o domínio, ADR 0016 aceita, aviso de privacidade, selos de release, Anexo B, Visão 5.1, backlog e este registro).
 - Ajustes da revisão: `develop` trazida para o branch; sobras corrigidas e ADR 0016 na lista do `README.md`; RF03.1, ADR 0016, ADR 0002 e C4 dizem que o login confere só o domínio; reenvio documentado (e-mail fora do padrão não acha conta; com e-mail e token, vale o e-mail); `contaParaReenvio(email, token)`; nota sobre o nome `IdentificadorInvalidoError`; ADR 0016 aceita; selos *(Release 2)* no RF03.1 e no RF04.1, regra do login do MVP de volta à RN01 e ADR 0016 em ordem nas referências; Visão 5.1 com o login do MVP por matrícula/SIAPE; §11 do aviso de privacidade separando mudança de finalidade de ajuste, com o "revisado em 2026-11-19" no topo, sem nova ciência.
 - Situação: ajustes aplicados; aguardando o recheck.
+
+## FE-06 — Deploy do M2 com BD e BE
+
+- Issue: [#142](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/142).
+- Ferramenta: Claude (Anthropic).
+- Apoio: função `deveUsarSimulacao` no `apiClient` (o build de produção nunca liga o servidor simulado), com o teste antes do código, e a seção "Deploy do M2 (FE-06)" no `docs/deploy/deploy-producao.md`, com a checagem antes de subir e o roteiro de ponta a ponta da BD-08 (#148). Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: o commit `test` com os casos de `deveUsarSimulacao` vem antes do `feat`.
+- Validação: `npm run lint:ci`, `npm run test:ci` e `npm run build` no PC da autora. O deploy e o roteiro em produção são feitos na VM pela equipe, e o resultado fica na #142 e na #148.
+- Revisão humana: pendente.
+- Situação: aguardando revisão.
