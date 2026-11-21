@@ -8,16 +8,18 @@ import { rotuloDieta } from '@/constants/dietas'
 import { rotuloMarcador } from '@/constants/marcadores'
 import { diaCurto, diaMes } from '@/utils/datas'
 import { filtrarCategorias, formatarNota } from '@/utils/cardapio'
-import BotaoVoltar from '@/components/BotaoVoltar.vue'
 import EstrelasNota from '@/components/EstrelasNota.vue'
 import FiltroCardapio from '@/components/FiltroCardapio.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
-import NavegacaoInferior from '@/components/NavegacaoInferior.vue'
 
 /**
- * Cardápio da semana vigente (RF05–RF09): um dia e uma refeição por vez,
+ * Seção do cardápio da CampusView (RF05–RF09): um dia e uma refeição por vez,
  * com filtros de dieta e de marcadores. Acessível sem login.
  */
+const props = defineProps({
+  campusId: { type: Number, required: true },
+})
+
 const avaliacoes = useAvaliacoesStore()
 const cardapio = useCardapioStore()
 const preferencias = usePreferenciasStore()
@@ -25,7 +27,7 @@ const preferencias = usePreferenciasStore()
 const filtroAberto = ref(false)
 const mostrarTodas = ref(false) // RF09: reverte temporariamente o filtro de dieta
 
-const campusId = computed(() => preferencias.campusId)
+const campusId = computed(() => props.campusId)
 const semana = computed(() => cardapio.semana(campusId.value))
 const dias = computed(() => semana.value?.dias ?? [])
 const diaAtual = computed(
@@ -97,14 +99,10 @@ function tentarNovamente() {
 </script>
 
 <template>
-  <div class="tela">
-    <header class="cabecalho-cardapio fundo-escuro">
+  <section class="secao-cardapio" aria-labelledby="titulo-cardapio">
+    <div class="cabecalho-cardapio fundo-escuro">
       <div class="barra-topo">
-        <BotaoVoltar :para="{ name: 'inicio' }" />
-        <div class="titulo-centro">
-          <h1 class="titulo">Cardápio</h1>
-          <p class="campus">{{ preferencias.campus?.nome }}</p>
-        </div>
+        <h2 id="titulo-cardapio" class="titulo">Cardápio</h2>
         <button
           type="button"
           class="botao-filtro"
@@ -148,7 +146,7 @@ function tentarNovamente() {
           {{ REFEICOES[tipo].rotulo }}
         </button>
       </div>
-    </header>
+    </div>
 
     <RouterLink v-if="refeicao" :to="{ name: 'avaliacoes' }" class="barra-avaliacao">
       <template v-if="notas?.quantidade">
@@ -160,12 +158,14 @@ function tentarNovamente() {
       <span class="suave horario">{{ horarioRefeicao(preferencias.refeicaoSelecionada) }}</span>
     </RouterLink>
 
-    <main class="conteudo sem-barra corpo">
-      <p v-if="cardapio.carregando && !semana" class="estado" role="status">Carregando cardápio…</p>
+    <div class="corpo">
+      <p v-if="cardapio.estaCarregando(campusId) && !semana" class="estado" role="status">
+        Carregando cardápio…
+      </p>
 
-      <div v-else-if="cardapio.erro && !semana" class="estado">
+      <div v-else-if="cardapio.erroDe(campusId) && !semana" class="estado">
         <p class="estado-titulo">Não foi possível carregar o cardápio</p>
-        <p class="estado-texto">{{ cardapio.erro }}</p>
+        <p class="estado-texto">{{ cardapio.erroDe(campusId).mensagem }}</p>
         <button type="button" class="botao-pequeno tentar" @click="tentarNovamente">
           Tentar novamente
         </button>
@@ -181,7 +181,7 @@ function tentarNovamente() {
         />
         <p class="estado-titulo">Cardápio ainda não publicado</p>
         <p class="estado-texto">
-          O RU de {{ preferencias.campus?.nome }} ainda não publicou o cardápio desta semana.
+          O RU deste campus ainda não publicou o cardápio desta semana.
         </p>
       </div>
 
@@ -224,9 +224,9 @@ function tentarNovamente() {
 
         <div v-else class="pilha-5">
           <section v-for="categoria in categorias" :key="categoria.rotulo" class="categoria">
-            <h2 class="categoria-titulo">
+            <h3 class="categoria-titulo">
               <span>{{ categoria.rotulo }}</span>
-            </h2>
+            </h3>
 
             <p v-if="categoria.pratos.length === 0" class="sem-opcao">
               Sem opção compatível com o filtro ativo
@@ -253,12 +253,10 @@ function tentarNovamente() {
           </p>
         </div>
       </template>
-    </main>
-
-    <NavegacaoInferior />
+    </div>
 
     <FiltroCardapio v-model:aberto="filtroAberto" :marcadores-indisponiveis="semAlergenos" />
-  </div>
+  </section>
 </template>
 
 <style scoped>
@@ -271,11 +269,7 @@ function tentarNovamente() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 56px 20px 12px;
-}
-
-.titulo-centro {
-  text-align: center;
+  padding: 16px 20px 12px;
 }
 
 .titulo {
@@ -285,10 +279,6 @@ function tentarNovamente() {
   color: #fff;
 }
 
-.campus {
-  font-size: 11px;
-  color: var(--branco-40);
-}
 
 .botao-filtro {
   position: relative;

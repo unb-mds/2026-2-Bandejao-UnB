@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
-import { buscarCampus, campusValido } from '@/constants/campi'
+import { idDeCampusValido, idDoCampusAntigo } from '@/constants/campi'
 import { IDS_MARCADORES } from '@/constants/marcadores'
 import { DIETAS } from '@/constants/dietas'
 import { contarFiltrosAtivos, selecaoPadrao } from '@/utils/cardapio'
@@ -21,7 +21,9 @@ function lerSalvas() {
 function lerPreferencias() {
   const salvas = lerSalvas()
   return {
-    campusId: campusValido(salvas.campusId) ? salvas.campusId : null,
+    campusId: Number.isInteger(salvas.campusId)
+      ? idDeCampusValido(salvas.campusId)
+      : idDoCampusAntigo(salvas.campusId),
     dieta: DIETAS.some((d) => d.id === salvas.dieta) ? salvas.dieta : 'todos',
     marcadores: Array.isArray(salvas.marcadores)
       ? salvas.marcadores.filter((m) => IDS_MARCADORES.includes(m))
@@ -49,7 +51,6 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
   const dataSelecionada = ref(null)
   const refeicaoSelecionada = ref(null)
 
-  const campus = computed(() => buscarCampus(campusId.value))
   const filtrosAtivos = computed(() => contarFiltrosAtivos(dieta.value, marcadores.value))
 
   watch(
@@ -77,9 +78,13 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
     { deep: true, flush: 'sync' },
   )
 
-  function escolherCampus(id) {
-    if (!campusValido(id)) return
-    campusId.value = id
+  function escolherCampus(valor) {
+    const id = idDeCampusValido(valor)
+    if (id) campusId.value = id
+  }
+
+  function esquecerCampus() {
+    campusId.value = null
   }
 
   function aplicarFiltros(novaDieta, novosMarcadores) {
@@ -126,9 +131,9 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
     localizacaoPermitida,
     dataSelecionada,
     refeicaoSelecionada,
-    campus,
     filtrosAtivos,
     escolherCampus,
+    esquecerCampus,
     aplicarFiltros,
     adiarAvisoLocalizacao,
     registrarLocalizacaoPermitida,

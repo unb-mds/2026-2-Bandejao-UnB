@@ -222,12 +222,15 @@ describe('LoginView', () => {
 
   it('com campus lembrado, o login leva à tela do campus (RF03.4)', async () => {
     await cadastrarEConfirmar()
-    const { wrapper, router } = await montarEm('/login', { campus: 'darcy' })
+    const { wrapper, router } = await montarEm('/login', { campus: 1 })
 
     await entrarPelaTela(wrapper)
 
-    await esperarRota(router, 'inicio')
-    expect(wrapper.find(`[aria-label="Perfil de ${ALUNO.apelido}"]`).exists()).toBe(true)
+    await esperarRota(router, 'campus-tela')
+    expect(router.currentRoute.value.params.campusId).toBe('1')
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true),
+    )
   })
 
   it('sem campus lembrado, o login leva à escolha do campus', async () => {
@@ -307,7 +310,7 @@ describe('nada do formulário fica salvo no aparelho (front 4b, RI09)', () => {
     // localStorage e sessionStorage, durante o fluxo inteiro (rascunhos também).
     const gravar = vi.spyOn(Storage.prototype, 'setItem')
 
-    const cadastro = await montarEm('/cadastro', { campus: 'darcy' })
+    const cadastro = await montarEm('/cadastro', { campus: 1 })
     await botao(cadastro.wrapper, 'Servidor').trigger('click')
     await campo(cadastro.wrapper, 'SIAPE').setValue(SERVIDOR.siape)
     await campo(cadastro.wrapper, 'E-mail institucional').setValue(SERVIDOR.email)
@@ -334,7 +337,7 @@ describe('nada do formulário fica salvo no aparelho (front 4b, RI09)', () => {
       expect(login.wrapper.find('[role="alert"]').text()).toContain('E-mail ou senha incorretos.'),
     )
     await tentarEntrar(login.wrapper, SENHA)
-    await esperarRota(login.router, 'inicio')
+    await esperarRota(login.router, 'campus-tela')
 
     const chaves = [...new Set(gravar.mock.calls.map(([chave]) => chave))]
     expect(chaves.filter((chave) => !CHAVES_PERMITIDAS.includes(chave))).toEqual([])

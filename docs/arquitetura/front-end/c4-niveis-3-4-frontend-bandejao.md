@@ -132,10 +132,11 @@ Aviso '+10 pontos' (RF24.2)."]
   as duas telas do MVP viram **seções** de uma única tela do campus,
   detalhada em 3a.2. O login leva a ela (RF03.4) e a raiz `/` também
   (RN04).
-- **O seletor de campus do MVP (hoje `views/CampusView.vue`, rota
-  `/campus`) passa a ser o componente `SeletorCampus`**, usado dentro da
-  tela do campus (botão "trocar") e sozinho quando nenhum campus foi
-  resolvido pela RN04. O nome `CampusView` fica com a tela do campus.
+- **O seletor de campus do MVP passou a ser o componente `SeletorCampus`**
+  (FE-07), na rota `/campus`: é o destino do "Trocar" da tela do campus e da
+  primeira escolha. A lista vem do `GET /api/campi/`, com o `id` inteiro e o
+  nome do banco. O nome `CampusView` ficou com a tela do campus, e
+  `CardapioView` e `FilaView` viraram as seções dela.
 - **Um só frontend, mobile first, com três pontos de quebra (FE-20, RNF05):**
   celular até 767 px, tablet de 768 a 1023 px e desktop a partir de 1024 px.
   No celular, cada tela ocupa a tela inteira e a `NavegacaoInferior` aparece
@@ -174,8 +175,11 @@ da RN05 (RF20.3)."]
 
   subgraph topo["Cabeçalho da tela"]
     direction LR
-    seletorCampus["🧩 SeletorCampus
-Nome do campus e 'trocar' (RF20.2)."]
+    nomeCampus["🧩 Nome do campus
+'h1' com o nome, link 'Trocar'
+para /campus (SeletorCampus)
+e 'Usar minha localização'
+(RF20.2, RF19)."]
     campusDetectado["🧩 CampusDetectadoAviso
 'Você está no Darcy Ribeiro ·
 voltar para Gama' (RF20.2)."]
@@ -238,7 +242,7 @@ os pontos (RF05)."]
   classDef group fill:#f7fbff,stroke:#1168bd,stroke-dasharray:4 3,color:#1168bd
 
   class campusView view
-  class seletorCampus,campusDetectado,avisoExecutivo,patente,abasSemana,seletorRefeicao,filtro,avaliacao,distintivo,filaPrevisao,espera,encerrada,checkin,avisoPrivacidade,convite component
+  class nomeCampus,campusDetectado,avisoExecutivo,patente,abasSemana,seletorRefeicao,filtro,avaliacao,distintivo,filaPrevisao,espera,encerrada,checkin,avisoPrivacidade,convite component
   class topo,secaoCardapio,secaoFila group
 ```
 
@@ -253,16 +257,28 @@ os pontos (RF05)."]
   notas do dia (`GET /api/avaliacoes/resumo/`, uma chamada para todas as
   refeições) e a previsão. Uma parte que falhe (ex.: previsão com "dados
   insuficientes") não derruba as outras.
-- **"Refeição encerrada"** vem do próprio cardápio (`refeicaoEncerrada`,
-  calculado com `ultimaRefeicaoDoDia` no backend, RN05): quando verdadeiro,
-  `RefeicaoEncerrada` ocupa o lugar de `FilaPrevisao` e de `CheckinBotao`,
-  e a avaliação continua aberta até 23h59 (RF15.1).
+- **"Refeição encerrada"** é calculado na própria `CampusView`
+  (`refeicaoEncerrada`, RN05): compara a hora do aparelho, atualizada a cada
+  30 s, com o fim da refeição do check-in em `constants/refeicoes.js`.
+  Quando verdadeiro, `RefeicaoEncerrada` ocupa o lugar de `FilaPrevisao` e
+  de `CheckinBotao`, e a avaliação continua aberta até 23h59 (RF15.1). O
+  `refeicaoEncerrada` que o `GET /api/cardapio/` devolve vale para o
+  cardápio (FE-08); quem decide se o check-in vale é sempre o backend.
+- **Sem a lista de campi, a tela não trava**: se o `GET /api/campi/` falhar,
+  o cabeçalho mostra o aviso com "Tentar novamente", o cardápio carrega pelo
+  id da rota e o check-in espera a lista confirmar o campus. O campus do
+  link só vira o lembrado depois dessa confirmação, e um campus lembrado que
+  saiu do banco é esquecido.
 - **`EsperaEstimada` fica dentro de `FilaPrevisao`**: mostra os minutos em
   destaque só nas faixas com `esperaEstimadaMin` diferente de `null`; nas
   demais, só o nível. O texto de apoio (L12) explica que o nível é relativo
   ao pico do dia e que os minutos são uma estimativa.
 - **`AvisoExecutivo` é uma linha fixa de texto**, sem pop-up nem botão de
-  fechar, exibida sempre que o campus é o Darcy Ribeiro (RF20.4).
+  fechar, exibida sempre que o campus é o Darcy Ribeiro (RF20.4). A
+  `CampusView` compara o `id` (1, `ID_CAMPUS_COM_EXECUTIVO` em
+  `constants/campi.js`, o `pk` da fixture `campi.json`), não o nome: assim
+  o aviso aparece mesmo se a lista de campi falhar. Se o `pk` do Darcy
+  mudar no banco, a constante muda junto.
 - **`AvaliacaoWidget` usa o `DistintivoIndicador` ao lado do apelido de
   cada comentário** (RF15.2), lendo o campo opcional `distintivo` de cada
   avaliação.
@@ -528,7 +544,8 @@ trata erros (RNF04, ADR 0007)."]
   confirmação do check-in não é publicado: quem decide o check-in é sempre
   o servidor.
 - **`preferenciasStore` guarda no `localStorage`**: campus lembrado (último
-  escolhido manualmente, RF07.2), filtros (RF08, RF09), a **escolha manual
+  escolhido manualmente, RF07.2, pelo `id` inteiro do `GET /api/campi/`; um
+  valor antigo como `'darcy'` vale como "sem campus escolhido"), filtros (RF08, RF09), a **escolha manual
   de campus feita depois da última detecção** (RN04, item 1) e o **"Agora
   não" do aviso de localização** (RF19), para o aviso não reaparecer a cada
   abertura. O campus detectado fica só em memória, junto com a hora da
@@ -591,10 +608,11 @@ formaliza os padrões nele observados e os estende para a Release 2:
 
 | Rota | View | Observação |
 |---|---|---|
-| `/` | — (redireciona) | Resolve o campus pela RN04 e vai para `/campus/:campusId`, ou para o seletor |
-| `/campus` | `SeletorCampus` | Quando a RN04 não resolve nenhum campus |
+| `/` | — (redireciona) | Resolve o campus pela RN04 e vai para `/campus/:campusId`; na primeira visita, para as boas-vindas, que levam ao seletor |
+| `/campus` | `SeletorCampus` | Quando a RN04 não resolve nenhum campus; destino do "Trocar" da tela do campus |
 | `/campus/:campusId` | `CampusView` | Tela do campus (RF20). Destino do login (RF03.4) |
-| `/cardapio/:campusId`, `/fila` | — (redireciona) | Rotas do MVP mantidas só para links antigos |
+| `/cardapio`, `/fila` | — (redireciona) | Rotas do MVP mantidas para links antigos: vão para a tela do campus lembrado (`/fila` com `#fila`) ou, sem campus, para `/campus` |
+| `/cardapio/:campusId` | — (redireciona) | Link antigo: aceita o id ou o nome antigo (`darcy`, `ceilandia`, `gama`, `planaltina`, `fal`, os `pk` 1 a 5) e abre aquele campus, nunca o lembrado; outro valor cai no 404 |
 | `/avaliacoes` | `AvaliacoesView` | Histórico (RF16) |
 | `/progresso` | `ProgressoView` | **Nova.** Meu progresso (RF26.2) |
 | `/ranking/:campusId` | `RankingView` | **Nova.** Pública (RF27.2) |
@@ -624,7 +642,7 @@ separação por app do backend (RNF06):
 |---|---|---|
 | `authStore` | Sessão do usuário: apelido, tipo de usuário e `avisoPrivacidadePendente`, lidos de `GET /api/sessao/`. Login com e-mail institucional e senha (`entrar(emailInstitucional, senha)`, ADR 0016), logout, cadastro, reenvio de confirmação (pelo e-mail ou pelo token) e pedido de recuperação de senha pelo e-mail. **Sem token** (ADR 0007) | Nenhuma no PWA: a sessão está no cookie `HttpOnly`; a store é recarregada ao abrir o app |
 | `preferenciasStore` | Campus lembrado, escolha manual depois da última detecção, campus detectado, refeição selecionada, filtros de marcador e dieta, "Agora não" do aviso de localização | `localStorage` (RF07, RF08, RF09, RF19, RN04), exceto o campus detectado (memória) |
-| `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, semana, dia, refeição e filtros (inclui `refeicaoEncerrada`) | Em memória |
+| `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, semana, dia, refeição e filtros, com erro e carregamento por campus, e a lista de campi (`GET /api/campi/`, com `carregandoCampi` e `erroCampi`) | Em memória |
 | `avaliacoesStore` | Resumo do dia (notas de todas as refeições, `GET /api/avaliacoes/resumo/`), comentários com `distintivo` e envio/edição da avaliação do usuário | Em memória |
 | `filaStore` | Previsão (com espera estimada), check-in e pergunta de saída pendente | Em memória; nunca guarda coordenadas (RI09) |
 | `gamificacaoStore` | Progresso, adesão ao ranking, posição própria por campus, posição do semestre anterior, Bandeja de Ouro própria, ranking por campus e último bloco `pontos` | Em memória |

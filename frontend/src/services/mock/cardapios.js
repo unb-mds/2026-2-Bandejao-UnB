@@ -193,13 +193,26 @@ const JANTARES = [
   ],
 ]
 
+export const CAMPI_DO_BANCO = [
+  { id: 1, nome: 'Darcy Ribeiro' },
+  { id: 2, nome: 'Ceilândia' },
+  { id: 3, nome: 'Gama' },
+  { id: 4, nome: 'Planaltina' },
+  { id: 5, nome: 'Fazenda Água Limpa' },
+]
+
+export function idDoCampus(valor) {
+  const id = Number(valor)
+  return CAMPI_DO_BANCO.some((campus) => campus.id === id) ? id : null
+}
+
 /** Configuração de cada campus no "PDF" da semana. */
 const CAMPI_SIMULADOS = {
-  darcy: { publicado: true, deslocamento: 0, sabado: true, jantar: true },
-  ceilandia: { publicado: true, deslocamento: 2, jantar: true, jantarSemAlergenos: 2 },
-  gama: { publicado: true, deslocamento: 1, jantar: true },
-  planaltina: { publicado: true, deslocamento: 3, jantar: false },
-  fal: { publicado: false },
+  1: { publicado: true, deslocamento: 0, sabado: true, jantar: true },
+  2: { publicado: true, deslocamento: 2, jantar: true, jantarSemAlergenos: 2 },
+  3: { publicado: true, deslocamento: 1, jantar: true },
+  4: { publicado: true, deslocamento: 3, jantar: false },
+  5: { publicado: false },
 }
 
 /** Segunda-feira da semana vigente; no domingo, já considera a semana seguinte. */
