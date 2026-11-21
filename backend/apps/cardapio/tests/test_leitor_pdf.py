@@ -10,6 +10,7 @@ Os almoços esperados do Gama e do Darcy foram conferidos prato a prato e
 """
 
 import datetime
+import io
 import re
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,6 +24,8 @@ from apps.cardapio.leitor.cardapio_pdf_parser import (
     AssociacaoFalhouError,
     CardapioEstruturador,
     CardapioPDFParser,
+    DownloadError,
+    FonteNaoEncontradaError,
     FormatoPDFInvalidoError,
     Grade,
     LegendaInvalidaError,
@@ -624,9 +627,20 @@ def test_imagem_cmyk_nao_e_lida_como_rgb():
     assert leitor._imagem_pil({**cmyk, "bits": 8}) is None
 
 
-def test_todas_as_excecoes_tem_a_mesma_base():
-    for erro in (FormatoPDFInvalidoError, LegendaInvalidaError, AssociacaoFalhouError):
+def test_as_cinco_excecoes_do_c4_tem_a_mesma_base():
+    erros = (
+        FonteNaoEncontradaError,
+        DownloadError,
+        FormatoPDFInvalidoError,
+        LegendaInvalidaError,
+        AssociacaoFalhouError,
+    )
+    for erro in erros:
         assert issubclass(erro, LeitorCardapioError)
+    # Cada falha tem a sua: nenhuma é filha de outra (o serviço decide pelo
+    # tipo se mantém o último válido ou publica só em texto).
+    for erro in erros:
+        assert [e for e in erros if issubclass(erro, e)] == [erro]
 
 
 def test_valores_de_refeicao_e_dieta_existem_nos_models():
@@ -882,6 +896,18 @@ def test_refeicao_desconhecida_e_recusada(monkeypatch):
     monkeypatch.setattr(leitor, "REFEICOES", {})
     with pytest.raises(FormatoPDFInvalidoError, match="refeição desconhecida"):
         CardapioPDFParser(str(GAMA)).extrair()
+
+
+def test_le_o_pdf_em_memoria_como_o_baixado_pelo_downloader():
+    # O CardapioDownloader entrega os bytes, sem gravar em disco (BE-12).
+    em_memoria, avisos = CardapioPDFParser(io.BytesIO(GAMA.read_bytes())).extrair()
+    assert avisos == []
+    assert _como_dict(em_memoria[1]) == _esperado(GAMA_ALMOCO_ESPERADO)
+
+
+def test_bytes_que_nao_sao_pdf_em_memoria_sao_formato_invalido():
+    with pytest.raises(FormatoPDFInvalidoError, match="não foi possível ler"):
+        CardapioPDFParser(io.BytesIO(b"<html>Erro 503</html>")).extrair()
 
 
 def test_arquivo_que_nao_e_pdf_e_formato_invalido(tmp_path):
