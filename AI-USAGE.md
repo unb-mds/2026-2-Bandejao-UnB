@@ -269,6 +269,16 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação após os ajustes: `pytest` com 1330 testes aprovados e 1 ignorado, cobertura de `apps` de 98,34%; `ruff`, `bandit -lll`, `makemigrations --check` e `spectacular --validate --fail-on-warn` aprovados; o diagrama 4a renderiza no `mmdc`.
 - Situação: ajustes da revisão aplicados; aguardando o recheck de AlvaroBento12 e o combinado com o front na #144 sobre como a tela vai saber quais dias e refeições existem na semana (seção 7 do guia).
 
+## FE-06 — Deploy do M2 com BD e BE
+
+- Issue: [#142](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/142). PR: [#215 — FE-06: build de produção sem o simulado e roteiro do deploy do M2](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/215).
+- Ferramenta: Claude (Anthropic).
+- Apoio: função `deveUsarSimulacao` no `apiClient` (regra do servidor simulado separada numa função, para ser testada), com o teste antes do código, e a seção "Deploy do M2 (FE-06)" no `docs/deploy/deploy-producao.md`, com a checagem antes de subir e o roteiro de ponta a ponta da BD-08 (#148). Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: o commit `test` (`f08b394`) vem antes do `feat` (`9c9f48f`); nele, os 5 casos de `deveUsarSimulacao` falhavam porque a função ainda não existia.
+- Validação: `npm run test:ci` com 376 testes passando (cobertura de 90,27% de linhas / 81,41% de ramos), `npm run lint:ci` sem achados e `npm run build` sem erro, no PC da autora. O deploy e o roteiro em produção são feitos na VM pela equipe, e o resultado fica na #142 e na #148.
+- Revisão humana: Álvaro Bento revisou o PR #215; os ajustes pedidos (passo 8 do roteiro, texto da garantia do build sem o simulado, link do PR e números nesta entrada) e as sugestões (passo do RI09, branch pelo nome, caso `'FALSE'` no teste, estilo da doc) foram aplicados.
+- Situação: aguardando nova revisão.
+
 ## FE-07 — CampusView e rotas do campus
 
 - Issue: [#143](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/143). PR: [#216 — FE-07: CampusView e rotas do campus](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/216).
