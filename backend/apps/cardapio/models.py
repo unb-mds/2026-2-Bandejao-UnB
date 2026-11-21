@@ -203,6 +203,10 @@ class AlertaLeituraCardapio(models.Model):
     # (RNF08). Hoje, por acesso direto ao banco (ADR 0004).
     resolvido = models.BooleanField(default=False)
     resolvido_em = models.DateTimeField(null=True, blank=True)
+    # Quando o alerta foi para a equipe por e-mail (ADR 0006). Nulo enquanto
+    # o limite de envios segura o e-mail ou se o envio falhou: o alerta vai
+    # no próximo e-mail permitido do campus (BE-12, revisão do PR #218).
+    email_enviado_em = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.tipo} em {self.campus_id}"

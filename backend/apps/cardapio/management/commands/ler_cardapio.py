@@ -64,13 +64,14 @@ class LerCardapioCommand:
         # `try` próprio: com o banco fora do ar, nem o alerta é gravado, e
         # isso não pode esconder o erro original nem parar os outros campi.
         try:
-            AlertaEquipeService().registrar_alerta(
+            alertas = AlertaEquipeService()
+            alertas.registrar_alerta(
                 TipoAlerta.FALHA_LEITURA_PDF,
                 campus,
                 f"Etapa: erro inesperado na leitura do campus. "
                 f"{type(exc).__name__}: {exc}. Último cardápio válido mantido.",
-                agora=agora,
             )
+            alertas.enviar_pendentes(campus, agora=agora)
         except Exception:
             logger.exception(
                 "Não foi possível registrar o alerta do erro inesperado do campus %s",

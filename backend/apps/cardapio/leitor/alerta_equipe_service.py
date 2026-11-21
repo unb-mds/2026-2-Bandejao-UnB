@@ -1,14 +1,17 @@
 """AlertaEquipeService: avisa a equipe quando a leitura falha (Leitor N4 4b, ADR 0006).
 
-Analogia: é o alarme de incêndio com soneca. Todo alarme fica anotado no
-livro (ALERTA_LEITURA_CARDAPIO), mas a sirene (o e-mail) toca no máximo 3
-vezes por dia e com 6 horas entre um toque e outro, por campus e tipo de
-falha. Assim uma falha que dura dias avisa todo dia, sem virar ruído a
-cada 3 horas do cron.
+Analogia: é o livro de ocorrências com um carteiro de horário marcado. Todo
+problema é anotado no livro na hora (ALERTA_LEITURA_CARDAPIO). No fim da
+execução do campus, o carteiro leva à equipe um envelope só, com tudo o que
+ainda não foi entregue. Ele sai no máximo 3 vezes por dia e com 6 horas
+entre uma saída e outra, por campus e tipo de falha (ADR 0006). O que fica
+para trás vai no envelope seguinte: nenhuma anotação fica sem e-mail para
+sempre, nem o "não publicado", que é avaliado por último (revisão do PR #218).
 
-O e-mail vai para `settings.EMAIL_EQUIPE` (ADR 0012), pelo mesmo Serviço de
-E-mail do cadastro. Uma falha no envio não derruba a leitura (ADR 0006): o
-alerta continua gravado, e o envio que falhou não conta no limite.
+O e-mail vai para `settings.EMAIL_EQUIPE` (ADR 0006 e 0012), pelo mesmo
+Serviço de E-mail do cadastro. Uma falha no envio não derruba a leitura
+(ADR 0006): os alertas continuam gravados, sem `email_enviado_em`, e o envio
+que falhou não conta no limite.
 """
 
 import logging
@@ -17,6 +20,8 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from apps.cardapio.models import (
@@ -29,21 +34,27 @@ from apps.cardapio.models import (
 
 logger = logging.getLogger(__name__)
 
-ASSUNTO = "[Bandejão UnB] {tipo}: {campus}"
-CORPO = """O Leitor de Cardápio registrou um alerta.
+# Quantos alertas o e-mail lista; os outros aparecem só na contagem (todos
+# continuam na tabela, e todos são marcados como enviados).
+MAX_ALERTAS_NO_EMAIL = 20
 
-Campus: {campus}
-Tipo: {tipo}
-Quando: {quando}
+ASSUNTO = "[Bandejão UnB] Leitor de Cardápio: {quantos} em {campus}"
+CORPO = """O Leitor de Cardápio registrou {quantos} no campus {campus}.
 
-{detalhe}
+{lista}
+Cada mensagem diz a etapa que falhou e a situação do cardápio: o válido
+anterior mantido (RF06.4), a refeição publicada só em texto, sem marcadores
+(RF06.3), ou a semana ainda não publicada.
 
-O cardápio válido anterior foi mantido (RF06.4), ou a refeição foi publicada
-só em texto, sem marcadores (RF06.3). O alerta está na tabela
-alerta_leitura_cardapio (id {id}); marque-o como resolvido depois de tratar.
-
-No máximo {maximo} e-mails por dia para o mesmo campus e tipo de falha.
+Os alertas estão na tabela alerta_leitura_cardapio; marque-os como resolvidos
+depois de tratar. No máximo {maximo} e-mails por dia para o mesmo campus e
+tipo de falha, com {intervalo} horas entre dois e-mails.
 """
+ITEM = "- [{quando}] {tipo} (alerta {id}): {mensagem}\n"
+
+
+def _quantos(n):
+    return f"{n} alerta" if n == 1 else f"{n} alertas"
 
 
 class AlertaEquipeService:
@@ -56,40 +67,59 @@ class AlertaEquipeService:
         campus: Campus,
         detalhe: str,
         refeicao: Refeicao | None = None,
-        *,
-        agora: datetime,
     ) -> AlertaLeituraCardapio:
-        """Grava o alerta e, se o limite deixar, envia o e-mail à equipe.
+        """Grava o alerta, sem enviar e-mail (quem envia é `enviar_pendentes`).
 
-        `detalhe` diz a etapa que falhou, a semana e a URL; nunca dado de
-        usuário. `refeicao` é nula quando o alerta é do PDF inteiro.
+        Só escreve no banco: pode ficar dentro da transação da semana, junto
+        com o cardápio. `detalhe` diz a etapa que falhou, a semana e a URL;
+        nunca dado de usuário. `refeicao` é nula quando o alerta é do PDF
+        inteiro.
         """
-        alerta = AlertaLeituraCardapio.objects.create(
+        return AlertaLeituraCardapio.objects.create(
             campus=campus, refeicao=refeicao, tipo=tipo, mensagem=detalhe
         )
-        if self._deve_enviar(tipo, campus, agora) and self._enviar(alerta, agora):
-            contador, _ = ContadorAlerta.objects.get_or_create(
-                campus=campus, tipo=tipo, data=timezone.localdate(agora)
+
+    def enviar_pendentes(self, campus: Campus, *, agora: datetime) -> int:
+        """Um e-mail com os alertas do campus ainda sem e-mail, dos tipos que
+        o limite deixa enviar agora. Devolve quantos alertas foram no e-mail
+        (0 se nenhum saiu: limite, nada pendente ou falha no envio).
+        """
+        pendentes = AlertaLeituraCardapio.objects.filter(
+            campus=campus, resolvido=False, email_enviado_em__isnull=True
+        )
+        tipos = [
+            tipo
+            for tipo in pendentes.values_list("tipo", flat=True).distinct()
+            if self._deve_enviar(tipo, campus, agora)
+        ]
+        alertas = list(pendentes.filter(tipo__in=tipos).order_by("-id"))
+        if not alertas or not self._enviar(campus, alertas, agora):
+            return 0
+        with transaction.atomic():
+            AlertaLeituraCardapio.objects.filter(pk__in=[a.pk for a in alertas]).update(
+                email_enviado_em=agora
             )
-            contador.quantidade_enviada += 1
-            contador.ultimo_envio_em = agora
-            contador.save(update_fields=["quantidade_enviada", "ultimo_envio_em"])
-        return alerta
+            for tipo in tipos:
+                self._contar_envio(campus, tipo, agora)
+        return len(alertas)
 
     def zerar_contador(self, campus: Campus, *, agora: datetime) -> None:
         """A leitura do campus voltou a funcionar: a contagem do dia recomeça.
 
-        Só o dia corrente (de Brasília); os dias anteriores ficam como
-        histórico e não pesam no limite, que é diário.
+        Zera só a quantidade do dia corrente (de Brasília) e mantém o
+        `ultimo_envio_em`: o intervalo de 6 h continua valendo numa falha
+        intermitente (revisão do PR #218, item 5). Por isso, numa falha que
+        vai e volta, o campus pode receber até 4 e-mails num dia (de 6 em 6
+        horas), e não mais que isso.
         """
         ContadorAlerta.objects.filter(
             campus=campus, data=timezone.localdate(agora)
-        ).delete()
+        ).update(quantidade_enviada=0)
 
     def _deve_enviar(self, tipo: TipoAlerta, campus: Campus, agora: datetime) -> bool:
-        """Menos de 3 envios no dia e pelo menos 6 h desde o último envio do
-        mesmo campus e tipo, inclusive o da véspera (a virada do dia não
-        encurta o intervalo)."""
+        """Menos de 3 envios no dia (de Brasília) e pelo menos 6 h desde o
+        último envio do mesmo campus e tipo, inclusive o da véspera e mesmo
+        depois de `zerar_contador`."""
         enviados = ContadorAlerta.objects.filter(campus=campus, tipo=tipo)
         hoje = enviados.filter(data=timezone.localdate(agora)).first()
         if hoje is not None and hoje.quantidade_enviada >= self.MAX_AVISOS_POR_DIA:
@@ -102,33 +132,61 @@ class AlertaEquipeService:
         )
         return ultimo is None or agora - ultimo >= self.INTERVALO_MINIMO
 
-    def _enviar(self, alerta: AlertaLeituraCardapio, agora: datetime) -> bool:
+    @staticmethod
+    def _contar_envio(campus: Campus, tipo: TipoAlerta, agora: datetime) -> None:
+        # F(): o incremento é feito pelo banco, sem ler e regravar o valor.
+        contador, _ = ContadorAlerta.objects.get_or_create(
+            campus=campus, tipo=tipo, data=timezone.localdate(agora)
+        )
+        ContadorAlerta.objects.filter(pk=contador.pk).update(
+            quantidade_enviada=F("quantidade_enviada") + 1, ultimo_envio_em=agora
+        )
+
+    def _enviar(self, campus: Campus, alertas: list, agora: datetime) -> bool:
         """Envia o e-mail. Devolve False, sem levantar, se o envio falhou."""
-        tipo = TipoAlerta(alerta.tipo).label
+        lista = "".join(
+            ITEM.format(
+                quando=timezone.localtime(a.ocorrido_em).strftime("%d/%m/%Y %H:%M"),
+                tipo=TipoAlerta(a.tipo).label,
+                id=a.pk,
+                mensagem=a.mensagem,
+            )
+            for a in alertas[:MAX_ALERTAS_NO_EMAIL]
+        )
+        if len(alertas) > MAX_ALERTAS_NO_EMAIL:
+            lista += f"- e mais {_quantos(len(alertas) - MAX_ALERTAS_NO_EMAIL)}.\n"
+        quantos = _quantos(len(alertas))
         try:
             send_mail(
-                ASSUNTO.format(tipo=tipo, campus=alerta.campus.nome),
-                CORPO.format(
-                    campus=alerta.campus.nome,
-                    tipo=tipo,
-                    quando=timezone.localtime(agora).strftime("%d/%m/%Y %H:%M"),
-                    detalhe=alerta.mensagem,
-                    id=alerta.pk,
+                ASSUNTO.format(quantos=quantos, campus=campus.nome),
+                f"Enviado em {timezone.localtime(agora):%d/%m/%Y %H:%M} "
+                "(horário de Brasília).\n\n"
+                + CORPO.format(
+                    quantos=quantos,
+                    campus=campus.nome,
+                    lista=lista,
                     maximo=self.MAX_AVISOS_POR_DIA,
+                    intervalo=int(self.INTERVALO_MINIMO.total_seconds() // 3600),
                 ),
                 # None: usa o DEFAULT_FROM_EMAIL (nao-responda@..., ADR 0012).
                 None,
                 [settings.EMAIL_EQUIPE],
             )
         except (smtplib.SMTPException, OSError) as exc:
-            # SMTP ou rede (conexão recusada, timeout, TLS), como no cadastro:
-            # a leitura segue e o fallback do RF06 já foi aplicado (ADR 0006).
+            # SMTP ou rede (conexão recusada, timeout, TLS), como no cadastro.
             # Só o nome da exceção vai para o log, sem o endereço.
             logger.error(
-                "Falha ao enviar o e-mail do alerta %s (campus %s): %s",
-                alerta.pk,
-                alerta.campus_id,
+                "Falha ao enviar o e-mail de alertas do campus %s: %s",
+                campus.pk,
                 type(exc).__name__,
+            )
+            return False
+        except Exception:
+            # Configuração de e-mail, cabeçalho, codificação: uma falha aqui
+            # não pode impedir a leitura do cardápio (ADR 0006).
+            logger.exception(
+                "Erro inesperado ao enviar o e-mail de alertas do campus %s",
+                campus.pk,
             )
             return False
         return True

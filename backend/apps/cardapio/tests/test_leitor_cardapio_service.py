@@ -199,7 +199,10 @@ def test_execucao_sem_alerta_zera_o_contador_do_campus(gama, site):
         ultimo_envio_em=SABADO_10H - timedelta(hours=7),
     )
     _processar(gama)
-    assert not ContadorAlerta.objects.filter(campus=gama).exists()
+    # Zera a quantidade e mantém o último envio (revisão #218, item 5).
+    contador = ContadorAlerta.objects.get(campus=gama)
+    assert contador.quantidade_enviada == 0
+    assert contador.ultimo_envio_em == SABADO_10H - timedelta(hours=7)
 
 
 # ---------------------------------------------- falhas que mantêm o último
@@ -515,7 +518,7 @@ def test_vigente_ausente_antes_de_segunda_12h_nao_alerta(gama, site):
     )
     _processar(gama, datetime(2026, 11, 30, 11, 59, tzinfo=BRASILIA))
     assert _alertas(gama) == []
-    assert not ContadorAlerta.objects.exists()
+    assert ContadorAlerta.objects.get(campus=gama).quantidade_enviada == 0
 
 
 def test_vigente_ausente_exatamente_na_segunda_12h_ja_alerta(gama, site):

@@ -78,10 +78,18 @@ class LeitorCardapioService:
 
         1. Descoberta dos links (falha do campus inteiro: alerta e para).
         2. Cada semana à parte: download, SHA-256, leitura, datas, gravação.
-        3. Cardápio não publicado depois de segunda, 12h (ADR 0014).
+        3. Cardápio não publicado depois do prazo do Anexo A (ADR 0014).
         4. Sem nenhum alerta nesta execução, o contador do campus zera.
+        5. Um e-mail à equipe com os alertas pendentes do campus (ADR 0006).
         """
         resultado = ResultadoLeitura()
+        self._ler(campus, agora, resultado)
+        if resultado.alertas == 0:
+            self.alertas.zerar_contador(campus, agora=agora)
+        self.alertas.enviar_pendentes(campus, agora=agora)
+        return resultado
+
+    def _ler(self, campus: Campus, agora: datetime, resultado: ResultadoLeitura):
         try:
             fontes = self.downloader.localizar_pdfs(campus)
         except (FonteNaoEncontradaError, DownloadError) as exc:
@@ -92,10 +100,9 @@ class LeitorCardapioService:
                 campus,
                 f"Etapa: descoberta do PDF na página do RU. {exc}. Último "
                 "cardápio válido mantido.",
-                agora,
                 resultado,
             )
-            return resultado
+            return
         except Exception as exc:
             # Bug ou mudança inesperada na página: também é falha do campus
             # inteiro, e a equipe é avisada (RF06.4, ADR 0006).
@@ -105,10 +112,9 @@ class LeitorCardapioService:
                 campus,
                 "Etapa: erro inesperado na descoberta do PDF na página do RU. "
                 f"{_erro(exc)}. Último cardápio válido mantido.",
-                agora,
                 resultado,
             )
-            return resultado
+            return
 
         for fonte in fontes:
             try:
@@ -123,7 +129,7 @@ class LeitorCardapioService:
                     campus.pk,
                 )
                 self._falha_da_semana(
-                    campus, fonte, "erro inesperado", _erro(exc), agora, resultado
+                    campus, fonte, "erro inesperado", _erro(exc), resultado
                 )
 
         if self._semana_atrasada(fontes, agora):
@@ -135,14 +141,9 @@ class LeitorCardapioService:
                 f"{_data(segunda)} a {_data(segunda + timedelta(days=6))} "
                 f"no bloco do campus na página do RU "
                 f"({self.downloader.config.url_pagina}) depois do prazo "
-                "(segunda-feira, 12h).",
-                agora,
+                f"({self._prazo_por_extenso()}).",
                 resultado,
             )
-
-        if resultado.alertas == 0:
-            self.alertas.zerar_contador(campus, agora=agora)
-        return resultado
 
     # ------------------------------------------------------------- semana
 
@@ -159,7 +160,6 @@ class LeitorCardapioService:
                 campus,
                 f"Etapa: descoberta do PDF ({_semana(fonte)}). {fonte.erro}. "
                 "Último cardápio válido mantido.",
-                agora,
                 resultado,
             )
             return
@@ -176,7 +176,7 @@ class LeitorCardapioService:
             arquivo = self.downloader.baixar(fonte)
         except (DownloadError, FormatoPDFInvalidoError) as exc:
             etapa = "download" if isinstance(exc, DownloadError) else "formato"
-            self._falha_da_semana(campus, fonte, etapa, str(exc), agora, resultado)
+            self._falha_da_semana(campus, fonte, etapa, str(exc), resultado)
             return
 
         if (
@@ -192,12 +192,12 @@ class LeitorCardapioService:
                 io.BytesIO(arquivo.conteudo)
             ).extrair()
         except FormatoPDFInvalidoError as exc:
-            self._falha_da_semana(campus, fonte, "formato", str(exc), agora, resultado)
+            self._falha_da_semana(campus, fonte, "formato", str(exc), resultado)
             return
         try:
             self._conferir_datas(fonte, [d for r in refeicoes for d in r.dias])
         except FormatoPDFInvalidoError as exc:
-            self._falha_da_semana(campus, fonte, "datas", str(exc), agora, resultado)
+            self._falha_da_semana(campus, fonte, "datas", str(exc), resultado)
             return
 
         with transaction.atomic():
@@ -210,6 +210,12 @@ class LeitorCardapioService:
                             campus, refeicao.refeicao, date.fromisoformat(dia["data"])
                         )
             self.repositorio.remover_ausentes(campus, fonte, gravadas)
+            # Os alertas da página só em texto entram na mesma transação: se
+            # não puderem ser gravados, a semana não é dada como lida e o PDF
+            # é lido de novo na próxima execução (revisão do PR #218).
+            for refeicao in refeicoes:
+                if refeicao.alergenos_indisponiveis:
+                    self._alertar_so_em_texto(campus, fonte, refeicao, resultado)
             FonteCardapio.objects.update_or_create(
                 campus=campus,
                 semana_inicio=fonte.inicio,
@@ -222,12 +228,7 @@ class LeitorCardapioService:
             )
         resultado.lidas += 1
 
-        # Depois da transação: o alerta aponta para a refeição já gravada.
-        for refeicao in refeicoes:
-            if refeicao.alergenos_indisponiveis:
-                self._alertar_so_em_texto(campus, fonte, refeicao, agora, resultado)
-
-    def _falha_da_semana(self, campus, fonte, etapa, motivo, agora, resultado):
+    def _falha_da_semana(self, campus, fonte, etapa, motivo, resultado):
         havia = self.repositorio.manter_ultimo_valido(campus, fonte)
         situacao = (
             "Último cardápio válido mantido."
@@ -240,7 +241,6 @@ class LeitorCardapioService:
             TipoAlerta.FALHA_LEITURA_PDF,
             campus,
             f"Etapa: {etapa} ({_semana(fonte)}). {motivo}.{url} {situacao}",
-            agora,
             resultado,
         )
 
@@ -249,7 +249,6 @@ class LeitorCardapioService:
         campus: Campus,
         fonte: FontePDF,
         refeicao: RefeicaoEstruturada,
-        agora: datetime,
         resultado: ResultadoLeitura,
     ) -> None:
         """Uma linha de alerta por página (refeição da semana), presa à
@@ -266,15 +265,12 @@ class LeitorCardapioService:
             f"foi publicada só em texto, sem marcadores, nos dias "
             f"{', '.join(_data(d) for d in dias)}. Motivo: {refeicao.motivo}. "
             f"URL: {fonte.url}.",
-            agora,
             resultado,
             refeicao=primeira,
         )
 
-    def _alertar(self, tipo, campus, detalhe, agora, resultado, refeicao=None):
-        self.alertas.registrar_alerta(
-            tipo, campus, detalhe, refeicao=refeicao, agora=agora
-        )
+    def _alertar(self, tipo, campus, detalhe, resultado, refeicao=None):
+        self.alertas.registrar_alerta(tipo, campus, detalhe, refeicao=refeicao)
         resultado.alertas += 1
 
     # ------------------------------------------------- conferências (C4)
@@ -293,6 +289,20 @@ class LeitorCardapioService:
                     f"o dia {_data(data)} do PDF está fora do intervalo do link "
                     f"({_data(fonte.inicio)} a {_data(fonte.fim)})"
                 )
+
+    def _prazo_por_extenso(self) -> str:
+        """O prazo do "não publicado", montado dos parâmetros do Anexo A."""
+        dias = (
+            "segunda-feira",
+            "terça-feira",
+            "quarta-feira",
+            "quinta-feira",
+            "sexta-feira",
+            "sábado",
+            "domingo",
+        )
+        hora = self.parametros.horario_alerta_nao_publicado
+        return f"{dias[self.parametros.dia_alerta_nao_publicado]}, {hora:%Hh%M}"
 
     def _segunda_vigente(self, agora: datetime) -> date:
         hoje = timezone.localtime(agora).date()
