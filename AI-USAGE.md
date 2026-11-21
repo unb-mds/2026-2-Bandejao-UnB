@@ -298,11 +298,21 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BD-11 — Retenção de 4 semanas no app fila
 
-- Issue: [#163](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/163).
+- Issue: [#163](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/163). PR: [#220 — feat(banco): retenção de 4 semanas no app fila (BD-11)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/220).
 - Ferramenta: Claude (Anthropic).
 - Apoio: `RetencaoFilaService` (`desvincular_antigos` e `desvincular_conta`), `CheckinRepository.desvincular_antes_de` e `desvincular_conta`, comando `desvincular_registros_fila` com o `DesvincularRegistrosFilaJob`, testes em `backend/apps/fila/tests/test_retencao_fila.py` e nota da implementação no Nível 4 da Fila (4d).
 - TDD: testes no commit `a90291b`, antes do código; a coleta falhava porque o serviço, o método do repositório e o comando ainda não existiam.
 - Testes: registro de 5 semanas sem conta e sem hora; campus, tipo, data, faixa, tempo de espera e marcador de pontos mantidos; borda de 4 semanas (o dia-limite fica); contagem e segunda rodada sem efeito; dois check-ins da mesma refeição sem conta (UNIQUE com NULL); agregação da previsão (contagem e média de espera por campus, tipo, data e faixa) igual antes e depois; resposta de saída sem vínculo; prazo lido da `ParametrosFilaConfig`; exclusão de conta só nos registros dela; dia de Brasília no job; saída e log do comando só com a contagem.
 - Validação local (SQLite): `pytest` com 1348 testes aprovados e 1 ignorado (específico do MySQL), cobertura de 98%; `ruff check` e `ruff format --check` sem achados.
 - Fora deste PR: o agendamento diário no cron fica com a BD-07 (#147); a previsão (BE-15) ainda não existe, então o teste confere a agregação que ela usa, e não a `PrevisaoView`.
-- Situação: PR aberto, aguardando o CI e a revisão.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/220#issuecomment-7068712623), sem bloqueio para o merge, com quatro ajustes e sugestões.
+- Ajustes da revisão (TDD: testes em `6fcee7c`, antes do código):
+  - os docstrings e o C4 (4d) dizem exatamente o que é anulado (a conta, `registrado_em` e `data_hora`) e registram os horários que ficam, sem conta (`pontos_concedidos_em` e os da pergunta e da resposta de saída), a confirmar pela equipe;
+  - a justificativa do marcador de pontos passou a ser a gamificação (ADR 0011);
+  - testes dos dois lados do `OR` do `_desvincular` (sem conta e com hora, pelo `SET_NULL`; com conta e sem hora), nas duas tabelas; a mutação que tira a hora do filtro faz dois deles falharem (conferido localmente);
+  - teste de rollback entre as duas tabelas (falha sem o `transaction.atomic()`, conferido localmente), contagens do `desvincular_conta`, a pergunta de saída mantida e o dia anterior ao limite de Brasília;
+  - a falha do job vai para o log (`logger.exception`) e é propagada;
+  - parâmetro `limite` no repositório, docstrings sem descrever como existente o que ainda não existe, `int` no diagrama e a explicação do UNIQUE com a conta nula.
+- Sugestão não aplicada: as contagens separadas por tabela no log. O contrato continua `int`, como no C4, e os testes conferem cada tabela.
+- Validação local depois da revisão (SQLite): `pytest` com 1356 testes aprovados e 1 ignorado, cobertura de 98%; `ruff check` e `ruff format --check` sem achados.
+- Situação: ajustes da revisão aplicados, aguardando o recheck.

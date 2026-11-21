@@ -1,9 +1,10 @@
 """RetencaoFilaService: retenção de 4 semanas dos registros de fila (BD-11).
 
 Fila N4 (4d), RNF07.3 e RNF07.4. Depois do prazo, `Checkin` e
-`TentativaCheckin` perdem a conta e a hora exata e continuam servindo à
-previsão de pico. A `PerguntaSaida` e a `RespostaSaida` não guardam a conta:
-chegam a ela pelo check-in e perdem o vínculo junto.
+`TentativaCheckin` perdem a conta, `registrado_em` e `data_hora`, e continuam
+servindo à previsão de pico. A `PerguntaSaida` e a `RespostaSaida` não guardam
+a conta: chegam a ela pelo check-in e perdem o vínculo junto; os horários
+delas e o `pontos_concedidos_em` do check-in ficam, sem conta.
 """
 
 from datetime import date, timedelta
@@ -23,13 +24,15 @@ class RetencaoFilaService:
 
         O dia-limite fica: com `hoje` em 21/11, o check-in de 24/10 ainda é
         da conta e o de 23/10 deixa de ser. `hoje` é o dia de Brasília, quem
-        chama decide (o job usa `timezone.localdate()`).
+        chama decide (o job usa `timezone.localdate()`). As duas tabelas
+        mudam na mesma transação.
         """
         limite = hoje - timedelta(weeks=ParametrosFilaConfig.retencao_semanas)
         with transaction.atomic():
             return self.repository.desvincular_antes_de(limite)
 
     def desvincular_conta(self, conta) -> int:
-        """Usado pelo `RemoverContaCommand` (BD-12) dentro da transação dele."""
+        """Desvincula todos os registros de fila da conta. Será chamado pelo
+        `RemoverContaCommand` (BD-12, #164), dentro da transação dele."""
         with transaction.atomic():
             return self.repository.desvincular_conta(conta)

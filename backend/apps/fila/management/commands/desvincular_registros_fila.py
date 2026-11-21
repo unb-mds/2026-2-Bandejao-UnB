@@ -1,8 +1,9 @@
 """`python manage.py desvincular_registros_fila` (RNF07.3, Fila N4 4d).
 
-Retira a conta e a hora exata dos registros de fila com mais de 4 semanas
-(`RetencaoFilaService.desvincular_antigos`). Roda uma vez por dia, no cron do
-SO configurado pela BD-07 (#147), junto dos outros comandos periódicos.
+Retira a conta, `registrado_em` e `data_hora` dos registros de fila com mais
+de 4 semanas (`RetencaoFilaService.desvincular_antigos`). É um processo
+periódico, para rodar uma vez por dia: quem o coloca no cron do SO é a BD-07
+(#147).
 """
 
 import logging
@@ -23,9 +24,18 @@ class DesvincularRegistrosFilaJob:
         """Desvincula os registros antigos e devolve quantos foram.
 
         O prazo conta do dia de Brasília (`TIME_ZONE`), o mesmo da `data` do
-        check-in: perto da meia-noite, o dia UTC já é o seguinte.
+        check-in: entre 21h e meia-noite de Brasília, o dia UTC já é o
+        seguinte.
         """
-        desvinculados = self.servico.desvincular_antigos(timezone.localdate())
+        try:
+            desvinculados = self.servico.desvincular_antigos(timezone.localdate())
+        except Exception:
+            # No formato de log do projeto; o erro segue para o comando sair
+            # com status diferente de 0, que o cron guarda.
+            logger.exception(
+                "Falha na retenção dos registros de fila; nada foi alterado."
+            )
+            raise
         # Só a contagem: o log não leva dado da conta (RNF07).
         logger.info("Registros de fila desvinculados: %s", desvinculados)
         return desvinculados
