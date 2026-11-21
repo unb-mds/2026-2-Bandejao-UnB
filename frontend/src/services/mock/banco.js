@@ -44,6 +44,7 @@ function estadoInicial() {
       },
     ],
     avaliacoes: [],
+    checkins: [],
     links: [],
     proximoId: 2,
   }

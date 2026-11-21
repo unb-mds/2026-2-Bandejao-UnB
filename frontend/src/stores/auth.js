@@ -30,6 +30,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   const estaAutenticado = computed(() => Boolean(usuario.value))
   const apelido = computed(() => usuario.value?.apelido ?? 'Visitante')
+  /** Falta a ciência do aviso de privacidade atualizado (RF11, RNF07.1). */
+  const avisoPrivacidadePendente = computed(() => Boolean(usuario.value?.avisoPrivacidadePendente))
 
   function limpar() {
     geracao++
@@ -102,6 +104,20 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * POST /api/privacidade/aceite/ (sem corpo; 204). O servidor grava a versão
+   * do aviso e a hora; aqui só some o aviso pendente da sessão.
+   */
+  async function registrarCienciaPrivacidade() {
+    await apiClient.post('/privacidade/aceite/')
+    if (usuario.value) usuario.value = { ...usuario.value, avisoPrivacidadePendente: false }
+  }
+
+  /** O check-in recebeu 403 `aviso_privacidade_pendente`: o servidor ainda espera a ciência. */
+  function marcarAvisoPrivacidadePendente() {
+    if (usuario.value) usuario.value = { ...usuario.value, avisoPrivacidadePendente: true }
+  }
+
+  /**
    * POST /api/cadastro/ com `{ tipoUsuario, emailInstitucional, senha,
    * apelido?, matriculaSiape?, aceitePrivacidade }`.
    * @returns {Promise<{ emailInstitucional: string, status: 'pendente', linkSimulado?: string }>}
@@ -140,10 +156,13 @@ export const useAuthStore = defineStore('auth', () => {
     sessaoCarregada,
     estaAutenticado,
     apelido,
+    avisoPrivacidadePendente,
     limpar,
     carregarSessao,
     entrar,
     sair,
+    registrarCienciaPrivacidade,
+    marcarAvisoPrivacidadePendente,
     cadastrar,
     confirmarEmail,
     reenviarConfirmacao,
