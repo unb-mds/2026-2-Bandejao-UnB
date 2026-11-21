@@ -19,7 +19,7 @@ from apps.cardapio.cardapio_filtrado import (
     CardapioFiltrado,
     StatusCardapio,
 )
-from apps.cardapio.cardapio_query_service import CardapioQueryService
+from apps.cardapio.cardapio_query_service import CardapioQueryService, dia_pedido
 from apps.cardapio.dieta_selecionada import DietaSelecionada
 from apps.cardapio.horario_refeicao_resolver import refeicao_terminou
 from apps.cardapio.models import Dieta, StatusLeitura, TipoRefeicao
@@ -409,3 +409,126 @@ def test_alergenos_indisponiveis_desativam_o_filtro(campus, marcadores):
     assert categoria.pratos[0].contem_marcador_selecionado is False
     # O marcador continua listado no prato (RF10).
     assert categoria.pratos[0].marcadores == ["soja"]
+
+
+# --- Revisão do PR #214 ------------------------------------------------------
+
+
+def test_refeicao_com_leitura_falhou_fica_nao_publicada(campus):
+    # `leitura_falhou` só existe numa linha criada sem cardápio anterior
+    # (N4 do banco): não há cardápio válido para mostrar (RF06.4, RF07.3).
+    # Publicá-la com o filtro de marcador ativo faria quem filtra glúten
+    # achar que nada tem glúten.
+    publicar_semana(campus, SEGUNDA)
+    servir(campus, TERCA, ALMOCO, status_leitura=StatusLeitura.LEITURA_FALHOU)
+
+    cardapio = obter(campus, em_brasilia(TERCA, time(12, 0)), marcadores=["soja"])
+
+    assert cardapio.status == StatusCardapio.NAO_PUBLICADO
+    assert cardapio.categorias == []
+    assert (cardapio.refeicao, cardapio.data) == (ALMOCO, TERCA)
+
+
+def test_leitura_falhou_numa_refeicao_nao_afeta_as_outras(campus):
+    publicar_semana(campus, SEGUNDA)
+    servir(campus, TERCA, CAFE, status_leitura=StatusLeitura.LEITURA_FALHOU)
+    servir(campus, TERCA, ALMOCO)
+
+    cardapio = obter(campus, em_brasilia(TERCA, time(12, 0)))
+
+    assert cardapio.status == StatusCardapio.PUBLICADO
+    assert pratos(cardapio) == [f"almoco {TERCA}"]
+
+
+def test_domingo_com_semana_pedida_pula_para_a_semana_seguinte(duas_semanas):
+    # RN05, item 5: mesmo com `semana` pedida, o dia exibido é o próximo dia
+    # com serviço, ainda que seja de outra semana; `data` mostra qual é.
+    cardapio = obter(duas_semanas, em_brasilia(DOMINGO, time(12, 0)), semana=SEGUNDA)
+
+    assert (cardapio.refeicao, cardapio.data) == (CAFE, PROXIMA_SEGUNDA)
+    assert cardapio.status == StatusCardapio.PUBLICADO
+
+
+def test_proximo_dia_com_servico_a_mais_de_uma_semana_nao_conta(campus):
+    # A busca vai até 7 dias depois: um recesso longo fica "não publicado",
+    # em vez de mostrar uma refeição de semanas à frente.
+    publicar_semana(campus, SEGUNDA)
+    servir(campus, TERCA + timedelta(days=8), ALMOCO)
+
+    cardapio = obter(campus, em_brasilia(TERCA, time(12, 0)))
+
+    assert cardapio.status == StatusCardapio.NAO_PUBLICADO
+    assert cardapio.data == TERCA
+
+
+def test_refeicao_pedida_no_domingo_nao_pula_de_dia(duas_semanas):
+    # O item 5 da RN05 vale para a refeição padrão. Pedida pelo seletor, a
+    # refeição é a do dia pedido: o PDF não a traz, e as categorias vêm
+    # vazias (o front só oferece os dias e refeições do PDF).
+    cardapio = obter(
+        duas_semanas, em_brasilia(SABADO, time(12, 0)), dia=DOMINGO, refeicao=ALMOCO
+    )
+
+    assert (cardapio.refeicao, cardapio.data) == (ALMOCO, DOMINGO)
+    assert cardapio.status == StatusCardapio.PUBLICADO
+    assert cardapio.categorias == []
+
+
+def test_refeicao_pedida_em_semana_nao_publicada(campus):
+    servir(campus, TERCA, ALMOCO)
+
+    cardapio = obter(campus, em_brasilia(TERCA, time(16, 0)), refeicao=ALMOCO)
+
+    assert cardapio.status == StatusCardapio.NAO_PUBLICADO
+    assert (cardapio.refeicao, cardapio.data, cardapio.refeicao_encerrada) == (
+        ALMOCO,
+        TERCA,
+        True,
+    )
+    assert cardapio.categorias == []
+
+
+def test_agora_em_utc_no_servico_usa_o_dia_de_brasilia(campus):
+    # 01h00 UTC de quarta = 22h00 de terça em Brasília: jantar de terça.
+    from datetime import UTC, datetime
+
+    publicar_semana(campus, SEGUNDA)
+    servir(campus, TERCA, ALMOCO, JANTAR)
+    servir(campus, QUARTA, CAFE)
+
+    cardapio = obter(campus, datetime(2026, 11, 25, 1, 0, tzinfo=UTC))
+
+    assert (cardapio.refeicao, cardapio.data, cardapio.refeicao_encerrada) == (
+        JANTAR,
+        TERCA,
+        True,
+    )
+
+
+def test_refeicao_terminou_com_agora_em_utc():
+    from datetime import UTC, datetime
+
+    # 17h31 UTC = 14h31 em Brasília: o almoço de terça acabou.
+    assert refeicao_terminou(datetime(2026, 11, 24, 17, 31, tzinfo=UTC), TERCA, ALMOCO)
+    # 17h30 UTC = 14h30: ainda no horário (fim incluído).
+    assert not refeicao_terminou(
+        datetime(2026, 11, 24, 17, 30, tzinfo=UTC), TERCA, ALMOCO
+    )
+
+
+@pytest.mark.parametrize(
+    "hoje, esperado",
+    [
+        (SEGUNDA - timedelta(days=1), SEGUNDA),  # antes da semana
+        (SEGUNDA, SEGUNDA),  # primeiro dia: hoje
+        (DOMINGO, DOMINGO),  # último dia: hoje
+        (PROXIMA_SEGUNDA, SEGUNDA),  # depois da semana
+    ],
+)
+def test_dia_pedido_com_semana_e_sem_dia(hoje, esperado):
+    assert dia_pedido(SEGUNDA, None, hoje) == esperado
+
+
+def test_dia_pedido_sem_semana_e_hoje_e_com_dia_e_o_dia():
+    assert dia_pedido(None, None, TERCA) == TERCA
+    assert dia_pedido(SEGUNDA, QUARTA, TERCA) == QUARTA

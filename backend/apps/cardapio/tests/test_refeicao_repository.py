@@ -200,3 +200,15 @@ def test_repositorio_nao_escreve_no_banco(campus, repositorio):
     # `lida_em` é auto_now: qualquer save() da Exposição mudaria o valor.
     refeicao.refresh_from_db()
     assert refeicao.lida_em == lida_em
+
+
+def test_proximo_dia_com_servico_busca_ate_sete_dias(campus, repositorio):
+    criar_refeicao(campus, TERCA + timedelta(days=7), ALMOCO)
+    assert repositorio.proximo_dia_com_servico(campus, TERCA) == TERCA + timedelta(
+        days=7
+    )
+
+
+def test_proximo_dia_com_servico_depois_de_sete_dias_e_none(campus, repositorio):
+    criar_refeicao(campus, TERCA + timedelta(days=8), ALMOCO)
+    assert repositorio.proximo_dia_com_servico(campus, TERCA) is None
