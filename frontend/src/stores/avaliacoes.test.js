@@ -24,7 +24,9 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('avaliacoesStore', () => {
+// MVP: a `HomeView` (/inicio) ainda lê a semana e a refeição no formato
+// antigo. Sai na FE-E2.
+describe('avaliacoesStore (formato do MVP, usado pela HomeView)', () => {
   it('carrega as avaliações de uma refeição e guarda pela refeição', async () => {
     const avaliacoes = useAvaliacoesStore()
 
@@ -52,25 +54,6 @@ describe('avaliacoesStore', () => {
 
     expect(await avaliacoes.carregarResumo('executivo')).toBeNull()
     expect(avaliacoes.erro).toBe('Campus não encontrado.')
-  })
-
-  it('enviar grava a nota e atualiza a refeição e o resumo', async () => {
-    await useAuthStore().entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
-    const avaliacoes = useAvaliacoesStore()
-
-    const resposta = await avaliacoes.enviar(ALMOCO_HOJE, 4, 'Bom')
-
-    expect(resposta).toMatchObject({ nota: 4, comentario: 'Bom' })
-    expect(avaliacoes.daRefeicao(ALMOCO_HOJE).minha).toEqual({ nota: 4, comentario: 'Bom' })
-    expect(avaliacoes.resumoPorCampus[3]).not.toBeUndefined()
-  })
-
-  it('enviar sem login rejeita com o erro da API', async () => {
-    const avaliacoes = useAvaliacoesStore()
-
-    const falha = await avaliacoes.enviar(ALMOCO_HOJE, 4, '').catch((e) => e)
-
-    expect(falha.codigo).toBe('nao_autenticado')
   })
 
   it('limparCache esquece as avaliações carregadas (login e logout)', async () => {
@@ -131,5 +114,246 @@ describe('avaliacoesStore: resumo do dia (GET /api/avaliacoes/resumo/)', () => {
     expect(avaliacoes.erro).toBeNull()
     expect(avaliacoes.situacaoDoResumoDoDia(1, '2026-09-28')).toBe('erro')
     expect(log).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
+ * Contrato da BE-13 (FE-09): GET /api/refeicoes/{refeicaoId}/avaliacoes/ e
+ * POST /api/avaliacoes/ (sempre upsert: avaliar de novo edita).
+ */
+describe('avaliacoesStore: avaliações de uma refeição (contrato da BE-13)', () => {
+  const HOJE = '2026-09-28'
+
+  /** refeicaoId do almoço de hoje no Gama, como o resumo do dia devolve. */
+  async function idDoAlmoco(avaliacoes = useAvaliacoesStore()) {
+    const resumo = await avaliacoes.carregarResumoDoDia(3, HOJE)
+    return resumo.find((r) => r.tipo === 'almoco').refeicaoId
+  }
+
+  async function entrar() {
+    await useAuthStore().entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+  }
+
+  it('carrega média, quantidade e comentários pelo refeicaoId', async () => {
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+    const get = vi.spyOn(apiClient, 'get')
+
+    const dados = await avaliacoes.carregarAvaliacoesDaRefeicao(refeicaoId)
+
+    expect(get).toHaveBeenCalledWith(`/refeicoes/${refeicaoId}/avaliacoes/`)
+    expect(dados.resumoAvaliacoes).toEqual({
+      media: expect.any(Number),
+      quantidade: expect.any(Number),
+    })
+    expect(dados.comentarios[0]).toEqual({
+      apelido: expect.any(String),
+      nota: expect.any(Number),
+      comentario: expect.any(String),
+      criadaEm: expect.any(String),
+    })
+    expect(avaliacoes.avaliacoesDaRefeicao(refeicaoId)).toEqual(dados)
+    expect(avaliacoes.situacaoDaRefeicao(refeicaoId)).toBe('carregado')
+  })
+
+  it('refeição em 501 (backend sem a BE-13): situação "indisponivel", sem erro no console', async () => {
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+    simulacao.definirAvaliacoesDisponiveis(false)
+    const log = vi.spyOn(console, 'error')
+
+    expect(await avaliacoes.carregarAvaliacoesDaRefeicao(refeicaoId)).toBeNull()
+
+    expect(avaliacoes.situacaoDaRefeicao(refeicaoId)).toBe('indisponivel')
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('outra falha ao carregar: situação "erro" com a mensagem da API', async () => {
+    const avaliacoes = useAvaliacoesStore()
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }),
+    )
+
+    expect(await avaliacoes.carregarAvaliacoesDaRefeicao(42)).toBeNull()
+
+    expect(avaliacoes.situacaoDaRefeicao(42)).toBe('erro')
+    expect(avaliacoes.erroDaRefeicao(42)).toBe('Sem internet.')
+  })
+
+  it('avaliar (criar): POST /avaliacoes/ com refeicaoId, nota e comentário', async () => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+    const post = vi.spyOn(apiClient, 'post')
+
+    const resultado = await avaliacoes.avaliar({
+      refeicaoId,
+      campus: 3,
+      data: HOJE,
+      nota: 4,
+      comentario: 'Bom',
+    })
+
+    expect(post).toHaveBeenCalledWith('/avaliacoes/', { refeicaoId, nota: 4, comentario: 'Bom' })
+    expect(resultado).toMatchObject({
+      desfecho: 'criada',
+      avaliacao: { refeicaoId, nota: 4, comentario: 'Bom', editadaEm: null },
+      pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 },
+    })
+    expect(avaliacoes.minhaAvaliacao(refeicaoId, CONTA_DEMO.apelido)).toEqual({
+      nota: 4,
+      comentario: 'Bom',
+    })
+  })
+
+  it('avaliar recarrega os comentários e o resumo do dia (média nova)', async () => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+    const antes = (await avaliacoes.carregarAvaliacoesDaRefeicao(refeicaoId)).resumoAvaliacoes
+      .quantidade
+
+    await avaliacoes.avaliar({ refeicaoId, campus: 3, data: HOJE, nota: 5, comentario: 'Top' })
+
+    const dados = avaliacoes.avaliacoesDaRefeicao(refeicaoId)
+    expect(dados.resumoAvaliacoes.quantidade).toBe(antes + 1)
+    expect(dados.comentarios[0]).toMatchObject({ apelido: CONTA_DEMO.apelido, comentario: 'Top' })
+    const doResumo = avaliacoes.daResumoDoDia(3, HOJE).find((r) => r.refeicaoId === refeicaoId)
+    expect(doResumo.quantidade).toBe(antes + 1)
+  })
+
+  it('avaliar de novo (editar): desfecho "editada", sem duplicar', async () => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+    const alvo = { refeicaoId, campus: 3, data: HOJE }
+    await avaliacoes.avaliar({ ...alvo, nota: 2, comentario: '' })
+    const depoisDaPrimeira = avaliacoes.avaliacoesDaRefeicao(refeicaoId).resumoAvaliacoes.quantidade
+
+    const resultado = await avaliacoes.avaliar({ ...alvo, nota: 5, comentario: 'Mudei de ideia' })
+
+    expect(resultado.desfecho).toBe('editada')
+    expect(resultado.avaliacao.editadaEm).toEqual(expect.any(String))
+    expect(avaliacoes.avaliacoesDaRefeicao(refeicaoId).resumoAvaliacoes.quantidade).toBe(
+      depoisDaPrimeira,
+    )
+    expect(avaliacoes.minhaAvaliacao(refeicaoId, CONTA_DEMO.apelido)).toEqual({
+      nota: 5,
+      comentario: 'Mudei de ideia',
+    })
+  })
+
+  it('minhaAvaliacao acha a do próprio apelido nos comentários (depois de recarregar a página)', async () => {
+    await entrar()
+    const primeira = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(primeira)
+    await primeira.avaliar({ refeicaoId, campus: 3, data: HOJE, nota: 3, comentario: 'Ok' })
+    // Store nova: só o que vem do servidor.
+    setActivePinia(createPinia())
+    const avaliacoes = useAvaliacoesStore()
+
+    await avaliacoes.carregarAvaliacoesDaRefeicao(refeicaoId)
+
+    expect(avaliacoes.minhaAvaliacao(refeicaoId, CONTA_DEMO.apelido)).toEqual({
+      nota: 3,
+      comentario: 'Ok',
+    })
+    expect(avaliacoes.minhaAvaliacao(refeicaoId, 'outra_pessoa')).toBeNull()
+    expect(avaliacoes.minhaAvaliacao(refeicaoId, null)).toBeNull()
+  })
+
+  it.each([
+    ['janela_avaliacao_fechada', 'indisponivel', { data: '2026-09-29' }],
+    ['nota_invalida', 'erro', { nota: 0 }],
+    ['comentario_muito_longo', 'erro', { comentario: 'x'.repeat(501) }],
+  ])('422 %s: desfecho "%s" com a mensagem por codigo', async (codigo, desfecho, mudanca) => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+    let alvo = { refeicaoId, campus: 3, data: HOJE, nota: 4, comentario: '', ...mudanca }
+    if (mudanca.data) {
+      const ontem = await avaliacoes.carregarResumoDoDia(3, mudanca.data)
+      alvo = { ...alvo, refeicaoId: ontem.find((r) => r.tipo === 'almoco').refeicaoId }
+    }
+
+    const resultado = await avaliacoes.avaliar(alvo)
+
+    expect(resultado).toEqual({
+      desfecho,
+      codigo,
+      mensagem: {
+        janela_avaliacao_fechada:
+          'A avaliação desta refeição está fechada. Só dá para avaliar refeições de hoje que já começaram, até 23h59.',
+        nota_invalida: 'Escolha uma nota de 1 a 5 estrelas.',
+        comentario_muito_longo: 'O comentário pode ter no máximo 500 caracteres.',
+      }[codigo],
+    })
+  })
+
+  it('404 refeicao_nao_encontrada: indisponível', async () => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+
+    const resultado = await avaliacoes.avaliar({ refeicaoId: 999, campus: 3, data: HOJE, nota: 4 })
+
+    expect(resultado).toEqual({
+      desfecho: 'indisponivel',
+      codigo: 'refeicao_nao_encontrada',
+      mensagem: 'Esta refeição não está no cardápio, então não pode ser avaliada.',
+    })
+  })
+
+  it('501 (backend sem a BE-13): indisponível com mensagem própria', async () => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+    simulacao.definirAvaliacoesDisponiveis(false)
+
+    const resultado = await avaliacoes.avaliar({ refeicaoId, campus: 3, data: HOJE, nota: 4 })
+
+    expect(resultado).toEqual({
+      desfecho: 'indisponivel',
+      codigo: null,
+      mensagem: 'As avaliações ainda não estão disponíveis. Tente de novo mais tarde.',
+    })
+  })
+
+  it('sem sessão (401): desfecho "nao_autenticado"', async () => {
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+
+    const resultado = await avaliacoes.avaliar({ refeicaoId, campus: 3, data: HOJE, nota: 4 })
+
+    expect(resultado.desfecho).toBe('nao_autenticado')
+  })
+
+  it('sem conexão: erro com a mensagem do apiClient, e nada muda', async () => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+    vi.spyOn(apiClient, 'post').mockRejectedValueOnce(
+      new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }),
+    )
+
+    const resultado = await avaliacoes.avaliar({ refeicaoId, campus: 3, data: HOJE, nota: 4 })
+
+    expect(resultado).toEqual({
+      desfecho: 'erro',
+      codigo: 'sem_conexao',
+      mensagem: 'Sem internet.',
+    })
+    expect(avaliacoes.minhaAvaliacao(refeicaoId, CONTA_DEMO.apelido)).toBeNull()
+  })
+
+  it('limparCache esquece as avaliações próprias e os comentários (login e logout)', async () => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+    await avaliacoes.avaliar({ refeicaoId, campus: 3, data: HOJE, nota: 4 })
+
+    avaliacoes.limparCache()
+
+    expect(avaliacoes.avaliacoesDaRefeicao(refeicaoId)).toBeNull()
+    expect(avaliacoes.minhaAvaliacao(refeicaoId, CONTA_DEMO.apelido)).toBeNull()
   })
 })

@@ -175,10 +175,11 @@ describe('navegação do protótipo', () => {
 
   it('visitante vê convite ao login em vez do formulário de avaliação (RF05)', async () => {
     const { wrapper } = await montarEm('/avaliacoes', { campus: 1 })
-    expect(wrapper.text()).toContain('Avaliação bloqueada')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Entre para avaliar'))
+    expect(wrapper.text()).toMatch(/pontos/)
     expect(wrapper.find('textarea').exists()).toBe(false)
     // Os comentários continuam públicos.
-    expect(wrapper.text()).toContain('lucas_unb')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('lucas_unb'))
   })
 })
 

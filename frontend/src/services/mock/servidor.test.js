@@ -678,67 +678,159 @@ describe('GET /avaliacoes/resumo/?campus=&data= (resumo do dia)', () => {
   })
 })
 
-describe('avaliações (RF15)', () => {
-  const ALMOCO_HOJE = { campus: 3, data: '2026-09-28', refeicao: 'almoco' }
-  const consulta = `/avaliacoes/?campus=3&data=2026-09-28&refeicao=almoco`
+describe('avaliações (RF15, contrato da BE-13)', () => {
+  const HOJE = '2026-09-28'
 
-  it('visitante não pode avaliar', async () => {
-    const resposta = await post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 5 })
+  /** refeicaoId de uma refeição do Gama, como o resumo do dia devolve. */
+  async function idDa(tipo, data = HOJE) {
+    const { dados } = await get(`/avaliacoes/resumo/?campus=3&data=${data}`)
+    return dados.find((r) => r.tipo === tipo).refeicaoId
+  }
+  const lista = (refeicaoId) => get(`/refeicoes/${refeicaoId}/avaliacoes/`)
+
+  it('visitante não pode avaliar: 401', async () => {
+    const resposta = await post('/avaliacoes/', { refeicaoId: await idDa('almoco'), nota: 5 })
+
     expect(resposta.status).toBe(401)
     expect(resposta.dados.codigo).toBe('nao_autenticado')
   })
 
-  it('a segunda avaliação da mesma refeição edita a primeira', async () => {
+  it('201 na primeira avaliação, com a avaliação e o bloco de pontos', async () => {
     await entrarComDemo()
-    const antes = (await get(consulta)).dados.quantidade
+    const refeicaoId = await idDa('almoco')
 
-    expect((await post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 2 })).status).toBe(201)
-    expect(
-      (await post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 5, comentario: 'Mudei de ideia' }))
-        .status,
-    ).toBe(200)
+    const resposta = await post('/avaliacoes/', { refeicaoId, nota: 4, comentario: ' Bom ' })
 
-    const { dados } = await get(consulta)
-    expect(dados.quantidade).toBe(antes + 1)
-    expect(dados.minha).toEqual({ nota: 5, comentario: 'Mudei de ideia' })
-    expect(dados.avaliacoes[0]).toMatchObject({
-      apelido: CONTA_DEMO.apelido,
-      comentario: 'Mudei de ideia',
+    expect(resposta.status).toBe(201)
+    expect(resposta.dados).toEqual({
+      avaliacao: {
+        id: expect.any(Number),
+        refeicaoId,
+        nota: 4,
+        comentario: 'Bom',
+        criadaEm: SEGUNDA_MEIO_DIA.toISOString(),
+        editadaEm: null,
+      },
+      pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 },
     })
+  })
+
+  it('a segunda avaliação da mesma refeição edita a primeira: 200 e editadaEm', async () => {
+    await entrarComDemo()
+    const refeicaoId = await idDa('almoco')
+    const antes = (await lista(refeicaoId)).dados.resumoAvaliacoes.quantidade
+    await post('/avaliacoes/', { refeicaoId, nota: 2 })
+
+    const resposta = await post('/avaliacoes/', { refeicaoId, nota: 5, comentario: 'Mudei' })
+
+    expect(resposta.status).toBe(200)
+    expect(resposta.dados.avaliacao).toMatchObject({ nota: 5, comentario: 'Mudei' })
+    expect(resposta.dados.avaliacao.editadaEm).toEqual(expect.any(String))
+    const { dados } = await lista(refeicaoId)
+    expect(dados.resumoAvaliacoes.quantidade).toBe(antes + 1)
+    expect(dados.comentarios[0]).toEqual({
+      apelido: CONTA_DEMO.apelido,
+      nota: 5,
+      comentario: 'Mudei',
+      criadaEm: expect.any(String),
+    })
+  })
+
+  it('GET /refeicoes/{id}/avaliacoes/ é público e segue o schema AvaliacoesDaRefeicao', async () => {
+    const { status, dados } = await lista(await idDa('almoco'))
+
+    expect(status).toBe(200)
+    expect(Object.keys(dados).sort()).toEqual(['comentarios', 'resumoAvaliacoes'])
+    expect(Object.keys(dados.comentarios[0]).sort()).toEqual([
+      'apelido',
+      'comentario',
+      'criadaEm',
+      'nota',
+    ])
+  })
+
+  it('conta removida aparece como "usuário removido"', async () => {
+    await entrarComDemo()
+    const refeicaoId = await idDa('almoco')
+    await post('/avaliacoes/', { refeicaoId, nota: 4, comentario: 'Bom' })
+    banco.estado.usuarios = banco.estado.usuarios.filter((u) => u.apelido !== CONTA_DEMO.apelido)
+
+    const { dados } = await lista(refeicaoId)
+
+    expect(dados.comentarios[0]).toMatchObject({ apelido: 'usuário removido', comentario: 'Bom' })
   })
 
   it('não expõe e-mail nem matrícula na lista pública (RI10)', async () => {
     await entrarComDemo()
-    await post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 4, comentario: 'Bom' })
+    const refeicaoId = await idDa('almoco')
+    await post('/avaliacoes/', { refeicaoId, nota: 4, comentario: 'Bom' })
     await del('/sessao/')
-    const texto = JSON.stringify((await get(consulta)).dados)
+
+    const texto = JSON.stringify((await lista(refeicaoId)).dados)
+
     expect(texto).not.toContain(CONTA_DEMO.email)
     expect(texto).not.toContain('231034567')
   })
 
-  it('não permite avaliar outro dia nem antes do início da refeição', async () => {
+  it('refeição inexistente: 404 refeicao_nao_encontrada (GET e POST)', async () => {
     await entrarComDemo()
-    const amanha = await post('/avaliacoes/', { ...ALMOCO_HOJE, data: '2026-09-29', nota: 4 })
-    expect(amanha.dados.codigo).toBe('fora_do_dia')
 
-    const jantar = await post('/avaliacoes/', { ...ALMOCO_HOJE, refeicao: 'jantar', nota: 4 })
-    expect(jantar.dados.codigo).toBe('antes_do_inicio')
+    expect((await lista(999)).dados.codigo).toBe('refeicao_nao_encontrada')
+    const resposta = await post('/avaliacoes/', { refeicaoId: 999, nota: 4 })
+    expect(resposta.status).toBe(404)
+    expect(resposta.dados.codigo).toBe('refeicao_nao_encontrada')
   })
 
-  it('valida nota e tamanho do comentário', async () => {
+  it('outro dia ou antes do início: 422 janela_avaliacao_fechada', async () => {
     await entrarComDemo()
-    expect((await post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 0 })).status).toBe(422)
-    const longo = await post('/avaliacoes/', {
-      ...ALMOCO_HOJE,
-      nota: 3,
-      comentario: 'x'.repeat(501),
+
+    const amanha = await post('/avaliacoes/', {
+      refeicaoId: await idDa('almoco', '2026-09-29'),
+      nota: 4,
     })
+    const jantar = await post('/avaliacoes/', { refeicaoId: await idDa('jantar'), nota: 4 })
+
+    expect(amanha.status).toBe(422)
+    expect(amanha.dados.codigo).toBe('janela_avaliacao_fechada')
+    expect(jantar.dados.codigo).toBe('janela_avaliacao_fechada')
+  })
+
+  it('valida nota (422 nota_invalida) e tamanho do comentário (422 comentario_muito_longo)', async () => {
+    await entrarComDemo()
+    const refeicaoId = await idDa('almoco')
+
+    expect((await post('/avaliacoes/', { refeicaoId, nota: 0 })).dados.codigo).toBe('nota_invalida')
+    expect((await post('/avaliacoes/', { refeicaoId })).dados.codigo).toBe('nota_invalida')
+    const longo = await post('/avaliacoes/', { refeicaoId, nota: 3, comentario: 'x'.repeat(501) })
     expect(longo.status).toBe(422)
+    expect(longo.dados.codigo).toBe('comentario_muito_longo')
+  })
+
+  it('aceita comentário de exatamente 500 caracteres', async () => {
+    await entrarComDemo()
+
+    const resposta = await post('/avaliacoes/', {
+      refeicaoId: await idDa('almoco'),
+      nota: 3,
+      comentario: 'x'.repeat(500),
+    })
+
+    expect(resposta.status).toBe(201)
   })
 
   it('refeição que ainda não começou não tem avaliações', async () => {
-    const { dados } = await get('/avaliacoes/?campus=3&data=2026-09-28&refeicao=jantar')
-    expect(dados).toMatchObject({ quantidade: 0, media: null, avaliacoes: [] })
+    const { dados } = await lista(await idDa('jantar'))
+
+    expect(dados).toEqual({ resumoAvaliacoes: { media: null, quantidade: 0 }, comentarios: [] })
+  })
+
+  it('definirAvaliacoesDisponiveis(false): 501, como o backend sem a BE-13', async () => {
+    await entrarComDemo()
+    const refeicaoId = await idDa('almoco')
+    simulacao.definirAvaliacoesDisponiveis(false)
+
+    expect((await lista(refeicaoId)).status).toBe(501)
+    expect((await post('/avaliacoes/', { refeicaoId, nota: 4 })).status).toBe(501)
   })
 })
 

@@ -86,9 +86,8 @@ describe('authStore com o servidor simulado', () => {
     const auth = useAuthStore()
     await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
-    const resposta = await apiClient.post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 4 })
-
-    expect(resposta.nota).toBe(4)
+    // POST /privacidade/aceite/: escrita que exige sessão e responde 204.
+    await expect(apiClient.post('/privacidade/aceite/')).resolves.toBeNull()
   })
 
   it('sair encerra a sessão no servidor (DELETE /sessao/) e limpa a store', async () => {
