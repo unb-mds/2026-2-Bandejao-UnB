@@ -10,6 +10,7 @@ Os almoços esperados do Gama e do Darcy foram conferidos prato a prato e
 """
 
 import datetime
+import io
 import re
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,6 +24,8 @@ from apps.cardapio.leitor.cardapio_pdf_parser import (
     AssociacaoFalhouError,
     CardapioEstruturador,
     CardapioPDFParser,
+    DownloadError,
+    FonteNaoEncontradaError,
     FormatoPDFInvalidoError,
     Grade,
     LegendaInvalidaError,
@@ -509,6 +512,13 @@ def test_linha_terminada_em_conector_continua_mesmo_com_maiuscula():
     ]
 
 
+def test_linha_terminada_em_barra_continua_mesmo_com_maiuscula():
+    # "/" não separa pratos (RF06.2), nem no fim da linha (caso 28):
+    # "Rosé [ovo][leite] /" / "Limão", no PDF de Planaltina de 23/11.
+    assert _descricoes(_linhas("Rosé /", "Limão")) == ["Rosé / Limão"]
+    assert _descricoes(_linhas("Chipotle/", "Limão")) == ["Chipotle/ Limão"]
+
+
 def test_opcao_separa_e_sai_da_descricao():
     assert _descricoes(_linhas("Mix de doces", "Opção: Fruta")) == [
         "Mix de doces",
@@ -617,9 +627,20 @@ def test_imagem_cmyk_nao_e_lida_como_rgb():
     assert leitor._imagem_pil({**cmyk, "bits": 8}) is None
 
 
-def test_todas_as_excecoes_tem_a_mesma_base():
-    for erro in (FormatoPDFInvalidoError, LegendaInvalidaError, AssociacaoFalhouError):
+def test_as_cinco_excecoes_do_c4_tem_a_mesma_base():
+    erros = (
+        FonteNaoEncontradaError,
+        DownloadError,
+        FormatoPDFInvalidoError,
+        LegendaInvalidaError,
+        AssociacaoFalhouError,
+    )
+    for erro in erros:
         assert issubclass(erro, LeitorCardapioError)
+    # Cada falha tem a sua: nenhuma é filha de outra (o serviço decide pelo
+    # tipo se mantém o último válido ou publica só em texto).
+    for erro in erros:
+        assert [e for e in erros if issubclass(erro, e)] == [erro]
 
 
 def test_valores_de_refeicao_e_dieta_existem_nos_models():
@@ -654,6 +675,34 @@ def test_le_data_com_ano_de_quatro_ou_dois_digitos():
         "SÁBADO",
         datetime.date(2026, 11, 14),
     )
+
+
+def test_le_data_entre_parenteses_do_cabecalho_novo():
+    # Formato do RU desde a semana de 16/11/2026 (caso 26 do BE-04).
+    assert leitor._ler_data("2ª FEIRA (16/11/2026)") == (
+        "2ª FEIRA",
+        datetime.date(2026, 11, 16),
+    )
+    assert leitor._ler_data("SÁBADO (21/11/26)") == (
+        "SÁBADO",
+        datetime.date(2026, 11, 21),
+    )
+
+
+def test_data_entre_parenteses_continua_conferindo_o_dia_da_semana():
+    with pytest.raises(FormatoPDFInvalidoError, match="não cai nesse dia da semana"):
+        leitor._ler_data("2ª FEIRA (17/11/2026)")
+    with pytest.raises(FormatoPDFInvalidoError, match="data inválida"):
+        leitor._ler_data("2ª FEIRA (31/02/2026)")
+    with pytest.raises(FormatoPDFInvalidoError, match="dia da semana desconhecido"):
+        leitor._ler_data("FERIADO (16/11/2026)")
+
+
+def test_parenteses_pela_metade_nao_sao_aceitos():
+    # Só a data inteira entre parênteses: "(16/11/2026" seria erro no PDF.
+    for texto in ("2ª FEIRA (16/11/2026", "2ª FEIRA 16/11/2026)", "2ª FEIRA ()"):
+        with pytest.raises(FormatoPDFInvalidoError, match="sem data"):
+            leitor._ler_data(texto)
 
 
 def test_data_e_lida_como_dia_mes_ano():
@@ -738,6 +787,9 @@ def test_icone_fora_de_celula_de_prato_publica_a_pagina_so_em_texto(monkeypatch)
     almoco = refeicoes[1]
     assert almoco.alergenos_indisponiveis is True
     assert "fora das células" in almoco.motivo
+    # O tipo da falha vem tipado, e não só no texto do motivo (revisão #218).
+    assert almoco.falha is AssociacaoFalhouError
+    assert refeicoes[0].falha is None
     assert _todos_os_marcadores(almoco) == []
     # O texto continua lá, e as outras páginas não são afetadas.
     assert _pratos(almoco, "SALADA 1", "2026-09-21") == [("Repolho roxo", [])]
@@ -811,6 +863,7 @@ def test_rotulo_repetido_na_legenda_publica_so_em_texto(monkeypatch):
     refeicoes, avisos = CardapioPDFParser(str(GAMA)).extrair()
     assert all(r.alergenos_indisponiveis for r in refeicoes)
     assert all("repetido" in r.motivo for r in refeicoes)
+    assert all(r.falha is LegendaInvalidaError for r in refeicoes)
     assert len(avisos) == 3
 
 
@@ -849,11 +902,43 @@ def test_refeicao_desconhecida_e_recusada(monkeypatch):
         CardapioPDFParser(str(GAMA)).extrair()
 
 
+def test_le_o_pdf_em_memoria_como_o_baixado_pelo_downloader():
+    # O CardapioDownloader entrega os bytes, sem gravar em disco (BE-12).
+    em_memoria, avisos = CardapioPDFParser(io.BytesIO(GAMA.read_bytes())).extrair()
+    assert avisos == []
+    assert _como_dict(em_memoria[1]) == _esperado(GAMA_ALMOCO_ESPERADO)
+
+
+def test_bytes_que_nao_sao_pdf_em_memoria_sao_formato_invalido():
+    with pytest.raises(FormatoPDFInvalidoError, match="não foi possível ler"):
+        CardapioPDFParser(io.BytesIO(b"<html>Erro 503</html>")).extrair()
+
+
 def test_arquivo_que_nao_e_pdf_e_formato_invalido(tmp_path):
     pagina_de_erro = tmp_path / "cardapio.pdf"
     pagina_de_erro.write_text("<html><body>Erro 503</body></html>")
     with pytest.raises(FormatoPDFInvalidoError, match="não foi possível ler"):
         CardapioPDFParser(str(pagina_de_erro)).extrair()
+
+
+def test_pdf_sem_paginas_e_recusado_e_nao_vira_cardapio_vazio():
+    # Exportação quebrada: um PDF válido, mas sem nenhuma página. Devolver
+    # ([], []) faria o serviço apagar a semana em silêncio (revisão #218).
+    with pytest.raises(FormatoPDFInvalidoError, match="nenhuma refeição"):
+        CardapioPDFParser(str(PASTA / "pdf-sem-paginas.pdf")).extrair()
+
+
+def test_main_em_json_com_pagina_so_em_texto_mostra_o_nome_da_falha(
+    monkeypatch, capsys
+):
+    original = leitor.normalizar
+    monkeypatch.setattr(
+        leitor,
+        "normalizar",
+        lambda texto: "pimenta" if original(texto) == "mel" else original(texto),
+    )
+    assert leitor.main(["leitor", str(GAMA), "--json"]) == 0
+    assert '"falha": "LegendaInvalidaError"' in capsys.readouterr().out
 
 
 def test_arquivo_inexistente_e_formato_invalido(tmp_path):
@@ -877,6 +962,44 @@ def test_faixas_separam_icones_com_espaco_entre_eles():
 
 def test_faixas_dividem_icones_encostados_pela_proporcao():
     assert len(leitor._faixas_com_tinta(_aneis([0, 52, 104], 156))) == 3
+
+
+AZUL, VINHO, ROSA_CLARO = (56, 182, 255), (125, 56, 56), (210, 186, 186)
+
+
+def _dois_aneis_com_vale_fino():
+    """Como o par leite + amendoim do almoço de 16/11 (caso 27).
+
+    Anel azul de 0 a 50, um vale de 2 colunas só com o rosa-claro do
+    antisserrilhado e o anel vinho a partir da coluna 53, cortado pela borda
+    direita da imagem. Sem coluna branca entre eles, a divisão vai para a
+    proporção, e o corte no meio (coluna 50) cairia em cima do anel azul.
+    """
+    img = Image.new("RGB", (101, 52), (255, 255, 255))
+    desenho = ImageDraw.Draw(img)
+    desenho.ellipse((0, 1, 50, 50), outline=AZUL, width=4)
+    desenho.rectangle((51, 20, 52, 30), fill=ROSA_CLARO)
+    desenho.ellipse((53, 1, 103, 50), outline=VINHO, width=4)
+    return img
+
+
+def _cores(img):
+    return {cor for _, cor in img.getcolors(img.width * img.height)}
+
+
+def test_icones_encostados_sao_cortados_no_vale_de_tinta():
+    img = _dois_aneis_com_vale_fino()
+    faixas = leitor._faixas_com_tinta(img)
+    assert len(faixas) == 2
+    esquerda, direita = (img.crop((i, 0, f, img.height)) for i, f in faixas)
+    # Nenhum pedaço leva tinta do anel vizinho.
+    assert VINHO not in _cores(esquerda) and AZUL in _cores(esquerda)
+    assert AZUL not in _cores(direita) and VINHO in _cores(direita)
+
+
+def test_corte_pela_proporcao_continua_quando_os_aneis_se_tocam():
+    # Anéis sobrepostos, sem vale entre eles: o corte é no meio, como antes.
+    assert leitor._faixas_com_tinta(_aneis([0, 48], 98)) == [(0, 49), (49, 98)]
 
 
 def test_tabela_sem_bordas_e_formato_invalido():

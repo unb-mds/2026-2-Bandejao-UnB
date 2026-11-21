@@ -1,0 +1,363 @@
+"""LeitorCardapioService: o orquestrador único do Leitor (C4 4a, 4b e 4c).
+
+Analogia: é o chefe de cozinha que confere a entrega. Para cada campus, ele
+pede ao carteiro (`CardapioDownloader`) os PDFs da página do RU, um por
+semana; se a caixa é a mesma da última entrega (mesma URL e mesmo SHA-256),
+nem abre. Se mudou, manda ler (`CardapioPDFParser`), confere as datas e
+guarda tudo de uma vez (`CardapioRepository`, numa transação). Qualquer
+problema vira alerta (`AlertaEquipeService`), e o cardápio válido anterior
+fica onde está (RF06.4).
+
+O relógio (`agora`) vem de fora, lido uma vez pelo comando `ler_cardapio`.
+"""
+
+import io
+import logging
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
+
+from django.db import transaction
+from django.utils import timezone
+
+from apps.cardapio.leitor.alerta_equipe_service import AlertaEquipeService
+from apps.cardapio.leitor.cardapio_downloader import CardapioDownloader, FontePDF
+from apps.cardapio.leitor.cardapio_pdf_parser import (
+    AssociacaoFalhouError,
+    CardapioPDFParser,
+    DownloadError,
+    FonteNaoEncontradaError,
+    FormatoPDFInvalidoError,
+    LegendaInvalidaError,
+    RefeicaoEstruturada,
+)
+from apps.cardapio.leitor.cardapio_repository import CardapioRepository
+from apps.cardapio.models import Campus, FonteCardapio, Refeicao, TipoAlerta
+from config.parametros import ParametrosLeitorConfig
+
+logger = logging.getLogger(__name__)
+
+# Classe da falha guardada pelo parser na página só em texto -> tipo do alerta.
+TIPO_DO_ALERTA_SO_EM_TEXTO = {
+    LegendaInvalidaError: TipoAlerta.LEGENDA_INVALIDA,
+    AssociacaoFalhouError: TipoAlerta.ASSOCIACAO_FALHOU,
+}
+
+
+def _erro(exc: Exception) -> str:
+    return f"{type(exc).__name__}: {exc}"
+
+
+def _data(dia: date | None) -> str:
+    return f"{dia:%d/%m/%Y}" if dia else "?"
+
+
+def _semana(fonte: FontePDF) -> str:
+    if fonte.inicio is None:
+        return f"link {fonte.texto_link!r}"
+    return f"semana de {_data(fonte.inicio)} a {_data(fonte.fim)}"
+
+
+@dataclass
+class ResultadoLeitura:
+    """O que a execução fez num campus, para o resumo do comando."""
+
+    lidas: int = 0
+    sem_mudanca: int = 0
+    alertas: int = 0
+    # Erros fora das cinco exceções do Leitor, já transformados em alerta;
+    # o comando sai com código 1 se houver algum (segunda revisão #218).
+    inesperados: int = 0
+    # Havia alerta pendente, mas o e-mail à equipe não saiu.
+    email_falhou: bool = False
+
+
+class LeitorCardapioService:
+    def __init__(
+        self,
+        downloader: CardapioDownloader | None = None,
+        repositorio: CardapioRepository | None = None,
+        alertas: AlertaEquipeService | None = None,
+        parametros: ParametrosLeitorConfig | None = None,
+    ):
+        # Dependências opcionais, como no `CardapioDownloader(config=None)`.
+        self.downloader = downloader or CardapioDownloader()
+        self.repositorio = repositorio or CardapioRepository()
+        self.alertas = alertas or AlertaEquipeService()
+        self.parametros = parametros or ParametrosLeitorConfig()
+
+    def processar(self, campus: Campus, agora: datetime) -> ResultadoLeitura:
+        """Lê o cardápio de um campus: todas as semanas da página do RU.
+
+        1. Descoberta dos links (falha do campus inteiro: alerta e para).
+        2. Cada semana à parte: download, SHA-256, leitura, datas, gravação.
+        3. Cardápio não publicado depois do prazo do Anexo A (ADR 0014).
+        4. Sem nenhum alerta nesta execução, o contador do campus zera.
+        5. Um e-mail à equipe com os alertas pendentes do campus (ADR 0006).
+        """
+        resultado = ResultadoLeitura()
+        self._ler(campus, agora, resultado)
+        if resultado.alertas == 0:
+            self.alertas.zerar_contador(campus, agora=agora)
+        resultado.email_falhou = self.alertas.enviar_pendentes(
+            campus, agora=agora
+        ).falhou
+        return resultado
+
+    def _ler(self, campus: Campus, agora: datetime, resultado: ResultadoLeitura):
+        try:
+            fontes = self.downloader.localizar_pdfs(campus)
+        except (FonteNaoEncontradaError, DownloadError) as exc:
+            # Página fora do ar, título ausente ou repetido: nenhum link é
+            # confiável, e o "não publicado" não é avaliado.
+            self._alertar(
+                TipoAlerta.FALHA_LEITURA_PDF,
+                campus,
+                f"Etapa: descoberta do PDF na página do RU. {exc}. Último "
+                "cardápio válido mantido.",
+                resultado,
+            )
+            return
+        except Exception as exc:
+            # Bug ou mudança inesperada na página: também é falha do campus
+            # inteiro, e a equipe é avisada (RF06.4, ADR 0006).
+            logger.exception("Erro inesperado na descoberta do campus %s", campus.pk)
+            resultado.inesperados += 1
+            self._alertar(
+                TipoAlerta.FALHA_LEITURA_PDF,
+                campus,
+                "Etapa: erro inesperado na descoberta do PDF na página do RU. "
+                f"{_erro(exc)}. Último cardápio válido mantido.",
+                resultado,
+            )
+            return
+
+        for fonte in fontes:
+            try:
+                self._processar_semana(campus, fonte, agora, resultado)
+            except Exception as exc:
+                # Ex.: DataError do MySQL estrito, KeyError do pdfminer num
+                # PDF corrompido. A transação da semana já foi desfeita; a
+                # falha vira alerta e a próxima semana segue (revisão #218).
+                logger.exception(
+                    "Erro inesperado na semana %s do campus %s",
+                    fonte.inicio,
+                    campus.pk,
+                )
+                resultado.inesperados += 1
+                self._falha_da_semana(
+                    campus, fonte, "erro inesperado", _erro(exc), resultado
+                )
+
+        if self._semana_atrasada(fontes, agora):
+            segunda = self._segunda_vigente(agora)
+            self._alertar(
+                TipoAlerta.FALHA_LEITURA_PDF,
+                campus,
+                "Etapa: cardápio não publicado. Nenhum link da semana de "
+                f"{_data(segunda)} a {_data(segunda + timedelta(days=6))} "
+                f"no bloco do campus na página do RU "
+                f"({self.downloader.config.url_pagina}) depois do prazo "
+                f"({self._prazo_por_extenso()}).",
+                resultado,
+            )
+
+    # ------------------------------------------------------------- semana
+
+    def _processar_semana(
+        self,
+        campus: Campus,
+        fonte: FontePDF,
+        agora: datetime,
+        resultado: ResultadoLeitura,
+    ) -> None:
+        if fonte.erro is not None:
+            self._alertar(
+                TipoAlerta.FALHA_LEITURA_PDF,
+                campus,
+                f"Etapa: descoberta do PDF ({_semana(fonte)}). {fonte.erro}. "
+                "Último cardápio válido mantido.",
+                resultado,
+            )
+            return
+
+        # O link foi achado: `verificado_em` anda em toda execução, mesmo
+        # que o download ou a leitura falhem depois (C4 4c, FonteCardapio).
+        anterior = FonteCardapio.objects.filter(
+            campus=campus, semana_inicio=fonte.inicio
+        )
+        anterior.update(verificado_em=agora)
+        anterior = anterior.first()
+
+        try:
+            arquivo = self.downloader.baixar(fonte)
+        except (DownloadError, FormatoPDFInvalidoError) as exc:
+            etapa = "download" if isinstance(exc, DownloadError) else "formato"
+            self._falha_da_semana(campus, fonte, etapa, str(exc), resultado)
+            return
+
+        if (
+            anterior is not None
+            and anterior.url == fonte.url
+            and anterior.sha256 == arquivo.sha256
+        ):
+            resultado.sem_mudanca += 1
+            return
+
+        try:
+            refeicoes, _avisos = CardapioPDFParser(
+                io.BytesIO(arquivo.conteudo)
+            ).extrair()
+        except FormatoPDFInvalidoError as exc:
+            self._falha_da_semana(campus, fonte, "formato", str(exc), resultado)
+            return
+        try:
+            self._conferir_datas(fonte, [d for r in refeicoes for d in r.dias])
+        except FormatoPDFInvalidoError as exc:
+            self._falha_da_semana(campus, fonte, "datas", str(exc), resultado)
+            return
+
+        # Os alertas gravados dentro da transação só contam se ela vingar.
+        alertas_antes = resultado.alertas
+        try:
+            self._gravar_semana(campus, fonte, arquivo, refeicoes, agora, resultado)
+        except Exception:
+            resultado.alertas = alertas_antes
+            raise
+        resultado.lidas += 1
+
+    def _gravar_semana(self, campus, fonte, arquivo, refeicoes, agora, resultado):
+        with transaction.atomic():
+            gravadas = []
+            for refeicao in refeicoes:
+                gravadas += self.repositorio.salvar(campus, fonte, refeicao)
+                if refeicao.alergenos_indisponiveis:
+                    for dia in refeicao.dias:
+                        self.repositorio.marcar_alergenos_indisponivel(
+                            campus, refeicao.refeicao, date.fromisoformat(dia["data"])
+                        )
+            for mantida in self.repositorio.remover_ausentes(campus, fonte, gravadas):
+                self._alertar(
+                    TipoAlerta.FALHA_LEITURA_PDF,
+                    campus,
+                    f"Etapa: gravação ({_semana(fonte)}). O {mantida.tipo} de "
+                    f"{_data(mantida.data)} saiu do PDF corrigido, mas tem "
+                    "avaliação: foi mantido, e continua com os pratos antigos. "
+                    f"URL: {fonte.url}.",
+                    resultado,
+                    refeicao=mantida,
+                )
+            # Os alertas da página só em texto entram na mesma transação: se
+            # não puderem ser gravados, a semana não é dada como lida e o PDF
+            # é lido de novo na próxima execução (revisão do PR #218).
+            for refeicao in refeicoes:
+                if refeicao.alergenos_indisponiveis:
+                    self._alertar_so_em_texto(campus, fonte, refeicao, resultado)
+            FonteCardapio.objects.update_or_create(
+                campus=campus,
+                semana_inicio=fonte.inicio,
+                defaults={
+                    "url": fonte.url,
+                    "sha256": arquivo.sha256,
+                    "verificado_em": agora,
+                    "processado_em": agora,
+                },
+            )
+
+    def _falha_da_semana(self, campus, fonte, etapa, motivo, resultado):
+        havia = self.repositorio.manter_ultimo_valido(campus, fonte)
+        situacao = (
+            "Último cardápio válido mantido."
+            if havia
+            else "Semana sem cardápio anterior: segue como não publicada."
+        )
+        # As mensagens do download já trazem a URL; as do parser, não.
+        url = "" if fonte.url in motivo else f" URL: {fonte.url}."
+        self._alertar(
+            TipoAlerta.FALHA_LEITURA_PDF,
+            campus,
+            f"Etapa: {etapa} ({_semana(fonte)}). {motivo}.{url} {situacao}",
+            resultado,
+        )
+
+    def _alertar_so_em_texto(
+        self,
+        campus: Campus,
+        fonte: FontePDF,
+        refeicao: RefeicaoEstruturada,
+        resultado: ResultadoLeitura,
+    ) -> None:
+        """Uma linha de alerta por página (refeição da semana), presa à
+        refeição do primeiro dia; os dias vão na mensagem."""
+        tipo = TIPO_DO_ALERTA_SO_EM_TEXTO[refeicao.falha]
+        dias = [date.fromisoformat(d["data"]) for d in refeicao.dias]
+        primeira = Refeicao.objects.get(
+            campus=campus, data=dias[0], tipo=refeicao.refeicao
+        )
+        self._alertar(
+            tipo,
+            campus,
+            f"Etapa: marcadores ({_semana(fonte)}). A página do {refeicao.refeicao} "
+            f"foi publicada só em texto, sem marcadores, nos dias "
+            f"{', '.join(_data(d) for d in dias)}. Motivo: {refeicao.motivo}. "
+            f"URL: {fonte.url}.",
+            resultado,
+            refeicao=primeira,
+        )
+
+    def _alertar(self, tipo, campus, detalhe, resultado, refeicao=None):
+        self.alertas.registrar_alerta(tipo, campus, detalhe, refeicao=refeicao)
+        resultado.alertas += 1
+
+    # ------------------------------------------------- conferências (C4)
+
+    @staticmethod
+    def _conferir_datas(fonte: FontePDF, dias: list[dict[str, str]]) -> None:
+        """Todos os dias lidos do PDF dentro do intervalo do link.
+
+        Não exige igualdade: o PDF só traz os dias em que o campus serve
+        refeição (o Gama tem 5 ou 6 num link de 7, RF06.2).
+        """
+        for dia in dias:
+            data = date.fromisoformat(dia["data"])
+            if not fonte.inicio <= data <= fonte.fim:
+                raise FormatoPDFInvalidoError(
+                    f"o dia {_data(data)} do PDF está fora do intervalo do link "
+                    f"({_data(fonte.inicio)} a {_data(fonte.fim)})"
+                )
+
+    def _prazo_por_extenso(self) -> str:
+        """O prazo do "não publicado", montado dos parâmetros do Anexo A."""
+        dias = (
+            "segunda-feira",
+            "terça-feira",
+            "quarta-feira",
+            "quinta-feira",
+            "sexta-feira",
+            "sábado",
+            "domingo",
+        )
+        hora = self.parametros.horario_alerta_nao_publicado
+        return f"{dias[self.parametros.dia_alerta_nao_publicado]}, {hora:%Hh%M}"
+
+    def _segunda_vigente(self, agora: datetime) -> date:
+        hoje = timezone.localtime(agora).date()
+        return hoje - timedelta(days=hoje.weekday())
+
+    def _semana_atrasada(self, fontes: list[FontePDF], agora: datetime) -> bool:
+        """Nenhum link do bloco é da semana vigente, e já passou o prazo.
+
+        Contam todos os links com datas legíveis, inclusive os reprovados na
+        conferência do arquivo ou repetidos (ADR 0014). O prazo é o do Anexo
+        A: segunda-feira, 12h, no horário de Brasília.
+        """
+        local = timezone.localtime(agora)
+        hoje = local.date()
+        if any(f.inicio is not None and f.inicio <= hoje <= f.fim for f in fontes):
+            return False
+        segunda = self._segunda_vigente(agora)
+        prazo = datetime.combine(
+            segunda + timedelta(days=self.parametros.dia_alerta_nao_publicado),
+            self.parametros.horario_alerta_nao_publicado,
+            tzinfo=local.tzinfo,
+        )
+        return local >= prazo

@@ -1,6 +1,6 @@
 # ADR 0006 — Alerta de falha do Leitor de Cardápio por e-mail, com limite de avisos
 
-**Status:** Aceita (pontos em aberto resolvidos em 2026-11-05 pela ADR 0012; abrangência de `FALHA_LEITURA_PDF` ampliada em 2026-11-11 pela ADR 0014; regra para zerar o contador ajustada em 2026-11-13 pela ADR 0014)
+**Status:** Aceita (pontos em aberto resolvidos em 2026-11-05 pela ADR 0012; abrangência de `FALHA_LEITURA_PDF` ampliada em 2026-11-11 pela ADR 0014; regra para zerar o contador ajustada em 2026-11-13 pela ADR 0014; forma de envio e efeito do zerar ajustados em 2026-11-21 na implementação, BE-12, PR #218)
 **Data:** 2026-09-27
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
@@ -51,8 +51,20 @@ falha persistente não vire ruído:
   falha que dura vários dias gera pelo menos um aviso por dia, e não fica em
   silêncio depois do terceiro e-mail.
 
-A regra é implementada em `AlertaEquipeService` (métodos `registrarAlerta`,
-`deveEnviar` e `zerarContador`), com o controle de contagem em `ContadorAlerta` (campus, tipo,
+**Ajustes da implementação (BE-12, PR #218, 21/11/2026).**
+
+- Cada alerta é gravado na hora, e o e-mail sai **um por campus**, no fim da
+  execução. Ele leva todos os alertas ainda sem e-mail dos tipos que o limite
+  deixa enviar, e conta como um aviso para cada tipo incluído. O que o limite
+  segura, ou um e-mail que falhou, vai no aviso seguinte (coluna
+  `email_enviado_em`), para nenhum alerta ficar sem e-mail para sempre.
+- Zerar o contador zera a quantidade do dia, mas mantém o horário do último
+  envio: o intervalo de 6 horas vale sempre. Por isso, numa falha que vai e
+  volta no mesmo dia, o campus pode receber até **4** avisos (de 6 em 6
+  horas), e não 3. Uma falha contínua continua limitada a 3 por dia.
+
+A regra é implementada em `AlertaEquipeService` (métodos `registrar_alerta`,
+`enviar_pendentes`, `_deve_enviar` e `zerar_contador`), com o controle de contagem em `ContadorAlerta` (campus, tipo,
 dia, quantidade enviada, horário do último envio), gravado na tabela
 `CONTADOR_ALERTA`. Os três tipos de falha são os mesmos em todo o sistema:
 `LEGENDA_INVALIDA`, `ASSOCIACAO_FALHOU` e `FALHA_LEITURA_PDF` no
