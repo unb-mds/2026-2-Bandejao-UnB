@@ -6,7 +6,7 @@ import { mensagemForaDoHorario } from '@/constants/refeicoes'
 
 /**
  * Fila do RU (front 3b): por enquanto, o check-in do fluxo 4a (RF11, RF12).
- * A previsão (FE-06) e a pergunta de saída pendente (BE-E1) entram aqui
+ * A previsão (FE-11) e a pergunta de saída pendente (BE-E1) entram aqui
  * depois.
  *
  * **Nunca guarda coordenadas (RI09).** Elas chegam a `confirmarCheckin` só
@@ -44,7 +44,7 @@ export const useFilaStore = defineStore('fila', () => {
   const ultimoCheckin = ref(null)
   /**
    * Último bloco `pontos` do check-in.
-   * TODO(gamificacaoStore): repassar com registrarPontos(pontos) (RF24.2).
+   * TODO(FE-10): repassar à gamificacaoStore com registrarPontos(pontos) (RF24.2).
    */
   const ultimosPontos = ref(null)
 

@@ -9,7 +9,7 @@ import NavegacaoInferior from '@/components/NavegacaoInferior.vue'
 
 /**
  * Fila do RU. O check-in (RF11, RF12, FE-05) já funciona; a previsão de
- * pico (RF13) chega com a FE-06.
+ * pico (RF13) chega com a FE-11.
  * TODO(FE-07): o CheckinBotao vai para a seção Fila da CampusView, que usa
  * a refeição selecionada e o `refeicaoEncerrada` do cardápio (RN05).
  */

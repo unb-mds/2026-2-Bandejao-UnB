@@ -547,7 +547,6 @@ function gravarCsrfSeFaltar() {
   return ok(null, 204)
 }
 
-// Terceiro item: nome do limite por IP da rota (LIMITES_POR_IP), se houver.
 // ─── Aviso de privacidade e check-in (BE-09) ─────────────────────────────────
 
 /** POST /privacidade/aceite/: sem corpo, 204 (RF11, RNF07.1). */
@@ -628,6 +627,7 @@ function registrarCheckin(corpo, agora) {
   return ok({ checkin, pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 } }, 201)
 }
 
+// Terceiro item: nome do limite por IP da rota (LIMITES_POR_IP), se houver.
 const ROTAS = [
   ['GET', /^\/csrf\/$/, () => gravarCsrfSeFaltar()],
   ['POST', /^\/cadastro\/$/, ({ corpo, agora }) => cadastrar(corpo, agora), 'cadastro'],

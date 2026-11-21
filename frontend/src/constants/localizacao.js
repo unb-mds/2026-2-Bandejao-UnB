@@ -9,6 +9,9 @@
  * `ParametrosLocalizacaoConfig` também guarda `None`). Os valores abaixo são
  * PROVISÓRIOS: trocar aqui quando a equipe fixar o Anexo A (e validar o
  * raio em campo, L05).
+ *
+ * TODO(Anexo A): fixar a precisão mínima e a idade máxima; o backend
+ * (`ParametrosLocalizacaoConfig`) precisa mudar junto.
  */
 export const TEMPO_LIMITE_LEITURA_MS = 5_000
 
