@@ -1,133 +1,403 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
 import { REFEICOES } from '@/constants/refeicoes'
+import { formatarNota } from '@/utils/cardapio'
+import { tempoRelativo } from '@/utils/datas'
+import { motivoAvaliacaoIndisponivel } from '@/utils/avaliacao'
+import ConviteLogin from './ConviteLogin.vue'
+import EstrelasNota from './EstrelasNota.vue'
 import IconeSvg from './IconeSvg.vue'
-import { mensagemDeErro } from '@/services/apiClient'
 
 /**
- * Formulário de avaliação de uma refeição (RF15): nota de 1 a 5 estrelas
- * obrigatória e comentário opcional de até 500 caracteres. Se o usuário já
- * avaliou, mostra a confirmação e permite editar (até 23h59 do dia).
+ * Avaliação de uma refeição ligada à API (RF15, RF05, front 3a.2, FE-09).
+ *
+ * - Média, quantidade e comentários com apelido (ou "usuário removido"),
+ *   para qualquer visitante (RF15.2), de
+ *   `GET /api/refeicoes/{refeicaoId}/avaliacoes/`.
+ * - O `refeicaoId` vem do resumo do dia (`GET /api/avaliacoes/resumo/`).
+ * - Logado: nota de 1 a 5 e comentário opcional de até 500 caracteres pelo
+ *   `POST /api/avaliacoes/`, que é sempre upsert, então "Editar" usa o mesmo
+ *   envio (RF15.1).
+ * - Quando não dá para avaliar, mostra o motivo no lugar do formulário: outro
+ *   dia, refeição que ainda não começou, sem cardápio, janela fechada no
+ *   servidor ou backend ainda sem a BE-13 (501).
+ * - Visitante: ConviteLogin citando os pontos (RF05, RF24).
  */
 const props = defineProps({
-  alvo: { type: Object, required: true }, // { campus, data, refeicao }
-  minha: { type: Object, default: null }, // { nota, comentario } já enviada
+  /** Id do campus no backend. */
+  campusId: { type: Number, required: true },
+  /** Dia da refeição, 'AAAA-MM-DD'. */
+  data: { type: String, required: true },
+  /** 'cafe' | 'almoco' | 'jantar' */
+  tipo: { type: String, required: true },
 })
 
 const ROTULOS_NOTA = ['', 'Péssimo', 'Ruim', 'Regular', 'Bom', 'Ótimo']
 const LIMITE_COMENTARIO = 500
+const USUARIO_REMOVIDO = 'usuário removido'
+const MENSAGEM_501 = 'As avaliações ainda não estão disponíveis. Tente de novo mais tarde.'
+const INTERVALO_DO_RELOGIO = 30 * 1000
 
+const auth = useAuthStore()
 const avaliacoes = useAvaliacoesStore()
+
 const nota = ref(0)
 const notaSobMouse = ref(0)
 const comentario = ref('')
 const editando = ref(false)
 const enviando = ref(false)
-const erro = ref('')
+const erroEnvio = ref('')
+/** Motivo devolvido pelo servidor no envio (janela fechada, 404, 501). */
+const motivoDoServidor = ref('')
+/** Último envio que deu certo: 'criada' | 'editada' | null. */
+const ultimoEnvio = ref(null)
+const pontosRecebidos = ref(0)
+// A janela de avaliação depende da hora: o motivo é recalculado a cada 30 s.
+const agora = ref(new Date())
+let relogio = null
 
-const notaVisivel = computed(() => notaSobMouse.value || nota.value)
-const enviada = computed(() => Boolean(props.minha) && !editando.value)
-const pergunta = computed(() => `Como foi o ${REFEICOES[props.alvo.refeicao].rotuloCurto} de hoje?`)
-
-// Troca de refeição: descarta o rascunho.
-watch(
-  () => [props.alvo.campus, props.alvo.data, props.alvo.refeicao],
-  () => {
-    nota.value = 0
-    comentario.value = ''
-    editando.value = false
-    erro.value = ''
-  },
+const situacaoDoResumo = computed(() =>
+  avaliacoes.situacaoDoResumoDoDia(props.campusId, props.data),
+)
+const refeicaoId = computed(
+  () =>
+    avaliacoes.daResumoDoDia(props.campusId, props.data)?.find((r) => r.tipo === props.tipo)
+      ?.refeicaoId ?? null,
+)
+const situacaoDaRefeicao = computed(() =>
+  refeicaoId.value ? avaliacoes.situacaoDaRefeicao(refeicaoId.value) : null,
+)
+const dados = computed(() =>
+  refeicaoId.value ? avaliacoes.avaliacoesDaRefeicao(refeicaoId.value) : null,
+)
+const resumo = computed(() => dados.value?.resumoAvaliacoes ?? null)
+const comentariosEscritos = computed(
+  () => dados.value?.comentarios.filter((c) => c.comentario.trim()) ?? [],
+)
+const minha = computed(() =>
+  refeicaoId.value && auth.estaAutenticado
+    ? avaliacoes.minhaAvaliacao(refeicaoId.value, auth.apelido)
+    : null,
 )
 
+const motivo = computed(() => {
+  if (situacaoDoResumo.value === 'indisponivel' || situacaoDaRefeicao.value === 'indisponivel') {
+    return MENSAGEM_501
+  }
+  const semRefeicao = situacaoDoResumo.value === 'carregado' && !refeicaoId.value
+  return (
+    motivoAvaliacaoIndisponivel({
+      data: props.data,
+      tipo: props.tipo,
+      agora: agora.value,
+      semRefeicao,
+    }) ||
+    motivoDoServidor.value ||
+    null
+  )
+})
+
+const notaVisivel = computed(() => notaSobMouse.value || nota.value)
+const pergunta = computed(() => `Como foi o ${REFEICOES[props.tipo].rotuloCurto}?`)
+const tituloEnviada = computed(() =>
+  ultimoEnvio.value === 'editada' ? 'Avaliação atualizada!' : 'Avaliação enviada!',
+)
+
+const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`
+
+function descartarRascunho() {
+  nota.value = 0
+  notaSobMouse.value = 0
+  comentario.value = ''
+  editando.value = false
+  erroEnvio.value = ''
+  motivoDoServidor.value = ''
+  ultimoEnvio.value = null
+  pontosRecebidos.value = 0
+}
+
+// Outra refeição: rascunho e motivo novos; carrega o que faltar.
+watch(
+  () => [props.campusId, props.data, props.tipo],
+  ([campus, data]) => {
+    descartarRascunho()
+    if ([null, 'erro'].includes(avaliacoes.situacaoDoResumoDoDia(campus, data))) {
+      avaliacoes.carregarResumoDoDia(campus, data)
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  refeicaoId,
+  (id) => {
+    if (id && [null, 'erro'].includes(avaliacoes.situacaoDaRefeicao(id))) {
+      avaliacoes.carregarAvaliacoesDaRefeicao(id)
+    }
+  },
+  { immediate: true },
+)
+
+onMounted(() => {
+  relogio = setInterval(() => {
+    agora.value = new Date()
+  }, INTERVALO_DO_RELOGIO)
+})
+onBeforeUnmount(() => clearInterval(relogio))
+
 function editar() {
-  nota.value = props.minha.nota
-  comentario.value = props.minha.comentario ?? ''
+  nota.value = minha.value.nota
+  comentario.value = minha.value.comentario ?? ''
+  erroEnvio.value = ''
   editando.value = true
 }
 
+function cancelarEdicao() {
+  editando.value = false
+  erroEnvio.value = ''
+}
+
 async function enviar() {
-  if (nota.value === 0 || enviando.value) return
+  if (nota.value === 0 || enviando.value || !refeicaoId.value) return
   enviando.value = true
-  erro.value = ''
-  try {
-    await avaliacoes.enviar(props.alvo, nota.value, comentario.value)
-    editando.value = false
-  } catch (falha) {
-    erro.value = mensagemDeErro(falha)
-  } finally {
-    enviando.value = false
+  erroEnvio.value = ''
+  const resultado = await avaliacoes.avaliar({
+    refeicaoId: refeicaoId.value,
+    campus: props.campusId,
+    data: props.data,
+    nota: nota.value,
+    comentario: comentario.value,
+  })
+  enviando.value = false
+
+  switch (resultado.desfecho) {
+    case 'criada':
+    case 'editada':
+      ultimoEnvio.value = resultado.desfecho
+      pontosRecebidos.value = resultado.pontos?.total ?? 0
+      editando.value = false
+      return
+    case 'indisponivel':
+      motivoDoServidor.value = resultado.mensagem
+      editando.value = false
+      return
+    case 'nao_autenticado':
+      // O authStore já foi limpo: o ConviteLogin aparece sozinho.
+      return
+    default:
+      erroEnvio.value = resultado.mensagem
   }
 }
 </script>
 
 <template>
-  <div v-if="enviada" class="enviada">
-    <div class="enviada-linha">
-      <div class="enviada-icone">
-        <IconeSvg nome="check" :tamanho="20" cor="var(--sucesso-icone)" espessura="2.5" />
-      </div>
-      <div class="enviada-textos">
-        <p class="enviada-titulo">Avaliação enviada!</p>
-        <p class="enviada-texto">
-          Obrigado pelo seu feedback. Sua nota: {{ minha.nota }}
-          {{ minha.nota === 1 ? 'estrela' : 'estrelas' }}.
-        </p>
-      </div>
-      <button type="button" class="enviada-editar" @click="editar">Editar</button>
+  <section class="pilha-4" aria-label="Avaliações da refeição">
+    <div class="cartao resumo" data-teste="avaliacao-resumo">
+      <template v-if="resumo?.quantidade">
+        <EstrelasNota :valor="resumo.media" :tamanho="15" />
+        <span class="resumo-nota">{{ formatarNota(resumo.media) }}</span>
+        <span class="resumo-total">{{ plural(resumo.quantidade, 'avaliação', 'avaliações') }}</span>
+      </template>
+      <span v-else-if="resumo" class="resumo-total">Sem avaliações ainda</span>
+      <span v-else-if="motivo === MENSAGEM_501" class="resumo-total">Notas indisponíveis</span>
+      <span v-else class="resumo-total">Carregando…</span>
     </div>
-  </div>
 
-  <form v-else class="cartao formulario" @submit.prevent="enviar">
-    <p class="titulo-secao pergunta">{{ pergunta }}</p>
-
-    <div class="estrelas" role="radiogroup" aria-label="Nota da refeição">
-      <button
-        v-for="i in 5"
-        :key="i"
-        type="button"
-        class="estrela"
-        role="radio"
-        :aria-checked="nota === i"
-        :aria-label="`${i} ${i === 1 ? 'estrela' : 'estrelas'} — ${ROTULOS_NOTA[i]}`"
-        @mouseenter="notaSobMouse = i"
-        @mouseleave="notaSobMouse = 0"
-        @click="nota = i"
-      >
-        <IconeSvg
-          nome="estrela"
-          :tamanho="44"
-          :cor="notaVisivel >= i ? 'var(--dourado)' : 'var(--borda)'"
-          :preenchimento="notaVisivel >= i ? 'var(--dourado)' : 'none'"
-        />
-      </button>
-    </div>
-    <p v-if="nota > 0" class="rotulo-nota">{{ ROTULOS_NOTA[nota] }}</p>
-
-    <label class="visualmente-oculto" for="comentario-avaliacao">Comentário opcional</label>
-    <textarea
-      id="comentario-avaliacao"
-      v-model="comentario"
-      :maxlength="LIMITE_COMENTARIO"
-      rows="3"
-      class="comentario"
-      placeholder="Comentário opcional — o que achou dos pratos?"
+    <ConviteLogin
+      v-if="!auth.estaAutenticado"
+      titulo="Entre para avaliar"
+      texto="Com uma conta, você avalia as refeições e ganha pontos quando avalia uma refeição em que fez check-in."
     />
-    <p class="contador">{{ comentario.length }}/{{ LIMITE_COMENTARIO }}</p>
 
-    <p v-if="erro" class="mensagem mensagem--erro erro" role="alert">{{ erro }}</p>
+    <div v-else-if="motivo" class="cartao indisponivel" data-teste="avaliacao-indisponivel">
+      <div class="indisponivel-icone">
+        <IconeSvg nome="relogio" :tamanho="20" cor="var(--texto-suave)" />
+      </div>
+      <div>
+        <p class="indisponivel-titulo">Avaliação indisponível</p>
+        <p class="indisponivel-texto">{{ motivo }}</p>
+      </div>
+    </div>
 
-    <button type="submit" class="botao botao--primario" :disabled="nota === 0 || enviando">
-      {{ enviando ? 'Enviando…' : editando ? 'Salvar alteração' : 'Enviar avaliação' }}
-    </button>
-    <button v-if="editando" type="button" class="cancelar" @click="editando = false">
-      Cancelar edição
-    </button>
-  </form>
+    <p v-else-if="!refeicaoId || !dados" class="vazio" role="status">Carregando avaliação…</p>
+
+    <div
+      v-else-if="minha && !editando"
+      class="enviada"
+      role="status"
+      data-teste="avaliacao-enviada"
+    >
+      <div class="enviada-linha">
+        <div class="enviada-icone">
+          <IconeSvg nome="check" :tamanho="20" cor="var(--sucesso-icone)" espessura="2.5" />
+        </div>
+        <div class="enviada-textos">
+          <p class="enviada-titulo">{{ ultimoEnvio ? tituloEnviada : 'Você já avaliou' }}</p>
+          <p class="enviada-texto">
+            Sua nota: {{ plural(minha.nota, 'estrela', 'estrelas') }}. Dá para editar até 23h59.
+          </p>
+          <p v-if="pontosRecebidos > 0" class="pontos">+{{ pontosRecebidos }} pontos</p>
+        </div>
+        <button type="button" class="enviada-editar" data-teste="avaliacao-editar" @click="editar">
+          Editar
+        </button>
+      </div>
+    </div>
+
+    <form
+      v-else
+      class="cartao formulario"
+      data-teste="avaliacao-formulario"
+      @submit.prevent="enviar"
+    >
+      <p class="titulo-secao pergunta">{{ pergunta }}</p>
+
+      <div class="estrelas" role="radiogroup" aria-label="Nota da refeição">
+        <button
+          v-for="i in 5"
+          :key="i"
+          type="button"
+          class="estrela"
+          role="radio"
+          :data-teste="`estrela-${i}`"
+          :aria-checked="nota === i"
+          :aria-label="`${plural(i, 'estrela', 'estrelas')} — ${ROTULOS_NOTA[i]}`"
+          @mouseenter="notaSobMouse = i"
+          @mouseleave="notaSobMouse = 0"
+          @click="nota = i"
+        >
+          <IconeSvg
+            nome="estrela"
+            :tamanho="44"
+            :cor="notaVisivel >= i ? 'var(--dourado)' : 'var(--borda)'"
+            :preenchimento="notaVisivel >= i ? 'var(--dourado)' : 'none'"
+          />
+        </button>
+      </div>
+      <p v-if="nota > 0" class="rotulo-nota">{{ ROTULOS_NOTA[nota] }}</p>
+
+      <label class="visualmente-oculto" for="comentario-avaliacao">Comentário opcional</label>
+      <textarea
+        id="comentario-avaliacao"
+        v-model="comentario"
+        :maxlength="LIMITE_COMENTARIO"
+        rows="3"
+        class="comentario"
+        placeholder="Comentário opcional — o que achou dos pratos?"
+      />
+      <p class="contador">{{ comentario.length }}/{{ LIMITE_COMENTARIO }}</p>
+
+      <p v-if="erroEnvio" class="mensagem mensagem--erro erro" role="alert">{{ erroEnvio }}</p>
+
+      <button
+        type="submit"
+        class="botao botao--primario"
+        data-teste="avaliacao-enviar"
+        :disabled="nota === 0 || enviando"
+      >
+        {{ enviando ? 'Enviando…' : editando ? 'Salvar alteração' : 'Enviar avaliação' }}
+      </button>
+      <button
+        v-if="editando"
+        type="button"
+        class="cancelar"
+        data-teste="avaliacao-cancelar"
+        @click="cancelarEdicao"
+      >
+        Cancelar edição
+      </button>
+    </form>
+
+    <h2 class="titulo-secao">Comentários</h2>
+
+    <p v-if="situacaoDaRefeicao === 'erro'" class="mensagem mensagem--erro" role="alert">
+      {{ avaliacoes.erroDaRefeicao(refeicaoId) }}
+    </p>
+    <p v-else-if="dados && comentariosEscritos.length === 0" class="vazio">
+      {{
+        resumo?.quantidade
+          ? 'Nenhum comentário escrito para esta refeição.'
+          : 'Sem avaliações ainda.'
+      }}
+    </p>
+
+    <article
+      v-for="item in comentariosEscritos"
+      :key="`${item.apelido}|${item.criadaEm}`"
+      class="cartao comentario-item"
+      data-teste="avaliacao-comentario"
+    >
+      <div class="comentario-topo">
+        <span class="inicial" aria-hidden="true">{{
+          item.apelido === USUARIO_REMOVIDO ? '?' : item.apelido.slice(0, 1).toUpperCase()
+        }}</span>
+        <span class="apelido" :class="{ 'apelido--removido': item.apelido === USUARIO_REMOVIDO }">
+          {{ item.apelido }}
+        </span>
+        <EstrelasNota :valor="item.nota" :tamanho="11" />
+        <time class="quando" :datetime="item.criadaEm">{{ tempoRelativo(item.criadaEm) }}</time>
+      </div>
+      <p class="texto">{{ item.comentario }}</p>
+    </article>
+  </section>
 </template>
 
 <style scoped>
+.resumo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.resumo-nota {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--texto-escuro);
+}
+
+.resumo-total {
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
+.indisponivel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+}
+
+.indisponivel-icone {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--raio-md);
+  background: var(--bege);
+}
+
+.indisponivel-titulo {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto-escuro);
+}
+
+.indisponivel-texto {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
+.vazio {
+  font-size: 13px;
+  color: var(--texto-claro);
+}
+
 .formulario {
   padding: 20px;
 }
@@ -238,6 +508,13 @@ async function enviar() {
   color: var(--sucesso-texto-suave);
 }
 
+.pontos {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--dourado);
+}
+
 .enviada-editar {
   flex-shrink: 0;
   font-size: 12px;
@@ -245,5 +522,55 @@ async function enviar() {
   color: var(--sucesso-texto);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.comentario-item {
+  padding: 16px;
+}
+
+.comentario-topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.inicial {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 900;
+  background: var(--verde-escuro);
+  color: #fff;
+}
+
+.apelido {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--texto-escuro);
+}
+
+.apelido--removido {
+  font-style: italic;
+  font-weight: 600;
+  color: var(--texto-claro);
+}
+
+.quando {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--texto-claro);
+}
+
+.texto {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--texto-suave);
+  overflow-wrap: anywhere;
 }
 </style>
