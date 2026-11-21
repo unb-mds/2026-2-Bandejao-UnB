@@ -11,7 +11,7 @@ Semana vigente no relógio padrão (sábado, 21/11/2026): 16 a 22/11.
 
 import hashlib
 import logging
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from unittest import mock
 from zoneinfo import ZoneInfo
 
@@ -600,6 +600,26 @@ def test_link_sem_datas_alerta_com_o_texto_do_link(gama, site):
     assert tipo == FALHA
     assert "link 'ISM – Semana 2'" in mensagem
     assert "datas legíveis" in mensagem
+
+
+@pytest.mark.parametrize(
+    ("hora_utc", "alerta"),
+    [
+        # Em produção, `timezone.now()` vem em UTC. 13h UTC = 10h de Brasília.
+        (13, False),
+        # 15h UTC = 12h de Brasília: já passou do prazo.
+        (15, True),
+    ],
+)
+def test_prazo_do_nao_publicado_com_agora_em_utc(gama, site, hora_utc, alerta):
+    _processar(gama, datetime(2026, 11, 30, hora_utc, 0, tzinfo=UTC))
+    assert any("não publicado" in m for _, m in _alertas(gama)) is alerta
+
+
+def test_domingo_a_noite_em_utc_ainda_e_da_semana_de_23(gama, site):
+    # Domingo 29/11, 22h de Brasília = segunda 30/11, 01h UTC.
+    _processar(gama, datetime(2026, 11, 30, 1, 0, tzinfo=UTC))
+    assert _alertas(gama) == []
 
 
 def test_domingo_conta_na_semana_da_segunda_anterior(gama, site):
