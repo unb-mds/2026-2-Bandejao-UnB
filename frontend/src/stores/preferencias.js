@@ -1,11 +1,13 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
-import { idDeCampusValido } from '@/constants/campi'
+import { idDeCampusValido, idDoCampusAntigo } from '@/constants/campi'
 import { IDS_MARCADORES, MARCADORES_ANTIGOS } from '@/constants/marcadores'
 import { DIETA_PADRAO, DIETAS, DIETAS_ANTIGAS } from '@/constants/dietas'
 import { contarFiltrosAtivos, selecaoPadrao } from '@/utils/cardapio'
 
 const CHAVE = 'bandejao:preferencias'
+
+const nomeAtual = (antigos, valor) => (Object.hasOwn(antigos, valor) ? antigos[valor] : valor)
 
 /** Só a leitura e o parse ficam no try: erro na validação não pode passar por "sem dados". */
 function lerSalvas() {
@@ -20,13 +22,15 @@ function lerSalvas() {
 
 function lerPreferencias() {
   const salvas = lerSalvas()
-  const dieta = DIETAS_ANTIGAS[salvas.dieta] ?? salvas.dieta
+  const dieta = nomeAtual(DIETAS_ANTIGAS, salvas.dieta)
   return {
-    campusId: Number.isInteger(salvas.campusId) ? idDeCampusValido(salvas.campusId) : null,
+    campusId: Number.isInteger(salvas.campusId)
+      ? idDeCampusValido(salvas.campusId)
+      : idDoCampusAntigo(salvas.campusId),
     dieta: DIETAS.some((d) => d.id === dieta) ? dieta : DIETA_PADRAO,
     marcadores: Array.isArray(salvas.marcadores)
       ? salvas.marcadores
-          .map((m) => MARCADORES_ANTIGOS[m] ?? m)
+          .map((m) => nomeAtual(MARCADORES_ANTIGOS, m))
           .filter((m) => IDS_MARCADORES.includes(m))
       : [],
     avisoLocalizacaoAdiado: salvas.avisoLocalizacaoAdiado === true,
@@ -84,6 +88,10 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
     if (id) campusId.value = id
   }
 
+  function esquecerCampus() {
+    campusId.value = null
+  }
+
   function aplicarFiltros(novaDieta, novosMarcadores) {
     dieta.value = novaDieta
     marcadores.value = [...novosMarcadores]
@@ -130,6 +138,7 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
     refeicaoSelecionada,
     filtrosAtivos,
     escolherCampus,
+    esquecerCampus,
     aplicarFiltros,
     adiarAvisoLocalizacao,
     registrarLocalizacaoPermitida,

@@ -41,6 +41,7 @@ const pedido = computed(() => ({
   dieta: mostrarTodas.value ? DIETA_PADRAO : preferencias.dieta,
 }))
 const atual = computed(() => cardapio.daRefeicao(pedido.value))
+const erroAtual = computed(() => cardapio.erroDaRefeicao(pedido.value))
 const semServico = computed(
   () => Boolean(pedido.value.dia && atual.value && atual.value.data !== pedido.value.dia),
 )
@@ -147,13 +148,13 @@ function tentarNovamente() {
     </RouterLink>
 
     <div class="corpo">
-      <p v-if="!atual && cardapio.carregandoRefeicao" class="estado" role="status">
+      <p v-if="!atual && cardapio.estaCarregandoRefeicao(pedido)" class="estado" role="status">
         Carregando cardápio…
       </p>
 
-      <div v-else-if="!atual && cardapio.erroRefeicao" class="estado">
+      <div v-else-if="!atual && erroAtual" class="estado">
         <p class="estado-titulo">Não foi possível carregar o cardápio</p>
-        <p class="estado-texto">{{ cardapio.erroRefeicao }}</p>
+        <p class="estado-texto">{{ erroAtual.mensagem }}</p>
         <button type="button" class="botao-pequeno tentar" @click="tentarNovamente">
           Tentar novamente
         </button>

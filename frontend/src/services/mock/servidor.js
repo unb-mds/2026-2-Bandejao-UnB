@@ -31,6 +31,7 @@ import { hojeISO, minutosAgora, minutosDoDia } from '@/utils/datas'
 import { banco, resumoSenha } from './banco'
 import { CAMPI_DO_BANCO, idDoCampus, montarCardapioSemana, refeicaoExiste } from './cardapios'
 import { IDS_MARCADORES } from '@/constants/marcadores'
+import { MENSAGEM_CAMPUS_INEXISTENTE } from '@/constants/campi'
 import { APELIDOS_SEMENTE, avaliacoesSemente } from './sementes'
 import {
   analisarEmailEstudante,
@@ -471,6 +472,9 @@ function filtrarRefeicao(refeicao, { dieta, marcadores }) {
 function cardapioFiltrado(parametros, agora) {
   const campus = idDoCampus(parametros.campus)
   const dieta = parametros.dieta ?? 'sem_filtro'
+  if (/^[1-9]\d*$/.test(parametros.campus ?? '') && !campus) {
+    return parametrosInvalidos(MENSAGEM_CAMPUS_INEXISTENTE)
+  }
   if (
     !campus ||
     Object.keys(parametros).some((nome) => !PARAMETROS_DO_CARDAPIO.includes(nome)) ||

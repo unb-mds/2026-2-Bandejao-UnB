@@ -32,7 +32,7 @@ const naoEncontrado = computed(
   () =>
     !id.value ||
     (cardapio.campiCarregados && !campus.value) ||
-    cardapio.erroDe(id.value)?.codigo === 'campus_nao_encontrado',
+    cardapio.campusInexistente(id.value),
 )
 const falhaNosCampi = computed(
   () => Boolean(cardapio.erroCampi) && !campus.value && !cardapio.carregandoCampi,

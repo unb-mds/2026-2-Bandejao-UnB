@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { apiClient, mensagemDeErro } from '@/services/apiClient'
 import { DIETA_PADRAO } from '@/constants/dietas'
+import { MENSAGEM_CAMPUS_INEXISTENTE } from '@/constants/campi'
 
 const chaveDaRefeicao = ({ campus, dia, refeicao, marcadores = [], dieta = DIETA_PADRAO }) =>
   JSON.stringify([campus, dia ?? null, refeicao ?? null, [...marcadores].sort(), dieta])
@@ -14,13 +15,25 @@ export const useCardapioStore = defineStore('cardapio', () => {
   const campi = ref([])
   const campiCarregados = ref(false)
   const erroCampi = ref(null)
-  let carregandoCampi = null
+  const carregandoCampi = ref(false)
+  const errosPorCampus = ref({})
+  const carregandoPorCampus = ref({})
+  let pedidoCampi = null
   const refeicoes = ref({})
-  const carregandoRefeicao = ref(false)
-  const erroRefeicao = ref(null)
+  const errosDaRefeicao = ref({})
+  const carregandoDaRefeicao = ref({})
+  const campiInexistentes = ref({})
 
   function daRefeicao(pedido) {
     return refeicoes.value[chaveDaRefeicao(pedido)] ?? null
+  }
+
+  function erroDaRefeicao(pedido) {
+    return errosDaRefeicao.value[chaveDaRefeicao(pedido)] ?? null
+  }
+
+  function estaCarregandoRefeicao(pedido) {
+    return Boolean(carregandoDaRefeicao.value[chaveDaRefeicao(pedido)])
   }
 
   async function carregarRefeicao(pedido, { forcar = false } = {}) {
@@ -32,8 +45,8 @@ export const useCardapioStore = defineStore('cardapio', () => {
     if (pedido.refeicao) parametros.set('refeicao', pedido.refeicao)
     if (pedido.marcadores?.length) parametros.set('marcadores', pedido.marcadores.join(','))
     if (pedido.dieta && pedido.dieta !== DIETA_PADRAO) parametros.set('dieta', pedido.dieta)
-    carregandoRefeicao.value = true
-    erroRefeicao.value = null
+    carregandoDaRefeicao.value[chave] = true
+    delete errosDaRefeicao.value[chave]
     try {
       const resposta = await apiClient.get(`/cardapio/?${parametros}`)
       refeicoes.value[chave] = resposta
@@ -41,18 +54,33 @@ export const useCardapioStore = defineStore('cardapio', () => {
       refeicoes.value[chaveDaRefeicao(resolvida)] = resposta
       return resposta
     } catch (falha) {
-      erroRefeicao.value = mensagemDeErro(falha)
+      errosDaRefeicao.value[chave] = {
+        mensagem: mensagemDeErro(falha),
+        codigo: falha?.codigo ?? null,
+      }
+      if (falha?.status === 400 && falha.message === MENSAGEM_CAMPUS_INEXISTENTE) {
+        campiInexistentes.value[pedido.campus] = true
+      }
       return null
     } finally {
-      carregandoRefeicao.value = false
+      delete carregandoDaRefeicao.value[chave]
     }
+  }
+
+  function campusInexistente(campusId) {
+    return (
+      Boolean(campiInexistentes.value[campusId]) ||
+      errosPorCampus.value[campusId]?.codigo === 'campus_nao_encontrado'
+    )
   }
 
   function carregarCampi({ forcar = false } = {}) {
     if (campiCarregados.value && !forcar) return Promise.resolve(campi.value)
-    carregandoCampi ??= apiClient
+    carregandoCampi.value = true
+    pedidoCampi ??= apiClient
       .get('/campi/')
       .then((lista) => {
+        if (!Array.isArray(lista)) throw new Error('Resposta inesperada de GET /api/campi/.')
         campi.value = lista
         campiCarregados.value = true
         erroCampi.value = null
@@ -63,9 +91,10 @@ export const useCardapioStore = defineStore('cardapio', () => {
         return campi.value
       })
       .finally(() => {
-        carregandoCampi = null
+        pedidoCampi = null
+        carregandoCampi.value = false
       })
-    return carregandoCampi
+    return pedidoCampi
   }
 
   function buscarCampus(id) {
@@ -76,17 +105,29 @@ export const useCardapioStore = defineStore('cardapio', () => {
     if (!campusId) return null
     if (porCampus.value[campusId] && !forcar) return porCampus.value[campusId]
     carregando.value = true
+    carregandoPorCampus.value[campusId] = true
     erro.value = null
+    delete errosPorCampus.value[campusId]
     try {
       const semana = await apiClient.get(`/cardapio/${campusId}/`)
       porCampus.value[campusId] = semana
       return semana
     } catch (falha) {
       erro.value = mensagemDeErro(falha)
+      errosPorCampus.value[campusId] = { mensagem: erro.value, codigo: falha?.codigo ?? null }
       return null
     } finally {
       carregando.value = false
+      delete carregandoPorCampus.value[campusId]
     }
+  }
+
+  function erroDe(campusId) {
+    return errosPorCampus.value[campusId] ?? null
+  }
+
+  function estaCarregando(campusId) {
+    return Boolean(carregandoPorCampus.value[campusId])
   }
 
   function semana(campusId) {
@@ -105,12 +146,16 @@ export const useCardapioStore = defineStore('cardapio', () => {
     campi,
     campiCarregados,
     erroCampi,
+    carregandoCampi,
     refeicoes,
-    carregandoRefeicao,
-    erroRefeicao,
     daRefeicao,
+    erroDaRefeicao,
+    estaCarregandoRefeicao,
     carregarRefeicao,
+    campusInexistente,
     carregar,
+    erroDe,
+    estaCarregando,
     carregarCampi,
     buscarCampus,
     semana,
