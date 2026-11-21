@@ -8,6 +8,7 @@ defineProps({
   campusId: { type: Number, required: true },
   tipoRefeicao: { type: String, required: true },
   encerrada: { type: Boolean, default: false },
+  campusConfirmado: { type: Boolean, default: true },
 })
 
 const NIVEIS = [
@@ -28,7 +29,14 @@ const NIVEIS = [
       <p id="titulo-checkin" class="titulo-secao pequeno">
         Check-in · {{ REFEICOES[tipoRefeicao].rotulo }}
       </p>
-      <CheckinBotao :campus-id="campusId" :tipo-refeicao="tipoRefeicao" />
+      <CheckinBotao
+        v-if="campusConfirmado"
+        :campus-id="campusId"
+        :tipo-refeicao="tipoRefeicao"
+      />
+      <p v-else class="texto-pequeno aguardando-campus" data-teste="checkin-aguardando-campus">
+        O check-in fica disponível assim que a lista de campi carregar.
+      </p>
     </section>
 
     <div class="cartao em-breve">
@@ -157,6 +165,10 @@ const NIVEIS = [
 .pequeno {
   margin-bottom: 8px;
   font-size: 14px;
+}
+
+.aguardando-campus {
+  color: var(--texto-suave);
 }
 
 .explicacao {

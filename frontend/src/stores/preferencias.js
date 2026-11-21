@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
-import { idDeCampusValido } from '@/constants/campi'
+import { idDeCampusValido, idDoCampusAntigo } from '@/constants/campi'
 import { IDS_MARCADORES } from '@/constants/marcadores'
 import { DIETAS } from '@/constants/dietas'
 import { contarFiltrosAtivos, selecaoPadrao } from '@/utils/cardapio'
@@ -21,7 +21,9 @@ function lerSalvas() {
 function lerPreferencias() {
   const salvas = lerSalvas()
   return {
-    campusId: Number.isInteger(salvas.campusId) ? idDeCampusValido(salvas.campusId) : null,
+    campusId: Number.isInteger(salvas.campusId)
+      ? idDeCampusValido(salvas.campusId)
+      : idDoCampusAntigo(salvas.campusId),
     dieta: DIETAS.some((d) => d.id === salvas.dieta) ? salvas.dieta : 'todos',
     marcadores: Array.isArray(salvas.marcadores)
       ? salvas.marcadores.filter((m) => IDS_MARCADORES.includes(m))
@@ -81,6 +83,10 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
     if (id) campusId.value = id
   }
 
+  function esquecerCampus() {
+    campusId.value = null
+  }
+
   function aplicarFiltros(novaDieta, novosMarcadores) {
     dieta.value = novaDieta
     marcadores.value = [...novosMarcadores]
@@ -127,6 +133,7 @@ export const usePreferenciasStore = defineStore('preferencias', () => {
     refeicaoSelecionada,
     filtrosAtivos,
     escolherCampus,
+    esquecerCampus,
     aplicarFiltros,
     adiarAvisoLocalizacao,
     registrarLocalizacaoPermitida,

@@ -31,7 +31,11 @@ function escolher(id) {
     </header>
 
     <div class="conteudo sem-barra">
-      <p v-if="!cardapio.campiCarregados && !cardapio.erroCampi" class="estado" role="status">
+      <p
+        v-if="cardapio.carregandoCampi || (!cardapio.campiCarregados && !cardapio.erroCampi)"
+        class="estado"
+        role="status"
+      >
         Carregando campi…
       </p>
 

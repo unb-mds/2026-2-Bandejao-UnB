@@ -1,10 +1,11 @@
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
-import { CAMPUS_COM_EXECUTIVO, idDeCampusValido } from '@/constants/campi'
+import { ID_CAMPUS_COM_EXECUTIVO, idDeCampusValido } from '@/constants/campi'
 import { ORDEM_REFEICOES, REFEICOES } from '@/constants/refeicoes'
+import { abrirAvisoLocalizacao } from '@/composables/avisoLocalizacao'
 import { refeicaoPadrao } from '@/utils/cardapio'
 import { hojeISO, minutosAgora, minutosDoDia } from '@/utils/datas'
 import AvisoExecutivo from '@/components/AvisoExecutivo.vue'
@@ -17,15 +18,26 @@ const props = defineProps({
   campusId: { type: String, required: true },
 })
 
+const INTERVALO_DO_RELOGIO = 30 * 1000
+
 const route = useRoute()
 const cardapio = useCardapioStore()
 const preferencias = usePreferenciasStore()
 const agora = ref(new Date())
+let relogio = null
 
 const id = computed(() => idDeCampusValido(props.campusId))
 const campus = computed(() => cardapio.buscarCampus(id.value))
-const naoEncontrado = computed(() => !id.value || (cardapio.campiCarregados && !campus.value))
-const temExecutivo = computed(() => campus.value?.nome === CAMPUS_COM_EXECUTIVO)
+const naoEncontrado = computed(
+  () =>
+    !id.value ||
+    (cardapio.campiCarregados && !campus.value) ||
+    cardapio.erroDe(id.value)?.codigo === 'campus_nao_encontrado',
+)
+const falhaNosCampi = computed(
+  () => Boolean(cardapio.erroCampi) && !campus.value && !cardapio.carregandoCampi,
+)
+const temExecutivo = computed(() => !naoEncontrado.value && id.value === ID_CAMPUS_COM_EXECUTIVO)
 
 const refeicaoDaFila = computed(() => {
   const selecionada = preferencias.refeicaoSelecionada
@@ -38,18 +50,33 @@ const refeicaoEncerrada = computed(
   () => minutosAgora(agora.value) > minutosDoDia(REFEICOES[refeicaoDaFila.value].fim),
 )
 
-onMounted(async () => {
+onMounted(() => {
   cardapio.carregarCampi()
-  if (route.hash === '#fila') {
-    await nextTick()
-    document.getElementById('fila')?.scrollIntoView?.()
-  }
+  relogio = setInterval(() => {
+    agora.value = new Date()
+  }, INTERVALO_DO_RELOGIO)
 })
 
+onBeforeUnmount(() => clearInterval(relogio))
+
 watch(
-  campus,
-  (atual) => {
-    if (atual) preferencias.escolherCampus(atual.id)
+  () => route.hash,
+  async (hash) => {
+    if (hash !== '#fila') return
+    await nextTick()
+    document.getElementById('fila')?.scrollIntoView?.()
+  },
+  { immediate: true },
+)
+
+watch(
+  [campus, () => cardapio.campiCarregados],
+  ([atual, carregados]) => {
+    if (atual) {
+      preferencias.escolherCampus(atual.id)
+    } else if (carregados && id.value && id.value === preferencias.campusId) {
+      preferencias.esquecerCampus()
+    }
   },
   { immediate: true },
 )
@@ -60,10 +87,29 @@ watch(
     <header class="cabecalho cabecalho-tela-campus fundo-escuro">
       <div class="linha-campus">
         <h1 class="titulo-tela">{{ campus?.nome ?? 'Campus' }}</h1>
-        <RouterLink :to="{ name: 'campus' }" class="trocar">
+        <RouterLink :to="{ name: 'campus' }" class="acao-cabecalho">
           Trocar
           <IconeSvg nome="chevron" :tamanho="14" cor="currentColor" espessura="2.5" />
         </RouterLink>
+      </div>
+      <button
+        type="button"
+        class="acao-cabecalho usar-localizacao"
+        data-teste="usar-localizacao"
+        @click="abrirAvisoLocalizacao"
+      >
+        <IconeSvg nome="local" :tamanho="14" cor="currentColor" espessura="2.2" />
+        Usar minha localização
+      </button>
+      <div v-if="falhaNosCampi" class="falha-campi" role="alert" data-teste="falha-campi">
+        <p>Não foi possível carregar os campi. {{ cardapio.erroCampi }}</p>
+        <button
+          type="button"
+          class="botao-pequeno"
+          @click="cardapio.carregarCampi({ forcar: true })"
+        >
+          Tentar novamente
+        </button>
       </div>
     </header>
 
@@ -76,7 +122,12 @@ watch(
 
     <main v-else class="conteudo sem-barra">
       <CardapioView :campus-id="id" />
-      <FilaView :campus-id="id" :tipo-refeicao="refeicaoDaFila" :encerrada="refeicaoEncerrada" />
+      <FilaView
+        :campus-id="id"
+        :tipo-refeicao="refeicaoDaFila"
+        :encerrada="refeicaoEncerrada"
+        :campus-confirmado="Boolean(campus)"
+      />
     </main>
 
     <NavegacaoInferior />
@@ -95,7 +146,7 @@ watch(
   gap: 12px;
 }
 
-.trocar {
+.acao-cabecalho {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -103,6 +154,25 @@ watch(
   font-weight: 700;
   color: var(--dourado);
   text-decoration: none;
+}
+
+.usar-localizacao {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.falha-campi {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #fff;
+}
+
+.falha-campi .botao-pequeno {
+  margin-top: 8px;
 }
 
 .estado {

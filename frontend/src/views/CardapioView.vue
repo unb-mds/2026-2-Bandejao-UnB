@@ -159,11 +159,13 @@ function tentarNovamente() {
     </RouterLink>
 
     <div class="corpo">
-      <p v-if="cardapio.carregando && !semana" class="estado" role="status">Carregando cardápio…</p>
+      <p v-if="cardapio.estaCarregando(campusId) && !semana" class="estado" role="status">
+        Carregando cardápio…
+      </p>
 
-      <div v-else-if="cardapio.erro && !semana" class="estado">
+      <div v-else-if="cardapio.erroDe(campusId) && !semana" class="estado">
         <p class="estado-titulo">Não foi possível carregar o cardápio</p>
-        <p class="estado-texto">{{ cardapio.erro }}</p>
+        <p class="estado-texto">{{ cardapio.erroDe(campusId).mensagem }}</p>
         <button type="button" class="botao-pequeno tentar" @click="tentarNovamente">
           Tentar novamente
         </button>

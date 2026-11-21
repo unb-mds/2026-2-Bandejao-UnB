@@ -10,13 +10,18 @@ export const useCardapioStore = defineStore('cardapio', () => {
   const campi = ref([])
   const campiCarregados = ref(false)
   const erroCampi = ref(null)
-  let carregandoCampi = null
+  const carregandoCampi = ref(false)
+  const errosPorCampus = ref({})
+  const carregandoPorCampus = ref({})
+  let pedidoCampi = null
 
   function carregarCampi({ forcar = false } = {}) {
     if (campiCarregados.value && !forcar) return Promise.resolve(campi.value)
-    carregandoCampi ??= apiClient
+    carregandoCampi.value = true
+    pedidoCampi ??= apiClient
       .get('/campi/')
       .then((lista) => {
+        if (!Array.isArray(lista)) throw new Error('Resposta inesperada de GET /api/campi/.')
         campi.value = lista
         campiCarregados.value = true
         erroCampi.value = null
@@ -27,9 +32,10 @@ export const useCardapioStore = defineStore('cardapio', () => {
         return campi.value
       })
       .finally(() => {
-        carregandoCampi = null
+        pedidoCampi = null
+        carregandoCampi.value = false
       })
-    return carregandoCampi
+    return pedidoCampi
   }
 
   function buscarCampus(id) {
@@ -40,17 +46,29 @@ export const useCardapioStore = defineStore('cardapio', () => {
     if (!campusId) return null
     if (porCampus.value[campusId] && !forcar) return porCampus.value[campusId]
     carregando.value = true
+    carregandoPorCampus.value[campusId] = true
     erro.value = null
+    delete errosPorCampus.value[campusId]
     try {
       const semana = await apiClient.get(`/cardapio/${campusId}/`)
       porCampus.value[campusId] = semana
       return semana
     } catch (falha) {
       erro.value = mensagemDeErro(falha)
+      errosPorCampus.value[campusId] = { mensagem: erro.value, codigo: falha?.codigo ?? null }
       return null
     } finally {
       carregando.value = false
+      delete carregandoPorCampus.value[campusId]
     }
+  }
+
+  function erroDe(campusId) {
+    return errosPorCampus.value[campusId] ?? null
+  }
+
+  function estaCarregando(campusId) {
+    return Boolean(carregandoPorCampus.value[campusId])
   }
 
   function semana(campusId) {
@@ -69,7 +87,10 @@ export const useCardapioStore = defineStore('cardapio', () => {
     campi,
     campiCarregados,
     erroCampi,
+    carregandoCampi,
     carregar,
+    erroDe,
+    estaCarregando,
     carregarCampi,
     buscarCampus,
     semana,
