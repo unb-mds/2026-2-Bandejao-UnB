@@ -63,6 +63,37 @@ describe('cardapioStore', () => {
     expect(cardapio.carregando).toBe(false)
   })
 
+  it('erro e carregando ficam por campus: a falha de um não aparece no outro', async () => {
+    const cardapio = useCardapioStore()
+
+    await cardapio.carregar(99)
+    const pedido = cardapio.carregar(1)
+
+    expect(cardapio.estaCarregando(1)).toBe(true)
+    expect(cardapio.estaCarregando(99)).toBe(false)
+    await pedido
+    expect(cardapio.erroDe(99)).toEqual({
+      mensagem: 'Campus não encontrado.',
+      codigo: 'campus_nao_encontrado',
+    })
+    expect(cardapio.erroDe(1)).toBeNull()
+    expect(cardapio.estaCarregando(1)).toBe(false)
+  })
+
+  it('tentar de novo limpa o erro daquele campus', async () => {
+    const cardapio = useCardapioStore()
+    const { ApiError } = await import('@/services/apiClient')
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }),
+    )
+
+    await cardapio.carregar(1)
+    expect(cardapio.erroDe(1)).toEqual({ mensagem: 'Fora do ar.', codigo: 'erro_interno' })
+
+    await cardapio.carregar(1, { forcar: true })
+    expect(cardapio.erroDe(1)).toBeNull()
+  })
+
   it('acha a refeição de um dia; sem ela, devolve null', async () => {
     const cardapio = useCardapioStore()
     await cardapio.carregar(1)
@@ -111,6 +142,42 @@ describe('cardapioStore: campi (GET /api/campi/)', () => {
     expect(cardapio.erroCampi).toBeNull()
     expect(cardapio.campi).toHaveLength(5)
   })
+
+  it('carregandoCampi fica ligado durante cada tentativa, inclusive a de novo', async () => {
+    const cardapio = useCardapioStore()
+    const { ApiError } = await import('@/services/apiClient')
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }),
+    )
+
+    const primeira = cardapio.carregarCampi()
+    expect(cardapio.carregandoCampi).toBe(true)
+    await primeira
+    expect(cardapio.carregandoCampi).toBe(false)
+
+    const segunda = cardapio.carregarCampi({ forcar: true })
+    expect(cardapio.carregandoCampi).toBe(true)
+    await segunda
+    expect(cardapio.carregandoCampi).toBe(false)
+  })
+
+  it.each([[null], [{ results: [] }], ['Darcy']])(
+    'resposta que não é lista (%o) vira erro, sem marcar os campi como carregados',
+    async (resposta) => {
+      const cardapio = useCardapioStore()
+      vi.spyOn(apiClient, 'get').mockResolvedValueOnce(resposta)
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      await cardapio.carregarCampi()
+
+      expect(log).toHaveBeenCalledTimes(1)
+
+      expect(cardapio.campiCarregados).toBe(false)
+      expect(cardapio.campi).toEqual([])
+      expect(cardapio.erroCampi).toEqual(expect.any(String))
+      expect(cardapio.buscarCampus(1)).toBeNull()
+    },
+  )
 })
 
 describe('cardapioStore: GET /api/cardapio/ já filtrado (ADR 0005)', () => {

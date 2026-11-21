@@ -24,7 +24,17 @@
  */
 
 const URL_BASE = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/$/, '')
-export const USANDO_SIMULACAO = import.meta.env.DEV && import.meta.env.VITE_USE_MOCK !== 'false'
+/**
+ * Liga o servidor simulado? Só no servidor de desenvolvimento (`DEV`) e
+ * quando VITE_USE_MOCK não é 'false'. Recebe o `env` (no formato de
+ * `import.meta.env`) para poder ser testada sem o Vite; o `Boolean` faz
+ * um `env` sem `DEV` dar `false`.
+ */
+export function deveUsarSimulacao(env) {
+  return Boolean(env.DEV) && env.VITE_USE_MOCK !== 'false'
+}
+
+export const USANDO_SIMULACAO = deveUsarSimulacao(import.meta.env)
 
 const METODOS_DE_ESCRITA = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 const MENSAGEM_GENERICA = 'Algo deu errado. Tente novamente em instantes.'

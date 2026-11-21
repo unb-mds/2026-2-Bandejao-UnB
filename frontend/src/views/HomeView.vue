@@ -80,8 +80,8 @@ function abrirCardapioDeHoje() {
  * Ponto fixo do RF19: abre o aviso de novo, o passo a passo se o navegador
  * bloqueou, a confirmação se já está liberada ou a explicação se não há como
  * usar a localização. O menu fecha ao abrir, então o foco volta ao botão do
- * perfil quando o aviso fecha.
- * TODO(FE-07): levar este item para a CampusView quando ela existir.
+ * perfil quando o aviso fecha. A CampusView tem o mesmo ponto fixo no
+ * cabeçalho.
  */
 async function usarLocalizacao() {
   menuAberto.value = false

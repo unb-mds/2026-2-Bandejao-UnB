@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { idDeCampusValido } from '@/constants/campi'
+import { idDeCampusValido, idDoCampusAntigo } from '@/constants/campi'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { useAuthStore } from '@/stores/auth'
 
@@ -16,6 +16,19 @@ function telaDoCampusLembrado(destinoSemCampus, hash = '') {
   const campusId = usePreferenciasStore().campusId
   if (!campusId) return { name: destinoSemCampus, params: {} }
   return { name: 'campus-tela', params: { campusId: String(campusId) }, hash }
+}
+
+function telaDoCampusDoLinkAntigo(to) {
+  const campusId = idDeCampusValido(to.params.campusId) ?? idDoCampusAntigo(to.params.campusId)
+  if (!campusId) {
+    return {
+      name: 'nao-encontrada',
+      params: { pathMatch: to.path.slice(1).split('/') },
+      query: {},
+      hash: '',
+    }
+  }
+  return { name: 'campus-tela', params: { campusId: String(campusId) } }
 }
 
 export const routes = [
@@ -57,10 +70,7 @@ export const routes = [
   {
     path: '/cardapio/:campusId',
     name: 'cardapio-campus',
-    redirect: (to) =>
-      idDeCampusValido(to.params.campusId)
-        ? { name: 'campus-tela', params: { campusId: to.params.campusId } }
-        : telaDoCampusLembrado('campus'),
+    redirect: telaDoCampusDoLinkAntigo,
   },
   {
     path: '/avaliacoes',

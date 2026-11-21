@@ -269,15 +269,32 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação após os ajustes: `pytest` com 1330 testes aprovados e 1 ignorado, cobertura de `apps` de 98,34%; `ruff`, `bandit -lll`, `makemigrations --check` e `spectacular --validate --fail-on-warn` aprovados; o diagrama 4a renderiza no `mmdc`.
 - Situação: ajustes da revisão aplicados; aguardando o recheck de AlvaroBento12 e o combinado com o front na #144 sobre como a tela vai saber quais dias e refeições existem na semana (seção 7 do guia).
 
+## FE-06 — Deploy do M2 com BD e BE
+
+- Issue: [#142](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/142). PR: [#215 — FE-06: build de produção sem o simulado e roteiro do deploy do M2](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/215).
+- Ferramenta: Claude (Anthropic).
+- Apoio: função `deveUsarSimulacao` no `apiClient` (regra do servidor simulado separada numa função, para ser testada), com o teste antes do código, e a seção "Deploy do M2 (FE-06)" no `docs/deploy/deploy-producao.md`, com a checagem antes de subir e o roteiro de ponta a ponta da BD-08 (#148). Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: o commit `test` (`f08b394`) vem antes do `feat` (`9c9f48f`); nele, os 5 casos de `deveUsarSimulacao` falhavam porque a função ainda não existia.
+- Validação: `npm run test:ci` com 376 testes passando (cobertura de 90,27% de linhas / 81,41% de ramos), `npm run lint:ci` sem achados e `npm run build` sem erro, no PC da autora. O deploy e o roteiro em produção são feitos na VM pela equipe, e o resultado fica na #142 e na #148.
+- Revisão humana: Álvaro Bento revisou o PR #215; os ajustes pedidos (passo 8 do roteiro, texto da garantia do build sem o simulado, link do PR e números nesta entrada) e as sugestões (passo do RI09, branch pelo nome, caso `'FALSE'` no teste, estilo da doc) foram aplicados.
+- Situação: aguardando nova revisão.
+
 ## FE-07 — CampusView e rotas do campus
 
-- Issue: [#143](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/143).
+- Issue: [#143](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/143). PR: [#216 — FE-07: CampusView e rotas do campus](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/216).
 - Ferramenta: Claude (Anthropic).
-- Apoio: campus pelo `id` inteiro do `GET /api/campi/` (lista no `cardapioStore`, campus lembrado inteiro na `preferenciasStore`, valor antigo como "sem campus"), rotas `/`, `/campus` (`SeletorCampus`), `/campus/:campusId` (`CampusView`) e redirecionamentos de `/cardapio`, `/cardapio/:campusId` e `/fila`, `CardapioView` e `FilaView` como seções da `CampusView`, `AvisoExecutivo`, `RefeicaoEncerrada`, `CheckinBotao` com o campus da tela e a refeição selecionada, login levando à tela do campus (RF03.4) e servidor simulado com o `GET /campi/`. Os patches foram gerados pela IA e aplicados e commitados pela autora.
-- TDD: o commit `test` (roteamento, tela com uma seção falhando, check-in com a refeição de quando o fluxo começou, stores) vem antes do `feat`.
-- Validação: `npm run lint:ci`, `npm run test:ci` e `npm run build` no PC da autora.
-- Revisão humana: pendente.
-- Situação: aguardando revisão.
+- Apoio: campus pelo `id` inteiro do `GET /api/campi/` (lista no `cardapioStore`, campus lembrado inteiro na `preferenciasStore`, com o nome antigo convertido no id), rotas `/`, `/campus` (`SeletorCampus`), `/campus/:campusId` (`CampusView`) e redirecionamentos de `/cardapio`, `/cardapio/:campusId` e `/fila`, `CardapioView` e `FilaView` como seções da `CampusView`, `AvisoExecutivo`, `RefeicaoEncerrada`, `CheckinBotao` com o campus da tela e a refeição selecionada, login levando à tela do campus (RF03.4) e servidor simulado com o `GET /campi/`. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: o commit `test` (`ed37de6`: roteamento, tela com uma seção falhando, check-in com a refeição de quando o fluxo começou, stores) vem antes do `feat` (`e66b20a`). O `fix` `b1bdbb8` veio depois, com o teste junto: o redirecionamento sem campus levava o `campusId` e o vue-router avisava `Discarded invalid param(s)`.
+- Revisão humana: Álvaro Bento revisou o PR #216. Ajustes aplicados, com os testes antes do código:
+  - o `CheckinBotao` descarta o fluxo ao sair da tela, e o POST não sai quando a refeição encerra durante o GPS;
+  - "Fila" rola até a seção também com a tela já aberta;
+  - `/cardapio/<nome antigo>` abre aquele campus (e outro valor cai no 404), e a preferência antiga vira o id;
+  - falha no `GET /api/campi/` aparece no cabeçalho com "Tentar novamente", o `AvisoExecutivo` vai pelo id e o check-in espera a lista confirmar o campus;
+  - o 404 do cardápio vira "Campus não encontrado", e o campus lembrado que saiu do banco é esquecido;
+  - `carregandoCampi`, a resposta de `/campi/` validada, erro e carregamento do cardápio por campus e a hora da tela atualizada a cada 30 s;
+  - testes do `SeletorCampus` e de `idDeCampusValido` (`'01'` passou a ser recusado), "Usar minha localização" no cabeçalho da tela do campus e o C4 atualizado.
+- Validação: `npm run test:ci` com 477 testes passando (cobertura de 90,74% de linhas / 82,9% de ramos), `npm run lint:ci` sem achados e `npm run build` sem erro, no PC da autora.
+- Situação: aguardando nova revisão.
 
 ## FE-08 — Seção do cardápio ligada à API
 

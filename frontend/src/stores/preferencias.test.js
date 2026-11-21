@@ -114,8 +114,21 @@ describe('preferenciasStore: campus lembrado com o id inteiro da API (RF07.2)', 
     expect(preferencias.campusId).toBe(2)
   })
 
-  it.each([['darcy'], ['3'], [0]])(
-    'campus salvo no formato antigo (%s) vale como "sem campus escolhido"',
+  it.each([
+    ['darcy', 1],
+    ['ceilandia', 2],
+    ['gama', 3],
+    ['planaltina', 4],
+    ['fal', 5],
+  ])('campus salvo no formato antigo (%s) vira o id %s', (salvo, id) => {
+    localStorage.setItem(CHAVE, JSON.stringify({ campusId: salvo }))
+    setActivePinia(createPinia())
+
+    expect(usePreferenciasStore().campusId).toBe(id)
+  })
+
+  it.each([['executivo'], ['3'], [0], ['toString'], [null]])(
+    'campus salvo inválido (%s) vale como "sem campus escolhido"',
     (salvo) => {
       localStorage.setItem(CHAVE, JSON.stringify({ campusId: salvo }))
       setActivePinia(createPinia())
@@ -123,6 +136,16 @@ describe('preferenciasStore: campus lembrado com o id inteiro da API (RF07.2)', 
       expect(usePreferenciasStore().campusId).toBeNull()
     },
   )
+
+  it('esquecerCampus limpa o campus lembrado', () => {
+    const preferencias = usePreferenciasStore()
+    preferencias.escolherCampus(3)
+
+    preferencias.esquecerCampus()
+
+    expect(preferencias.campusId).toBeNull()
+    expect(JSON.parse(localStorage.getItem(CHAVE)).campusId).toBeNull()
+  })
 })
 
 describe('preferenciasStore: filtros com os nomes da API (ADR 0005)', () => {
