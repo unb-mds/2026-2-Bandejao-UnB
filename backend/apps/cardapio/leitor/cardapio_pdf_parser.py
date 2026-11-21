@@ -1,9 +1,10 @@
 """Leitura do PDF semanal do cardápio (RF06, ADR 0003, Leitor N4).
 
-Primeira versão, feita no BE-04 como teste com os PDFs reais do Gama, da
-Ceilândia e do Darcy Ribeiro. Extrai de cada página a refeição, os dias, as
-categorias, os pratos, a dieta e os marcadores de cada prato. Download,
-gravação no banco e alertas ficam para o BE-12.
+Feito no BE-04 como teste com os PDFs reais do Gama, da Ceilândia e do Darcy
+Ribeiro, e ajustado no BE-12 com os PDFs de novembro dos 5 campi. Extrai de
+cada página a refeição, os dias, as categorias, os pratos, a dieta e os
+marcadores de cada prato. Download, gravação no banco e alertas ficam nos
+outros módulos do pacote `leitor` (BE-12).
 
 Biblioteca: pdfplumber (MIT). Ela entrega, com coordenadas, as palavras, as
 bordas da tabela (retângulos finos) e as imagens dos ícones, com o conteúdo
@@ -11,8 +12,10 @@ de cada imagem. O Pillow (dependência do pdfplumber) compara os ícones.
 
 Quando algo foge do esperado, o leitor nunca devolve um cardápio vazio ou
 incompleto em silêncio:
-- `FormatoPDFInvalidoError`: o PDF inteiro é recusado (o BE-12 mantém o
-  último cardápio válido, RF06.4);
+- `FonteNaoEncontradaError` e `DownloadError` (lançadas pelo
+  `CardapioDownloader`) e `FormatoPDFInvalidoError`: o PDF inteiro é
+  recusado, e o `LeitorCardapioService` mantém o último cardápio válido
+  (RF06.4);
 - `LegendaInvalidaError` e `AssociacaoFalhouError`: só a página afetada sai
   sem marcadores, com `alergenos_indisponiveis=True` e o motivo (RF06.3).
 
@@ -105,6 +108,17 @@ RE_DATA_ENTRE_PARENTESES = re.compile(r"^\((.+)\)$")
 
 class LeitorCardapioError(Exception):
     """Base das falhas do leitor: um só `except` no BE-12."""
+
+
+class FonteNaoEncontradaError(LeitorCardapioError):
+    """Link do PDF não achado na página do RU, ou achado mas não confiável
+    (título ausente ou repetido, arquivo de outro campus, semana repetida ou
+    sem datas legíveis): mantém o último cardápio válido (ADR 0014)."""
+
+
+class DownloadError(LeitorCardapioError):
+    """Falha de rede, tempo esgotado ou HTTP diferente de 200 ao baixar a
+    página ou o PDF: mantém o último cardápio válido."""
 
 
 class FormatoPDFInvalidoError(LeitorCardapioError):
@@ -662,8 +676,10 @@ def _nome_refeicao(pagina, coluna):
 class CardapioPDFParser:
     """Lê o PDF inteiro: uma RefeicaoEstruturada por página."""
 
-    def __init__(self, caminho):
-        self.caminho = caminho
+    def __init__(self, arquivo):
+        """`arquivo`: caminho do PDF ou arquivo binário aberto, como o
+        `io.BytesIO` com os bytes baixados pelo `CardapioDownloader`."""
+        self.arquivo = arquivo
 
     def extrair(self):
         """Devolve (refeições, avisos).
@@ -674,7 +690,7 @@ class CardapioPDFParser:
         """
         resultados, avisos = [], []
         try:
-            with pdfplumber.open(self.caminho) as pdf:
+            with pdfplumber.open(self.arquivo) as pdf:
                 for numero, pagina in enumerate(pdf.pages, start=1):
                     # O `try` de fora pega o FormatoPDFInvalidoError também
                     # da releitura só em texto, que nasce dentro do `except`.
