@@ -4,13 +4,18 @@ Só leitura. O Leitor de Cardápio (BE-12) escreve nesses models; a Exposição
 nunca chama `save()` neles (um `save()` mudaria o `lida_em` da refeição).
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 from django.db.models import Prefetch
 
 from apps.cardapio.horario_refeicao_resolver import ORDEM_DO_DIA
 from apps.cardapio.models import Campus, Categoria, FonteCardapio, Prato, Refeicao
 from apps.cardapio.semana_cardapio_resolver import Semana
+
+# Até onde procurar o próximo dia com serviço (RN05, item 5): o domingo pula
+# para a segunda; um recesso longo fica "não publicado", em vez de mostrar uma
+# refeição de semanas à frente.
+LIMITE_PROXIMO_DIA = timedelta(days=7)
 
 # Categorias, pratos e marcadores numa consulta por nível (4 no total), já na
 # ordem do PDF: nunca uma consulta por prato (RNF01, teste de carga na BD-14).
@@ -42,9 +47,13 @@ class RefeicaoRepository:
         return sorted(refeicoes, key=lambda r: ORDEM_DO_DIA.index(r.tipo))
 
     def proximo_dia_com_servico(self, campus: Campus, depois_de: date) -> date | None:
-        """O primeiro dia depois de `depois_de` com alguma refeição, ou None."""
+        """O primeiro dia com refeição nos 7 dias depois de `depois_de`, ou None."""
         return (
-            Refeicao.objects.filter(campus=campus, data__gt=depois_de)
+            Refeicao.objects.filter(
+                campus=campus,
+                data__gt=depois_de,
+                data__lte=depois_de + LIMITE_PROXIMO_DIA,
+            )
             .order_by("data")
             .values_list("data", flat=True)
             .first()

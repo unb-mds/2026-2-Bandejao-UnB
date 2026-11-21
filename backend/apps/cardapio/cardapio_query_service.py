@@ -21,7 +21,7 @@ from apps.cardapio.horario_refeicao_resolver import (
     RefeicaoPadrao,
     refeicao_terminou,
 )
-from apps.cardapio.models import Campus, Refeicao
+from apps.cardapio.models import Campus, Refeicao, StatusLeitura
 from apps.cardapio.refeicao_repository import RefeicaoRepository
 from apps.cardapio.semana_cardapio_resolver import (
     DURACAO_SEMANA,
@@ -89,6 +89,11 @@ class CardapioQueryService:
         encontrada = self.repositorio.buscar_refeicao(
             campus, padrao.dia, padrao.refeicao
         )
+        if encontrada and encontrada.status_leitura == StatusLeitura.LEITURA_FALHOU:
+            # Linha criada sem cardápio anterior válido (N4 do banco): não há
+            # o que mostrar (RF06.4). Publicada, ela sairia com o filtro de
+            # marcador ativo e sem nada sinalizado, como se fosse segura.
+            return self._nao_publicado(campus, padrao)
         alergenos_indisponivel = bool(encontrada and encontrada.alergenos_indisponivel)
         categorias = []
         if encontrada is not None:
