@@ -177,6 +177,7 @@ erDiagram
         datetime ocorrido_em
         boolean resolvido "default false"
         datetime resolvido_em "nullable"
+        datetime email_enviado_em "nullable: e-mail ainda nao enviado"
     }
 
     CONTADOR_ALERTA {
@@ -295,7 +296,7 @@ Refeição de um tipo, em um campus e um dia, lida do PDF do cardápio (RF06, RF
 | `data` | DateField | NOT NULL | Dia do serviço, conforme datas do PDF (RF07). |
 | `tipo` | CharField(10) | NOT NULL, choices | `cafe` \| `almoco` \| `jantar`. |
 | `horario_inicio` / `horario_fim` | TimeField | NOT NULL | Copiados do parâmetro configurável (Anexo A) no momento da leitura do PDF; usados para liberar a avaliação (RF15) apenas durante a janela. O check-in (RF11) usa o mesmo horário do Anexo A, sem depender desta linha. |
-| `status_leitura` | CharField(30) | NOT NULL, choices, default `ok` | `ok` \| `alergenos_indisponiveis` (RF06: ícone desconhecido ou associação falhou) \| `leitura_falhou` (RF06: se já existe cardápio lido com sucesso, ele é mantido e a linha não é sobrescrita — a falha fica só em `ALERTA_LEITURA_CARDAPIO`). Decisão P2 da BE-12 (21/11/2026): o Leitor **não cria** linha `leitura_falhou` quando o PDF inteiro falha numa semana sem cardápio anterior, porque não sabe quais refeições e dias existem; sem a `FONTE_CARDAPIO` da semana, a Exposição já mostra "não publicado", e a falha fica em `ALERTA_LEITURA_CARDAPIO` com `refeicao_id` nulo. O valor continua no enum (a Exposição o trata como "não publicado", se aparecer), mas o Leitor não o grava. O model `Refeicao` expõe a propriedade derivada `alergenosIndisponivel` (verdadeira quando `status_leitura = alergenos_indisponiveis`), usada pelos Níveis 4 do Leitor e da Exposição do Cardápio; ela não é coluna. |
+| `status_leitura` | CharField(30) | NOT NULL, choices, default `ok` | `ok` \| `alergenos_indisponiveis` (RF06: ícone desconhecido ou associação falhou) \| `leitura_falhou` (RF06: se já existe cardápio lido com sucesso, ele é mantido e a linha não é sobrescrita — a falha fica só em `ALERTA_LEITURA_CARDAPIO`). Decisão P2 da BE-12 (21/11/2026): o Leitor **não cria** linha `leitura_falhou` quando o PDF inteiro falha numa semana sem cardápio anterior, porque não sabe quais refeições e dias existem; sem a `FONTE_CARDAPIO` da semana, a Exposição já mostra "não publicado", e a falha fica em `ALERTA_LEITURA_CARDAPIO` com `refeicao_id` nulo. O valor continua no enum (a Exposição o trata como "não publicado", se aparecer), mas o Leitor não o grava. O model `Refeicao` expõe a propriedade derivada `alergenos_indisponivel` (no JSON da API, `alergenosIndisponivel`; verdadeira quando `status_leitura = alergenos_indisponiveis`), usada pelos Níveis 4 do Leitor e da Exposição do Cardápio; ela não é coluna. |
 | `fonte_pdf_url` | URLField | NOT NULL | PDF de origem, para rastreabilidade da leitura (RF06). |
 | `lida_em` | DateTimeField | NOT NULL, auto | Quando a leitura automatizada gravou/atualizou esta refeição. |
 | — | — | **UNIQUE** (`campus_id`, `data`, `tipo`) | Não existem duas refeições do mesmo tipo, no mesmo campus, no mesmo dia. |
@@ -474,6 +475,7 @@ Alerta da leitura do PDF do cardápio, tratado pela equipe (RF06, ADR 0003).
 | `ocorrido_em` | DateTimeField | NOT NULL, auto | Data e hora em que o alerta ocorreu. |
 | `resolvido` | BooleanField | NOT NULL, default `false` | Marcado manualmente pela equipe (RNF08: sem tela administrativa no escopo — atualização provavelmente via acesso direto ao banco, ADR 0004). |
 | `resolvido_em` | DateTimeField | nullable | Data e hora em que a equipe marcou o alerta como resolvido. |
+| `email_enviado_em` | DateTimeField | nullable | Quando o alerta foi para a equipe por e-mail (ADR 0006). Nulo enquanto o limite de avisos segura o e-mail ou se o envio falhou: o alerta vai no próximo e-mail permitido do campus, que leva todos os pendentes (BE-12, revisão do PR #218; migração `0005`). |
 
 ### `CONTADOR_ALERTA`
 
@@ -487,7 +489,7 @@ Controle do limite de avisos por e-mail do Leitor de Cardápio (ADR 0006): uma l
 | `data` | DateField | NOT NULL | Dia da contagem, no horário de Brasília. A contagem de outro dia não vale: a cada dia começa uma linha nova. |
 | `quantidade_enviada` | SmallIntegerField | NOT NULL, default `0`, **CHECK** `0 <= quantidade_enviada <= 3` | Avisos já enviados no dia para essa combinação; no máximo 3 (ADR 0006). |
 | `ultimo_envio_em` | DateTimeField | nullable | Hora do último aviso enviado; um novo aviso da mesma combinação só sai 6 horas depois (ADR 0006). |
-| — | — | **UNIQUE** (`campus_id`, `tipo`, `data`) | Uma contagem por campus, tipo e dia. Quando a leitura do campus volta a funcionar, o `AlertaEquipeService.zerarContador` apaga as linhas do dia desse campus, zerando a contagem (ADR 0006). "Voltar a funcionar" é a execução terminar sem nenhum alerta emitido para o campus, de qualquer tipo e em qualquer semana, inclusive o de cardápio não publicado (ADR 0014). |
+| — | — | **UNIQUE** (`campus_id`, `tipo`, `data`) | Uma contagem por campus, tipo e dia. Quando a leitura do campus volta a funcionar, o `AlertaEquipeService.zerar_contador` zera a `quantidade_enviada` das linhas do dia desse campus e mantém o `ultimo_envio_em`, para o intervalo de 6 horas continuar valendo (ADR 0006; BE-12, revisão do PR #218). "Voltar a funcionar" é a execução terminar sem nenhum alerta emitido para o campus, de qualquer tipo e em qualquer semana, inclusive o de cardápio não publicado (ADR 0014). |
 
 ### `FONTE_CARDAPIO`
 

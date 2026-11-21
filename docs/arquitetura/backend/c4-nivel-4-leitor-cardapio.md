@@ -76,12 +76,13 @@ classDiagram
   }
   class CardapioRepository {
     +salvar(campus: Campus, fonte: FontePDF, refeicao: RefeicaoEstruturada) list~Refeicao~
-    +remover_ausentes(campus: Campus, fonte: FontePDF, gravadas: list) void
+    +remover_ausentes(campus: Campus, fonte: FontePDF, gravadas: list) list~Refeicao~
     +manter_ultimo_valido(campus: Campus, fonte: FontePDF) bool
     +marcar_alergenos_indisponivel(campus: Campus, refeicao: str, data: date) void
   }
   class AlertaEquipeService {
-    +registrar_alerta(tipo: TipoAlerta, campus: Campus, detalhe: str, refeicao, agora) AlertaLeituraCardapio
+    +registrar_alerta(tipo: TipoAlerta, campus: Campus, detalhe: str, refeicao) AlertaLeituraCardapio
+    +enviar_pendentes(campus: Campus, agora: datetime) int
     +zerar_contador(campus: Campus, agora: datetime) void
     -_deve_enviar(tipo: TipoAlerta, campus: Campus, agora: datetime) bool
     +MAX_AVISOS_POR_DIA: int = 3
@@ -120,7 +121,8 @@ classDiagram
   links do campus na página do RU, um por semana, e baixa cada arquivo
   (Nível 4c). Se a URL e o SHA-256 forem iguais aos da última leitura com
   sucesso daquele campus e daquela semana (`FonteCardapio`), o
-  `LeitorCardapioService` para ali, sem ler o PDF nem gravar nada. Leitura
+  `LeitorCardapioService` para ali, sem ler o PDF nem regravar o cardápio
+  (só `verificado_em` é atualizado). Leitura
   com sucesso é a que grava a semana, mesmo com alguma refeição só em texto
   (RF06.3). Assim o cron pode rodar de 3 em 3 horas (ADR 0014) sem
   regravar o cardápio, e uma correção feita pelo RU no meio da semana é
@@ -189,7 +191,7 @@ classDiagram
   }
   class CardapioRepository {
     +salvar(campus: Campus, fonte: FontePDF, refeicao: RefeicaoEstruturada) list~Refeicao~
-    +remover_ausentes(campus: Campus, fonte: FontePDF, gravadas: list) void
+    +remover_ausentes(campus: Campus, fonte: FontePDF, gravadas: list) list~Refeicao~
     +manter_ultimo_valido(campus: Campus, fonte: FontePDF) bool
     +marcar_alergenos_indisponivel(campus: Campus, refeicao: str, data: date) void
   }
@@ -211,7 +213,8 @@ classDiagram
     +nome: str
   }
   class AlertaEquipeService {
-    +registrar_alerta(tipo: TipoAlerta, campus: Campus, detalhe: str, refeicao, agora) AlertaLeituraCardapio
+    +registrar_alerta(tipo: TipoAlerta, campus: Campus, detalhe: str, refeicao) AlertaLeituraCardapio
+    +enviar_pendentes(campus: Campus, agora: datetime) int
     +zerar_contador(campus: Campus, agora: datetime) void
     -_deve_enviar(tipo: TipoAlerta, campus: Campus, agora: datetime) bool
     +MAX_AVISOS_POR_DIA: int = 3
@@ -228,8 +231,8 @@ classDiagram
     +campus: Campus
     +tipo: TipoAlerta
     +data: date
-    +quantidadeEnviada: int
-    +ultimoEnvioEm: datetime
+    +quantidade_enviada: int
+    +ultimo_envio_em: datetime
   }
   class EmailSvc["Serviço de E-mail (externo)"] {
     <<external>>
@@ -239,7 +242,7 @@ classDiagram
   LeitorCardapioService --> AlertaEquipeService : em qualquer falha acima
   AlertaEquipeService --> TipoAlerta : usa
   AlertaEquipeService --> ContadorAlerta : lê/incrementa por (campus, tipo, dia)
-  AlertaEquipeService ..> EmailSvc : envia aviso [SMTP], se _deve_enviar() = true
+  AlertaEquipeService ..> EmailSvc : um e-mail por campus com os pendentes [SMTP], dos tipos em que _deve_enviar() = true
   CardapioRepository ..> Refeicao : grava/lê
   CardapioRepository ..> Categoria : grava/lê
   CardapioRepository ..> Prato : grava/lê
@@ -262,6 +265,23 @@ classDiagram
   para o campus (Nível 4c, ADR 0014), ou, no mais tardar, no dia seguinte —
   assim, uma falha de vários dias seguidos continua gerando pelo menos 1
   aviso por dia, em vez de ficar em silêncio total depois do 3º e-mail.
+  O `zerar_contador` zera só a quantidade do dia e mantém o
+  `ultimo_envio_em`: o intervalo de 6 h vale sempre, e numa falha
+  intermitente o campus recebe no máximo 4 e-mails num dia (revisão do
+  PR #218).
+- **Um e-mail por campus, com os alertas pendentes (revisão do PR #218).**
+  `registrar_alerta` só grava a linha em `ALERTA_LEITURA_CARDAPIO`, sem
+  enviar nada, e por isso pode ficar dentro da transação da semana. No fim
+  do `processar`, `enviar_pendentes` manda **um** e-mail com todos os
+  alertas do campus ainda sem e-mail (`email_enviado_em` nulo e não
+  resolvidos) dos tipos que o limite deixa enviar, marca
+  `email_enviado_em` e conta o envio em cada tipo incluído. O que o limite
+  segura vai no e-mail permitido seguinte: um link reprovado que persiste
+  não prende o "não publicado", e um alerta cujo e-mail falhou (Brevo fora
+  do ar) não se perde. O e-mail lista até 20 alertas, os mais recentes
+  primeiro, e diz quantos ficaram de fora da lista. Falha no envio
+  (`SMTPException`, `OSError` ou qualquer outra exceção, como configuração
+  ou cabeçalho) vai para o log e não derruba a leitura (ADR 0006).
   Decisão registrada na ADR 0006
   (`docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md`), que compara o
   e-mail com log passivo e consulta manual ao banco. O e-mail de destino
@@ -292,15 +312,32 @@ classDiagram
     válido da semana, só para a mensagem do alerta.
   - Página só em texto: **uma** linha de alerta por página (refeição da
     semana), com `refeicao` = a do primeiro dia e os dias na mensagem; o
-    tipo (`LEGENDA_INVALIDA` ou `ASSOCIACAO_FALHOU`) vem da exceção que o
-    parser guardou no `motivo`.
+    tipo (`LEGENDA_INVALIDA` ou `ASSOCIACAO_FALHOU`) vem da classe da
+    exceção, guardada pelo parser em `RefeicaoEstruturada.falha`. Esses
+    alertas são gravados **dentro** da transação da semana: se não puderem
+    ser gravados, a semana não é dada como lida e o PDF é lido de novo.
+  - **P1 com rastro:** `remover_ausentes` registra no log cada refeição
+    apagada e devolve as mantidas por ter avaliação; para cada uma, o
+    serviço grava um alerta `FALHA_LEITURA_PDF` (etapa "gravação"), porque
+    ela continua com os pratos antigos. O intervalo usado é o do link,
+    conferido pelo Downloader (no máximo 7 dias e sem sobrepor outro link).
+  - **Erro inesperado:** qualquer exceção fora das cinco do Leitor (ex.:
+    `DataError` do MySQL estrito, `KeyError` do pdfminer num PDF
+    corrompido) é tratada por semana: a transação da semana é desfeita, o
+    traceback vai para o log, a equipe recebe um alerta "erro inesperado" e
+    a próxima semana segue. Na descoberta, a falha é do campus inteiro. O
+    que ainda escapar do campus (o banco fora do ar) é registrado pelo
+    comando, que tenta gravar um alerta e termina com código de saída 1
+    (`CommandError`) depois de processar todos os campi, para o cron ver.
+  - **PDF sem nenhuma refeição** (válido, mas sem páginas) é
+    `FormatoPDFInvalidoError`: não vira uma semana vazia, que o P1
+    apagaria.
   - Alertas: o destinatário é `settings.EMAIL_EQUIPE` (variável
     `EMAIL_EQUIPE`, padrão `equipe@bandejaounb.com.br`). O dia do contador
-    é o de Brasília (`timezone.localdate(agora)`). O intervalo de 6 h conta
-    também o último envio da véspera, e `zerar_contador` apaga só as linhas
-    do dia corrente do campus. Uma falha no envio (`SMTPException` ou
-    `OSError`, como no cadastro) vai para o log, não derruba a leitura e
-    não conta como enviada; a linha do alerta continua gravada.
+    é o de Brasília (`timezone.localdate(agora)`), mesmo com o `agora` em
+    UTC, como vem do `timezone.now()`. O intervalo de 6 h conta também o
+    último envio da véspera. O incremento do contador é feito no banco
+    (`F()`).
 - **`Refeicao`, `Categoria`, `Prato` e `Marcador` são os models Django do
   app Cardápio** (não deste módulo) — aparecem aqui só como o destino da
   persistência do `CardapioRepository`, para deixar explícito o que o Leitor
@@ -317,7 +354,7 @@ classDiagram
   `FiltroDietaService`.
 - **`Refeicao.status_leitura` é a coluna `REFEICAO.status_leitura` do banco**
   (`ok`, `alergenos_indisponiveis` ou `leitura_falhou`).
-  `CardapioRepository.marcarAlergenosIndisponivel` grava
+  `CardapioRepository.marcar_alergenos_indisponivel` grava
   `alergenos_indisponiveis`, e `alergenos_indisponivel` é uma propriedade
   derivada do model, verdadeira nesse caso; ela não é coluna. É a mesma
   propriedade lida pela Exposição do Cardápio para desativar o filtro de
@@ -391,7 +428,8 @@ classDiagram
   class FonteNaoEncontradaError
   class DownloadError
   class AlertaEquipeService {
-    +registrar_alerta(tipo: TipoAlerta, campus: Campus, detalhe: str, refeicao, agora) AlertaLeituraCardapio
+    +registrar_alerta(tipo: TipoAlerta, campus: Campus, detalhe: str, refeicao) AlertaLeituraCardapio
+    +enviar_pendentes(campus: Campus, agora: datetime) int
     +zerar_contador(campus: Campus, agora: datetime) void
   }
   class SiteRU["Site do RU (externo)"] {
@@ -458,7 +496,7 @@ classDiagram
   ausente ou repetido), `_semana_atrasada` não é avaliada, e sai só o alerta
   dessa falha.
 - **O contador de alertas só zera sem nenhum alerta no campus.** O
-  `LeitorCardapioService` só chama `AlertaEquipeService.zerarContador`
+  `LeitorCardapioService` só chama `AlertaEquipeService.zerar_contador`
   quando a execução termina sem nenhum alerta emitido para o campus: de
   qualquer tipo (inclusive `LEGENDA_INVALIDA` e `ASSOCIACAO_FALHOU`), em
   qualquer semana, e inclusive o de cardápio não publicado. A leitura com
@@ -466,7 +504,8 @@ classDiagram
   semana vigente, e uma execução em que a semana vigente nem aparece na
   página não zera a contagem do "não publicado". Assim o limite de 3 avisos
   por dia é respeitado (ADR 0006, ADR 0014).
-- **`FonteCardapioConfig` segue o padrão de `LocalizacaoRUConfig`** (Fila):
+- **`FonteCardapioConfig` segue o padrão de `LocalizacaoCampusConfig`**
+  (`apps/cardapio/localizacao_campus_config.py`):
   o rótulo e o prefixo de cada campus vêm das colunas de `CAMPUS`, povoadas
   por fixture. Se o RU renomear um título, o ajuste é na fixture, sem mudar
   o código.
@@ -503,7 +542,8 @@ classDiagram
     `Gamaxyz-…`), ou o nome é só o prefixo. Os dois PDFs da Fazenda
     (`Fazenda-Semana-…` e `Fazenda-Agua-Limpa-Semana-…`) passam.
   - Os problemas de um link só (arquivo de outro campus, semana repetida,
-    datas ilegíveis) ficam no campo `erro` da `FontePDF` daquele link, em
+    intervalo de mais de 7 dias, link sobreposto a outro do bloco, datas
+    ilegíveis) ficam no campo `erro` da `FontePDF` daquele link, em
     vez de uma exceção: assim o `LeitorCardapioService` alerta aquele link,
     não o baixa, e ainda conta a semana dele no `_semana_atrasada`. O
     título ausente ou repetido continua lançando `FonteNaoEncontradaError`
@@ -511,6 +551,9 @@ classDiagram
   - Página fora do ar ou HTTP diferente de 200 na página é `DownloadError`
     (ADR 0014), tratado pelo serviço como falha do campus inteiro, igual ao
     título ausente: alerta, nenhum link baixado e sem "não publicado".
+  - A `FontePDF` é imutável (`frozen`), e uma `FontePDF` sem `erro` tem
+    sempre as duas datas (conferido na criação). O `ArquivoPDF` calcula o
+    `sha256` do próprio `conteudo`, para os dois nunca ficarem diferentes.
   - A página é lida uma vez por execução (o comando cria um
     `CardapioDownloader` só, que guarda a página ou a falha dela), e não uma
     vez por campus.
@@ -537,8 +580,8 @@ classDiagram
 
 ## Notas gerais
 
-- Este diagrama é uma **proposta de decomposição interna**, não uma
-  decisão de arquitetura registrada — se a dupla responsável pela leitura do
-  PDF adotar um desenho de classes diferente ao implementar, vale atualizar
-  este arquivo (ou registrar o desenho final como ADR, se a mudança for
-  relevante o suficiente).
+- O diagrama nasceu como **proposta de decomposição interna** e, desde a
+  BE-12, descreve o código: as classes e as assinaturas dos três níveis são
+  as de `backend/apps/cardapio/leitor/`. Quem mudar o desenho atualiza este
+  arquivo no mesmo PR (ou registra uma ADR, se a mudança for relevante o
+  suficiente).

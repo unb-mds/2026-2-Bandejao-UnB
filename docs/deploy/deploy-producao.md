@@ -98,7 +98,7 @@ Conteúdo do `.env` (a explicação de cada variável está no
 | `EMAIL_PORT` | `587` (já é o padrão) |
 | `EMAIL_USE_TLS` | `True` (já é o padrão) |
 | `DEFAULT_FROM_EMAIL` | remetente verificado no Brevo |
-| `EMAIL_EQUIPE` | opcional: destinatário dos alertas do Leitor de Cardápio (padrão `equipe@bandejaounb.com.br`, ADR 0006) |
+| `EMAIL_EQUIPE` | opcional: destinatário dos alertas do Leitor de Cardápio (padrão `equipe@bandejaounb.com.br`, ADR 0006 e 0012) |
 
 Sem `DJANGO_DEBUG=True`, as três variáveis do SMTP e o `DEFAULT_FROM_EMAIL`
 são obrigatórios, e o backend não sobe sem eles. Também não defina
