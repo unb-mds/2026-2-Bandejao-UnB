@@ -393,7 +393,8 @@ continua recebendo a senha do root, porque o `.env` vai inteiro para ele.
 O M2 é o check-in funcionando em produção (MC-01). O PWA com o check-in
 (FE-05, #141) já está na `develop`. O deploy é o mesmo da seção
 [Atualizar](#atualizar), feito na `develop`, que é a branch que a VM roda até
-a release; depois da release, passa a ser a `main` (ver o passo 1).
+a release; depois da release, passa a ser a `main` (ver
+[Clonar o repositório](#1-clonar-o-repositório)).
 
 O build de produção nunca usa o servidor simulado: no `vite build` o Vite
 fixa `import.meta.env.DEV` em `false`, e o `if (import.meta.env.DEV)` de
