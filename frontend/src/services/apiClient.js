@@ -24,7 +24,11 @@
  */
 
 const URL_BASE = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/$/, '')
-export const USANDO_SIMULACAO = import.meta.env.DEV && import.meta.env.VITE_USE_MOCK !== 'false'
+export function deveUsarSimulacao(env) {
+  return Boolean(env.DEV) && env.VITE_USE_MOCK !== 'false'
+}
+
+export const USANDO_SIMULACAO = deveUsarSimulacao(import.meta.env)
 
 const METODOS_DE_ESCRITA = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 const MENSAGEM_GENERICA = 'Algo deu errado. Tente novamente em instantes.'
