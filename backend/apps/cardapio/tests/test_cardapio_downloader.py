@@ -32,6 +32,7 @@ from apps.cardapio.leitor.cardapio_pdf_parser import (
 )
 from apps.cardapio.leitor.fonte_cardapio_config import FonteCardapioConfig
 from apps.cardapio.models import Campus
+from apps.cardapio.tests.apoio_leitor import trocar_texto_do_link
 
 PAGINA = (
     Path(__file__).parent
@@ -308,7 +309,7 @@ def test_os_dois_arquivos_da_fazenda_comecam_pelo_prefixo(pagina):
 
 
 def test_dois_links_para_a_mesma_semana_reprovam_so_aquela_semana(pagina):
-    pagina.html = _trocar(pagina.html, LINK_23, LINK_16)
+    pagina.html = trocar_texto_do_link(pagina.html, "Darcy-Ribeiro-Semana-02", LINK_16)
     # Agora o Darcy tem dois links da semana de 16/11.
     fontes = _localizar("Darcy Ribeiro")
     assert [(f.inicio, f.erro is None) for f in fontes] == [
@@ -344,7 +345,7 @@ def test_dois_links_para_a_mesma_semana_com_a_outra_semana_valida(pagina):
     ],
 )
 def test_variacoes_do_texto_do_link_sao_lidas(pagina, texto):
-    pagina.html = _trocar(pagina.html, LINK_23, texto, 5)
+    pagina.html = trocar_texto_do_link(pagina.html, "Gama-Semana-02", texto)
     fonte = _localizar("Gama")[1]
     assert (fonte.inicio, fonte.fim, fonte.erro) == (*SEMANA_23, None)
 
@@ -359,7 +360,7 @@ def test_variacoes_do_texto_do_link_sao_lidas(pagina, texto):
     ],
 )
 def test_link_sem_datas_legiveis_e_reprovado(pagina, texto):
-    pagina.html = _trocar(pagina.html, LINK_23, texto, 5)
+    pagina.html = trocar_texto_do_link(pagina.html, "Gama-Semana-02", texto)
     fonte = _localizar("Gama")[1]
     assert isinstance(fonte.erro, FonteNaoEncontradaError)
     assert fonte.inicio is None and fonte.fim is None

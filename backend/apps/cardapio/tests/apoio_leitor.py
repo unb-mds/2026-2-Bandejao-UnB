@@ -6,8 +6,15 @@ URL. Nenhuma requisição sai de verdade. Cada teste pode trocar o HTML, o
 conteúdo de uma URL, ou fazer uma URL falhar.
 """
 
+import re
+from contextlib import contextmanager
 from pathlib import Path
 from unittest import mock
+
+from apps.cardapio.leitor.cardapio_pdf_parser import (
+    AssociacaoFalhouError,
+    CardapioPDFParser,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PAGINA = FIXTURES / "pagina_ru" / "cardapio-refeitorio-2026-11-21.html"
@@ -22,6 +29,42 @@ URL_FAZENDA_16 = UPLOADS + "Fazenda-Semana-01-16-11-a-20-11-2.pdf"
 # Texto dos links como está no HTML (o travessão vem como entidade).
 LINK_16 = "ISM &#8211; 16/11/2026 À 22/11/2026"
 LINK_23 = "ISM &#8211; 23/11/2026 À 29/11/2026"
+
+
+def trocar_texto_do_link(html, trecho_do_href, novo_texto):
+    """Troca o texto de um único link, achado pelo href.
+
+    Não depende da ordem dos blocos na página, que a ADR 0014 não garante.
+    """
+    padrao = re.compile(
+        r'(<a [^>]*href="[^"]*'
+        + re.escape(trecho_do_href)
+        + r'[^"]*"[^>]*>)(.*?)(</a>)',
+        re.DOTALL,
+    )
+    novo, quantos = padrao.subn(lambda m: m.group(1) + novo_texto + m.group(3), html)
+    assert quantos == 1, f"{quantos} links com {trecho_do_href!r}"
+    return novo
+
+
+@contextmanager
+def falhar_associacao_na_refeicao(refeicao):
+    """Faz a associação dos ícones falhar nas páginas de uma refeição.
+
+    A falha nasce onde nasceria de verdade (`AssociacaoFalhouError` na
+    leitura com marcadores), e o parser segue o caminho real: relê a página
+    só em texto. Não depende do número da página nem de coordenadas.
+    """
+    original = CardapioPDFParser._pagina
+
+    def _pagina(self, pagina, com_marcadores=True):
+        lida = original(self, pagina, com_marcadores)
+        if com_marcadores and lida.refeicao == refeicao:
+            raise AssociacaoFalhouError("ícone desconhecido (simulado no teste)")
+        return lida
+
+    with mock.patch.object(CardapioPDFParser, "_pagina", _pagina):
+        yield
 
 
 def pdf(nome):
@@ -47,6 +90,9 @@ class SiteDoRUFalso:
     def trocar_no_html(self, antigo, novo, vezes=1):
         assert self.html.count(antigo) >= vezes, antigo
         self.html = self.html.replace(antigo, novo, vezes)
+
+    def trocar_texto_do_link(self, trecho_do_href, novo_texto):
+        self.html = trocar_texto_do_link(self.html, trecho_do_href, novo_texto)
 
     def get(self, url, **kwargs):
         self.pedidos.append(url)

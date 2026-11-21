@@ -15,7 +15,6 @@ from datetime import date, datetime, timedelta
 from unittest import mock
 from zoneinfo import ZoneInfo
 
-import pdfplumber
 import pytest
 import requests
 from django.core import mail
@@ -39,12 +38,12 @@ from apps.cardapio.models import (
     TipoAlerta,
 )
 from apps.cardapio.tests.apoio_leitor import (
-    LINK_16,
     LINK_23,
     URL_FAZENDA_16,
     URL_GAMA_16,
     URL_GAMA_23,
     SiteDoRUFalso,
+    falhar_associacao_na_refeicao,
     pdf,
 )
 
@@ -428,26 +427,10 @@ def test_rollback_da_releitura_devolve_a_semana_anterior_inteira(gama, site):
 # ------------------------------------------------------ página só em texto
 
 
-def _icone_solto_no_almoco(monkeypatch):
-    """Um ícone a mais, na coluna das categorias da página 2 (almoço):
-    `AssociacaoFalhouError` só nessa página (caso do teste do BE-04)."""
-    original = pdfplumber.page.Page.images
-
-    def images(self):
-        imagens = original.fget(self)
-        if type(self) is not pdfplumber.page.Page or self.page_number != 2:
-            return imagens
-        icone = next(im for im in imagens if 150 < im["top"] < 450 and im["x0"] > 180)
-        largura = icone["x1"] - icone["x0"]
-        return [*imagens, {**icone, "x0": 100, "x1": 100 + largura}]
-
-    monkeypatch.setattr(pdfplumber.page.Page, "images", property(images))
-
-
-def test_pagina_so_em_texto_grava_sem_marcadores_e_alerta(gama, site, monkeypatch):
-    _icone_solto_no_almoco(monkeypatch)
+def test_pagina_so_em_texto_grava_sem_marcadores_e_alerta(gama, site):
     site.conteudos[URL_GAMA_23] = 404
-    resultado = _processar(gama)
+    with falhar_associacao_na_refeicao("almoco"):
+        resultado = _processar(gama)
 
     almocos = Refeicao.objects.filter(campus=gama, tipo="almoco", data__lt=SEGUNDA_23)
     assert set(almocos.values_list("status_leitura", flat=True)) == {
@@ -464,7 +447,7 @@ def test_pagina_so_em_texto_grava_sem_marcadores_e_alerta(gama, site, monkeypatc
     [alerta] = alertas
     assert alerta.refeicao == almocos.get(data=SEGUNDA_16)
     assert "almoco" in alerta.mensagem or "almoço" in alerta.mensagem
-    assert "fora das células" in alerta.mensagem
+    assert "simulado no teste" in alerta.mensagem
     # A semana conta como lida com sucesso (RF06.3): tem FonteCardapio.
     assert FonteCardapio.objects.filter(semana_inicio=SEGUNDA_16).exists()
     assert resultado.alertas == 2  # este e o 404 da outra semana
@@ -489,10 +472,10 @@ def test_legenda_invalida_gera_alerta_do_tipo_legenda(gama, site, monkeypatch):
     ) == {StatusLeitura.ALERGENOS_INDISPONIVEIS}
 
 
-def test_mesmo_pdf_so_em_texto_nao_repete_o_alerta(gama, site, monkeypatch):
-    _icone_solto_no_almoco(monkeypatch)
-    _processar(gama)
-    _processar(gama, SABADO_10H + timedelta(hours=3))
+def test_mesmo_pdf_so_em_texto_nao_repete_o_alerta(gama, site):
+    with falhar_associacao_na_refeicao("almoco"):
+        _processar(gama)
+        _processar(gama, SABADO_10H + timedelta(hours=3))
     assert (
         AlertaLeituraCardapio.objects.filter(tipo=TipoAlerta.ASSOCIACAO_FALHOU).count()
         == 2
@@ -543,7 +526,7 @@ def test_vigente_ausente_exatamente_na_segunda_12h_ja_alerta(gama, site):
 
 
 def test_link_sem_datas_alerta_com_o_texto_do_link(gama, site):
-    site.trocar_no_html(LINK_23, "ISM &#8211; Semana 2", 3)
+    site.trocar_texto_do_link("Gama-Semana-02", "ISM &#8211; Semana 2")
     _processar(gama)
     [(tipo, mensagem)] = _alertas(gama)
     assert tipo == FALHA
@@ -575,7 +558,7 @@ def test_vigente_com_link_reprovado_nao_e_nao_publicado(gama, site):
 
 
 def test_vigente_com_dois_links_nao_e_nao_publicado(gama, site):
-    site.trocar_no_html(LINK_16, LINK_23, 3)  # o 3º é o do Gama
+    site.trocar_texto_do_link("Gama-Semana-01", LINK_23)
     _processar(gama, datetime(2026, 11, 24, 15, 0, tzinfo=BRASILIA))
     mensagens = [m for _, m in _alertas(gama)]
     assert len(mensagens) == 2
@@ -598,13 +581,52 @@ def test_semana_seguinte_lida_e_vigente_com_falha_nao_zera(gama, site):
     assert mail.outbox == []
 
 
-def test_alerta_so_em_texto_tambem_impede_zerar(gama, site, monkeypatch):
+def test_alerta_so_em_texto_tambem_impede_zerar(gama, site):
     ContadorAlerta.objects.create(
         campus=gama, tipo=FALHA, data=SABADO_10H.date(), quantidade_enviada=1
     )
-    _icone_solto_no_almoco(monkeypatch)
-    _processar(gama)
+    with falhar_associacao_na_refeicao("almoco"):
+        _processar(gama)
     assert ContadorAlerta.objects.filter(campus=gama, tipo=FALHA).exists()
+
+
+def test_nao_publicado_sai_no_mesmo_email_que_a_falha_do_link(gama, site):
+    # Revisão #218, item 4: um link reprovado que persiste não pode prender o
+    # "não publicado" no intervalo de 6 h. Um e-mail por campus e execução.
+    site.trocar_no_html(URL_GAMA_23, URL_GAMA_23.replace("Gama-", "Planaltina-"))
+    for horas in (0, 3, 6):
+        _processar(gama, SEGUNDA_30_13H + timedelta(hours=horas))
+    assert len(mail.outbox) == 2
+    for email in mail.outbox:
+        assert "não publicado" in email.body
+        assert "Planaltina-Semana-02" in email.body
+    assert not AlertaLeituraCardapio.objects.filter(email_enviado_em__isnull=True)
+
+
+def test_alerta_so_em_texto_entra_na_transacao_da_semana(gama, site):
+    # Revisão #218, item 8: se o alerta da página só em texto não puder ser
+    # gravado, a semana não é dada como lida (o SHA não é gravado), e a
+    # próxima execução lê o PDF de novo e emite o alerta.
+    from apps.cardapio.leitor.alerta_equipe_service import AlertaEquipeService
+
+    original = AlertaEquipeService.registrar_alerta
+
+    def registrar(self, tipo, campus, detalhe, refeicao=None):
+        if tipo == TipoAlerta.ASSOCIACAO_FALHOU:
+            raise DatabaseError("caiu ao gravar o alerta")
+        return original(self, tipo, campus, detalhe, refeicao)
+
+    site.conteudos[URL_GAMA_23] = 404
+    with falhar_associacao_na_refeicao("almoco"):
+        with mock.patch.object(AlertaEquipeService, "registrar_alerta", registrar):
+            _processar(gama)
+        assert not FonteCardapio.objects.filter(semana_inicio=SEGUNDA_16).exists()
+        _processar(gama, SABADO_10H + timedelta(hours=3))
+    assert FonteCardapio.objects.filter(semana_inicio=SEGUNDA_16).exists()
+    assert (
+        AlertaLeituraCardapio.objects.filter(tipo=TipoAlerta.ASSOCIACAO_FALHOU).count()
+        == 1
+    )
 
 
 def test_falha_no_email_nao_derruba_a_leitura(gama, site, caplog):

@@ -11,13 +11,16 @@ from io import StringIO
 from unittest import mock
 from zoneinfo import ZoneInfo
 
-import pdfplumber
 import pytest
 from django.core.management import call_command
 from rest_framework.test import APIClient
 
 from apps.cardapio.models import Campus
-from apps.cardapio.tests.apoio_leitor import URL_GAMA_23, SiteDoRUFalso
+from apps.cardapio.tests.apoio_leitor import (
+    URL_GAMA_23,
+    SiteDoRUFalso,
+    falhar_associacao_na_refeicao,
+)
 
 BRASILIA = ZoneInfo("America/Sao_Paulo")
 ROTA = "/api/cardapio/"
@@ -115,22 +118,9 @@ def test_pdf_recusado_sem_semana_anterior_sai_nao_publicado(gama, site):
     assert _pedir(QUINTA_19_12H, campus=gama.pk).json()["status"] == "publicado"
 
 
-def test_pagina_so_em_texto_sai_com_o_filtro_de_marcador_desativado(
-    gama, site, monkeypatch
-):
-    # Um ícone a mais, fora das células, na página do almoço.
-    original = pdfplumber.page.Page.images
-
-    def images(self):
-        imagens = original.fget(self)
-        if type(self) is not pdfplumber.page.Page or self.page_number != 2:
-            return imagens
-        icone = next(im for im in imagens if 150 < im["top"] < 450 and im["x0"] > 180)
-        largura = icone["x1"] - icone["x0"]
-        return [*imagens, {**icone, "x0": 100, "x1": 100 + largura}]
-
-    monkeypatch.setattr(pdfplumber.page.Page, "images", property(images))
-    _ler_cardapio(SABADO_21_10H)
+def test_pagina_so_em_texto_sai_com_o_filtro_de_marcador_desativado(gama, site):
+    with falhar_associacao_na_refeicao("almoco"):
+        _ler_cardapio(SABADO_21_10H)
 
     corpo = _pedir(QUINTA_19_12H, campus=gama.pk, marcadores="amendoim").json()
     assert corpo["status"] == "publicado"
