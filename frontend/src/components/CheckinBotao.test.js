@@ -337,17 +337,19 @@ describe('CheckinBotao — respostas do POST /api/checkins/', () => {
     expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true)
   })
 
-  it('400 dados_invalidos: erro genérico de check-in', async () => {
+  it('400 dados_invalidos: erro do aplicativo, sem mandar tentar de novo', async () => {
     simularNavegador({
       aoLer: ({ ok }) =>
         ok({ coords: { latitude: 95, longitude: -47.87, accuracy: 10 }, timestamp: Date.now() }),
     })
     await entrar()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     const wrapper = await montar()
 
     await tocarNoBotao(wrapper)
 
-    expect(texto(wrapper)).toContain('Não foi possível registrar o check-in. Tente de novo.')
+    expect(texto(wrapper)).toContain('por um problema no aplicativo')
+    expect(texto(wrapper)).not.toContain('Tente de novo')
   })
 
   it('401 (sessão perdida no meio): volta ao convite ao login', async () => {

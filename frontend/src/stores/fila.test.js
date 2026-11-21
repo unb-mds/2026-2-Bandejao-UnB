@@ -164,8 +164,9 @@ describe('filaStore.confirmarCheckin', () => {
     esperarSemCoordenadas(fila)
   })
 
-  it('400 dados_invalidos: erro genérico de check-in', async () => {
+  it('400 dados_invalidos: erro do aplicativo, sem prometer que tentar de novo resolve', async () => {
     await entrarComAvisoAceito()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     const fila = useFilaStore()
 
     const resultado = await fila.confirmarCheckin({
@@ -176,8 +177,36 @@ describe('filaStore.confirmarCheckin', () => {
     expect(resultado).toEqual({
       desfecho: 'erro',
       codigo: 'dados_invalidos',
-      mensagem: 'Não foi possível registrar o check-in. Tente de novo.',
+      mensagem:
+        'Não foi possível registrar o check-in por um problema no aplicativo. Se continuar, avise a equipe do Bandejão.',
     })
+    expect(log).toHaveBeenCalledWith(expect.any(String), {
+      codigo: 'dados_invalidos',
+      idApi: 1,
+      tipoRefeicao: 'almoco',
+    })
+    // O log nunca leva as coordenadas (RI09).
+    expect(JSON.stringify(log.mock.calls)).not.toMatch(/latitude|longitude|95/)
+    esperarSemCoordenadas(fila)
+  })
+
+  it('201 sem o bloco checkin: avisa que pode ter sido registrado e não diz "Algo deu errado"', async () => {
+    await entrarComAvisoAceito()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce({ pontos: { total: 0 } })
+    const fila = useFilaStore()
+
+    const resultado = await fila.confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(resultado).toEqual({
+      desfecho: 'erro',
+      codigo: 'resposta_invalida',
+      mensagem:
+        'O check-in pode ter sido registrado, mas a resposta veio incompleta. Recarregue a página antes de tentar de novo.',
+    })
+    expect(log).toHaveBeenCalled()
+    expect(fila.ultimoCheckin).toBeNull()
+    expect(fila.enviandoCheckin).toBe(false)
     esperarSemCoordenadas(fila)
   })
 
@@ -211,14 +240,20 @@ describe('filaStore.confirmarCheckin', () => {
     esperarSemCoordenadas(fila)
   })
 
-  it('campus sem id no backend: erro sem chamar a API', async () => {
+  it('campus sem id no backend: pede o campus de novo e loga, sem chamar a API', async () => {
     await entrarComAvisoAceito()
     const post = vi.spyOn(apiClient, 'post')
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     const fila = useFilaStore()
 
     const resultado = await fila.confirmarCheckin({ ...CHECKIN_ALMOCO, campusId: 'inexistente' })
 
-    expect(resultado.desfecho).toBe('erro')
+    expect(resultado).toEqual({
+      desfecho: 'erro',
+      codigo: 'campus_desconhecido',
+      mensagem: 'Não foi possível identificar o campus. Escolha o campus de novo e tente outra vez.',
+    })
+    expect(log).toHaveBeenCalledWith(expect.any(String), { campusId: 'inexistente' })
     expect(post).not.toHaveBeenCalled()
   })
 
