@@ -59,7 +59,7 @@ async function montar(props = {}) {
   })
   await router.push('/')
   const wrapper = mount(CheckinBotao, {
-    props: { campusId: 'darcy', tipoRefeicao: 'almoco', ...props },
+    props: { campusId: 1, tipoRefeicao: 'almoco', ...props },
     global: { plugins: [router] },
     attachTo: document.body,
   })
@@ -363,7 +363,7 @@ describe('CheckinBotao — respostas do POST /api/checkins/', () => {
   it('422 checkin_duplicado: avisa que já fez check-in', async () => {
     await entrar()
     await useFilaStore().confirmarCheckin({
-      campusId: 'darcy',
+      campusId: 1,
       tipoRefeicao: 'almoco',
       coordenadas: COORDENADAS,
     })
@@ -461,7 +461,7 @@ describe('CheckinBotao — respostas do POST /api/checkins/', () => {
     const wrapper = await montar()
     await tocarNoBotao(wrapper)
 
-    await wrapper.setProps({ campusId: 'gama' })
+    await wrapper.setProps({ campusId: 3 })
     liberar()
     await flushPromises()
 

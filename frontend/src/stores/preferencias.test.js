@@ -34,12 +34,12 @@ describe('preferenciasStore: "Agora não" do aviso de localização (RF19)', () 
 
   it('não apaga as outras preferências ao guardar o "Agora não"', () => {
     const preferencias = usePreferenciasStore()
-    preferencias.escolherCampus('gama')
+    preferencias.escolherCampus(3)
     preferencias.adiarAvisoLocalizacao()
 
     setActivePinia(createPinia())
 
-    expect(usePreferenciasStore().campusId).toBe('gama')
+    expect(usePreferenciasStore().campusId).toBe(3)
   })
 
   it('ignora um valor salvo que não seja booleano', () => {
@@ -83,9 +83,44 @@ describe('preferenciasStore: armazenamento com problema', () => {
     const preferencias = usePreferenciasStore()
 
     preferencias.adiarAvisoLocalizacao()
-    preferencias.escolherCampus('gama')
+    preferencias.escolherCampus(3)
 
     expect(preferencias.avisoLocalizacaoAdiado).toBe(true)
     expect(aviso).toHaveBeenCalledOnce()
   })
+})
+
+describe('preferenciasStore: campus lembrado com o id inteiro da API (RF07.2)', () => {
+  it('guarda o id inteiro do campus', () => {
+    usePreferenciasStore().escolherCampus(3)
+
+    expect(JSON.parse(localStorage.getItem(CHAVE)).campusId).toBe(3)
+  })
+
+  it('aceita o id vindo da rota, como texto', () => {
+    const preferencias = usePreferenciasStore()
+
+    preferencias.escolherCampus('4')
+
+    expect(preferencias.campusId).toBe(4)
+  })
+
+  it.each([['darcy'], [0], [-1], [1.5], [null]])('ignora um campus inválido (%s)', (valor) => {
+    const preferencias = usePreferenciasStore()
+    preferencias.escolherCampus(2)
+
+    preferencias.escolherCampus(valor)
+
+    expect(preferencias.campusId).toBe(2)
+  })
+
+  it.each([['darcy'], ['3'], [0]])(
+    'campus salvo no formato antigo (%s) vale como "sem campus escolhido"',
+    (salvo) => {
+      localStorage.setItem(CHAVE, JSON.stringify({ campusId: salvo }))
+      setActivePinia(createPinia())
+
+      expect(usePreferenciasStore().campusId).toBeNull()
+    },
+  )
 })

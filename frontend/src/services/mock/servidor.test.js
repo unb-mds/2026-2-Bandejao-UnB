@@ -415,9 +415,24 @@ describe('recuperação de senha (RF04, fora do contrato v1)', () => {
   })
 })
 
+describe('campi (GET /campi/, contrato da BE-08)', () => {
+  it('devolve id inteiro e nome do banco, em ordem de id', async () => {
+    const { status, dados } = await get('/campi/')
+
+    expect(status).toBe(200)
+    expect(dados).toEqual([
+      { id: 1, nome: 'Darcy Ribeiro' },
+      { id: 2, nome: 'Ceilândia' },
+      { id: 3, nome: 'Gama' },
+      { id: 4, nome: 'Planaltina' },
+      { id: 5, nome: 'Fazenda Água Limpa' },
+    ])
+  })
+})
+
 describe('cardápio (RF06, RF07)', () => {
   it('devolve a semana vigente do campus', async () => {
-    const { status, dados } = await get('/cardapio/darcy/')
+    const { status, dados } = await get('/cardapio/1/')
     expect(status).toBe(200)
     expect(dados.publicado).toBe(true)
     expect(dados.dias[0].data).toBe('2026-09-28')
@@ -425,18 +440,19 @@ describe('cardápio (RF06, RF07)', () => {
   })
 
   it('indica cardápio não publicado', async () => {
-    const { dados } = await get('/cardapio/fal/')
+    const { dados } = await get('/cardapio/5/')
     expect(dados).toMatchObject({ publicado: false, dias: [] })
   })
 
   it('campus inexistente é 404', async () => {
-    expect((await get('/cardapio/executivo/')).status).toBe(404)
+    expect((await get('/cardapio/99/')).status).toBe(404)
+    expect((await get('/cardapio/darcy/')).status).toBe(404)
   })
 })
 
 describe('avaliações (RF15)', () => {
-  const ALMOCO_HOJE = { campus: 'gama', data: '2026-09-28', refeicao: 'almoco' }
-  const consulta = `/avaliacoes/?campus=gama&data=2026-09-28&refeicao=almoco`
+  const ALMOCO_HOJE = { campus: 3, data: '2026-09-28', refeicao: 'almoco' }
+  const consulta = `/avaliacoes/?campus=3&data=2026-09-28&refeicao=almoco`
 
   it('visitante não pode avaliar', async () => {
     const resposta = await post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 5 })
@@ -493,7 +509,7 @@ describe('avaliações (RF15)', () => {
   })
 
   it('refeição que ainda não começou não tem avaliações', async () => {
-    const { dados } = await get('/avaliacoes/?campus=gama&data=2026-09-28&refeicao=jantar')
+    const { dados } = await get('/avaliacoes/?campus=3&data=2026-09-28&refeicao=jantar')
     expect(dados).toMatchObject({ quantidade: 0, media: null, avaliacoes: [] })
   })
 })

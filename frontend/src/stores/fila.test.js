@@ -18,7 +18,7 @@ const SEGUNDA_16H = new Date(2026, 10, 9, 16, 0)
 
 // Valores fáceis de achar em qualquer lugar do estado.
 const COORDENADAS = { latitude: -15.7631234, longitude: -47.8701234 }
-const CHECKIN_ALMOCO = { campusId: 'darcy', tipoRefeicao: 'almoco', coordenadas: COORDENADAS }
+const CHECKIN_ALMOCO = { campusId: 1, tipoRefeicao: 'almoco', coordenadas: COORDENADAS }
 
 async function entrarComAvisoAceito() {
   const auth = useAuthStore()
@@ -246,14 +246,14 @@ describe('filaStore.confirmarCheckin', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     const fila = useFilaStore()
 
-    const resultado = await fila.confirmarCheckin({ ...CHECKIN_ALMOCO, campusId: 'inexistente' })
+    const resultado = await fila.confirmarCheckin({ ...CHECKIN_ALMOCO, campusId: 'darcy' })
 
     expect(resultado).toEqual({
       desfecho: 'erro',
       codigo: 'campus_desconhecido',
       mensagem: 'Não foi possível identificar o campus. Escolha o campus de novo e tente outra vez.',
     })
-    expect(log).toHaveBeenCalledWith(expect.any(String), { campusId: 'inexistente' })
+    expect(log).toHaveBeenCalledWith(expect.any(String), { campusId: 'darcy' })
     expect(post).not.toHaveBeenCalled()
   })
 

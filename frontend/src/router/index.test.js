@@ -53,10 +53,11 @@ describe('roteamento', () => {
     expect(wrapper.find('h1').text()).toBe('bandejão')
   })
 
-  it('com campus lembrado, a raiz abre direto o cardápio (RF05, RNF03)', async () => {
-    const { router, wrapper } = await montarEm('/', { campus: 'darcy' })
-    expect(router.currentRoute.value.name).toBe('cardapio')
-    expect(wrapper.find('h1').text()).toBe('Cardápio')
+  it('com campus lembrado, a raiz abre direto a tela do campus (RN04, RF05, RNF03)', async () => {
+    const { router, wrapper } = await montarEm('/', { campus: 1 })
+    expect(router.currentRoute.value.name).toBe('campus-tela')
+    expect(router.currentRoute.value.params.campusId).toBe('1')
+    await vi.waitFor(() => expect(wrapper.find('h1').text()).toBe('Darcy Ribeiro'))
   })
 
   it('telas que dependem de campus pedem a escolha do campus antes', async () => {
@@ -64,16 +65,38 @@ describe('roteamento', () => {
     expect(router.currentRoute.value.name).toBe('campus')
   })
 
-  it('/cardapio/:campusId passa a ser o campus lembrado', async () => {
-    const { wrapper } = await montarEm('/cardapio/gama')
-    expect(wrapper.text()).toContain('Gama (FGA)')
-    expect(JSON.parse(localStorage.getItem('bandejao:preferencias')).campusId).toBe('gama')
+  it('/campus/:campusId abre a tela do campus e ele passa a ser o lembrado', async () => {
+    const { wrapper } = await montarEm('/campus/3')
+    await vi.waitFor(() => expect(wrapper.find('h1').text()).toBe('Gama'))
+    expect(JSON.parse(localStorage.getItem('bandejao:preferencias')).campusId).toBe(3)
   })
 
-  it('campus inexistente cai no 404', async () => {
-    const { wrapper } = await montarEm('/cardapio/executivo')
-    expect(wrapper.find('h1').text()).toBe('Página não encontrada')
+  it.each([['/campus/99'], ['/campus/darcy']])(
+    '%s: "Campus não encontrado", sem virar o campus lembrado',
+    async (caminho) => {
+      const { wrapper } = await montarEm(caminho)
+      await vi.waitFor(() => expect(wrapper.text()).toContain('Campus não encontrado'))
+      expect(usePreferenciasStore().campusId).toBeNull()
+    },
+  )
+
+  it.each([
+    ['/cardapio', { name: 'campus-tela', params: { campusId: '1' } }],
+    ['/fila', { name: 'campus-tela', params: { campusId: '1' }, hash: '#fila' }],
+    ['/cardapio/3', { name: 'campus-tela', params: { campusId: '3' } }],
+    ['/cardapio/darcy', { name: 'campus-tela', params: { campusId: '1' } }],
+  ])('com campus lembrado, %s redireciona para a tela do campus', async (caminho, destino) => {
+    const { router } = await montarEm(caminho, { campus: 1 })
+    expect(router.currentRoute.value).toMatchObject(destino)
   })
+
+  it.each([['/cardapio'], ['/fila'], ['/cardapio/darcy']])(
+    'sem campus lembrado, %s leva à escolha do campus',
+    async (caminho) => {
+      const { router } = await montarEm(caminho)
+      expect(router.currentRoute.value.name).toBe('campus')
+    },
+  )
 
   it.each([
     ['/login', 'Entrar'],
@@ -82,9 +105,8 @@ describe('roteamento', () => {
     ['/recuperar-senha', 'Recuperar senha'],
     ['/redefinir-senha', 'Redefinir senha'],
     ['/avaliacoes', 'Avaliações'],
-    ['/fila', 'Fila do RU'],
   ])('%s renderiza a tela "%s"', async (caminho, titulo) => {
-    const { wrapper } = await montarEm(caminho, { campus: 'darcy' })
+    const { wrapper } = await montarEm(caminho, { campus: 1 })
     expect(wrapper.find('h1').text()).toBe(titulo)
   })
 
@@ -95,7 +117,7 @@ describe('roteamento', () => {
 })
 
 describe('navegação do protótipo', () => {
-  it('visitante chega ao cardápio em 3 toques: continuar → campus → cardápio (RNF03)', async () => {
+  it('visitante chega ao cardápio em 2 toques: continuar → campus (RNF03)', async () => {
     const { wrapper, router } = await montarEm('/')
 
     await wrapper
@@ -104,21 +126,18 @@ describe('navegação do protótipo', () => {
       .trigger('click')
     await esperarRota(router, 'campus')
 
-    await wrapper
-      .findAll('button')
-      .find((b) => b.text().includes('Darcy Ribeiro'))
-      .trigger('click')
-    await esperarRota(router, 'inicio')
+    const botaoDarcy = () =>
+      wrapper.findAll('button').find((b) => b.text().includes('Darcy Ribeiro'))
+    await vi.waitFor(() => expect(botaoDarcy()).toBeTruthy())
+    await botaoDarcy().trigger('click')
+    await esperarRota(router, 'campus-tela')
 
-    await vi.waitFor(() => expect(wrapper.find('.cartao-hoje').exists()).toBe(true))
-    await wrapper.find('.cartao-hoje').trigger('click')
-    await esperarRota(router, 'cardapio')
     await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
     expect(wrapper.text()).toContain('Frango grelhado ao molho de ervas')
   })
 
   it('visitante vê convite ao login em vez do formulário de avaliação (RF05)', async () => {
-    const { wrapper } = await montarEm('/avaliacoes', { campus: 'darcy' })
+    const { wrapper } = await montarEm('/avaliacoes', { campus: 1 })
     expect(wrapper.text()).toContain('Avaliação bloqueada')
     expect(wrapper.find('textarea').exists()).toBe(false)
     // Os comentários continuam públicos.
@@ -128,7 +147,7 @@ describe('navegação do protótipo', () => {
 
 describe('cardápio', () => {
   it('pratos com marcador aparecem com o alerta "Contém" quando não há filtro (RF08)', async () => {
-    const { wrapper } = await montarEm('/cardapio', { campus: 'darcy' })
+    const { wrapper } = await montarEm('/cardapio', { campus: 1 })
     const bife = wrapper.findAll('.prato').find((p) => p.text().includes('Bife acebolado'))
     expect(bife.text()).toContain('Contém:')
     expect(bife.text()).toContain('Suíno')
@@ -137,7 +156,7 @@ describe('cardápio', () => {
   it('com o marcador selecionado, os pratos que o contêm são ocultados (RF08)', async () => {
     localStorage.setItem(
       'bandejao:preferencias',
-      JSON.stringify({ campusId: 'darcy', dieta: 'todos', marcadores: ['leite'] }),
+      JSON.stringify({ campusId: 1, dieta: 'todos', marcadores: ['leite'] }),
     )
     const { wrapper } = await montarEm('/cardapio')
     expect(wrapper.text()).not.toContain('Purê de batata')
@@ -147,7 +166,7 @@ describe('cardápio', () => {
   it('filtro de dieta oculta a linha padrão e "mostrar todas" reverte (RF09)', async () => {
     localStorage.setItem(
       'bandejao:preferencias',
-      JSON.stringify({ campusId: 'darcy', dieta: 'ovolacto', marcadores: [] }),
+      JSON.stringify({ campusId: 1, dieta: 'ovolacto', marcadores: [] }),
     )
     const { wrapper } = await montarEm('/cardapio')
     expect(wrapper.text()).not.toContain('Bife acebolado')
@@ -161,12 +180,12 @@ describe('cardápio', () => {
   })
 
   it('campus sem cardápio publicado mostra o aviso (RF07)', async () => {
-    const { wrapper } = await montarEm('/cardapio', { campus: 'fal' })
+    const { wrapper } = await montarEm('/cardapio', { campus: 5 })
     expect(wrapper.text()).toContain('Cardápio ainda não publicado')
   })
 
   it('o filtro aplicado fica lembrado no aparelho', async () => {
-    const { wrapper } = await montarEm('/cardapio', { campus: 'darcy' })
+    const { wrapper } = await montarEm('/cardapio', { campus: 1 })
     await wrapper.find('button[aria-label="Filtros alimentares"]').trigger('click')
     await wrapper
       .findAll('.opcao-marcador')
@@ -199,13 +218,13 @@ describe('sessão ao abrir o app (FE-03, ADR 0007)', () => {
     await useAuthStore().entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
     // montarEm cria stores novas (como um F5); só o cookie de sessão continua.
-    const { wrapper } = await montarEm('/inicio', { campus: 'darcy' })
+    const { wrapper } = await montarEm('/inicio', { campus: 1 })
 
     expect(wrapper.find(`[aria-label="Perfil de ${CONTA_DEMO.apelido}"]`).exists()).toBe(true)
   })
 
   it('sem sessão, o app abre como visitante', async () => {
-    const { wrapper } = await montarEm('/inicio', { campus: 'darcy' })
+    const { wrapper } = await montarEm('/inicio', { campus: 1 })
     expect(wrapper.find('[aria-label="Perfil de Visitante"]').exists()).toBe(true)
   })
 

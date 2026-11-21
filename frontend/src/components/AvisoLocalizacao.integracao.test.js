@@ -21,7 +21,7 @@ function simularNavegador(estado = 'prompt') {
 }
 
 let wrapper
-async function montarEm(caminho, { campus = 'darcy', adiado = false } = {}) {
+async function montarEm(caminho, { campus = 1, adiado = false } = {}) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const preferencias = usePreferenciasStore()
