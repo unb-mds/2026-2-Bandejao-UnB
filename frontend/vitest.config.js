@@ -15,14 +15,16 @@ export default mergeConfig(
         exclude: ['src/**/*.test.js', 'src/services/mock/**'],
         reporter: ['text-summary', 'text', 'html', 'json-summary'],
         // Meta do RNF06 (Plano de Testes 1 e 2): 70% de linhas em cada arquivo
-        // crítico que já existe. Os da fila e da gamificação entram aqui no PR
-        // que os criar (filaStore, gamificacaoStore...). O resto é medido, sem meta.
+        // crítico que já existe. Os da gamificação entram aqui no PR que os
+        // criar (gamificacaoStore...). O resto é medido, sem meta.
         thresholds: Object.fromEntries(
           [
             'src/services/apiClient.js',
             'src/stores/auth.js',
             'src/stores/cardapio.js',
             'src/stores/avaliacoes.js',
+            'src/stores/fila.js',
+            'src/services/leituraPosicao.js',
             'src/utils/cardapio.js',
             'src/router/index.js',
           ].map((arquivo) => [arquivo, { lines: 70 }]),
