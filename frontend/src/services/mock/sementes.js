@@ -82,7 +82,7 @@ export function avaliacoesSemente(campus, data, tipo, agora = new Date()) {
 
   const hash = hashTexto(`${campus}|${data}|${tipo}`)
   const fixo =
-    campus === 'darcy' && data === inicioSemanaVigente(agora) ? FIXOS_DARCY_SEGUNDA[tipo] : null
+    campus === 1 && data === inicioSemanaVigente(agora) ? FIXOS_DARCY_SEGUNDA[tipo] : null
   let quantidade = fixo?.quantidade ?? 40 + (hash % 150)
   const media = fixo?.media ?? 3.3 + ((hash >> 3) % 15) / 10
   let comentarios =

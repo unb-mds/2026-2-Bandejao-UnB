@@ -20,11 +20,10 @@
  * ainda têm o formato do MVP: entram no contrato nas tarefas FE-08, FE-09 e
  * FE-E2.
  */
-import { buscarCampusPorIdApi, campusValido } from '@/constants/campi'
 import { REFEICOES, horaInicio, mensagemForaDoHorario } from '@/constants/refeicoes'
 import { hojeISO, minutosAgora, minutosDoDia } from '@/utils/datas'
 import { banco, resumoSenha } from './banco'
-import { montarCardapioSemana, refeicaoExiste } from './cardapios'
+import { CAMPI_DO_BANCO, idDoCampus, montarCardapioSemana, refeicaoExiste } from './cardapios'
 import { APELIDOS_SEMENTE, avaliacoesSemente } from './sementes'
 import {
   analisarEmailEstudante,
@@ -409,8 +408,13 @@ function redefinirSenha({ token = '', senha = '' }, agora) {
 
 // ─── Cardápio e avaliações ────────────────────────────────────────────────
 
-function obterCardapio(campus, agora) {
-  if (!campusValido(campus)) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
+function listarCampi() {
+  return ok(structuredClone(CAMPI_DO_BANCO))
+}
+
+function obterCardapio(valor, agora) {
+  const campus = idDoCampus(valor)
+  if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
   return ok(montarCardapioSemana(campus, agora))
 }
 
@@ -425,8 +429,9 @@ function avaliacoesDaRefeicao(campus, data, refeicao, agora) {
 }
 
 function listarAvaliacoes(parametros, agora) {
-  const { campus, data, refeicao } = parametros
-  if (!campusValido(campus) || !REFEICOES[refeicao] || !data) {
+  const { data, refeicao } = parametros
+  const campus = idDoCampus(parametros.campus)
+  if (!campus || !REFEICOES[refeicao] || !data) {
     return erro(400, 'parametros_invalidos', 'Informe campus, data e refeição.')
   }
   const { soma, quantidade, reais, comentarios } = avaliacoesDaRefeicao(
@@ -459,8 +464,9 @@ function listarAvaliacoes(parametros, agora) {
   })
 }
 
-function resumoSemana({ campus }, agora) {
-  if (!campusValido(campus)) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
+function resumoSemana(parametros, agora) {
+  const campus = idDoCampus(parametros.campus)
+  if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
   const { dias } = montarCardapioSemana(campus, agora)
   let somaSemana = 0
   let quantidadeSemana = 0
@@ -487,9 +493,10 @@ function avaliar(corpo, agora) {
   const usuario = usuarioDaSessao()
   if (!usuario) return naoAutenticado()
 
-  const { campus, data, refeicao, nota, comentario = '' } = corpo
+  const { data, refeicao, nota, comentario = '' } = corpo
+  const campus = idDoCampus(corpo.campus)
   if (
-    !campusValido(campus) ||
+    !campus ||
     !REFEICOES[refeicao] ||
     !refeicaoExiste(campus, data, refeicao, agora)
   ) {
@@ -565,7 +572,7 @@ const numeroNaFaixa = (valor, limite) =>
 function corpoCheckinValido({ campus, tipoRefeicao, coordenadas }) {
   return (
     Number.isInteger(campus) &&
-    Boolean(buscarCampusPorIdApi(campus)) &&
+    idDoCampus(campus) === campus &&
     Object.hasOwn(REFEICOES, tipoRefeicao ?? '') &&
     numeroNaFaixa(coordenadas?.latitude, 90) &&
     numeroNaFaixa(coordenadas?.longitude, 180)
@@ -647,6 +654,7 @@ const ROTAS = [
   ['DELETE', /^\/sessao\/$/, () => sair()],
   ['POST', /^\/recuperar-senha\/$/, ({ corpo, agora }) => solicitarRecuperacao(corpo, agora)],
   ['POST', /^\/redefinir-senha\/$/, ({ corpo, agora }) => redefinirSenha(corpo, agora)],
+  ['GET', /^\/campi\/$/, () => listarCampi()],
   ['GET', /^\/cardapio\/([\w-]+)\/$/, ({ agora }, [campus]) => obterCardapio(campus, agora)],
   ['GET', /^\/avaliacoes\/resumo\/$/, ({ parametros, agora }) => resumoSemana(parametros, agora)],
   ['GET', /^\/avaliacoes\/$/, ({ parametros, agora }) => listarAvaliacoes(parametros, agora)],

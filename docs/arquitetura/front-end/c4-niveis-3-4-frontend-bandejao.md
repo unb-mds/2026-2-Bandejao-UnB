@@ -132,10 +132,11 @@ Aviso '+10 pontos' (RF24.2)."]
   as duas telas do MVP viram **seções** de uma única tela do campus,
   detalhada em 3a.2. O login leva a ela (RF03.4) e a raiz `/` também
   (RN04).
-- **O seletor de campus do MVP (hoje `views/CampusView.vue`, rota
-  `/campus`) passa a ser o componente `SeletorCampus`**, usado dentro da
-  tela do campus (botão "trocar") e sozinho quando nenhum campus foi
-  resolvido pela RN04. O nome `CampusView` fica com a tela do campus.
+- **O seletor de campus do MVP passou a ser o componente `SeletorCampus`**
+  (FE-07), na rota `/campus`: é o destino do "Trocar" da tela do campus e da
+  primeira escolha. A lista vem do `GET /api/campi/`, com o `id` inteiro e o
+  nome do banco. O nome `CampusView` ficou com a tela do campus, e
+  `CardapioView` e `FilaView` viraram as seções dela.
 - **Um só frontend, mobile first, com três pontos de quebra (FE-20, RNF05):**
   celular até 767 px, tablet de 768 a 1023 px e desktop a partir de 1024 px.
   No celular, cada tela ocupa a tela inteira e a `NavegacaoInferior` aparece
@@ -528,7 +529,8 @@ trata erros (RNF04, ADR 0007)."]
   confirmação do check-in não é publicado: quem decide o check-in é sempre
   o servidor.
 - **`preferenciasStore` guarda no `localStorage`**: campus lembrado (último
-  escolhido manualmente, RF07.2), filtros (RF08, RF09), a **escolha manual
+  escolhido manualmente, RF07.2, pelo `id` inteiro do `GET /api/campi/`; um
+  valor antigo como `'darcy'` vale como "sem campus escolhido"), filtros (RF08, RF09), a **escolha manual
   de campus feita depois da última detecção** (RN04, item 1) e o **"Agora
   não" do aviso de localização** (RF19), para o aviso não reaparecer a cada
   abertura. O campus detectado fica só em memória, junto com a hora da
@@ -591,7 +593,7 @@ formaliza os padrões nele observados e os estende para a Release 2:
 
 | Rota | View | Observação |
 |---|---|---|
-| `/` | — (redireciona) | Resolve o campus pela RN04 e vai para `/campus/:campusId`, ou para o seletor |
+| `/` | — (redireciona) | Resolve o campus pela RN04 e vai para `/campus/:campusId`; na primeira visita, para as boas-vindas, que levam ao seletor |
 | `/campus` | `SeletorCampus` | Quando a RN04 não resolve nenhum campus |
 | `/campus/:campusId` | `CampusView` | Tela do campus (RF20). Destino do login (RF03.4) |
 | `/cardapio/:campusId`, `/fila` | — (redireciona) | Rotas do MVP mantidas só para links antigos |
@@ -624,7 +626,7 @@ separação por app do backend (RNF06):
 |---|---|---|
 | `authStore` | Sessão do usuário: apelido, tipo de usuário e `avisoPrivacidadePendente`, lidos de `GET /api/sessao/`. Login com e-mail institucional e senha (`entrar(emailInstitucional, senha)`, ADR 0016), logout, cadastro, reenvio de confirmação (pelo e-mail ou pelo token) e pedido de recuperação de senha pelo e-mail. **Sem token** (ADR 0007) | Nenhuma no PWA: a sessão está no cookie `HttpOnly`; a store é recarregada ao abrir o app |
 | `preferenciasStore` | Campus lembrado, escolha manual depois da última detecção, campus detectado, refeição selecionada, filtros de marcador e dieta, "Agora não" do aviso de localização | `localStorage` (RF07, RF08, RF09, RF19, RN04), exceto o campus detectado (memória) |
-| `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, semana, dia, refeição e filtros (inclui `refeicaoEncerrada`) | Em memória |
+| `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, semana, dia, refeição e filtros (inclui `refeicaoEncerrada`), e a lista de campi (`GET /api/campi/`) | Em memória |
 | `avaliacoesStore` | Resumo do dia (notas de todas as refeições, `GET /api/avaliacoes/resumo/`), comentários com `distintivo` e envio/edição da avaliação do usuário | Em memória |
 | `filaStore` | Previsão (com espera estimada), check-in e pergunta de saída pendente | Em memória; nunca guarda coordenadas (RI09) |
 | `gamificacaoStore` | Progresso, adesão ao ranking, posição própria por campus, posição do semestre anterior, Bandeja de Ouro própria, ranking por campus e último bloco `pontos` | Em memória |

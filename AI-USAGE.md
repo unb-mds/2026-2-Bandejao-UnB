@@ -268,3 +268,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - TDD dos ajustes: três pares `test` → `fix`, com 18, 3 e 2 testes falhando antes de cada correção, conferidos commit a commit. Sabotagem das regras novas: 11 alterações, e todas derrubam ao menos um teste (na primeira rodada, o aviso de "refeição sem `FonteCardapio`" com a condição trocada por `True` sobreviveu; entrou um teste da refeição pedida sem nada no banco). As 23 sabotagens da primeira rodada continuam derrubando testes.
 - Validação após os ajustes: `pytest` com 1330 testes aprovados e 1 ignorado, cobertura de `apps` de 98,34%; `ruff`, `bandit -lll`, `makemigrations --check` e `spectacular --validate --fail-on-warn` aprovados; o diagrama 4a renderiza no `mmdc`.
 - Situação: ajustes da revisão aplicados; aguardando o recheck de AlvaroBento12 e o combinado com o front na #144 sobre como a tela vai saber quais dias e refeições existem na semana (seção 7 do guia).
+
+## FE-07 — CampusView e rotas do campus
+
+- Issue: [#143](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/143).
+- Ferramenta: Claude (Anthropic).
+- Apoio: campus pelo `id` inteiro do `GET /api/campi/` (lista no `cardapioStore`, campus lembrado inteiro na `preferenciasStore`, valor antigo como "sem campus"), rotas `/`, `/campus` (`SeletorCampus`), `/campus/:campusId` (`CampusView`) e redirecionamentos de `/cardapio`, `/cardapio/:campusId` e `/fila`, `CardapioView` e `FilaView` como seções da `CampusView`, `AvisoExecutivo`, `RefeicaoEncerrada`, `CheckinBotao` com o campus da tela e a refeição selecionada, login levando à tela do campus (RF03.4) e servidor simulado com o `GET /campi/`. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: o commit `test` (roteamento, tela com uma seção falhando, check-in com a refeição de quando o fluxo começou, stores) vem antes do `feat`.
+- Validação: `npm run lint:ci`, `npm run test:ci` e `npm run build` no PC da autora.
+- Revisão humana: pendente.
+- Situação: aguardando revisão.

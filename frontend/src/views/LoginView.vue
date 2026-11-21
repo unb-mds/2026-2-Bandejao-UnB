@@ -39,12 +39,15 @@ const podeReenviar = computed(() => Boolean(emailInstitucional.value.trim()) && 
  * do campus lembrado (RF03.4), sem passo a mais; sem campus, para a escolha.
  */
 function seguirAposLogin() {
-  // TODO(FE-07): trocar a Início por `/campus/:campusId` do campus lembrado (#143).
   const voltar = route.query.voltar
   if (typeof voltar === 'string' && voltar.startsWith('/') && !voltar.startsWith('//')) {
     return router.replace(voltar)
   }
-  return router.replace({ name: preferencias.campusId ? 'inicio' : 'campus' })
+  if (!preferencias.campusId) return router.replace({ name: 'campus' })
+  return router.replace({
+    name: 'campus-tela',
+    params: { campusId: String(preferencias.campusId) },
+  })
 }
 
 async function entrar() {

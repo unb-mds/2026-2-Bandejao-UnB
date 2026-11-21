@@ -28,8 +28,8 @@ import IconeSvg from './IconeSvg.vue'
  * Quem decide raio e horário é sempre o backend.
  */
 const props = defineProps({
-  /** Id do campus no PWA (constants/campi), ex.: 'darcy'. */
-  campusId: { type: String, required: true },
+  /** Id do campus no backend (`GET /api/campi/`). */
+  campusId: { type: Number, required: true },
   /** 'cafe' | 'almoco' | 'jantar' */
   tipoRefeicao: { type: String, required: true },
 })

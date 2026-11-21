@@ -12,7 +12,7 @@ import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
 
 // Segunda-feira, 28/09/2026, 12h — almoço em andamento.
 const SEGUNDA_MEIO_DIA = new Date(2026, 8, 28, 12, 0)
-const ALMOCO_HOJE = { campus: 'gama', data: '2026-09-28', refeicao: 'almoco' }
+const ALMOCO_HOJE = { campus: 3, data: '2026-09-28', refeicao: 'almoco' }
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })

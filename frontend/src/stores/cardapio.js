@@ -7,6 +7,34 @@ export const useCardapioStore = defineStore('cardapio', () => {
   const porCampus = ref({})
   const carregando = ref(false)
   const erro = ref(null)
+  const campi = ref([])
+  const campiCarregados = ref(false)
+  const erroCampi = ref(null)
+  let carregandoCampi = null
+
+  function carregarCampi({ forcar = false } = {}) {
+    if (campiCarregados.value && !forcar) return Promise.resolve(campi.value)
+    carregandoCampi ??= apiClient
+      .get('/campi/')
+      .then((lista) => {
+        campi.value = lista
+        campiCarregados.value = true
+        erroCampi.value = null
+        return lista
+      })
+      .catch((falha) => {
+        erroCampi.value = mensagemDeErro(falha)
+        return campi.value
+      })
+      .finally(() => {
+        carregandoCampi = null
+      })
+    return carregandoCampi
+  }
+
+  function buscarCampus(id) {
+    return campi.value.find((campus) => campus.id === id) ?? null
+  }
 
   async function carregar(campusId, { forcar = false } = {}) {
     if (!campusId) return null
@@ -34,5 +62,17 @@ export const useCardapioStore = defineStore('cardapio', () => {
     return dia?.refeicoes.find((r) => r.tipo === tipo) ?? null
   }
 
-  return { porCampus, carregando, erro, carregar, semana, refeicao }
+  return {
+    porCampus,
+    carregando,
+    erro,
+    campi,
+    campiCarregados,
+    erroCampi,
+    carregar,
+    carregarCampi,
+    buscarCampus,
+    semana,
+    refeicao,
+  }
 })
