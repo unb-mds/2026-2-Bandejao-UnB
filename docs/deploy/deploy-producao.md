@@ -388,6 +388,48 @@ Numa VM com um `.env` anterior ao `.env.db`, tire a linha
 `MYSQL_ROOT_PASSWORD` do `.env` e passe-a para o `.env.db`. Senão, o backend
 continua recebendo a senha do root, porque o `.env` vai inteiro para ele.
 
+## Deploy do M2 (FE-06)
+
+O M2 é o check-in funcionando em produção (MC-01). O PWA com o check-in
+(FE-05, #141) já está na `develop`; o deploy é o mesmo da seção
+[Atualizar](#atualizar), na branch de produção, depois do merge da `develop`.
+
+O build de produção nunca usa o servidor simulado: `deveUsarSimulacao` (em
+`frontend/src/services/apiClient.js`) só liga o simulado com
+`import.meta.env.DEV`, e o teste do `apiClient` confere isso com e sem
+`VITE_USE_MOCK`.
+
+### Antes de subir
+
+- [ ] CI verde na branch de produção (backend e frontend).
+- [ ] Campi carregados (`/api/campi/` devolve os 5, ver
+  [Validação em produção](#validação-em-produção-20112026)). O
+  `POST /api/checkins/` recebe o `id` do campus; sem os campi, todo check-in
+  volta `400 dados_invalidos`.
+
+### Roteiro de ponta a ponta (BD-08)
+
+Em um celular com a localização ligada, dentro do RU do Gama, num horário de
+refeição:
+
+1. Abrir `https://bandejaounb.com.br`, escolher o campus Gama.
+2. Criar a conta com um e-mail institucional real.
+3. Abrir o link de confirmação que chegou no e-mail (Brevo).
+4. Entrar com o e-mail e a senha.
+5. Abrir **Fila** e tocar em **Estou no RU**.
+6. Dar ciência ao aviso de privacidade e permitir a localização.
+7. Conferir "Check-in confirmado".
+8. Tocar de novo em **Estou no RU**: deve aparecer "Você já fez check-in
+   nesta refeição hoje.".
+9. Conferir no banco que o check-in foi gravado sem coordenadas (RI09):
+
+   ```bash
+   docker compose exec backend python manage.py shell -c "from apps.fila.models import Checkin; print(Checkin.objects.order_by('-id').values().first())"
+   ```
+
+Anote a data e o resultado de cada passo na issue #142 (FE-06) e na #148 (BD-08). Se um
+passo falhar, os logs ficam em `docker compose logs --tail 100 backend`.
+
 ## Ver logs
 
 ```bash

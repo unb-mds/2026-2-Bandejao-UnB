@@ -268,3 +268,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - TDD dos ajustes: três pares `test` → `fix`, com 18, 3 e 2 testes falhando antes de cada correção, conferidos commit a commit. Sabotagem das regras novas: 11 alterações, e todas derrubam ao menos um teste (na primeira rodada, o aviso de "refeição sem `FonteCardapio`" com a condição trocada por `True` sobreviveu; entrou um teste da refeição pedida sem nada no banco). As 23 sabotagens da primeira rodada continuam derrubando testes.
 - Validação após os ajustes: `pytest` com 1330 testes aprovados e 1 ignorado, cobertura de `apps` de 98,34%; `ruff`, `bandit -lll`, `makemigrations --check` e `spectacular --validate --fail-on-warn` aprovados; o diagrama 4a renderiza no `mmdc`.
 - Situação: ajustes da revisão aplicados; aguardando o recheck de AlvaroBento12 e o combinado com o front na #144 sobre como a tela vai saber quais dias e refeições existem na semana (seção 7 do guia).
+
+## FE-06 — Deploy do M2 com BD e BE
+
+- Issue: [#142](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/142).
+- Ferramenta: Claude (Anthropic).
+- Apoio: função `deveUsarSimulacao` no `apiClient` (o build de produção nunca liga o servidor simulado), com o teste antes do código, e a seção "Deploy do M2 (FE-06)" no `docs/deploy/deploy-producao.md`, com a checagem antes de subir e o roteiro de ponta a ponta da BD-08 (#148). Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: o commit `test` com os casos de `deveUsarSimulacao` vem antes do `feat`.
+- Validação: `npm run lint:ci`, `npm run test:ci` e `npm run build` no PC da autora. O deploy e o roteiro em produção são feitos na VM pela equipe, e o resultado fica na #142 e na #148.
+- Revisão humana: pendente.
+- Situação: aguardando revisão.
