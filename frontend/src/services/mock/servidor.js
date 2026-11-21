@@ -575,7 +575,8 @@ function corpoCheckinValido({ campus, tipoRefeicao, coordenadas }) {
 
 /**
  * POST /checkins/ na ordem do backend (Fila N4): sessão, formato, aviso de
- * privacidade, horário, duplicidade e distância. As coordenadas não são
+ * privacidade, horário, duplicidade (por conta, campus, refeição e dia, como o
+ * UNIQUE `checkin_unico_por_usuario_campus_tipo_data`) e distância. As coordenadas não são
  * gravadas (RI09): o registro só tem conta, campus, refeição e data.
  */
 function registrarCheckin(corpo, agora) {
@@ -603,7 +604,11 @@ function registrarCheckin(corpo, agora) {
   const { estado } = banco
   estado.checkins ??= []
   const repetido = estado.checkins.some(
-    (c) => c.usuarioId === usuario.id && c.tipoRefeicao === tipoRefeicao && c.data === data,
+    (c) =>
+      c.usuarioId === usuario.id &&
+      c.campus === campus &&
+      c.tipoRefeicao === tipoRefeicao &&
+      c.data === data,
   )
   if (repetido) {
     return erro(422, 'checkin_duplicado', 'Você já fez check-in nesta refeição hoje.')
