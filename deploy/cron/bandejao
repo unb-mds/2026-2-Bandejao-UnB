@@ -19,10 +19,9 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # hora em hora, para a matrícula e o e-mail ficarem livres logo depois do prazo.
 0 * * * * azureuser sh /home/azureuser/2026-2-Bandejao-UnB/deploy/cron/rodar-comando.sh excluir_cadastros_pendentes
 
-# Leitura do PDF do cardápio (ADR 0014): de 3 em 3 horas, todos os dias.
-# Desativada até o merge do #218 (BE-12), que cria o comando. Depois dele,
-# tire o "# " do começo da linha abaixo; o teste do cron cobra isso.
-# 0 */3 * * * azureuser sh /home/azureuser/2026-2-Bandejao-UnB/deploy/cron/rodar-comando.sh ler_cardapio
+# Leitura do PDF do cardápio (ADR 0014, BE-12): de 3 em 3 horas, todos os
+# dias.
+0 */3 * * * azureuser sh /home/azureuser/2026-2-Bandejao-UnB/deploy/cron/rodar-comando.sh ler_cardapio
 
 # Sessões expiradas do Django (ADR 0007): 03h15 de Brasília.
 15 6 * * * azureuser sh /home/azureuser/2026-2-Bandejao-UnB/deploy/cron/rodar-comando.sh clearsessions

@@ -322,7 +322,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Issue: [#147](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/147). PR: [#221 — feat(banco): cron da VM com os comandos do Django (BD-07)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/221).
 - Ferramenta: Claude (Anthropic).
 - Apoio:
-  - `deploy/cron/bandejao`, para o `/etc/cron.d/`, com o `excluir_cadastros_pendentes` de hora em hora, o `ler_cardapio` de 3 em 3 horas (comentado até o #218), e o `clearsessions` e o `desvincular_registros_fila` uma vez por dia;
+  - `deploy/cron/bandejao`, para o `/etc/cron.d/`, com o `excluir_cadastros_pendentes` de hora em hora, o `ler_cardapio` de 3 em 3 horas, e o `clearsessions` e o `desvincular_registros_fila` uma vez por dia;
   - `deploy/cron/rodar-comando.sh`, que roda o comando no container do backend com `timeout`, grava o log por comando, avisa as falhas no syslog (`bandejao-cron`) e tem trava `flock`;
   - `deploy/cron/logrotate`;
   - a regra `deploy/** text eol=lf` no `.gitattributes`;
@@ -349,8 +349,9 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - S3: o `docker` herda o descritor da trava, que continua presa se o shell morrer no meio;
   - S4: 73 testado no log e na trava, `mkdir` com status 1 e mensagem, o ramo sem `flock` também no Linux (PATH mínimo), CRLF e `eol` em todos os arquivos de `deploy/`, e sem o `assert` vazio do `.lock`;
   - C1 a C4: motivo do `su` no `logrotate`, lista dos status próprios do script, tabela de status do guia com o 1, o 2 e o 137, e o aviso por e-mail do Leitor condicionado ao #218 e ao `EMAIL_EQUIPE`.
-- Validação local (Windows, `sh` do Git, sem `flock`): `pytest` com 1401 testes aprovados e 3 pulados (o do MySQL e os dois da trava, que rodam no CI com `flock`), cobertura de 98%; `ruff check`, `ruff format --check` e `sh -n` sem achados. No CI do primeiro ajuste (`1849e15`), o `testes-mysql` teve 1399 aprovados e só o teste sem `flock` pulado.
-- Fora deste PR: instalar o cron na VM e conferir os logs, que fica com quem tem acesso SSH, pelo roteiro do guia; descomentar o `ler_cardapio` depois do #218. O fechamento do semestre da Gamificação, citado no Nível 3, não é da BD-07 e ainda não tem comando.
+- Validação local (Windows, `sh` do Git, sem `flock`): `pytest` com 1595 testes aprovados e 3 pulados depois do merge do #218 (o do MySQL e os dois da trava, que rodam no CI com `flock`), cobertura de 99%; `ruff check`, `ruff format --check` e `sh -n` sem achados. No CI do primeiro ajuste (`1849e15`), o `testes-mysql` teve 1399 aprovados e só o teste sem `flock` pulado.
+- Depois do merge do #218 (BE-12) na `develop`: o CI da segunda rodada falhou no `test_tarefa_ativa_se_e_so_se_o_comando_existe[ler_cardapio]`, como previsto, porque o comando passou a existir. A `develop` foi trazida para a branch, a linha do `ler_cardapio` foi descomentada, a lista `PENDENTES` ficou vazia e o guia passou a descrever o alerta por e-mail do Leitor (`EMAIL_EQUIPE`, com padrão).
+- Fora deste PR: instalar o cron na VM e conferir os logs, que fica com quem tem acesso SSH, pelo roteiro do guia. O fechamento do semestre da Gamificação, citado no Nível 3, não é da BD-07 e ainda não tem comando.
 - Situação: ajustes da revisão aplicados, aguardando o recheck.
 
 ## BE-12 — Leitor do PDF

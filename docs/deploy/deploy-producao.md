@@ -463,9 +463,9 @@ As tarefas periódicas são comandos do Django chamados pelo **cron da VM**
 | `desvincular_registros_fila` | todo dia, 03h30 | Retira a conta dos registros de fila com mais de 4 semanas (RNF07.3) |
 
 Os horários do arquivo estão em **UTC**, o fuso da VM (Brasília é UTC-3).
-A linha do `ler_cardapio` fica **comentada** até o merge do #218 (BE-12), que
-cria o comando. Depois dele, alguém tira o `# ` da linha no `bandejao` (o
-teste do cron cobra isso) e reinstala o arquivo.
+Uma tarefa nova cujo comando ainda não está na `develop` entra com a linha
+comentada (`# ` no começo); o teste do cron cobra que ela seja descomentada
+quando o comando existir.
 
 ### Instalar
 
@@ -537,10 +537,10 @@ ls -l /var/log/bandejao/
 sudo logrotate -d /etc/logrotate.d/bandejao        # simula a rotação, sem mexer
 ```
 
-Depois do #218 (BE-12), as falhas de leitura do PDF também avisam a equipe
-por e-mail (ADR 0006), com limite de avisos por dia, desde que o
-`EMAIL_EQUIPE` esteja no `.env`. Um erro que derrube o comando, o tempo
-esgotado e as falhas das outras tarefas só aparecem no syslog e no log.
+As falhas de leitura do PDF também avisam a equipe por e-mail pelo próprio
+Leitor (ADR 0006, BE-12), com limite de avisos por dia, no `EMAIL_EQUIPE` do
+`.env` (padrão `equipe@bandejaounb.com.br`). Um erro que derrube o comando, o
+tempo esgotado e as falhas das outras tarefas só aparecem no syslog e no log.
 
 ### Mudar ou desligar
 

@@ -42,11 +42,12 @@ AGENDA_ESPERADA = {
 DIARIOS = {"clearsessions", "desvincular_registros_fila"}
 TODOS = set(AGENDA_ESPERADA) | DIARIOS
 
-# Comando que entra na `develop` por outro PR. Até lá, a linha dele fica
-# comentada no `bandejao`, para o cron não chamar um comando que não existe.
-# Quando o comando existir, `test_tarefa_ativa_se_e_so_se_o_comando_existe`
-# falha até a linha ser descomentada.
-PENDENTES = {"ler_cardapio": "BE-12, #218"}
+# Comandos que ainda vão entrar na `develop` por outro PR ({nome: "PR"}). Até
+# lá, a linha deles fica comentada no `bandejao`, para o cron não chamar um
+# comando que não existe; quando o comando existir,
+# `test_tarefa_ativa_se_e_so_se_o_comando_existe` falha até a linha ser
+# descomentada. Foi assim com o `ler_cardapio`, até o #218.
+PENDENTES: dict[str, str] = {}
 
 LINHA_DE_TAREFA = re.compile(
     rf"^(?P<agenda>(?:\S+\s+){{5}})(?P<usuario>\S+)\s+"
