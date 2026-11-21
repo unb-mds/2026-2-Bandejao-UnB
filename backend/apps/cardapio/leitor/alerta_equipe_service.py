@@ -4,9 +4,11 @@ Analogia: é o livro de ocorrências com um carteiro de horário marcado. Todo
 problema é anotado no livro na hora (ALERTA_LEITURA_CARDAPIO). No fim da
 execução do campus, o carteiro leva à equipe um envelope só, com tudo o que
 ainda não foi entregue. Ele sai no máximo 3 vezes por dia e com 6 horas
-entre uma saída e outra, por campus e tipo de falha (ADR 0006). O que fica
-para trás vai no envelope seguinte: nenhuma anotação fica sem e-mail para
-sempre, nem o "não publicado", que é avaliado por último (revisão do PR #218).
+entre uma saída e outra, por campus e tipo de falha (ADR 0006); numa falha
+que vai e volta, o `zerar_contador` recomeça a contagem do dia, e o limite
+passa a ser o das 6 horas: até 4 e-mails no dia. O que fica para trás vai no
+envelope seguinte: nenhuma anotação fica sem e-mail para sempre, nem o "não
+publicado", que é avaliado por último (revisão do PR #218).
 
 O e-mail vai para `settings.EMAIL_EQUIPE` (ADR 0006 e 0012), pelo mesmo
 Serviço de E-mail do cadastro. Uma falha no envio não derruba a leitura
@@ -17,6 +19,7 @@ que falhou não conta no limite.
 import logging
 import smtplib
 from datetime import datetime, timedelta
+from typing import NamedTuple
 
 from django.conf import settings
 from django.core.mail import send_mail
@@ -53,6 +56,14 @@ tipo de falha, com {intervalo} horas entre dois e-mails.
 ITEM = "- [{quando}] {tipo} (alerta {id}): {mensagem}\n"
 
 
+class ResultadoEnvio(NamedTuple):
+    """`enviados`: quantos alertas foram no e-mail. `falhou`: havia o que
+    enviar, mas o e-mail não saiu (os alertas continuam pendentes)."""
+
+    enviados: int
+    falhou: bool
+
+
 def _quantos(n):
     return f"{n} alerta" if n == 1 else f"{n} alertas"
 
@@ -79,10 +90,11 @@ class AlertaEquipeService:
             campus=campus, refeicao=refeicao, tipo=tipo, mensagem=detalhe
         )
 
-    def enviar_pendentes(self, campus: Campus, *, agora: datetime) -> int:
+    def enviar_pendentes(self, campus: Campus, *, agora: datetime) -> ResultadoEnvio:
         """Um e-mail com os alertas do campus ainda sem e-mail, dos tipos que
-        o limite deixa enviar agora. Devolve quantos alertas foram no e-mail
-        (0 se nenhum saiu: limite, nada pendente ou falha no envio).
+        o limite deixa enviar agora. "Nada pendente" e "limite" devolvem
+        `(0, False)`; o envio que falhou devolve `(0, True)`, para o comando
+        sair com erro e o cron ver (segunda revisão do PR #218).
         """
         pendentes = AlertaLeituraCardapio.objects.filter(
             campus=campus, resolvido=False, email_enviado_em__isnull=True
@@ -92,16 +104,20 @@ class AlertaEquipeService:
             for tipo in pendentes.values_list("tipo", flat=True).distinct()
             if self._deve_enviar(tipo, campus, agora)
         ]
-        alertas = list(pendentes.filter(tipo__in=tipos).order_by("-id"))
-        if not alertas or not self._enviar(campus, alertas, agora):
-            return 0
+        # Os mais antigos primeiro: numa sequência longa de falhas, a causa
+        # original fica na lista do e-mail.
+        alertas = list(pendentes.filter(tipo__in=tipos).order_by("id"))
+        if not alertas:
+            return ResultadoEnvio(0, False)
+        if not self._enviar(campus, alertas, agora):
+            return ResultadoEnvio(0, True)
         with transaction.atomic():
             AlertaLeituraCardapio.objects.filter(pk__in=[a.pk for a in alertas]).update(
                 email_enviado_em=agora
             )
             for tipo in tipos:
                 self._contar_envio(campus, tipo, agora)
-        return len(alertas)
+        return ResultadoEnvio(len(alertas), False)
 
     def zerar_contador(self, campus: Campus, *, agora: datetime) -> None:
         """A leitura do campus voltou a funcionar: a contagem do dia recomeça.
@@ -157,7 +173,7 @@ class AlertaEquipeService:
             lista += f"- e mais {_quantos(len(alertas) - MAX_ALERTAS_NO_EMAIL)}.\n"
         quantos = _quantos(len(alertas))
         try:
-            send_mail(
+            enviados = send_mail(
                 ASSUNTO.format(quantos=quantos, campus=campus.nome),
                 f"Enviado em {timezone.localtime(agora):%d/%m/%Y %H:%M} "
                 "(horário de Brasília).\n\n"
@@ -174,11 +190,14 @@ class AlertaEquipeService:
             )
         except (smtplib.SMTPException, OSError) as exc:
             # SMTP ou rede (conexão recusada, timeout, TLS), como no cadastro.
-            # Só o nome da exceção vai para o log, sem o endereço.
+            # Só o nome da exceção e o código SMTP vão para o log, sem o
+            # endereço: o código separa senha errada (535) de destinatário
+            # recusado (550).
             logger.error(
-                "Falha ao enviar o e-mail de alertas do campus %s: %s",
+                "Falha ao enviar o e-mail de alertas do campus %s: %s (SMTP %s)",
                 campus.pk,
                 type(exc).__name__,
+                getattr(exc, "smtp_code", None),
             )
             return False
         except Exception:
@@ -186,6 +205,14 @@ class AlertaEquipeService:
             # não pode impedir a leitura do cardápio (ADR 0006).
             logger.exception(
                 "Erro inesperado ao enviar o e-mail de alertas do campus %s",
+                campus.pk,
+            )
+            return False
+        if enviados != 1:
+            # O Django descarta destinatário vazio e devolve 0, sem levantar.
+            logger.error(
+                "Falha ao enviar o e-mail de alertas do campus %s: nenhum e-mail "
+                "enviado (confira o EMAIL_EQUIPE)",
                 campus.pk,
             )
             return False

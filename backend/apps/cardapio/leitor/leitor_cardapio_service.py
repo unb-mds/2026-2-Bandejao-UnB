@@ -64,6 +64,11 @@ class ResultadoLeitura:
     lidas: int = 0
     sem_mudanca: int = 0
     alertas: int = 0
+    # Erros fora das cinco exceções do Leitor, já transformados em alerta;
+    # o comando sai com código 1 se houver algum (segunda revisão #218).
+    inesperados: int = 0
+    # Havia alerta pendente, mas o e-mail à equipe não saiu.
+    email_falhou: bool = False
 
 
 class LeitorCardapioService:
@@ -72,12 +77,13 @@ class LeitorCardapioService:
         downloader: CardapioDownloader | None = None,
         repositorio: CardapioRepository | None = None,
         alertas: AlertaEquipeService | None = None,
+        parametros: ParametrosLeitorConfig | None = None,
     ):
         # Dependências opcionais, como no `CardapioDownloader(config=None)`.
         self.downloader = downloader or CardapioDownloader()
         self.repositorio = repositorio or CardapioRepository()
         self.alertas = alertas or AlertaEquipeService()
-        self.parametros = ParametrosLeitorConfig()
+        self.parametros = parametros or ParametrosLeitorConfig()
 
     def processar(self, campus: Campus, agora: datetime) -> ResultadoLeitura:
         """Lê o cardápio de um campus: todas as semanas da página do RU.
@@ -92,7 +98,9 @@ class LeitorCardapioService:
         self._ler(campus, agora, resultado)
         if resultado.alertas == 0:
             self.alertas.zerar_contador(campus, agora=agora)
-        self.alertas.enviar_pendentes(campus, agora=agora)
+        resultado.email_falhou = self.alertas.enviar_pendentes(
+            campus, agora=agora
+        ).falhou
         return resultado
 
     def _ler(self, campus: Campus, agora: datetime, resultado: ResultadoLeitura):
@@ -113,6 +121,7 @@ class LeitorCardapioService:
             # Bug ou mudança inesperada na página: também é falha do campus
             # inteiro, e a equipe é avisada (RF06.4, ADR 0006).
             logger.exception("Erro inesperado na descoberta do campus %s", campus.pk)
+            resultado.inesperados += 1
             self._alertar(
                 TipoAlerta.FALHA_LEITURA_PDF,
                 campus,
@@ -134,6 +143,7 @@ class LeitorCardapioService:
                     fonte.inicio,
                     campus.pk,
                 )
+                resultado.inesperados += 1
                 self._falha_da_semana(
                     campus, fonte, "erro inesperado", _erro(exc), resultado
                 )
@@ -206,6 +216,16 @@ class LeitorCardapioService:
             self._falha_da_semana(campus, fonte, "datas", str(exc), resultado)
             return
 
+        # Os alertas gravados dentro da transação só contam se ela vingar.
+        alertas_antes = resultado.alertas
+        try:
+            self._gravar_semana(campus, fonte, arquivo, refeicoes, agora, resultado)
+        except Exception:
+            resultado.alertas = alertas_antes
+            raise
+        resultado.lidas += 1
+
+    def _gravar_semana(self, campus, fonte, arquivo, refeicoes, agora, resultado):
         with transaction.atomic():
             gravadas = []
             for refeicao in refeicoes:
@@ -242,7 +262,6 @@ class LeitorCardapioService:
                     "processado_em": agora,
                 },
             )
-        resultado.lidas += 1
 
     def _falha_da_semana(self, campus, fonte, etapa, motivo, resultado):
         havia = self.repositorio.manter_ultimo_valido(campus, fonte)

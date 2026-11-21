@@ -141,7 +141,16 @@ class CardapioDownloader:
             )
 
         links = [(url, texto, _datas_do_link(texto)) for url, texto in encontrados[0]]
-        datas_do_bloco = [datas for _, _, datas in links if datas is not None]
+        # Só os links que passaram nas conferências do próprio link (datas,
+        # 7 dias, prefixo) entram na conferência de semana repetida ou
+        # sobreposta: um link errado não derruba o certo (segunda revisão).
+        datas_do_bloco = [
+            datas
+            for url, _, datas in links
+            if datas is not None
+            and datas[1] - datas[0] <= MAIOR_INTERVALO_DO_LINK
+            and self._conferir_arquivo(campus, url)
+        ]
         return [
             FontePDF(
                 campus,
