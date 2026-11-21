@@ -169,6 +169,18 @@ describe('preferenciasStore: filtros com os nomes da API (ADR 0005)', () => {
     expect(preferencias.marcadores).toEqual(['leite_e_derivados', 'trigo_gluten', 'suino'])
   })
 
+  it('nome salvo que é propriedade de objeto não vira dieta nem marcador', () => {
+    localStorage.setItem(
+      CHAVE,
+      JSON.stringify({ dieta: 'toString', marcadores: ['constructor', 'ovo'] }),
+    )
+    setActivePinia(createPinia())
+
+    const preferencias = usePreferenciasStore()
+    expect(preferencias.dieta).toBe('sem_filtro')
+    expect(preferencias.marcadores).toEqual(['ovo'])
+  })
+
   it('filtros aplicados ficam lembrados no aparelho', () => {
     usePreferenciasStore().aplicarFiltros('vegetariano_estrito', ['soja'])
     setActivePinia(createPinia())

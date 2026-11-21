@@ -547,6 +547,16 @@ describe('GET /cardapio/ (contrato da BE-11, ADR 0005)', () => {
     })
   })
 
+  it('campus inexistente: 400 com a mensagem do backend', async () => {
+    const resposta = await get('/cardapio/?campus=99')
+
+    expect(resposta.status).toBe(400)
+    expect(resposta.dados).toEqual({
+      codigo: 'parametros_invalidos',
+      mensagem: 'Não existe campus com esse id.',
+    })
+  })
+
   it.each([
     ['sem campus', '/cardapio/'],
     ['campus inexistente', '/cardapio/?campus=99'],

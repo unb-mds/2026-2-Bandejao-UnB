@@ -244,7 +244,65 @@ describe('cardapioStore: GET /api/cardapio/ já filtrado (ADR 0005)', () => {
     )
 
     expect(await cardapio.carregarRefeicao({ campus: 1 })).toBeNull()
-    expect(cardapio.erroRefeicao).toBe('Fora do ar.')
-    expect(cardapio.carregandoRefeicao).toBe(false)
+    expect(cardapio.erroDaRefeicao({ campus: 1 })).toEqual({
+      mensagem: 'Fora do ar.',
+      codigo: 'erro_interno',
+    })
+    expect(cardapio.estaCarregandoRefeicao({ campus: 1 })).toBe(false)
+  })
+
+  it('erro e carregamento ficam por pedido: a falha de um campus não aparece no outro', async () => {
+    const cardapio = useCardapioStore()
+    const { ApiError } = await import('@/services/apiClient')
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }),
+    )
+
+    await cardapio.carregarRefeicao({ campus: 1 })
+    const pedido = cardapio.carregarRefeicao({ campus: 3 })
+
+    expect(cardapio.estaCarregandoRefeicao({ campus: 3 })).toBe(true)
+    expect(cardapio.estaCarregandoRefeicao({ campus: 1 })).toBe(false)
+    await pedido
+    expect(cardapio.erroDaRefeicao({ campus: 3 })).toBeNull()
+    expect(cardapio.erroDaRefeicao({ campus: 1 })).not.toBeNull()
+  })
+
+  it('tentar de novo limpa o erro daquele pedido', async () => {
+    const cardapio = useCardapioStore()
+    const { ApiError } = await import('@/services/apiClient')
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }),
+    )
+
+    await cardapio.carregarRefeicao({ campus: 1 })
+    await cardapio.carregarRefeicao({ campus: 1 }, { forcar: true })
+
+    expect(cardapio.erroDaRefeicao({ campus: 1 })).toBeNull()
+    expect(cardapio.daRefeicao({ campus: 1 })).not.toBeNull()
+  })
+
+  it('campus que não existe no banco: campusInexistente fica verdadeiro só para ele', async () => {
+    const cardapio = useCardapioStore()
+
+    expect(await cardapio.carregarRefeicao({ campus: 99 })).toBeNull()
+
+    expect(cardapio.erroDaRefeicao({ campus: 99 })).toEqual({
+      mensagem: 'Não existe campus com esse id.',
+      codigo: 'parametros_invalidos',
+    })
+    expect(cardapio.campusInexistente(99)).toBe(true)
+    expect(cardapio.campusInexistente(1)).toBe(false)
+  })
+
+  it('outro 400 não marca o campus como inexistente', async () => {
+    const cardapio = useCardapioStore()
+
+    await cardapio.carregarRefeicao({ campus: 1, marcadores: ['leite'] })
+
+    expect(cardapio.erroDaRefeicao({ campus: 1, marcadores: ['leite'] })?.codigo).toBe(
+      'parametros_invalidos',
+    )
+    expect(cardapio.campusInexistente(1)).toBe(false)
   })
 })
