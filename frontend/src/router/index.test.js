@@ -93,8 +93,10 @@ describe('roteamento', () => {
   it.each([['/cardapio'], ['/fila'], ['/cardapio/darcy']])(
     'sem campus lembrado, %s leva à escolha do campus',
     async (caminho) => {
+      const aviso = vi.spyOn(console, 'warn')
       const { router } = await montarEm(caminho)
       expect(router.currentRoute.value.name).toBe('campus')
+      expect(aviso).not.toHaveBeenCalled()
     },
   )
 

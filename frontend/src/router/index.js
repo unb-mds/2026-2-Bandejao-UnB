@@ -14,7 +14,7 @@ import { useAuthStore } from '@/stores/auth'
  */
 function telaDoCampusLembrado(destinoSemCampus, hash = '') {
   const campusId = usePreferenciasStore().campusId
-  if (!campusId) return { name: destinoSemCampus }
+  if (!campusId) return { name: destinoSemCampus, params: {} }
   return { name: 'campus-tela', params: { campusId: String(campusId) }, hash }
 }
 
