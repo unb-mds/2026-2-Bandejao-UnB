@@ -45,6 +45,10 @@ const mensagem = ref('')
 const erroCiencia = ref('')
 const enviandoCiencia = ref(false)
 const pontosRecebidos = ref(0)
+// Muda a cada troca de campus ou refeição e a cada volta ao início: um fluxo
+// que já estava rodando confere depois de cada `await` e, se ela mudou,
+// descarta o resultado sem mexer na tela (mesmo padrão do `authStore`).
+let geracao = 0
 
 const ocupado = computed(() => etapa.value === 'localizando' || etapa.value === 'enviando')
 const rotuloBotao = computed(() => {
@@ -73,6 +77,7 @@ const mensagemSemLocalizacao = (motivo) =>
   MENSAGENS_SEM_LOCALIZACAO[motivo] ?? MENSAGENS_SEM_LOCALIZACAO.adiado
 
 function voltarAoInicio(texto = '') {
+  geracao++
   etapa.value = 'inicial'
   mensagem.value = texto
 }
@@ -98,16 +103,19 @@ function iniciar() {
 }
 
 async function darCiencia() {
+  const minhaGeracao = geracao
   enviandoCiencia.value = true
   erroCiencia.value = ''
   try {
     await auth.registrarCienciaPrivacidade()
   } catch (falha) {
-    erroCiencia.value = mensagemDeErro(falha)
+    if (minhaGeracao === geracao) erroCiencia.value = mensagemDeErro(falha)
     return
   } finally {
     enviandoCiencia.value = false
   }
+  // Trocou de campus ou refeição (ou fechou o aviso) enquanto a ciência ia.
+  if (minhaGeracao !== geracao) return
   localizarEEnviar()
 }
 
@@ -125,25 +133,42 @@ async function localizacaoLiberada() {
 }
 
 async function localizarEEnviar() {
+  // O POST usa o campus e a refeição de quando o fluxo começou, junto com a
+  // posição lida para eles.
+  const { campusId, tipoRefeicao } = props
+  const minhaGeracao = ++geracao
+  const descartado = () => minhaGeracao !== geracao
   etapa.value = 'localizando'
 
-  const { liberada, motivo } = await localizacaoLiberada()
-  if (!liberada) return voltarAoInicio(mensagemSemLocalizacao(motivo))
+  try {
+    const { liberada, motivo } = await localizacaoLiberada()
+    if (descartado()) return
+    if (!liberada) return voltarAoInicio(mensagemSemLocalizacao(motivo))
 
-  const leitura = await lerPosicao()
-  if (!leitura.ok) {
-    // Negada na própria leitura: o AvisoLocalizacao mostra como liberar.
-    if (leitura.motivo === 'negada') await abrirAvisoLocalizacao()
-    return voltarAoInicio(mensagemSemLocalizacao(leitura.motivo))
+    const leitura = await lerPosicao()
+    if (descartado()) return
+    if (!leitura.ok) {
+      // Negada na própria leitura: o AvisoLocalizacao mostra como liberar.
+      if (leitura.motivo === 'negada') await abrirAvisoLocalizacao()
+      if (descartado()) return
+      return voltarAoInicio(mensagemSemLocalizacao(leitura.motivo))
+    }
+
+    etapa.value = 'enviando'
+    const resultado = await fila.confirmarCheckin({
+      campusId,
+      tipoRefeicao,
+      coordenadas: leitura.coordenadas,
+    })
+    if (descartado()) return
+    mostrarResultado(resultado)
+  } catch (falha) {
+    // Uma exceção inesperada não pode deixar o botão em "Lendo sua localização…".
+    if (!descartado()) voltarAoInicio(mensagemDeErro(falha))
   }
+}
 
-  etapa.value = 'enviando'
-  const resultado = await fila.confirmarCheckin({
-    campusId: props.campusId,
-    tipoRefeicao: props.tipoRefeicao,
-    coordenadas: leitura.coordenadas,
-  })
-
+function mostrarResultado(resultado) {
   switch (resultado.desfecho) {
     case 'confirmado':
       pontosRecebidos.value = resultado.pontos?.total ?? 0
