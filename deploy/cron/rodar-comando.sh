@@ -8,15 +8,22 @@
 #   $BANDEJAO_LOGS/<comando>.log (padrão: /var/log/bandejao).
 # - O comando roda com `timeout` dentro do container, para o processo do
 #   Django morrer junto: $BANDEJAO_TEMPO_LIMITE, padrão 2h, menos que o
-#   intervalo de 3 h do ler_cardapio. Status 124 é tempo esgotado.
+#   intervalo de 3 h do ler_cardapio. Status 124 é tempo esgotado; 137, o
+#   processo morto com KILL (não saiu com o TERM, ou faltou memória).
+# - O cliente do docker, no host, tem o próprio limite, um pouco maior
+#   ($BANDEJAO_TEMPO_LIMITE_CLIENTE, padrão 130m), para um `docker compose
+#   exec` travado não segurar a trava para sempre. Se trocar um limite,
+#   mantenha o do cliente maior que o do container.
 # - Uma segunda execução do mesmo comando, com a primeira ainda rodando, é
 #   pulada e sai com 75 (trava com o flock, do util-linux).
 # - Erros e status diferente de 0 também vão para o syslog, com a tag
 #   bandejao-cron (journalctl -t bandejao-cron): a VM não manda e-mail, então
 #   o cron descarta o stderr.
 #
-# Status próprios do script: 2 (uso ou nome inválido), 73 (sem escrita no
-# log), 75 (pulado). Os outros são do comando.
+# Status próprios do script que saem antes do log, e por isso só aparecem no
+# syslog: 1 (pasta do repositório, mkdir ou cd), 2 (uso ou nome inválido) e
+# 73 (sem escrita no log ou na trava). Depois do log: 75 (pulado); os outros
+# vêm do comando ou do timeout.
 
 set -u
 
@@ -50,6 +57,7 @@ if ! pasta=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd); then
 fi
 logs=${BANDEJAO_LOGS:-/var/log/bandejao}
 limite=${BANDEJAO_TEMPO_LIMITE:-2h}
+limite_cliente=${BANDEJAO_TEMPO_LIMITE_CLIENTE:-130m}
 log=$logs/$comando.log
 trava=$logs/$comando.lock
 
@@ -77,22 +85,27 @@ fi
 agora() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
 
 rodar() {
-    docker compose exec -T backend \
+    timeout --kill-after=60 "$limite_cliente" \
+        docker compose exec -T backend \
         timeout --kill-after=60 "$limite" python manage.py "$@"
 }
 
 status=1
+pulado=0
 {
     echo "[$(agora)] início: $*"
     if command -v flock >/dev/null 2>&1; then
-        # A trava fica no descritor 9 deste shell, separada do comando: o
-        # status do comando, mesmo um 75, nunca é confundido com "pulado".
+        # A trava fica no descritor 9, separada do comando: o status do
+        # comando, mesmo um 75, nunca é confundido com "pulado". O docker
+        # herda o descritor, então a trava continua presa se este shell
+        # morrer no meio da execução.
         exec 9>>"$trava"
         if flock -n 9; then
-            rodar "$@" 9>&-
+            rodar "$@"
             status=$?
         else
             status=75
+            pulado=1
             echo "[$(agora)] pulado: a execução anterior ainda está rodando"
         fi
     else
@@ -100,20 +113,20 @@ status=1
         rodar "$@"
         status=$?
     fi
-    if [ "$status" -eq 124 ]; then
-        echo "[$(agora)] tempo esgotado ($limite)"
-    fi
+    case $status in
+        124) echo "[$(agora)] tempo esgotado ($limite no container, $limite_cliente no cliente)" ;;
+        137) echo "[$(agora)] encerrado à força (KILL): não saiu depois do tempo esgotado, ou faltou memória" ;;
+    esac
     echo "[$(agora)] fim: status $status"
 } >>"$log" 2>&1
 
-case $status in
-    0) ;;
-    75)
-        logger -t "$TAG" -p user.warning -- \
-            "$comando: pulado, a execução anterior ainda está rodando" \
-            2>/dev/null || true
-        ;;
-    *) falha "$comando: terminou com status $status (ver $log)" ;;
-esac
+# O pulo vem da variável, e não do status: um 75 do próprio comando é erro.
+if [ "$pulado" -eq 1 ]; then
+    logger -t "$TAG" -p user.warning -- \
+        "$comando: pulado, a execução anterior ainda está rodando" \
+        2>/dev/null || true
+elif [ "$status" -ne 0 ]; then
+    falha "$comando: terminou com status $status (ver $log)"
+fi
 
 exit "$status"

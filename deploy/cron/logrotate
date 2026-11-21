@@ -11,8 +11,9 @@
     delaycompress
     missingok
     notifempty
-    # A pasta é do azureuser (as tarefas rodam como ele); sem o "su", o
-    # logrotate recusa rodar numa pasta que não é do root.
+    # A pasta é do azureuser (as tarefas rodam como ele). Com o "su", o
+    # logrotate age como o azureuser, e não como root, numa pasta de outro
+    # usuário.
     su azureuser azureuser
     create 0640 azureuser azureuser
 }

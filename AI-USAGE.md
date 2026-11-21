@@ -340,7 +340,15 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - o texto sobre dados nos logs fala em resumo e traceback, sem e-mail, matrícula nem nome; o guia diz que a conferência é manual (`journalctl -t bandejao-cron`, uma vez por semana ou depois de cada deploy);
   - sugestões: argumento com espaço, falha do `mkdir`, aviso quando roda sem `flock`, trava liberada, teste de concorrência esperando o `docker` (com `kill` e uma chamada só), CRLF no script e no `logrotate`, `git check-attr eol`, conferência do grupo `docker` e `journalctl -u cron` no guia, e os textos corrigidos.
 - Achado ao corrigir: a escrita era testada com `: >>arquivo`; quando a redireção falha, o `:`, por ser um builtin especial, encerra o `sh` sem mensagem. O teste do log sem escrita pegou isso, e a checagem passou para um subshell.
-- Sugestão não aplicada: alerta ativo (ping de healthcheck ou e-mail pelo `msmtp`). Fica com o monitor da BD-09 (#149); até lá, a conferência é manual, como o guia descreve.
-- Validação local (Windows, `sh` do Git, sem `flock`): `pytest` com 1397 testes aprovados e 3 pulados (o do MySQL e os dois da trava, que rodam no CI com `flock`), cobertura de 98%; `ruff check`, `ruff format --check` e `sh -n` sem achados.
+- Decisão em aberto: alerta ativo quando uma tarefa falha (ping de healthcheck ou e-mail pelo `msmtp`). O monitor da BD-09 (#149) é de disponibilidade (RNF02) e não pega uma falha do `ler_cardapio` com o site no ar; até a equipe decidir, a conferência é manual, como o guia descreve.
+- Segunda revisão: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/221#issuecomment-7069612808), sem bloqueante, com um ajuste antes do merge e sugestões.
+- Ajustes da segunda revisão (TDD: testes em `cb1c47d`, antes do código):
+  - A1: o pulo é guardado numa variável, e um 75 do próprio comando vai ao syslog como erro, e não como "pulado";
+  - S1: o 137 (KILL depois do `--kill-after`) aparece no log como "encerrado à força";
+  - S2: o cliente do `docker` tem o próprio `timeout` no host (130 min, um pouco maior que o do container);
+  - S3: o `docker` herda o descritor da trava, que continua presa se o shell morrer no meio;
+  - S4: 73 testado no log e na trava, `mkdir` com status 1 e mensagem, o ramo sem `flock` também no Linux (PATH mínimo), CRLF e `eol` em todos os arquivos de `deploy/`, e sem o `assert` vazio do `.lock`;
+  - C1 a C4: motivo do `su` no `logrotate`, lista dos status próprios do script, tabela de status do guia com o 1, o 2 e o 137, e o aviso por e-mail do Leitor condicionado ao #218 e ao `EMAIL_EQUIPE`.
+- Validação local (Windows, `sh` do Git, sem `flock`): `pytest` com 1401 testes aprovados e 3 pulados (o do MySQL e os dois da trava, que rodam no CI com `flock`), cobertura de 98%; `ruff check`, `ruff format --check` e `sh -n` sem achados. No CI do primeiro ajuste (`1849e15`), o `testes-mysql` teve 1399 aprovados e só o teste sem `flock` pulado.
 - Fora deste PR: instalar o cron na VM e conferir os logs, que fica com quem tem acesso SSH, pelo roteiro do guia; descomentar o `ler_cardapio` depois do #218. O fechamento do semestre da Gamificação, citado no Nível 3, não é da BD-07 e ainda não tem comando.
 - Situação: ajustes da revisão aplicados, aguardando o recheck.

@@ -514,9 +514,15 @@ Cada execução grava no log do comando:
 |---|---|
 | 0 | Sucesso |
 | 75 | Pulado: a execução anterior do mesmo comando ainda estava rodando |
-| 124 | Tempo esgotado: o comando passou de 2 h e foi encerrado dentro do container |
+| 124 | Tempo esgotado: o comando passou de 2 h e foi encerrado dentro do container (ou o cliente do `docker` travou por mais de 130 min) |
+| 137 | Encerrado à força (KILL): não saiu depois do tempo esgotado, ou faltou memória |
 | 73 | O log ou a trava não podem ser gravados (o script rodou com `sudo`?) |
+| 1 ou 2 | Erro do próprio script antes do log (pasta, `mkdir`, `cd`, uso ou nome inválido) |
 | outro | Erro do comando; a mensagem fica nas linhas de cima do log |
+
+Os status 1, 2 e 73 saem antes do log, então a execução não aparece no
+arquivo do comando. Se o log não tiver a execução esperada, veja o
+`journalctl -t bandejao-cron`.
 
 Todo status diferente de 0 também vai para o syslog, com a tag
 `bandejao-cron`. O status 75 vai como aviso, e os outros, como erro. A VM não
@@ -530,9 +536,10 @@ ls -l /var/log/bandejao/
 sudo logrotate -d /etc/logrotate.d/bandejao        # simula a rotação, sem mexer
 ```
 
-As falhas de leitura do PDF já avisam a equipe por e-mail pelo próprio Leitor
-(ADR 0006). Um erro que derrube o comando, o tempo esgotado e as falhas das
-outras tarefas só aparecem no syslog e no log.
+Depois do #218 (BE-12), as falhas de leitura do PDF também avisam a equipe
+por e-mail (ADR 0006), com limite de avisos por dia, desde que o
+`EMAIL_EQUIPE` esteja no `.env`. Um erro que derrube o comando, o tempo
+esgotado e as falhas das outras tarefas só aparecem no syslog e no log.
 
 ### Mudar ou desligar
 
