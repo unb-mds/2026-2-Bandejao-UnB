@@ -43,8 +43,15 @@ const pedido = computed(() => ({
 const atual = computed(() => cardapio.daRefeicao(pedido.value))
 const erroAtual = computed(() => cardapio.erroDaRefeicao(pedido.value))
 const semServico = computed(
-  () => Boolean(pedido.value.dia && atual.value && atual.value.data !== pedido.value.dia),
+  () =>
+    atual.value?.semServico === true ||
+    Boolean(pedido.value.dia && atual.value && atual.value.data !== pedido.value.dia),
 )
+const comDieta = computed(() => pedido.value.dieta !== DIETA_PADRAO)
+const podeLimparFiltros = computed(
+  () => erroAtual.value?.codigo === 'parametros_invalidos' && preferencias.filtrosAtivos > 0,
+)
+const podeTentarDeNovo = computed(() => erroAtual.value?.codigo !== 'parametros_invalidos')
 const diaExibido = computed(() =>
   semServico.value ? pedido.value.dia : (atual.value?.data ?? preferencias.dataSelecionada),
 )
@@ -77,7 +84,9 @@ watch(pedido, (valor) => carregar(valor), { immediate: true, deep: true })
 watch(
   () => [props.campusId, diaExibido.value],
   ([campus, dia]) => {
-    if (dia && !avaliacoes.daResumoDoDia(campus, dia)) avaliacoes.carregarResumoDoDia(campus, dia)
+    if (dia && [null, 'erro'].includes(avaliacoes.situacaoDoResumoDoDia(campus, dia))) {
+      avaliacoes.carregarResumoDoDia(campus, dia)
+    }
   },
   { immediate: true },
 )
@@ -85,6 +94,7 @@ watch(
 watch(
   () => props.campusId,
   () => preferencias.selecionar(null, null),
+  { flush: 'sync' },
 )
 
 watch(
@@ -102,6 +112,10 @@ function escolherRefeicao(tipo) {
 
 function tentarNovamente() {
   carregar(pedido.value, { forcar: true })
+}
+
+function limparFiltros() {
+  preferencias.aplicarFiltros(DIETA_PADRAO, [])
 }
 </script>
 
@@ -155,7 +169,21 @@ function tentarNovamente() {
       <div v-else-if="!atual && erroAtual" class="estado">
         <p class="estado-titulo">Não foi possível carregar o cardápio</p>
         <p class="estado-texto">{{ erroAtual.mensagem }}</p>
-        <button type="button" class="botao-pequeno tentar" @click="tentarNovamente">
+        <button
+          v-if="podeLimparFiltros"
+          type="button"
+          class="botao-pequeno tentar"
+          data-teste="limpar-filtros"
+          @click="limparFiltros"
+        >
+          Limpar filtros
+        </button>
+        <button
+          v-else-if="podeTentarDeNovo"
+          type="button"
+          class="botao-pequeno tentar"
+          @click="tentarNovamente"
+        >
           Tentar novamente
         </button>
       </div>
@@ -221,8 +249,14 @@ function tentarNovamente() {
             cor="var(--borda)"
             espessura="1.5"
           />
-          <p class="estado-titulo">Nenhuma opção encontrada</p>
-          <p class="estado-texto">Tente ajustar os filtros</p>
+          <template v-if="comDieta">
+            <p class="estado-titulo">Nenhuma opção encontrada</p>
+            <p class="estado-texto">Tente ajustar os filtros</p>
+          </template>
+          <template v-else>
+            <p class="estado-titulo">Refeição não servida</p>
+            <p class="estado-texto">Esta refeição não é servida neste dia.</p>
+          </template>
         </div>
 
         <div v-else class="pilha-5">

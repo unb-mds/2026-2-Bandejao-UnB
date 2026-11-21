@@ -20,6 +20,13 @@ function lerSalvas() {
   }
 }
 
+function marcadoresAtuais(salvos) {
+  const atuais = [...new Set(salvos.map((m) => nomeAtual(MARCADORES_ANTIGOS, m)))]
+  const descartados = atuais.filter((m) => !IDS_MARCADORES.includes(m))
+  if (descartados.length) console.warn('Marcadores salvos desconhecidos descartados:', descartados)
+  return atuais.filter((m) => IDS_MARCADORES.includes(m))
+}
+
 function lerPreferencias() {
   const salvas = lerSalvas()
   const dieta = nomeAtual(DIETAS_ANTIGAS, salvas.dieta)
@@ -28,11 +35,7 @@ function lerPreferencias() {
       ? idDeCampusValido(salvas.campusId)
       : idDoCampusAntigo(salvas.campusId),
     dieta: DIETAS.some((d) => d.id === dieta) ? dieta : DIETA_PADRAO,
-    marcadores: Array.isArray(salvas.marcadores)
-      ? salvas.marcadores
-          .map((m) => nomeAtual(MARCADORES_ANTIGOS, m))
-          .filter((m) => IDS_MARCADORES.includes(m))
-      : [],
+    marcadores: Array.isArray(salvas.marcadores) ? marcadoresAtuais(salvas.marcadores) : [],
     avisoLocalizacaoAdiado: salvas.avisoLocalizacaoAdiado === true,
     localizacaoPermitida: salvas.localizacaoPermitida === true,
   }

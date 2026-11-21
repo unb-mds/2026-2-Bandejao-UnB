@@ -16,8 +16,11 @@
  * apenas em modo de simulação. O aviso de privacidade e o check-in seguem o
  * contrato da BE-09; como o raio do RU não é publicado, o simulado confirma
  * toda localização, a não ser que `simulacao.definirLocalizacaoConfirmada(false)`.
- * Recuperação de senha, cardápio e avaliações
- * ainda têm o formato do MVP: entram no contrato nas tarefas FE-08, FE-09 e
+ * O `GET /cardapio/` segue o contrato da BE-11 (#214), mais o campo
+ * `semServico` proposto na revisão da FE-08 (#219); o resumo do dia responde
+ * 501, como o backend, depois de `simulacao.definirResumoDoDiaDisponivel(false)`.
+ * Recuperação de senha, a semana do cardápio (`/cardapio/<campus>/`) e as
+ * avaliações ainda têm o formato do MVP: entram no contrato na FE-09 e na
  * FE-E2.
  */
 import {
@@ -68,6 +71,7 @@ const reenviosPorConta = new Map() // id do usuário → [instantes]
 
 /** Se o check-in simulado confirma a localização (o raio real fica só no backend). */
 let localizacaoConfirmada = true
+let resumoDoDiaDisponivel = true
 
 /** "Cookie HttpOnly" sessionid deste navegador: o JavaScript da página não o lê. */
 let cookieSessao = null
@@ -442,7 +446,11 @@ const DIETAS_ACEITAS = {
   vegetariano_estrito: [null, 'vegetariano_estrito'],
 }
 
-const ehDataISO = (valor) => /^\d{4}-\d{2}-\d{2}$/.test(valor ?? '')
+function ehDataISO(valor) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(valor ?? '')) return false
+  const data = new Date(`${valor}T00:00:00Z`)
+  return !Number.isNaN(data.getTime()) && data.toISOString().startsWith(valor)
+}
 const dataNaFaixa = (valor) => ehDataISO(valor) && valor >= '2000-01-01' && valor <= '2099-12-31'
 const PARAMETROS_DO_CARDAPIO = ['campus', 'semana', 'dia', 'refeicao', 'marcadores', 'dieta']
 const parametrosInvalidos = (mensagem = 'Parâmetros do cardápio inválidos.') =>
@@ -497,6 +505,7 @@ function cardapioFiltrado(parametros, agora) {
     alergenosIndisponivel: false,
     filtroMarcadorDesativado: false,
     refeicaoEncerrada: false,
+    semServico: false,
     categorias: [],
   }
   const naoPublicado = (data) =>
@@ -509,17 +518,22 @@ function cardapioFiltrado(parametros, agora) {
 
   if (!semana.publicado) return naoPublicado(parametros.dia ?? hoje)
   const pedido = parametros.dia ?? hoje
+  const naoServida = (data, tipo, extra = {}) =>
+    ok({ ...base, status: 'publicado', data, refeicao: tipo, ...extra })
   const dia =
     semana.dias.find((d) => d.data === pedido) ??
     (parametros.refeicao ? null : semana.dias.find((d) => d.data > pedido))
-  if (!dia) return naoPublicado(parametros.dia ?? hoje)
+  if (!dia && parametros.refeicao) return naoServida(pedido, parametros.refeicao)
+  if (!dia) {
+    return naoServida(pedido, refeicaoPadrao(ORDEM_REFEICOES, agora), { semServico: true })
+  }
 
   const tipos = ORDEM_REFEICOES.filter((tipo) => dia.refeicoes.some((r) => r.tipo === tipo))
-  const tipo = tipos.includes(parametros.refeicao)
-    ? parametros.refeicao
-    : dia.data === hoje
-      ? refeicaoPadrao(tipos, agora)
-      : tipos[0]
+  if (parametros.refeicao && !tipos.includes(parametros.refeicao)) {
+    return naoServida(dia.data, parametros.refeicao)
+  }
+  const tipo =
+    parametros.refeicao ?? (dia.data === hoje ? refeicaoPadrao(tipos, agora) : tipos[0])
   const refeicao = dia.refeicoes.find((r) => r.tipo === tipo)
   const ultima = tipos.at(-1)
   return ok({
@@ -604,13 +618,14 @@ function listarAvaliacoes(parametros, agora) {
 
 function resumoSemana(parametros, agora) {
   const campus = idDoCampus(parametros.campus)
-  if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
   if (parametros.data !== undefined) {
-    if (!ehDataISO(parametros.data)) {
+    if (!campus || !ehDataISO(parametros.data)) {
       return erro(400, 'parametros_invalidos', 'Parâmetros do resumo inválidos.')
     }
+    if (!resumoDoDiaDisponivel) return { status: 501, dados: null }
     return resumoDoDia(campus, parametros.data, agora)
   }
+  if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
   const { dias } = montarCardapioSemana(campus, agora)
   let somaSemana = 0
   let quantidadeSemana = 0
@@ -854,6 +869,9 @@ export const simulacao = {
   definirLocalizacaoConfirmada(confirmada) {
     localizacaoConfirmada = confirmada
   },
+  definirResumoDoDiaDisponivel(disponivel) {
+    resumoDoDiaDisponivel = disponivel
+  },
 }
 
 /** Volta ao estado inicial: banco, sessões, cookies e contadores de tentativas. */
@@ -866,6 +884,7 @@ export function reiniciarSimulacao() {
   pedidosPorRota.clear()
   reenviosPorConta.clear()
   localizacaoConfirmada = true
+  resumoDoDiaDisponivel = true
   cookieSessao = null
   if (typeof document !== 'undefined') {
     document.cookie = 'csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'

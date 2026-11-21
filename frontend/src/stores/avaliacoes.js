@@ -9,19 +9,31 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
   const porRefeicao = ref({})
   const resumoPorCampus = ref({})
   const resumoDoDia = ref({})
+  const situacaoDoResumo = ref({})
   const erro = ref(null)
 
   function daResumoDoDia(campus, data) {
     return resumoDoDia.value[`${campus}|${data}`] ?? null
   }
 
+  function situacaoDoResumoDoDia(campus, data) {
+    return situacaoDoResumo.value[`${campus}|${data}`] ?? null
+  }
+
   async function carregarResumoDoDia(campus, data) {
     const parametros = new URLSearchParams({ campus: String(campus), data })
     const chave = `${campus}|${data}`
+    situacaoDoResumo.value[chave] = 'carregando'
     try {
       resumoDoDia.value[chave] = await apiClient.get(`/avaliacoes/resumo/?${parametros}`)
+      situacaoDoResumo.value[chave] = 'carregado'
     } catch (falha) {
-      erro.value = mensagemDeErro(falha)
+      if (falha?.status === 501) {
+        situacaoDoResumo.value[chave] = 'indisponivel'
+      } else {
+        console.error('Falha ao carregar o resumo do dia:', falha)
+        situacaoDoResumo.value[chave] = 'erro'
+      }
     }
     return daResumoDoDia(campus, data)
   }
@@ -68,6 +80,7 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
     resumoDoDia,
     erro,
     daResumoDoDia,
+    situacaoDoResumoDoDia,
     carregarResumoDoDia,
     daRefeicao,
     carregar,
