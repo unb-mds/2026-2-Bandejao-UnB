@@ -278,3 +278,14 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação: `npm run lint:ci`, `npm run test:ci` e `npm run build` no PC da autora.
 - Revisão humana: pendente.
 - Situação: aguardando revisão.
+
+## FE-08 — Seção do cardápio ligada à API
+
+- Issue: [#144](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/144).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `cardapioStore.carregarRefeicao` ligado ao `GET /api/cardapio/` com campus, dia, refeição, marcadores e dieta como parâmetros (ADR 0005) e cache por combinação, `avaliacoesStore.carregarResumoDoDia` (`GET /api/avaliacoes/resumo/`), `AbasSemana` e `SeletorRefeicao` com a nota média, `CardapioView` com os avisos de "não publicado", "nenhuma opção" e filtro de marcadores desativado, dietas e marcadores com os nomes do backend (com a conversão dos filtros salvos com os nomes antigos), filtro no cliente retirado e servidor simulado no contrato do `GET /cardapio/` e do resumo do dia. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- Contrato da BE-11 (#214) conferido com os comentários da #144: o simulado também dá 400 para marcador desconhecido, item vazio, parâmetro fora da lista e data fora da faixa; o fim do horário entra na refeição (9h30 ainda é café); um dia sem serviço pedido sem refeição passa ao próximo dia com serviço, e a tela avisa "Sem refeições neste dia" mantendo a aba. Enquanto o resumo do dia (`GET /api/avaliacoes/resumo/`) não sai do 501, o `SeletorRefeicao` mostra café, almoço e jantar sem nota.
+- TDD: o commit `test` (filtros persistidos e mandados como parâmetros, estados vazios, dia sem serviço, contrato do simulado, stores) vem antes do `feat`.
+- Validação: `npm run lint:ci`, `npm run test:ci` e `npm run build` no PC da autora.
+- Revisão humana: pendente.
+- Situação: aguardando revisão; depende da FE-07 (#143).

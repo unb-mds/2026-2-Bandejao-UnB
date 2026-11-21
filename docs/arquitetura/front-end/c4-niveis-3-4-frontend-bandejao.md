@@ -674,6 +674,17 @@ a dieta, lidos da `preferenciasStore`. O backend devolve o cardápio já
 filtrado; por isso o cache do `cardapioStore` é por combinação de campus,
 semana, dia, refeição e filtros.
 
+Desde a FE-08, a seção do cardápio da `CampusView` segue esse fluxo: a
+dieta e os marcadores vão com os nomes do backend (`sem_filtro`,
+`ovolactovegetariano`, `vegetariano_estrito`; `leite_e_derivados`,
+`trigo_gluten` etc.), e filtros salvos com os nomes antigos são convertidos ao
+abrir o app. O filtro no cliente saiu: os pratos com marcador selecionado
+continuam na tela, sinalizados (`contemMarcadorSelecionado`), e a categoria
+sem opção mostra o aviso (`semOpcaoCompativel`, RF08). O `SeletorRefeicao`
+mostra a nota de cada refeição pelo resumo do dia. A `HomeView` e a
+`AvaliacoesView` ainda leem a semana inteira do cardápio no formato do MVP
+(só no servidor simulado) até a FE-09 e a FE-E5.
+
 O `apiClient` é o único ponto que conhece a URL base da API, envia o
 cookie de sessão e o cabeçalho CSRF nas escritas, e trata erros de forma
 centralizada (rede indisponível, 401 → sessão expirada, 4xx → mensagem
