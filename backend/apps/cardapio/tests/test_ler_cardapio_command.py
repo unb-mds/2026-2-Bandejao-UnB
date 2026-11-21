@@ -11,11 +11,19 @@ from unittest import mock
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.core.management import call_command
+from django.core.management import ManagementUtility, call_command
+from django.core.management.base import CommandError
+from django.db import OperationalError
 
+from apps.cardapio.leitor.alerta_equipe_service import AlertaEquipeService
 from apps.cardapio.leitor.leitor_cardapio_service import LeitorCardapioService
 from apps.cardapio.management.commands.ler_cardapio import LerCardapioCommand
-from apps.cardapio.models import Campus, FonteCardapio
+from apps.cardapio.models import (
+    AlertaLeituraCardapio,
+    Campus,
+    FonteCardapio,
+    TipoAlerta,
+)
 from apps.cardapio.tests.apoio_leitor import SiteDoRUFalso
 
 BRASILIA = ZoneInfo("America/Sao_Paulo")
@@ -70,26 +78,84 @@ def test_comando_processa_os_cinco_campi_com_um_relogio_so(campi, site):
     assert paginas == ["https://ru.unb.br/cardapio-refeitorio/"]
 
 
-def test_falha_inesperada_num_campus_nao_para_os_outros(campi, site, caplog):
+def _darcy_quebra(erro):
     original = LeitorCardapioService.processar
 
-    def darcy_quebra(self, campus, agora):
+    def processar(self, campus, agora):
         if campus.nome == "Darcy Ribeiro":
-            raise RuntimeError("bug no Darcy")
+            raise erro
         return original(self, campus, agora)
 
+    return mock.patch.object(LeitorCardapioService, "processar", processar)
+
+
+def test_falha_inesperada_num_campus_nao_para_os_outros(campi, site, caplog):
+    saida = StringIO()
     with (
-        mock.patch.object(LeitorCardapioService, "processar", darcy_quebra),
+        _darcy_quebra(RuntimeError("bug no Darcy")),
         caplog.at_level(logging.ERROR),
+        mock.patch("django.utils.timezone.now", return_value=SABADO_10H),
+        pytest.raises(CommandError, match="Darcy Ribeiro"),
     ):
-        saida = _rodar()
+        call_command("ler_cardapio", stdout=saida)
 
     gama = Campus.objects.get(nome="Gama")
     assert FonteCardapio.objects.filter(campus=gama).count() == 2
-    assert "Darcy Ribeiro: erro inesperado (RuntimeError)" in saida
-    assert "Gama: 2 lidas" in saida
+    # O resumo traz a mensagem da exceção, e não só o nome.
+    assert "Darcy Ribeiro: erro inesperado (RuntimeError: bug no Darcy)" in (
+        saida.getvalue()
+    )
+    assert "Gama: 2 lidas" in saida.getvalue()
     erros = [r for r in caplog.records if r.levelno >= logging.ERROR]
     assert any("RuntimeError" in r.getMessage() for r in erros)
+
+
+def test_falha_inesperada_sai_com_codigo_diferente_de_zero(campi, site):
+    # O cron (BD-07) só vê a falha pelo código de saída (revisão #218).
+    with (
+        _darcy_quebra(RuntimeError("bug no Darcy")),
+        mock.patch("django.utils.timezone.now", return_value=SABADO_10H),
+        pytest.raises(SystemExit) as saida,
+    ):
+        ManagementUtility(["manage.py", "ler_cardapio"]).execute()
+    assert saida.value.code == 1
+
+
+def test_falha_inesperada_do_campus_vira_alerta_da_equipe(campi, site):
+    with (
+        _darcy_quebra(RuntimeError("bug no Darcy")),
+        pytest.raises(CommandError),
+    ):
+        _rodar()
+    darcy = Campus.objects.get(nome="Darcy Ribeiro")
+    [alerta] = AlertaLeituraCardapio.objects.filter(campus=darcy)
+    assert alerta.tipo == TipoAlerta.FALHA_LEITURA_PDF
+    assert "erro inesperado" in alerta.mensagem
+    assert "RuntimeError: bug no Darcy" in alerta.mensagem
+
+
+def test_alerta_do_erro_inesperado_falhando_nao_esconde_o_erro(campi, site, caplog):
+    # Banco fora do ar: nem o alerta é gravado, mas o comando ainda sai com
+    # erro e diz qual campus falhou.
+    with (
+        _darcy_quebra(OperationalError("banco fora do ar")),
+        mock.patch.object(
+            AlertaEquipeService,
+            "registrar_alerta",
+            side_effect=OperationalError("banco fora do ar"),
+        ),
+        caplog.at_level(logging.ERROR),
+        pytest.raises(CommandError, match="Darcy Ribeiro"),
+    ):
+        _rodar()
+    assert "alerta" in caplog.text.lower()
+
+
+def test_execucao_sem_erro_inesperado_termina_com_codigo_zero(campi, site):
+    # Falhas esperadas (404 nos PDFs que não estão nas fixtures) já são
+    # alertas: não fazem o comando falhar.
+    saida = _rodar()
+    assert "Darcy Ribeiro: 0 lidas, 0 sem mudança, 2 alertas" in saida
 
 
 def test_job_devolve_o_resultado_por_campus(campi, site):

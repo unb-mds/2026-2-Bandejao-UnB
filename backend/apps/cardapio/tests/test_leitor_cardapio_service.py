@@ -20,10 +20,11 @@ import pytest
 import requests
 from django.core import mail
 from django.core.management import call_command
-from django.db import DatabaseError
+from django.db import DatabaseError, DataError
 
 from apps.avaliacao.models import Avaliacao
 from apps.cardapio.leitor import cardapio_pdf_parser as parser
+from apps.cardapio.leitor.cardapio_downloader import CardapioDownloader
 from apps.cardapio.leitor.cardapio_repository import CardapioRepository
 from apps.cardapio.leitor.leitor_cardapio_service import LeitorCardapioService
 from apps.cardapio.models import (
@@ -332,18 +333,96 @@ def test_link_reprovado_alerta_e_nao_e_baixado(gama, site):
     assert URL_GAMA_23.replace("Gama-", "Planaltina-") not in site.pedidos
 
 
-def test_erro_no_meio_da_gravacao_nao_grava_nada_da_semana(gama, site):
+def test_erro_no_meio_da_gravacao_nao_grava_nada_da_semana(gama, site, caplog):
     with (
         mock.patch.object(
             CardapioRepository,
             "remover_ausentes",
             side_effect=DatabaseError("caiu no meio"),
         ),
-        pytest.raises(DatabaseError),
+        caplog.at_level(logging.ERROR),
     ):
-        _processar(gama)
+        resultado = _processar(gama)
     assert not Refeicao.objects.exists()
     assert not FonteCardapio.objects.exists()
+    # Revisão #218, item 2: o erro inesperado vira alerta da semana (com o
+    # traceback no log) e não derruba o campus.
+    assert resultado.alertas == 2
+    mensagens = [m for _, m in _alertas(gama)]
+    assert all("erro inesperado" in m and "DatabaseError" in m for m in mensagens)
+    assert "caiu no meio" in mensagens[0]
+    assert "Traceback" in caplog.text
+
+
+def _salvar_falha_na_semana(inicio, erro):
+    """Faz o `salvar` falhar só nas páginas do PDF da semana `inicio`."""
+    original = CardapioRepository.salvar
+
+    def salvar(self, campus, fonte, refeicao):
+        if fonte.inicio == inicio:
+            raise erro
+        return original(self, campus, fonte, refeicao)
+
+    return mock.patch.object(CardapioRepository, "salvar", salvar)
+
+
+def test_erro_inesperado_numa_semana_nao_impede_a_outra(gama, site):
+    # Ex.: DataError do MySQL estrito com um prato de mais de 200 caracteres.
+    with _salvar_falha_na_semana(SEGUNDA_23, DataError("Data too long")):
+        resultado = _processar(gama, datetime(2026, 11, 30, 13, 0, tzinfo=BRASILIA))
+    assert resultado.lidas == 1
+    assert _datas(gama, SEGUNDA_16)
+    assert _datas(gama, SEGUNDA_23) == []
+    mensagens = [m for _, m in _alertas(gama)]
+    assert any("erro inesperado" in m and "Data too long" in m for m in mensagens)
+    # A semana falhou, mas o resto do processar rodou: o "não publicado" da
+    # semana de 30/11 também saiu.
+    assert any("não publicado" in m for m in mensagens)
+
+
+def test_erro_inesperado_na_descoberta_vira_alerta(gama, site):
+    with mock.patch.object(
+        CardapioDownloader, "_blocos_por_titulo", side_effect=AttributeError("bs4")
+    ):
+        resultado = _processar(gama)
+    assert resultado.alertas == 1
+    [(tipo, mensagem)] = _alertas(gama)
+    assert tipo == FALHA
+    assert "erro inesperado" in mensagem and "AttributeError" in mensagem
+
+
+def test_rollback_da_releitura_devolve_a_semana_anterior_inteira(gama, site):
+    antes = _ja_lido(gama)
+    urls = sorted(Refeicao.objects.values_list("pk", "fonte_pdf_url"))
+    marcadores = sorted(
+        PratoMarcador.objects.values_list(
+            "prato__categoria__refeicao_id", "prato__nome", "marcador__nome"
+        )
+    )
+    # O PDF da semana de 16/11 muda, e a gravação falha na 2ª página.
+    site.conteudos[URL_GAMA_16] = pdf("Fazenda-Semana-01-16-11-a-20-11-2.pdf")
+    original = CardapioRepository.salvar
+    chamadas = []
+
+    def salvar(self, campus, fonte, refeicao):
+        chamadas.append(refeicao.refeicao)
+        if len(chamadas) == 2:
+            raise DatabaseError("falhou na 2ª refeição")
+        return original(self, campus, fonte, refeicao)
+
+    with mock.patch.object(CardapioRepository, "salvar", salvar):
+        _processar(gama, SABADO_10H + timedelta(hours=3))
+
+    assert _estado() == antes  # inclui o SHA e o processado_em antigos
+    assert sorted(Refeicao.objects.values_list("pk", "fonte_pdf_url")) == urls
+    assert (
+        sorted(
+            PratoMarcador.objects.values_list(
+                "prato__categoria__refeicao_id", "prato__nome", "marcador__nome"
+            )
+        )
+        == marcadores
+    )
 
 
 # ------------------------------------------------------ página só em texto
