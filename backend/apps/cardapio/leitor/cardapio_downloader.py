@@ -14,9 +14,8 @@ uma por campus: se ela falha, os outros campi recebem a mesma falha.
 
 import hashlib
 import re
-from collections import Counter
-from dataclasses import dataclass
-from datetime import date
+from dataclasses import dataclass, field
+from datetime import date, timedelta
 from pathlib import PurePosixPath
 from urllib.parse import unquote, urljoin, urlsplit
 
@@ -37,6 +36,8 @@ USER_AGENT = "BandejaoUnB/1.0 (+https://bandejaounb.com.br)"
 TEMPO_LIMITE = 30
 
 HOST_DO_RU = "ru.unb.br"
+# Do primeiro ao último dia do link: no máximo uma semana (7 dias).
+MAIOR_INTERVALO_DO_LINK = timedelta(days=6)
 PASTA_DE_UPLOADS = "/wp-content/uploads/"
 TITULOS = ("h1", "h2", "h3", "h4", "h5", "h6")
 PREFIXO_DO_TITULO = "cardapio "
@@ -49,15 +50,16 @@ RE_DATAS_DO_LINK = re.compile(
 )
 
 
-@dataclass
+@dataclass(frozen=True)
 class FontePDF:
     """Um link de PDF do bloco do campus, uma semana.
 
     `inicio` e `fim` são as datas do texto do link; `None` se ele não tem
     datas legíveis. `erro` é a `FonteNaoEncontradaError` de um link
-    reprovado (arquivo de outro campus, semana repetida, datas ilegíveis):
-    o `LeitorCardapioService` alerta e não baixa esse link, mas a semana
-    dele ainda conta para o alerta de "não publicado" (ADR 0014).
+    reprovado (arquivo de outro campus, semana repetida ou sobreposta, mais
+    de 7 dias, datas ilegíveis): o `LeitorCardapioService` alerta e não
+    baixa esse link, mas a semana dele ainda conta para o alerta de "não
+    publicado" (ADR 0014). Um link sem erro sempre tem as duas datas.
     """
 
     campus: Campus
@@ -67,11 +69,21 @@ class FontePDF:
     fim: date | None
     erro: FonteNaoEncontradaError | None = None
 
+    def __post_init__(self):
+        if self.erro is None and (self.inicio is None or self.fim is None):
+            raise ValueError("FontePDF sem erro precisa das datas do link")
+
 
 @dataclass(frozen=True)
 class ArquivoPDF:
+    """O PDF baixado. O SHA-256 sai do próprio conteúdo, para os dois nunca
+    ficarem diferentes."""
+
     conteudo: bytes
-    sha256: str
+    sha256: str = field(init=False)
+
+    def __post_init__(self):
+        object.__setattr__(self, "sha256", hashlib.sha256(self.conteudo).hexdigest())
 
 
 def _datas_do_link(texto):
@@ -128,30 +140,55 @@ class CardapioDownloader:
                 f"({len(encontrados)} vezes)"
             )
 
-        fontes = []
-        for url, texto in encontrados[0]:
-            datas = _datas_do_link(texto)
-            fonte = FontePDF(campus, url, texto, *(datas or (None, None)))
-            if datas is None:
-                fonte.erro = FonteNaoEncontradaError(
-                    f"link sem datas legíveis: {texto!r} ({url})"
-                )
-            elif not self._conferir_arquivo(campus, url):
-                fonte.erro = FonteNaoEncontradaError(
-                    f"o arquivo não começa por "
-                    f"'{self.config.prefixo_arquivo(campus)}-': {url}"
-                )
-            fontes.append(fonte)
+        links = [(url, texto, _datas_do_link(texto)) for url, texto in encontrados[0]]
+        datas_do_bloco = [datas for _, _, datas in links if datas is not None]
+        return [
+            FontePDF(
+                campus,
+                url,
+                texto,
+                *(datas or (None, None)),
+                erro=self._erro_do_link(campus, url, texto, datas, datas_do_bloco),
+            )
+            for url, texto, datas in links
+        ]
 
-        # Dois links para a mesma semana: o Leitor não escolhe um deles.
-        por_semana = Counter(f.inicio for f in fontes if f.inicio is not None)
-        for fonte in fontes:
-            if fonte.inicio is not None and por_semana[fonte.inicio] > 1:
-                fonte.erro = FonteNaoEncontradaError(
-                    f"{por_semana[fonte.inicio]} links para a mesma semana "
-                    f"({fonte.inicio:%d/%m/%Y}): {fonte.url}"
-                )
-        return fontes
+    def _erro_do_link(self, campus, url, texto, datas, datas_do_bloco):
+        """O motivo para não confiar num link, ou None. Em todos os casos o
+        Leitor não escolhe um link no lugar de outro (ADR 0014)."""
+        if datas is None:
+            return FonteNaoEncontradaError(
+                f"link sem datas legíveis: {texto!r} ({url})"
+            )
+        inicio, fim = datas
+        if fim - inicio > MAIOR_INTERVALO_DO_LINK:
+            # Um intervalo errado faria o P1 apagar refeições de outra semana.
+            return FonteNaoEncontradaError(
+                f"o link cobre mais de 7 dias ({inicio:%d/%m/%Y} a "
+                f"{fim:%d/%m/%Y}): {url}"
+            )
+        if not self._conferir_arquivo(campus, url):
+            return FonteNaoEncontradaError(
+                f"o arquivo não começa por "
+                f"'{self.config.prefixo_arquivo(campus)}-': {url}"
+            )
+        mesma_semana = sum(1 for i, _ in datas_do_bloco if i == inicio)
+        if mesma_semana > 1:
+            return FonteNaoEncontradaError(
+                f"{mesma_semana} links para a mesma semana ({inicio:%d/%m/%Y}): {url}"
+            )
+        sobrepostos = [
+            (i, f)
+            for i, f in datas_do_bloco
+            if (i, f) != datas and i <= fim and inicio <= f
+        ]
+        if sobrepostos:
+            outro_inicio, outro_fim = sobrepostos[0]
+            return FonteNaoEncontradaError(
+                f"o link ({inicio:%d/%m/%Y} a {fim:%d/%m/%Y}) é sobreposto a outro "
+                f"do bloco ({outro_inicio:%d/%m/%Y} a {outro_fim:%d/%m/%Y}): {url}"
+            )
+        return None
 
     def _ler_pagina(self) -> bytes:
         if self._pagina is None:
@@ -205,7 +242,7 @@ class CardapioDownloader:
         conteudo = self._get(fonte.url, "PDF").content
         if not conteudo.startswith(b"%PDF"):
             raise FormatoPDFInvalidoError(f"a resposta não é um PDF: {fonte.url}")
-        return ArquivoPDF(conteudo, hashlib.sha256(conteudo).hexdigest())
+        return ArquivoPDF(conteudo)
 
     @staticmethod
     def _get(url, o_que):

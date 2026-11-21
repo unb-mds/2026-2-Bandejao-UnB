@@ -96,13 +96,16 @@ class CardapioRepository:
 
     def remover_ausentes(
         self, campus: Campus, fonte: FontePDF, gravadas: list[Refeicao]
-    ) -> None:
+    ) -> list[Refeicao]:
         """Apaga as refeições da semana do PDF que não estão mais nele.
 
         Decisão P1 (21/11/2026): o RU corrigiu o PDF e tirou uma refeição
-        (ex.: o jantar de sexta). A que já tem avaliação fica, com um aviso
-        no log, para nenhuma avaliação se perder. Só a semana do link
-        (`fonte.inicio` a `fonte.fim`) e só o campus.
+        (ex.: o jantar de sexta). A que já tem avaliação fica, para nenhuma
+        avaliação se perder, e volta na lista para o serviço alertar a equipe:
+        ela continua com os pratos antigos. Só a semana do link
+        (`fonte.inicio` a `fonte.fim`, no máximo 7 dias, conferido pelo
+        Downloader) e só o campus. Cada refeição apagada ou mantida fica no
+        log, sem dado de usuário (só campus, data e tipo).
         """
         sumiram = (
             Refeicao.objects.filter(
@@ -111,8 +114,8 @@ class CardapioRepository:
             .exclude(pk__in=[r.pk for r in gravadas])
             .order_by("data", "tipo")
         )
-        for refeicao in sumiram.filter(avaliacoes__isnull=False).distinct():
-            # Sem dado de usuário: só campus, data e tipo.
+        mantidas = list(sumiram.filter(avaliacoes__isnull=False).distinct())
+        for refeicao in mantidas:
             logger.warning(
                 "Refeição do campus %s em %s (%s) saiu do PDF corrigido, mas "
                 "tem avaliação: mantida.",
@@ -120,7 +123,16 @@ class CardapioRepository:
                 refeicao.data.isoformat(),
                 refeicao.tipo,
             )
-        sumiram.filter(avaliacoes__isnull=True).delete()
+        apagar = sumiram.filter(avaliacoes__isnull=True)
+        for data, tipo in apagar.values_list("data", "tipo"):
+            logger.info(
+                "Refeição do campus %s em %s (%s) saiu do PDF corrigido: apagada.",
+                campus.pk,
+                data.isoformat(),
+                tipo,
+            )
+        apagar.delete()
+        return mantidas
 
     def manter_ultimo_valido(self, campus: Campus, fonte: FontePDF) -> bool:
         """O PDF da semana falhou: nada no banco muda (RF06.4).

@@ -209,7 +209,17 @@ class LeitorCardapioService:
                         self.repositorio.marcar_alergenos_indisponivel(
                             campus, refeicao.refeicao, date.fromisoformat(dia["data"])
                         )
-            self.repositorio.remover_ausentes(campus, fonte, gravadas)
+            for mantida in self.repositorio.remover_ausentes(campus, fonte, gravadas):
+                self._alertar(
+                    TipoAlerta.FALHA_LEITURA_PDF,
+                    campus,
+                    f"Etapa: gravação ({_semana(fonte)}). O {mantida.tipo} de "
+                    f"{_data(mantida.data)} saiu do PDF corrigido, mas tem "
+                    "avaliação: foi mantido, e continua com os pratos antigos. "
+                    f"URL: {fonte.url}.",
+                    resultado,
+                    refeicao=mantida,
+                )
             # Os alertas da página só em texto entram na mesma transação: se
             # não puderem ser gravados, a semana não é dada como lida e o PDF
             # é lido de novo na próxima execução (revisão do PR #218).
