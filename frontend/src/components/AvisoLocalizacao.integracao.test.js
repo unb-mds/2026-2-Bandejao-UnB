@@ -64,6 +64,20 @@ describe('AvisoLocalizacao no App', () => {
     expect(wrapper.text()).toContain('Usar sua localização?')
   })
 
+  it('"Usar minha localização" no cabeçalho da tela do campus abre o aviso de novo', async () => {
+    simularNavegador()
+    await montarEm('/campus/1', { adiado: true })
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-teste="usar-localizacao"]').exists()).toBe(true),
+    )
+    expect(avisoAberto()).toBe(false)
+
+    await wrapper.get('[data-teste="usar-localizacao"]').trigger('click')
+    await flushPromises()
+
+    expect(avisoAberto()).toBe(true)
+  })
+
   it('"Usar minha localização" no menu da Início abre o aviso de novo', async () => {
     simularNavegador()
     await montarEm('/inicio', { adiado: true })

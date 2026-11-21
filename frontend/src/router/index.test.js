@@ -71,7 +71,15 @@ describe('roteamento', () => {
     expect(JSON.parse(localStorage.getItem('bandejao:preferencias')).campusId).toBe(3)
   })
 
-  it.each([['/campus/99'], ['/campus/darcy']])(
+  it.each([
+    ['/campus/99'],
+    ['/campus/darcy'],
+    ['/campus/abc'],
+    ['/campus/0'],
+    ['/campus/-1'],
+    ['/campus/1.5'],
+    ['/campus/01'],
+  ])(
     '%s: "Campus não encontrado", sem virar o campus lembrado',
     async (caminho) => {
       const { wrapper } = await montarEm(caminho)
@@ -84,13 +92,40 @@ describe('roteamento', () => {
     ['/cardapio', { name: 'campus-tela', params: { campusId: '1' } }],
     ['/fila', { name: 'campus-tela', params: { campusId: '1' }, hash: '#fila' }],
     ['/cardapio/3', { name: 'campus-tela', params: { campusId: '3' } }],
-    ['/cardapio/darcy', { name: 'campus-tela', params: { campusId: '1' } }],
   ])('com campus lembrado, %s redireciona para a tela do campus', async (caminho, destino) => {
     const { router } = await montarEm(caminho, { campus: 1 })
     expect(router.currentRoute.value).toMatchObject(destino)
   })
 
-  it.each([['/cardapio'], ['/fila'], ['/cardapio/darcy']])(
+  it.each([
+    ['/cardapio/darcy', '1'],
+    ['/cardapio/ceilandia', '2'],
+    ['/cardapio/gama', '3'],
+    ['/cardapio/planaltina', '4'],
+    ['/cardapio/fal', '5'],
+  ])(
+    'link antigo %s abre o campus do link, não o lembrado',
+    async (caminho, campusId) => {
+      const aviso = vi.spyOn(console, 'warn')
+      const lembrado = campusId === '1' ? 3 : 1
+      const { router } = await montarEm(caminho, { campus: lembrado })
+      expect(router.currentRoute.value).toMatchObject({ name: 'campus-tela', params: { campusId } })
+      expect(aviso).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each([['/cardapio/executivo'], ['/cardapio/0'], ['/cardapio/01']])(
+    '%s não abre o campus lembrado: cai no 404',
+    async (caminho) => {
+      const aviso = vi.spyOn(console, 'warn')
+      const { router, wrapper } = await montarEm(caminho, { campus: 3 })
+      expect(router.currentRoute.value.name).toBe('nao-encontrada')
+      expect(wrapper.find('h1').text()).toBe('Página não encontrada')
+      expect(aviso).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each([['/cardapio'], ['/fila']])(
     'sem campus lembrado, %s leva à escolha do campus',
     async (caminho) => {
       const aviso = vi.spyOn(console, 'warn')

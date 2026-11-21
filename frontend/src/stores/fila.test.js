@@ -182,7 +182,7 @@ describe('filaStore.confirmarCheckin', () => {
     })
     expect(log).toHaveBeenCalledWith(expect.any(String), {
       codigo: 'dados_invalidos',
-      idApi: 1,
+      idDoCampus: 1,
       tipoRefeicao: 'almoco',
     })
     // O log nunca leva as coordenadas (RI09).
