@@ -271,10 +271,10 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## FE-06 — Deploy do M2 com BD e BE
 
-- Issue: [#142](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/142).
+- Issue: [#142](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/142). PR: [#215 — FE-06: build de produção sem o simulado e roteiro do deploy do M2](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/215).
 - Ferramenta: Claude (Anthropic).
-- Apoio: função `deveUsarSimulacao` no `apiClient` (o build de produção nunca liga o servidor simulado), com o teste antes do código, e a seção "Deploy do M2 (FE-06)" no `docs/deploy/deploy-producao.md`, com a checagem antes de subir e o roteiro de ponta a ponta da BD-08 (#148). Os patches foram gerados pela IA e aplicados e commitados pela autora.
-- TDD: o commit `test` com os casos de `deveUsarSimulacao` vem antes do `feat`.
-- Validação: `npm run lint:ci`, `npm run test:ci` e `npm run build` no PC da autora. O deploy e o roteiro em produção são feitos na VM pela equipe, e o resultado fica na #142 e na #148.
-- Revisão humana: pendente.
-- Situação: aguardando revisão.
+- Apoio: função `deveUsarSimulacao` no `apiClient` (regra do servidor simulado separada numa função, para ser testada), com o teste antes do código, e a seção "Deploy do M2 (FE-06)" no `docs/deploy/deploy-producao.md`, com a checagem antes de subir e o roteiro de ponta a ponta da BD-08 (#148). Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: o commit `test` (`f08b394`) vem antes do `feat` (`9c9f48f`); nele, os 5 casos de `deveUsarSimulacao` falhavam porque a função ainda não existia.
+- Validação: `npm run test:ci` com 376 testes passando (cobertura de 90,27% de linhas / 81,41% de ramos), `npm run lint:ci` sem achados e `npm run build` sem erro, no PC da autora. O deploy e o roteiro em produção são feitos na VM pela equipe, e o resultado fica na #142 e na #148.
+- Revisão humana: Álvaro Bento revisou o PR #215; os ajustes pedidos (passo 8 do roteiro, texto da garantia do build sem o simulado, link do PR e números nesta entrada) e as sugestões (passo do RI09, branch pelo nome, caso `'FALSE'` no teste, estilo da doc) foram aplicados.
+- Situação: aguardando nova revisão.
