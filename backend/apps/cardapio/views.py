@@ -68,7 +68,8 @@ class ParametrosInvalidos(ParseError):
 
     O `tratador_de_excecoes` (config/excecoes.py) usa o `code` e a mensagem
     da exceção. Não é o `ValidationError` do DRF de propósito: o detalhe dele
-    é uma lista, e o tratador o deixaria no formato padrão de validação.
+    é uma lista, e o tratador o deixaria no formato padrão de validação. O
+    `code` é obrigatório: sem ele, o `ParseError` sairia como `json_invalido`.
     """
 
     def __init__(self, mensagem):
@@ -112,9 +113,9 @@ def _ler_opcao(valor, opcoes, mensagem):
 
 
 def _ler_marcadores(valor):
-    """Nomes da tabela MARCADOR separados por vírgula, sem repetição.
+    """Lê os nomes da tabela MARCADOR separados por vírgula.
 
-    Espaços em volta e nomes repetidos são aceitos; item vazio e nome
+    Devolve cada nome uma vez. Espaços em volta e nomes repetidos são aceitos; item vazio e nome
     desconhecido dão 400 (decisão de 21/11/2026: um alergênico escrito errado
     não pode ser ignorado em silêncio).
     """
@@ -335,13 +336,25 @@ class CardapioView(APIView):
                 "semana",
                 OpenApiTypes.DATE,
                 OpenApiParameter.QUERY,
-                description="Início da semana. Omitido: semana vigente.",
+                description=(
+                    "Semana a exibir, pela data do primeiro dia (AAAA-MM-DD, "
+                    "entre 2000-01-01 e 2099-12-31). Serve só para escolher o "
+                    "dia quando `dia` é omitido; se a semana está publicada, "
+                    "quem diz é a data do PDF lido do campus. Omitida: semana "
+                    "vigente."
+                ),
             ),
             OpenApiParameter(
                 "dia",
                 OpenApiTypes.DATE,
                 OpenApiParameter.QUERY,
-                description="Dia a exibir. Omitido: dia corrente.",
+                description=(
+                    "Dia a exibir (AAAA-MM-DD, dentro da `semana`, se ela "
+                    "vier). Omitido: o dia corrente ou, se a `semana` pedida "
+                    "não contém hoje, o primeiro dia dela. Sem `refeicao`, um "
+                    "dia sem serviço passa ao próximo dia com serviço (RN05), "
+                    "e `data` na resposta diz qual."
+                ),
             ),
             OpenApiParameter(
                 "refeicao",
@@ -354,7 +367,11 @@ class CardapioView(APIView):
                 "marcadores",
                 str,
                 OpenApiParameter.QUERY,
-                description="Marcadores selecionados, separados por vírgula.",
+                description=(
+                    "Marcadores selecionados, num parâmetro só, separados por "
+                    "vírgula (ex.: `ovo,soja`), com os nomes de "
+                    "`MARCADOR`. Nome desconhecido ou item vazio dão 400."
+                ),
             ),
             OpenApiParameter(
                 "dieta",
@@ -369,8 +386,9 @@ class CardapioView(APIView):
             400: OpenApiResponse(
                 ErroSerializer,
                 description=(
-                    "Parâmetro ausente ou inválido, como `campus`. "
-                    "`codigo`: `parametros_invalidos`."
+                    "Parâmetro ausente ou inválido, como `campus`; parâmetro "
+                    "fora da lista acima ou repetido; data fora da faixa ou "
+                    "`dia` fora da `semana`. `codigo`: `parametros_invalidos`."
                 ),
             ),
         },

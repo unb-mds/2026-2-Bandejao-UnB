@@ -4,7 +4,8 @@ O resolver nunca lê o relógio: cada teste passa o `agora`. Os valores
 esperados foram tirados da RN05 (Anexo B) e dos horários do Anexo A
 (café 7h00–9h30, almoço 11h00–14h30, jantar 17h00–19h30), não da saída do
 código. Início e fim incluídos (decisão de 21/11/2026, a mesma comparação
-do JanelaCheckinValidator da fila): às 9h30 ainda é café, às 9h31 não.
+do JanelaCheckinValidator da fila): às 9h30min00s ainda é café;
+1 s depois, não.
 
 O caso do domingo (RN05, item 5) depende do banco (próximo dia com
 serviço) e está em test_cardapio_query_service.py.

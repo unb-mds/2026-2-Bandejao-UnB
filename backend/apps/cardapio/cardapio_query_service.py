@@ -142,7 +142,13 @@ class CardapioQueryService:
         return self.horarios.refeicao_padrao(agora, refeicoes)
 
     def _publicado(self, campus: Campus, dia: date) -> bool:
-        """A semana do dia exibido tem a linha da FonteCardapio (RF18)."""
+        """A semana do dia exibido tem a linha da FonteCardapio (RF07.3).
+
+        O resolver acha a semana pela `FonteCardapio`, e o repositório
+        confere a linha dessa semana. Hoje as duas consultas leem a mesma
+        tabela; ficam separadas como no C4 4a, para a semana seguinte (RF18)
+        entrar no resolver sem mudar a regra do "publicado".
+        """
         vigente = next(
             (s for s in self.semanas.semanas_disponiveis(campus, dia) if s.vigente),
             None,
