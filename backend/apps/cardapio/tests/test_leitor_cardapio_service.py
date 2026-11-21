@@ -457,12 +457,13 @@ def test_alertas_desfeitos_com_a_transacao_nao_entram_no_resumo(gama, site):
     # Pode ficar para depois (segunda revisão): o alerta só em texto gravado
     # dentro da transação desfeita não conta no `resultado.alertas`.
     site.conteudos[URL_GAMA_23] = 404
+    # A falha vem no último passo da transação, depois do alerta só em texto.
     with (
         falhar_associacao_na_refeicao("almoco"),
         mock.patch.object(
-            CardapioRepository,
-            "remover_ausentes",
-            side_effect=DatabaseError("caiu no meio"),
+            FonteCardapio.objects,
+            "update_or_create",
+            side_effect=DatabaseError("caiu no fim"),
         ),
     ):
         resultado = _processar(gama)
@@ -485,7 +486,7 @@ def test_erro_inesperado_na_descoberta_vira_alerta(gama, site):
         CardapioDownloader, "_blocos_por_titulo", side_effect=AttributeError("bs4")
     ):
         resultado = _processar(gama)
-    assert resultado.alertas == 1
+    assert (resultado.alertas, resultado.inesperados) == (1, 1)
     [(tipo, mensagem)] = _alertas(gama)
     assert tipo == FALHA
     assert "erro inesperado" in mensagem and "AttributeError" in mensagem
