@@ -509,6 +509,13 @@ def test_linha_terminada_em_conector_continua_mesmo_com_maiuscula():
     ]
 
 
+def test_linha_terminada_em_barra_continua_mesmo_com_maiuscula():
+    # "/" não separa pratos (RF06.2), nem no fim da linha (caso 28):
+    # "Rosé [ovo][leite] /" / "Limão", no PDF de Planaltina de 23/11.
+    assert _descricoes(_linhas("Rosé /", "Limão")) == ["Rosé / Limão"]
+    assert _descricoes(_linhas("Chipotle/", "Limão")) == ["Chipotle/ Limão"]
+
+
 def test_opcao_separa_e_sai_da_descricao():
     assert _descricoes(_linhas("Mix de doces", "Opção: Fruta")) == [
         "Mix de doces",

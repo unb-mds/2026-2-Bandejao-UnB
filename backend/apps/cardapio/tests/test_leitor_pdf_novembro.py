@@ -225,6 +225,11 @@ def test_planaltina_23_11_e_lido_com_os_sete_dias():
     assert _pratos(almoco, "PRATO PRINCIPAL PADRÃO", "2026-11-25") == [
         ("Lasanha à bolonhesa", ["leite_e_derivados", "suino", "trigo_gluten"])
     ]
+    # A barra no fim da linha não separa (caso 28): um prato só, com os
+    # dois ícones que ficam entre "Rosé" e a barra.
+    assert _pratos(almoco, "MOLHO PARA SALADA", "2026-11-29") == [
+        ("Rosé / Limão", [LEITE, OVO])
+    ]
     assert _pratos(almoco, "SOBREMESA", "2026-11-24") == [
         ("Mix de doces", ["amendoim", "leite_e_derivados"]),
         ("Fruta", []),
