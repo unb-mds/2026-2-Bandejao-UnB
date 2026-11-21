@@ -54,6 +54,18 @@ def _tipos_na_ordem(refeicoes_do_dia: list[Refeicao]) -> list[str]:
     return [tipo for tipo in ORDEM_DO_DIA if tipo in tipos]
 
 
+def refeicao_terminou(agora: datetime, dia: date, tipo: str) -> bool:
+    """True se a refeição `tipo` de `dia` já acabou em relação a `agora`.
+
+    É o `refeicaoEncerrada` da resposta: vale para a refeição padrão (RN05,
+    item 3) e para a refeição pedida pelo seletor.
+    """
+    local = timezone.localtime(agora)
+    if dia != local.date():
+        return dia < local.date()
+    return local.time() > intervalo(tipo)[1]
+
+
 class HorarioRefeicaoResolver:
     def refeicao_padrao(
         self, agora: datetime, refeicoes_do_dia: list[Refeicao]
