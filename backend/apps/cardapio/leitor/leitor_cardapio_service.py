@@ -12,6 +12,7 @@ O relógio (`agora`) vem de fora, lido uma vez pelo comando `ler_cardapio`.
 """
 
 import io
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
@@ -33,11 +34,17 @@ from apps.cardapio.leitor.cardapio_repository import CardapioRepository
 from apps.cardapio.models import Campus, FonteCardapio, Refeicao, TipoAlerta
 from config.parametros import ParametrosLeitorConfig
 
+logger = logging.getLogger(__name__)
+
 # Classe da falha guardada pelo parser na página só em texto -> tipo do alerta.
 TIPO_DO_ALERTA_SO_EM_TEXTO = {
     LegendaInvalidaError: TipoAlerta.LEGENDA_INVALIDA,
     AssociacaoFalhouError: TipoAlerta.ASSOCIACAO_FALHOU,
 }
+
+
+def _erro(exc: Exception) -> str:
+    return f"{type(exc).__name__}: {exc}"
 
 
 def _data(dia: date | None) -> str:
@@ -89,9 +96,35 @@ class LeitorCardapioService:
                 resultado,
             )
             return resultado
+        except Exception as exc:
+            # Bug ou mudança inesperada na página: também é falha do campus
+            # inteiro, e a equipe é avisada (RF06.4, ADR 0006).
+            logger.exception("Erro inesperado na descoberta do campus %s", campus.pk)
+            self._alertar(
+                TipoAlerta.FALHA_LEITURA_PDF,
+                campus,
+                "Etapa: erro inesperado na descoberta do PDF na página do RU. "
+                f"{_erro(exc)}. Último cardápio válido mantido.",
+                agora,
+                resultado,
+            )
+            return resultado
 
         for fonte in fontes:
-            self._processar_semana(campus, fonte, agora, resultado)
+            try:
+                self._processar_semana(campus, fonte, agora, resultado)
+            except Exception as exc:
+                # Ex.: DataError do MySQL estrito, KeyError do pdfminer num
+                # PDF corrompido. A transação da semana já foi desfeita; a
+                # falha vira alerta e a próxima semana segue (revisão #218).
+                logger.exception(
+                    "Erro inesperado na semana %s do campus %s",
+                    fonte.inicio,
+                    campus.pk,
+                )
+                self._falha_da_semana(
+                    campus, fonte, "erro inesperado", _erro(exc), agora, resultado
+                )
 
         if self._semana_atrasada(fontes, agora):
             segunda = self._segunda_vigente(agora)
@@ -143,7 +176,7 @@ class LeitorCardapioService:
             arquivo = self.downloader.baixar(fonte)
         except (DownloadError, FormatoPDFInvalidoError) as exc:
             etapa = "download" if isinstance(exc, DownloadError) else "formato"
-            self._falha_da_semana(campus, fonte, etapa, exc, agora, resultado)
+            self._falha_da_semana(campus, fonte, etapa, str(exc), agora, resultado)
             return
 
         if (
@@ -159,12 +192,12 @@ class LeitorCardapioService:
                 io.BytesIO(arquivo.conteudo)
             ).extrair()
         except FormatoPDFInvalidoError as exc:
-            self._falha_da_semana(campus, fonte, "formato", exc, agora, resultado)
+            self._falha_da_semana(campus, fonte, "formato", str(exc), agora, resultado)
             return
         try:
             self._conferir_datas(fonte, [d for r in refeicoes for d in r.dias])
         except FormatoPDFInvalidoError as exc:
-            self._falha_da_semana(campus, fonte, "datas", exc, agora, resultado)
+            self._falha_da_semana(campus, fonte, "datas", str(exc), agora, resultado)
             return
 
         with transaction.atomic():
@@ -194,7 +227,7 @@ class LeitorCardapioService:
             if refeicao.alergenos_indisponiveis:
                 self._alertar_so_em_texto(campus, fonte, refeicao, agora, resultado)
 
-    def _falha_da_semana(self, campus, fonte, etapa, exc, agora, resultado):
+    def _falha_da_semana(self, campus, fonte, etapa, motivo, agora, resultado):
         havia = self.repositorio.manter_ultimo_valido(campus, fonte)
         situacao = (
             "Último cardápio válido mantido."
@@ -202,11 +235,11 @@ class LeitorCardapioService:
             else "Semana sem cardápio anterior: segue como não publicada."
         )
         # As mensagens do download já trazem a URL; as do parser, não.
-        url = "" if fonte.url in str(exc) else f" URL: {fonte.url}."
+        url = "" if fonte.url in motivo else f" URL: {fonte.url}."
         self._alertar(
             TipoAlerta.FALHA_LEITURA_PDF,
             campus,
-            f"Etapa: {etapa} ({_semana(fonte)}). {exc}.{url} {situacao}",
+            f"Etapa: {etapa} ({_semana(fonte)}). {motivo}.{url} {situacao}",
             agora,
             resultado,
         )
