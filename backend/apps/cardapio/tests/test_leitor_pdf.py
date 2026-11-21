@@ -787,6 +787,9 @@ def test_icone_fora_de_celula_de_prato_publica_a_pagina_so_em_texto(monkeypatch)
     almoco = refeicoes[1]
     assert almoco.alergenos_indisponiveis is True
     assert "fora das células" in almoco.motivo
+    # O tipo da falha vem tipado, e não só no texto do motivo (revisão #218).
+    assert almoco.falha is AssociacaoFalhouError
+    assert refeicoes[0].falha is None
     assert _todos_os_marcadores(almoco) == []
     # O texto continua lá, e as outras páginas não são afetadas.
     assert _pratos(almoco, "SALADA 1", "2026-09-21") == [("Repolho roxo", [])]
@@ -860,6 +863,7 @@ def test_rotulo_repetido_na_legenda_publica_so_em_texto(monkeypatch):
     refeicoes, avisos = CardapioPDFParser(str(GAMA)).extrair()
     assert all(r.alergenos_indisponiveis for r in refeicoes)
     assert all("repetido" in r.motivo for r in refeicoes)
+    assert all(r.falha is LegendaInvalidaError for r in refeicoes)
     assert len(avisos) == 3
 
 
@@ -915,6 +919,26 @@ def test_arquivo_que_nao_e_pdf_e_formato_invalido(tmp_path):
     pagina_de_erro.write_text("<html><body>Erro 503</body></html>")
     with pytest.raises(FormatoPDFInvalidoError, match="não foi possível ler"):
         CardapioPDFParser(str(pagina_de_erro)).extrair()
+
+
+def test_pdf_sem_paginas_e_recusado_e_nao_vira_cardapio_vazio():
+    # Exportação quebrada: um PDF válido, mas sem nenhuma página. Devolver
+    # ([], []) faria o serviço apagar a semana em silêncio (revisão #218).
+    with pytest.raises(FormatoPDFInvalidoError, match="nenhuma refeição"):
+        CardapioPDFParser(str(PASTA / "pdf-sem-paginas.pdf")).extrair()
+
+
+def test_main_em_json_com_pagina_so_em_texto_mostra_o_nome_da_falha(
+    monkeypatch, capsys
+):
+    original = leitor.normalizar
+    monkeypatch.setattr(
+        leitor,
+        "normalizar",
+        lambda texto: "pimenta" if original(texto) == "mel" else original(texto),
+    )
+    assert leitor.main(["leitor", str(GAMA), "--json"]) == 0
+    assert '"falha": "LegendaInvalidaError"' in capsys.readouterr().out
 
 
 def test_arquivo_inexistente_e_formato_invalido(tmp_path):

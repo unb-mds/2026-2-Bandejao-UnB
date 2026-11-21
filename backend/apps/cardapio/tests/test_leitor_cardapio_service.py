@@ -241,6 +241,24 @@ def test_dia_do_pdf_fora_do_intervalo_do_link_mantem_o_ultimo_e_alerta(gama, sit
     assert "16/11/2026" in mensagem  # o dia fora do intervalo
 
 
+def test_pdf_sem_paginas_nao_apaga_a_semana_ja_lida(gama, site):
+    # Revisão #218, item 3: sem refeição nenhuma, o PDF é recusado; antes,
+    # o remover_ausentes apagava a semana e o SHA novo era gravado.
+    antes = _ja_lido(gama)
+    ContadorAlerta.objects.create(
+        campus=gama, tipo=FALHA, data=SABADO_10H.date(), quantidade_enviada=1
+    )
+    site.conteudos[URL_GAMA_16] = pdf("pdf-sem-paginas.pdf")
+
+    resultado = _processar(gama, SABADO_10H + timedelta(hours=3))
+
+    assert _estado() == antes
+    assert resultado.lidas == 0
+    [(tipo, mensagem)] = _alertas(gama)
+    assert tipo == FALHA and "nenhuma refeição" in mensagem
+    assert ContadorAlerta.objects.filter(campus=gama, tipo=FALHA).exists()
+
+
 def test_pdf_recusado_sem_semana_anterior_nao_cria_linha(gama, site):
     site.conteudos[URL_GAMA_23] = b"%PDF-1.7 corrompido"
     _processar(gama)
