@@ -102,9 +102,11 @@ class CardapioQueryService:
             campus, padrao.dia, padrao.refeicao
         )
         if encontrada and encontrada.status_leitura == StatusLeitura.LEITURA_FALHOU:
-            # Linha criada sem cardápio anterior válido (N4 do banco): não há
-            # o que mostrar (RF06.4). Publicada, ela sairia com o filtro de
-            # marcador ativo e sem nada sinalizado, como se fosse segura.
+            # O Leitor não cria essa linha (decisão P2 da BE-12), mas o status
+            # continua no enum (N4 do banco) e pode vir de outro caminho, como
+            # o Admin. Não há o que mostrar (RF06.4): publicada, ela sairia com
+            # o filtro de marcador ativo e sem nada sinalizado, como se fosse
+            # segura.
             return self._nao_publicado(campus, padrao)
         alergenos_indisponivel = bool(encontrada and encontrada.alergenos_indisponivel)
         categorias = []

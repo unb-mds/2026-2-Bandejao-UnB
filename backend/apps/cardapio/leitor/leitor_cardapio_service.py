@@ -67,10 +67,16 @@ class ResultadoLeitura:
 
 
 class LeitorCardapioService:
-    def __init__(self):
-        self.downloader = CardapioDownloader()
-        self.repositorio = CardapioRepository()
-        self.alertas = AlertaEquipeService()
+    def __init__(
+        self,
+        downloader: CardapioDownloader | None = None,
+        repositorio: CardapioRepository | None = None,
+        alertas: AlertaEquipeService | None = None,
+    ):
+        # Dependências opcionais, como no `CardapioDownloader(config=None)`.
+        self.downloader = downloader or CardapioDownloader()
+        self.repositorio = repositorio or CardapioRepository()
+        self.alertas = alertas or AlertaEquipeService()
         self.parametros = ParametrosLeitorConfig()
 
     def processar(self, campus: Campus, agora: datetime) -> ResultadoLeitura:

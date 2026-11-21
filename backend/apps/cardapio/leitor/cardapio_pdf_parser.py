@@ -15,7 +15,10 @@ incompleto em silêncio:
 - `FonteNaoEncontradaError` e `DownloadError` (lançadas pelo
   `CardapioDownloader`) e `FormatoPDFInvalidoError`: o PDF inteiro é
   recusado, e o `LeitorCardapioService` mantém o último cardápio válido
-  (RF06.4);
+  (RF06.4). A `FormatoPDFInvalidoError` vem daqui (PDF ilegível, fora do
+  formato ou sem nenhuma refeição), do `CardapioDownloader.baixar` (resposta
+  que não é PDF) e do `LeitorCardapioService._conferir_datas` (dia fora do
+  intervalo do link);
 - `LegendaInvalidaError` e `AssociacaoFalhouError`: só a página afetada sai
   sem marcadores, com `alergenos_indisponiveis=True` e o motivo (RF06.3).
 
@@ -58,8 +61,11 @@ ESPESSURA_MAX_BORDA = 2.5
 # Imagem mais alta que isso dentro da tabela é um erro (AssociacaoFalhouError).
 ALTURA_MAX_ICONE = 25
 # Distância média por pixel (0–255) acima da qual o ícone é "desconhecido".
-# Nos PDFs testados (Gama, Ceilândia e Darcy), o pior acerto ficou em 28 e o
-# segundo colocado ficou sempre pelo menos 1,48 vez mais longe que o certo.
+# No BE-04 (Gama, Ceilândia e Darcy), o pior acerto ficou em 28 e o segundo
+# colocado ficou sempre pelo menos 1,48 vez mais longe que o certo. Depois do
+# corte no vale de tinta (caso 27, BE-12), nos 13 PDFs testados (os 3 do
+# BE-04 e os 10 de novembro), o pior acerto caiu para 19,6 e a menor razão
+# subiu para 1,67. O limite não mudou.
 DISTANCIA_MAX_ICONE = 35
 # Abaixo desta razão (2ª distância / 1ª), o ícone é ambíguo e a associação
 # falha: melhor sem marcadores do que com um marcador errado.
