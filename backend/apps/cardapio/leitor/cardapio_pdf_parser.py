@@ -445,13 +445,15 @@ def _e_separador(texto):
 
 # Palavras que deixam a frase em aberto no fim da linha: a linha seguinte
 # continua o mesmo prato, mesmo começando com maiúscula ("Arroz branco e" /
-# "Integral", no PDF da Ceilândia).
+# "Integral", no PDF da Ceilândia). Vale também para vírgula, hífen e barra
+# no fim da linha: "Rosé /" / "Limão" é um prato só, porque "/" não separa
+# pratos (RF06.2; caso 28, Planaltina de 23/11).
 CONECTORES = {"e", "com", "de", "da", "do", "das", "dos", "ao", "à", "a", "em"}
 
 
 def _linha_em_aberto(palavras):
     ultima = palavras[-1]["text"].lower()
-    return ultima in CONECTORES or ultima.endswith((",", "-"))
+    return ultima in CONECTORES or ultima.endswith((",", "-", "/"))
 
 
 class CardapioEstruturador:
@@ -466,8 +468,8 @@ class CardapioEstruturador:
         - Linha nova que começa com maiúscula começa outro prato
           ("Arroz branco e integral" / "Feijão preto"); com minúscula ou "(",
           continua o prato da linha anterior (quebra de linha do texto).
-        - Exceção: se a linha anterior termina em conector ("e", "com", "de"...)
-          ou vírgula, a linha nova continua o prato mesmo com maiúscula.
+        - Exceção: se a linha anterior termina em conector ("e", "com", "de"...),
+          vírgula ou barra, a linha nova continua o prato mesmo com maiúscula.
 
         Devolve a lista de pratos, cada um com as palavras que o formam.
         """
