@@ -141,8 +141,8 @@ describe('SeletorCampus (FE-07)', () => {
 
     const gama = wrapper.findAll('.campus').find((botao) => botao.text().includes('Gama'))
     await gama.trigger('click')
-    await flushPromises()
 
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('campus-tela'))
     expect(usePreferenciasStore().campusId).toBe(3)
     expect(router.currentRoute.value).toMatchObject({
       name: 'campus-tela',
