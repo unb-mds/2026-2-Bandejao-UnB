@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import AvisoLocalizacao from '@/components/AvisoLocalizacao.vue'
 import NavegacaoTopo from '@/components/NavegacaoTopo.vue'
+import PontosAviso from '@/components/PontosAviso.vue'
 
 const ROTAS_SEM_NAVEGACAO = new Set(['boas-vindas'])
 
@@ -24,6 +25,7 @@ const mostrarNavegacaoTopo = computed(
       .area-tela porque o <dialog> não participa do layout das telas.
     -->
     <AvisoLocalizacao />
+    <PontosAviso />
   </div>
 </template>
 

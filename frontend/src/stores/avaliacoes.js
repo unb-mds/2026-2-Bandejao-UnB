@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { ApiError, apiClient, mensagemDeErro } from '@/services/apiClient'
+import { useGamificacaoStore } from '@/stores/gamificacao'
 
 const chaveRefeicao = ({ campus, data, refeicao }) => `${campus}|${data}|${refeicao}`
 
@@ -208,6 +209,7 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
     }
     const { avaliacao, pontos } = resposta
     minhasPorId.value[refeicaoId] = { nota: avaliacao.nota, comentario: avaliacao.comentario }
+    useGamificacaoStore().registrarPontos(pontos)
     const atualizada = await recarregarDepoisDoEnvio(refeicaoId, campus, data)
     return {
       // Sem acesso ao status (201 ou 200): `editadaEm` diz se editou.

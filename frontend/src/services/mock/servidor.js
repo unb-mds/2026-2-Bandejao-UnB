@@ -860,8 +860,9 @@ function registrarCheckin(corpo, agora) {
   const checkin = { id: estado.proximoId++, campus, tipoRefeicao, data }
   estado.checkins.push({ ...checkin, usuarioId: usuario.id })
   banco.salvar()
-  // Até a BE-14 o bloco `pontos` volta zerado.
-  return ok({ checkin, pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 } }, 201)
+  // Os 10 pontos do check-in confirmado (Anexo A, RN09), como a BE-14 vai
+  // devolver; o backend real ainda volta zerado até lá.
+  return ok({ checkin, pontos: { total: 10, contribuicao: 10, avaliacaoLiberada: 0 } }, 201)
 }
 
 // Terceiro item: nome do limite por IP da rota (LIMITES_POR_IP), se houver.

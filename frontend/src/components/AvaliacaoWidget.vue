@@ -57,7 +57,6 @@ const erroEnvio = ref('')
 const motivoDoServidor = ref('')
 /** Último envio que deu certo: 'criada' | 'editada' | null. */
 const ultimoEnvio = ref(null)
-const pontosRecebidos = ref(0)
 /** O envio deu certo, mas a média e os comentários não foram recarregados. */
 const desatualizada = ref(false)
 /** A sessão expirou no envio: o convite explica e o rascunho fica guardado. */
@@ -149,7 +148,6 @@ function descartarRascunho() {
   erroEnvio.value = ''
   motivoDoServidor.value = ''
   ultimoEnvio.value = null
-  pontosRecebidos.value = 0
   desatualizada.value = false
 }
 
@@ -257,7 +255,6 @@ async function enviar() {
     case 'criada':
     case 'editada':
       ultimoEnvio.value = resultado.desfecho
-      pontosRecebidos.value = resultado.pontos?.total ?? 0
       desatualizada.value = !resultado.atualizada
       editando.value = false
       await nextTick()
@@ -340,7 +337,6 @@ async function enviar() {
           <p class="enviada-texto">
             Sua nota: {{ plural(minha.nota, 'estrela', 'estrelas') }}. Dá para editar até 23h59.
           </p>
-          <p v-if="pontosRecebidos > 0" class="pontos">+{{ pontosRecebidos }} pontos</p>
         </div>
         <button type="button" class="enviada-editar" data-teste="avaliacao-editar" @click="editar">
           Editar
@@ -632,12 +628,6 @@ async function enviar() {
   color: var(--sucesso-texto-suave);
 }
 
-.pontos {
-  margin-top: 4px;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--dourado);
-}
 
 .enviada-editar {
   flex-shrink: 0;
