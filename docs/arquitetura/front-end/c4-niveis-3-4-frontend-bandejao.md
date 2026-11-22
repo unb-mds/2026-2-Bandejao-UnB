@@ -287,10 +287,12 @@ os pontos (RF05)."]
   momento", sem erro; os outros erros mostram a mensagem, com "Tentar
   novamente" menos no status 400 e 404. Os estados ficam numa região
   `aria-live`. A `filaStore` guarda a previsão por campus, refeição e dia:
-  a carregada e a "indisponível" valem 5 minutos, como no cardápio; a
-  `FilaPrevisao` confere a validade a cada minuto e, enquanto revalida,
-  mantém as faixas antigas na tela. O erro não fica guardado. A regra da RN05 está na nota de "Refeição
-  encerrada".
+  a carregada e a "indisponível" valem 5 minutos, como no cardápio. A
+  `FilaPrevisao` confere a validade a cada minuto, em segundo plano: sem
+  passar pelo "Carregando…", sem insistir num erro (para isso há o "Tentar
+  novamente") e, se a revalidação falhar, mantendo a previsão antiga na
+  tela e tentando de novo no minuto seguinte. O erro não fica guardado. A
+  regra da RN05 está na nota de "Refeição encerrada".
 - **`EsperaEstimada` fica dentro de `FilaPrevisao`**: mostra os minutos em
   destaque só nas faixas com `esperaEstimadaMin` diferente de `null`; nas
   demais, só o nível. O texto de apoio (L12) explica que o nível é relativo
