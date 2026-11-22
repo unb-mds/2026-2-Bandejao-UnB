@@ -582,7 +582,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Apoio:
   - `FilaPrevisao` nova na seção da fila: chama `GET /api/fila/previsao/` com o campus, a refeição e o dia escolhidos no cardápio, sem login, e mostra as faixas de 15 minutos com o nível de cada uma;
   - pico em destaque em todas as faixas com `ehPico`, com o resumo "Pico previsto" ou "Picos previstos" no empate, e "Dados insuficientes" sem faixas nem valor de reserva (RF13, RN06);
-  - estados de carregando, erro com "Tentar novamente" (menos no 400 e no 404) e o 501 do backend antes da BE-15 (#167) como "Previsão ainda não disponível";
+  - estados de carregando, erro com "Tentar novamente" (menos no 400 e no 404) e um 501, como defesa contra um backend sem a rota, como "Previsão fora do ar no momento";
   - a previsão da refeição encerrada sai junto com o check-in (RN05);
   - `carregarPrevisao` na `filaStore`, com cache por campus, refeição e dia, o mesmo pedido saindo uma vez só e a resposta validada;
   - o cartão "Em breve" e a legenda repetida saíram da `FilaView`, e o "Como vai funcionar?" virou "Como funciona?", com o texto no presente;
@@ -591,7 +591,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
   Os patches foram gerados pela IA e aplicados e commitados pela autora.
 - TDD: `16654a4` (testes) → `d93139b` (código).
-- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 759 testes passando (95,36% de linhas / 90,79% de ramos) e `npm run build` sem erro.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 773 testes passando (95,37% de linhas / 91,04% de ramos) e `npm run build` sem erro; layout conferido em 360 px e 1366 px no DevTools, com as capturas no PR.
 - Revisão humana: Álvaro Bento revisou o PR #234. Ajustes aplicados, com os testes antes do código:
   - uma resposta `disponivel` sem pico, ou `dados_insuficientes` com faixas, vira erro;
   - a lista de faixas virou um grid único, que encolhe em 360 px;
@@ -604,4 +604,9 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - a RN06 entrou na rastreabilidade.
 
   Os comentários novos sugeridos no código ficaram de fora por serem sugestão.
+
+  Na segunda revisão, depois da BE-15 (#236) entrar na develop, os ajustes foram:
+  - os textos que tratavam a BE-15 como futura (cabeçalhos da `filaStore` e do simulado, C4) foram atualizados, e o 501 ficou só como defesa;
+  - com a tela parada, a `FilaPrevisao` confere a validade a cada minuto e, enquanto revalida, mantém as faixas antigas;
+  - um `@supports` cobre os navegadores sem `subgrid`.
 - Situação: aguardando nova revisão.
