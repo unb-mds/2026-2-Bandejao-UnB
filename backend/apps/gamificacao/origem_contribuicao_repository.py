@@ -34,12 +34,19 @@ class OrigemContribuicaoRepository:
 
     def marcar_pontuada(
         self, tipo: TipoContribuicao, origem_id: int, agora: datetime
-    ) -> None:
-        """Grava só o marcador, sem carregar a linha: um `save()` da linha
-        inteira desfaria uma edição ou ocultação feita no meio do caminho."""
-        MODELO_DA_ORIGEM[tipo].objects.filter(
-            id=origem_id, pontos_concedidos_em__isnull=True
-        ).update(pontos_concedidos_em=agora)
+    ) -> bool:
+        """Grava o marcador e diz se gravou: False quando o registro não existe,
+        é de outro tipo ou já tinha o marcador.
+
+        Grava só o marcador, sem carregar a linha: um `save()` da linha
+        inteira desfaria uma edição ou ocultação feita no meio do caminho.
+        """
+        marcadas = (
+            MODELO_DA_ORIGEM[tipo]
+            .objects.filter(id=origem_id, pontos_concedidos_em__isnull=True)
+            .update(pontos_concedidos_em=agora)
+        )
+        return marcadas == 1
 
     def tem_checkin_confirmado(self, conta, refeicao: RefeicaoRef) -> bool:
         """Mesma refeição é campus + tipo + data, nunca o conteúdo do cardápio.

@@ -1,10 +1,11 @@
 """PontuacaoService (Gamificação N4 4a): a única porta de entrada para pontuar.
 
 `inicializar_conta` (BE-05) é chamada pelo cadastro e `registrar_contribuicao`
-pelo check-in e pela avaliação, sempre na transação de quem chama. A regra dos
-pontos é a da BE-14: 10 por check-in, 5 por avaliação com check-in na mesma
-refeição (campus + tipo + data), uma vez só, no campus e no semestre da
-refeição (RN09, RN12, Anexo A, ADR 0011).
+pelo check-in e pela avaliação, sempre na transação de quem chama. A regra é
+a da BE-14: cada contribuição vale os pontos que a `PontuacaoPolicy` dá ao
+tipo; a avaliação só pontua com check-in na mesma refeição (campus + tipo +
+data); tudo uma vez só, no campus e no semestre da refeição (RN09, RN12,
+Anexo A, ADR 0011).
 """
 
 from django.utils import timezone
@@ -14,6 +15,7 @@ from apps.gamificacao.contribuicao import (
     ResultadoPontuacao,
     TipoContribuicao,
 )
+from apps.gamificacao.erros import OrigemContribuicaoNaoEncontradaError
 from apps.gamificacao.models import PontuacaoUsuario
 from apps.gamificacao.origem_contribuicao_repository import (
     OrigemContribuicaoRepository,
@@ -46,6 +48,18 @@ class PontuacaoService:
         """
         PontuacaoUsuario.objects.create(usuario=conta)
 
+    def travar_conta(self, conta) -> None:
+        """Trava a pontuação da conta até o fim da transação de quem chama.
+
+        Para quem trava, antes de pontuar, uma linha que a pontuação também
+        escreve: a Avaliação trava a avaliação para editá-la, e a pontuação
+        de um check-in marca essa mesma avaliação. Travando a conta primeiro,
+        as duas transações pegam as travas na mesma ordem e não se prendem
+        uma na outra (deadlock). `registrar_contribuicao` trava de novo, sem
+        custo, então quem não precisa disto não precisa chamar.
+        """
+        self.pontuacoes.travar_por_conta(conta)
+
     def registrar_contribuicao(
         self,
         conta,
@@ -61,10 +75,11 @@ class PontuacaoService:
 
         1. trava a pontuação da conta (primeira leitura, sempre);
         2. registro de origem já pontuado: 0, uma vez só;
-        3. avaliação oculta ou sem check-in na mesma refeição: 0, sem marcar,
-           para que os pontos venham com o check-in (RN09);
-        4. soma os pontos do tipo ao total e ao semestre do campus da
-           refeição, e marca o registro;
+        3. avaliação: oculta pela moderação, 0 e nunca pontua; sem check-in na
+           mesma refeição, 0 sem marcar, e os pontos vêm com o check-in (RN09);
+        4. marca o registro e soma os pontos do tipo ao total e ao semestre do
+           campus da refeição. Se o registro não existe (ou é de outro tipo),
+           nada é marcado nem somado: `OrigemContribuicaoNaoEncontradaError`;
         5. no check-in, libera a avaliação feita antes, na mesma refeição.
         """
         agora = timezone.now()
@@ -77,21 +92,24 @@ class PontuacaoService:
             return ResultadoPontuacao()
 
         contribuicao = self.politica.pontos_por(tipo)
-        self.origens.marcar_pontuada(tipo, origem_id, agora)
+        self._marcar(tipo, origem_id, agora)
         liberada = 0
         if tipo == TipoContribuicao.CHECKIN:
             avaliacao = self.origens.avaliacao_nao_pontuada(conta, refeicao)
             if avaliacao is not None:
                 liberada = self.politica.pontos_por(TipoContribuicao.AVALIACAO)
-                self.origens.marcar_pontuada(
-                    TipoContribuicao.AVALIACAO, avaliacao.id, agora
-                )
+                self._marcar(TipoContribuicao.AVALIACAO, avaliacao.id, agora)
         # Check-in e avaliação liberada são da mesma refeição: mesmo campus e
         # mesmo semestre, então uma gravação só de cada contador.
         self._conceder(pontuacao, conta, refeicao, contribuicao + liberada)
         return ResultadoPontuacao(
             contribuicao=contribuicao, avaliacao_liberada=liberada
         )
+
+    def _marcar(self, tipo: TipoContribuicao, origem_id: int, agora) -> None:
+        """ "Uma vez só" depende desta gravação: sem ela, nada de pontos."""
+        if not self.origens.marcar_pontuada(tipo, origem_id, agora):
+            raise OrigemContribuicaoNaoEncontradaError(tipo, origem_id)
 
     def _avaliacao_pontua(self, conta, origem_id: int, refeicao: RefeicaoRef) -> bool:
         """A avaliação pontua se não está oculta pela moderação e a refeição já

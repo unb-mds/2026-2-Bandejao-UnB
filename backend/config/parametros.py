@@ -67,8 +67,8 @@ class ParametrosGamificacaoConfig:
     limiares_patente: Final = (0, 150, 450, 900, 1500)
     tamanho_ranking: Final = 10
 
-    # Semestre de quem pontua sem nenhuma data de término configurada: o
-    # semestre atual (decisão do grupo, 22/11/2026). A BE-17 usa o mesmo valor.
+    # Usado só quando não há nenhuma data de término configurada (decisão do
+    # grupo, 22/11/2026). Rótulos sempre no formato "AAAA.1" ou "AAAA.2".
     semestre_inicial: Final = "2026.2"
     # Término de cada semestre, pelo calendário acadêmico da UnB. Depois do
     # último término, a data já é do semestre seguinte, que fica aberto até

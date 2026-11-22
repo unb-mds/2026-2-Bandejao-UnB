@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
 
-from apps.cardapio.models import Campus
+from apps.cardapio.models import Campus, TipoRefeicao
 
 
 class TipoContribuicao(StrEnum):
@@ -24,7 +24,7 @@ class RefeicaoRef:
     """A refeição da contribuição, tirada do registro já gravado (RN09)."""
 
     campus: Campus
-    tipo_refeicao: str
+    tipo_refeicao: TipoRefeicao
     data: date
 
 

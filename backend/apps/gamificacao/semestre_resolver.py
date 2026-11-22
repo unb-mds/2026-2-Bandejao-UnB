@@ -5,8 +5,6 @@ término, como as estações de uma linha de metrô: entre o término de um e o 
 próximo, a data pertence ao próximo. Por isso as férias contam para o
 semestre que vem, e depois do último término configurado a data já é do
 semestre seguinte, aberto até alguém configurar o término dele.
-
-A BE-17 (ranking) reaproveita esta classe.
 """
 
 from datetime import date
@@ -25,8 +23,9 @@ class SemestreResolver:
         self, datas: dict[str, date] | None = None, inicial: str | None = None
     ):
         """Sem argumentos, lê a `ParametrosGamificacaoConfig`. Os testes passam
-        as datas aqui, para não depender da config global."""
-        self.datas = (
+        as datas aqui, para não depender da config global. Guarda uma cópia:
+        mexer no dicionário depois não muda o resolver nem a config."""
+        self.datas = dict(
             ParametrosGamificacaoConfig.datas_termino_semestre
             if datas is None
             else datas
@@ -38,7 +37,8 @@ class SemestreResolver:
     def semestre_de(self, data: date) -> str:
         """O primeiro semestre cujo término é igual ou posterior a `data`.
 
-        Sem nenhuma data configurada, o semestre é o `inicial` (o atual).
+        Depois do último término configurado, o semestre seguinte a ele. Sem
+        nenhuma data configurada, o `inicial`.
         """
         if not self.datas:
             return self.inicial
