@@ -1,0 +1,30 @@
+# Tarefas periódicas do Bandejão na VM de produção (BD-07, #147).
+#
+# Instalar (ver docs/deploy/deploy-producao.md, "Tarefas periódicas"):
+#   sudo install -m 644 -o root -g root deploy/cron/bandejao /etc/cron.d/bandejao
+#
+# Formato do /etc/cron.d: minuto, hora, dia, mês, dia da semana, usuário e
+# comando. Os horários estão em UTC, o fuso da VM; Brasília é UTC-3. Cada
+# tarefa passa pelo rodar-comando.sh, que roda o comando do Django no
+# container do backend, grava o log em /var/log/bandejao/<comando>.log e
+# manda as falhas para o syslog (journalctl -t bandejao-cron).
+#
+# Um comando novo entra aqui e no teste backend/tests/test_cron_producao.py.
+# Uma linha de tarefa comentada com "# " está desativada.
+
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Cadastro pendente sem confirmação nem reenvio há mais de 24 h (RF02.3): de
+# hora em hora, para a matrícula e o e-mail ficarem livres logo depois do prazo.
+0 * * * * azureuser sh /home/azureuser/2026-2-Bandejao-UnB/deploy/cron/rodar-comando.sh excluir_cadastros_pendentes
+
+# Leitura do PDF do cardápio (ADR 0014, BE-12): de 3 em 3 horas, todos os
+# dias.
+0 */3 * * * azureuser sh /home/azureuser/2026-2-Bandejao-UnB/deploy/cron/rodar-comando.sh ler_cardapio
+
+# Sessões expiradas do Django (ADR 0007): 03h15 de Brasília.
+15 6 * * * azureuser sh /home/azureuser/2026-2-Bandejao-UnB/deploy/cron/rodar-comando.sh clearsessions
+
+# Retenção de 4 semanas da fila (RNF07.3, BD-11): 03h30 de Brasília.
+30 6 * * * azureuser sh /home/azureuser/2026-2-Bandejao-UnB/deploy/cron/rodar-comando.sh desvincular_registros_fila

@@ -366,6 +366,9 @@ Só os containers cujas imagens mudaram são recriados. As migrations novas são
 aplicadas na subida do backend. Os dados do banco e os certificados ficam nos
 volumes e não se perdem.
 
+Se o merge mudou algum arquivo de `deploy/cron/`, reinstale-o como em
+[Tarefas periódicas](#tarefas-periódicas-cron).
+
 Se mudar só o `Caddyfile`, basta recarregar o Caddy:
 
 ```bash
@@ -441,6 +444,113 @@ Anote a data e o resultado de cada passo na issue #142 (FE-06) e na #148
 (BD-08). Se um passo falhar, os logs ficam em
 `docker compose logs --tail 100 backend`.
 
+## Tarefas periódicas (cron)
+
+As tarefas periódicas são comandos do Django chamados pelo **cron da VM**
+(ADRs 0003, 0007, 0012 e 0014; BD-07). Os arquivos ficam em `deploy/cron/`:
+
+| Arquivo | Vai para | O que faz |
+|---|---|---|
+| `bandejao` | `/etc/cron.d/bandejao` | A agenda das tarefas |
+| `rodar-comando.sh` | (fica no repositório) | Roda o comando no container do backend com tempo limite, grava o log, avisa as falhas no syslog e impede duas execuções do mesmo comando ao mesmo tempo |
+| `logrotate` | `/etc/logrotate.d/bandejao` | Uma cópia do log por semana, cerca de 5 semanas guardadas |
+
+| Comando | Quando (Brasília) | Para quê |
+|---|---|---|
+| `excluir_cadastros_pendentes` | de hora em hora | Apaga o cadastro sem confirmação nem reenvio há mais de 24 h (RF02.3) |
+| `ler_cardapio` | de 3 em 3 horas, todos os dias | Lê o PDF do cardápio de cada campus (ADR 0014) |
+| `clearsessions` | todo dia, 03h15 | Apaga as sessões expiradas do Django (ADR 0007) |
+| `desvincular_registros_fila` | todo dia, 03h30 | Retira a conta dos registros de fila com mais de 4 semanas (RNF07.3) |
+
+Os horários do arquivo estão em **UTC**, o fuso da VM (Brasília é UTC-3).
+Uma tarefa nova cujo comando ainda não está na `develop` entra com a linha
+comentada (`# ` no começo); o teste do cron cobra que ela seja descomentada
+quando o comando existir.
+
+### Instalar
+
+Uma vez, na VM, da pasta do repositório:
+
+```bash
+cd ~/2026-2-Bandejao-UnB
+timedatectl | grep "Time zone"     # deve ser UTC (Etc/UTC)
+id -nG azureuser | grep -w docker  # o azureuser precisa estar no grupo docker
+sudo install -d -o azureuser -g azureuser -m 750 /var/log/bandejao
+sudo install -m 644 -o root -g root deploy/cron/bandejao /etc/cron.d/bandejao
+sudo install -m 644 -o root -g root deploy/cron/logrotate /etc/logrotate.d/bandejao
+systemctl is-active cron           # deve responder "active"
+```
+
+O cron lê o `/etc/cron.d/` sozinho, sem reiniciar. Ele ignora o arquivo se o
+dono não for o root ou se outro usuário puder escrever nele: por isso o
+`install` com `-o root` e `-m 644`. As tarefas rodam como `azureuser`, que
+usa o Docker sem root.
+
+Se a VM não estiver em UTC, ajuste as horas do `bandejao` antes de instalar.
+
+### Conferir
+
+Rode cada comando uma vez à mão, pelo mesmo script do cron, **como
+`azureuser` e sem `sudo`**, e veja o log:
+
+```bash
+sh deploy/cron/rodar-comando.sh clearsessions
+sh deploy/cron/rodar-comando.sh excluir_cadastros_pendentes
+tail -n 5 /var/log/bandejao/*.log
+```
+
+Com `sudo`, o log e a trava passam a ser do root, e o cron do `azureuser` não
+consegue mais gravar: a tarefa para e só deixa o erro no syslog (status 73).
+Se isso acontecer, devolva os arquivos ao `azureuser`:
+`sudo chown azureuser:azureuser /var/log/bandejao/*`.
+
+Cada execução grava no log do comando:
+
+- `início`;
+- a saída do comando: o resumo e, em falha, a mensagem de erro com o
+  traceback, sem e-mail, matrícula nem nome;
+- `fim: status N`.
+
+| Status | Quer dizer |
+|---|---|
+| 0 | Sucesso |
+| 75 | Pulado: a execução anterior do mesmo comando ainda estava rodando |
+| 124 | Tempo esgotado: o comando passou de 2 h e foi encerrado dentro do container (ou o cliente do `docker` travou por mais de 130 min) |
+| 137 | Encerrado à força (KILL): não saiu depois do tempo esgotado, ou faltou memória |
+| 73 | O log ou a trava não podem ser gravados (o script rodou com `sudo`?) |
+| 1 ou 2 | Erro do próprio script antes do log (pasta, `mkdir`, `cd`, uso ou nome inválido) |
+| outro | Erro do comando; a mensagem fica nas linhas de cima do log |
+
+Os status 1, 2 e 73 saem antes do log, então a execução não aparece no
+arquivo do comando. Se o log não tiver a execução esperada, veja o
+`journalctl -t bandejao-cron`.
+
+Todo status diferente de 0 também vai para o syslog, com a tag
+`bandejao-cron`. O status 75 vai como aviso, e os outros, como erro. A VM não
+manda e-mail, então **a conferência é manual**: uma vez por semana, ou depois
+de cada deploy, veja os erros dos últimos dias.
+
+```bash
+journalctl -t bandejao-cron --since "7 days ago"   # falhas e pulos das tarefas
+journalctl -u cron --since today | tail -n 20      # cada disparo do cron
+ls -l /var/log/bandejao/
+sudo logrotate -d /etc/logrotate.d/bandejao        # simula a rotação, sem mexer
+```
+
+As falhas de leitura do PDF também avisam a equipe por e-mail pelo próprio
+Leitor (ADR 0006, BE-12), com limite de avisos por dia, no `EMAIL_EQUIPE` do
+`.env` (padrão `equipe@bandejaounb.com.br`). Um erro que derrube o comando, o
+tempo esgotado e as falhas das outras tarefas só aparecem no syslog e no log.
+
+### Mudar ou desligar
+
+Se o `deploy/cron/bandejao` ou o `logrotate` mudar num merge, repita o
+`sudo install` correspondente depois do `git pull`. O `rodar-comando.sh` é
+usado direto do repositório e não precisa ser reinstalado.
+
+Para desligar todas as tarefas, apague o arquivo:
+`sudo rm /etc/cron.d/bandejao`.
+
 ## Ver logs
 
 ```bash
@@ -450,6 +560,9 @@ docker compose logs --tail 100 caddy
 ```
 
 Cada container guarda no máximo 3 arquivos de 10 MB de log.
+
+As tarefas do cron têm o próprio log, um arquivo por comando, em
+`/var/log/bandejao/` (ver [Tarefas periódicas](#tarefas-periódicas-cron)).
 
 ## Cuidados
 
