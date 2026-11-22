@@ -70,6 +70,7 @@ title: "Nível 4a — Gamificação: pontuação das contribuições"
 classDiagram
   class PontuacaoService {
     +registrarContribuicao(conta: Conta, tipo: TipoContribuicao, origemId: int, refeicao: RefeicaoRef) ResultadoPontuacao
+    +travarConta(conta: Conta) void
     +inicializarConta(conta: Conta) void
     +apagarContadores(conta: Conta) void
   }
@@ -95,7 +96,7 @@ classDiagram
   }
   class OrigemContribuicaoRepository {
     +jaPontuada(tipo: TipoContribuicao, origemId: int) bool
-    +marcarPontuada(tipo: TipoContribuicao, origemId: int, agora: datetime) void
+    +marcarPontuada(tipo: TipoContribuicao, origemId: int, agora: datetime) bool
     +temCheckinConfirmado(conta: Conta, refeicao: RefeicaoRef) bool
     +avaliacaoNaoPontuada(conta: Conta, refeicao: RefeicaoRef) Avaliacao
     +avaliacaoOculta(origemId: int) bool
@@ -168,7 +169,7 @@ classDiagram
   PontuacaoPolicy --> ParametrosGamificacaoConfig : lê
   SequenciaService --> OrigemContribuicaoRepository : dias com check-in
   SequenciaService --> ParametrosGamificacaoConfig : lê mínimo e bônus
-  SemestreResolver --> ParametrosGamificacaoConfig : lê datas de término
+  SemestreResolver --> ParametrosGamificacaoConfig : lê datas de término e semestre inicial
   OrigemContribuicaoRepository ..> Checkin : lê / marca
   OrigemContribuicaoRepository ..> Avaliacao : lê / marca
   OrigemContribuicaoRepository ..> PerguntaSaida : lê / marca
@@ -203,16 +204,30 @@ classDiagram
   2. se o registro de origem já tem o marcador, devolve 0 e para (uma vez
      só, ADR 0011);
   3. `PontuacaoPolicy` diz os pontos do tipo (10, 15 ou 5, Anexo A). Para
-     `AVALIACAO`, só pontua se `temCheckinConfirmado` na mesma refeição e
-     se a avaliação não está oculta (`avaliacaoOculta`); senão, devolve 0 e
-     não marca, para que os pontos venham depois;
-  4. soma aos pontos totais e aos pontos do semestre do **campus da
-     refeição**, no semestre que o `SemestreResolver` dá para a data da
-     refeição, e marca o registro de origem;
+     `AVALIACAO`: oculta pela moderação (`avaliacaoOculta`), devolve 0 e
+     nunca pontua; sem `temCheckinConfirmado` na mesma refeição, devolve 0
+     e não marca, para que os pontos venham com o check-in;
+  4. marca o registro de origem e soma aos pontos totais e aos pontos do
+     semestre do **campus da refeição**, no semestre que o
+     `SemestreResolver` dá para a data da refeição. `marcarPontuada` diz se
+     marcou: se o registro não existe ou é de outro tipo, nada é somado e a
+     pontuação levanta `OrigemContribuicaoNaoEncontradaError`, que desfaz a
+     transação de quem chamou (sem o marcador, cada nova chamada pontuaria
+     de novo);
   5. só para `CHECKIN`: procura `avaliacaoNaoPontuada` na mesma refeição
      (a pessoa avaliou antes de fazer o check-in) e, se houver, pontua a
      avaliação e a marca (`avaliacaoLiberada`); depois o
      `SequenciaService` confere se este check-in completou a semana.
+- **`travarConta`, para quem trava antes uma linha que a pontuação escreve
+  (revisão da BE-14).** A pontuação de um check-in trava a conta e depois
+  marca a avaliação feita antes. A edição da avaliação trava a avaliação
+  (`select_for_update`) antes de pontuar: se travasse a avaliação antes da
+  conta, editar e fazer check-in na mesma refeição ao mesmo tempo daria
+  deadlock (erro 1213 do InnoDB). Por isso o `AvaliacaoService` chama
+  `travarConta` no começo da transação, e as duas pegam as travas na mesma
+  ordem: conta, depois avaliação. O check-in não precisa: a pontuação que
+  roda nele escreve na avaliação, mas a que roda na avaliação só lê o
+  `Checkin`. `registrarContribuicao` trava de novo, sem custo.
 - **A regra da avaliação (RN09) mora só aqui.** A avaliação pontua quando a
   refeição passa a ter avaliação e check-in confirmado, o que vier por
   último. Como os dois lados chamam a mesma função, a regra não fica
@@ -296,9 +311,10 @@ classDiagram
   }
   class OrigemContribuicaoRepository {
     +jaPontuada(tipo: TipoContribuicao, origemId: int) bool
-    +marcarPontuada(tipo: TipoContribuicao, origemId: int, agora: datetime) void
+    +marcarPontuada(tipo: TipoContribuicao, origemId: int, agora: datetime) bool
     +temCheckinConfirmado(conta: Conta, refeicao: RefeicaoRef) bool
     +avaliacaoNaoPontuada(conta: Conta, refeicao: RefeicaoRef) Avaliacao
+    +avaliacaoOculta(origemId: int) bool
     +diasComCheckin(conta: Conta, segunda: date) int
   }
   class PatenteResolver {
@@ -329,6 +345,7 @@ classDiagram
     +minDiasSemana: int = 3
     +bonusSemana: int = 20
     +limiaresPatente: tuple = 0, 150, 450, 900, 1500
+    +semestreInicial: str = "2026.2"
     +datasTerminoSemestre: dict
   }
   class Refeicao {
@@ -466,6 +483,7 @@ classDiagram
     +tamanhoRanking: int = 10
     +colocacoesBandeja: int = 30
     +minPontosBandeja: int = 100
+    +semestreInicial: str = "2026.2"
     +datasTerminoSemestre: dict
   }
   class Conta {
@@ -474,7 +492,7 @@ classDiagram
     +status: StatusConta
   }
 
-  SemestreResolver --> ParametrosGamificacaoConfig : lê datas de término
+  SemestreResolver --> ParametrosGamificacaoConfig : lê datas de término e semestre inicial
   PatenteResolver --> ParametrosGamificacaoConfig : lê limiares
   ProgressoView --> ProgressoService : montar()
   RankingAdesaoView --> PontuacaoRepository : ativa / desativa adesão
@@ -601,6 +619,7 @@ classDiagram
     +tamanhoRanking: int = 10
     +colocacoesBandeja: int = 30
     +minPontosBandeja: int = 100
+    +semestreInicial: str = "2026.2"
     +datasTerminoSemestre: dict
   }
   class Conta {
@@ -615,7 +634,7 @@ classDiagram
     +paraPublico(linha: LinhaRanking) LinhaRankingPublica
   }
 
-  SemestreResolver --> ParametrosGamificacaoConfig : lê datas de término
+  SemestreResolver --> ParametrosGamificacaoConfig : lê datas de término e semestre inicial
   FechamentoSemestreCommand --> SemestreResolver : último semestre terminado
   FechamentoSemestreCommand --> PontuacaoRepository : já fechado?
   FechamentoSemestreCommand --> FechamentoSemestreService : fechar(), se não fechado
