@@ -26,11 +26,12 @@
  * (FE-11) segue o contrato da BE-15 (#236), com uma previsão de exemplo de
  * `./previsao.js`; `simulacao.definirPrevisaoDisponivel(false)` faz ele
  * responder 501, para testar a defesa do front contra um backend sem a rota.
- * O progresso, a adesão e o ranking (FE-12) seguem o OpenAPI da BE-16, com
- * 10 pontos por check-in do simulado e um ranking de exemplo de
- * `./gamificacao.js`; depois de `simulacao.definirGamificacaoDisponivel(false)`
- * respondem 501, como o backend hoje (no ranking, só para um campus que existe;
- * o backend responde 501 para qualquer campus).
+ * O progresso, a adesão e o ranking (FE-12) seguem o OpenAPI, com 10 pontos
+ * por check-in do simulado e um ranking de exemplo de `./gamificacao.js`. No
+ * backend, o progresso e a adesão já respondem desde a BE-16 (#237), e o
+ * ranking ainda responde 501 para qualquer campus. Depois de
+ * `simulacao.definirGamificacaoDisponivel(false)`, as três rotas respondem 501
+ * (no ranking, só para um campus que existe), para testar a defesa do front.
  * Recuperação de senha, a semana do cardápio (`/cardapio/<campus>/`) e as
  * listas de avaliação da HomeView (`GET /avaliacoes/` e o resumo da semana)
  * ainda têm o formato do MVP: entram no contrato na FE-E2.

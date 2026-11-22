@@ -37,8 +37,9 @@ const ehRanking = (resposta, campusId) =>
   resposta.linhas.every(ehLinhaDoRanking)
 
 /**
- * 501 quer dizer que a BE-16 ainda não tem a regra: vira `indisponivel`, sem
- * mensagem de erro, para a tela mostrar "ainda não disponível".
+ * 501 quer dizer que o backend ainda não tem a regra (hoje, só o ranking; o
+ * progresso já responde desde a BE-16): vira `indisponivel`, sem mensagem de
+ * erro, para a tela mostrar "ainda não disponível".
  */
 function estadoDaFalha(falha) {
   if (falha?.status === 501) return { situacao: 'indisponivel', dados: null, erro: null }

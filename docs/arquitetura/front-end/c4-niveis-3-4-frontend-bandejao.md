@@ -397,7 +397,8 @@ Convite ao cadastro (RF05)."]
   ou "patente máxima", o `RankingAdesaoToggle` e o `BotaoSair`; a
   `SequenciaSemana`, a `PosicaoRanking` e o `DistintivoIndicador` ficam
   para depois. Chega-se a ela pelo item "Meu progresso" do menu da Início.
-  Enquanto a BE-16 (#168) responde 501, a tela mostra "Progresso ainda não
+  O progresso e a adesão vêm da BE-16 (#237). Se o backend responder 501
+  (defesa contra uma rota sem a regra), a tela mostra "Progresso ainda não
   disponível", sem erro; o `BotaoSair` continua. O interruptor só aparece com
   o progresso carregado (não no 501, no primeiro carregamento nem no erro) e,
   depois de mudar a adesão, continua na tela, desativado, enquanto o

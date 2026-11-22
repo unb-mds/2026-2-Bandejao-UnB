@@ -1139,7 +1139,7 @@ describe('GET /fila/previsao/ (contrato da BE-15, FE-11)', () => {
   })
 })
 
-describe('gamificação: progresso, adesão e ranking (contrato da BE-16, FE-12)', () => {
+describe('gamificação: progresso, adesão e ranking (contrato do OpenAPI, FE-12)', () => {
   const darCheckins = (quantidade, campus = 1) => {
     for (let i = 0; i < quantidade; i++) {
       banco.estado.checkins.push({

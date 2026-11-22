@@ -264,7 +264,7 @@ describe('gamificacaoStore: progresso, ranking e adesão (FE-12)', () => {
     expect(get).toHaveBeenCalledTimes(1)
   })
 
-  it('501 (BE-16 ainda sem a regra): "indisponivel", sem erro', async () => {
+  it('501 (backend sem a regra): "indisponivel", sem erro', async () => {
     await entrar()
     simulacao.definirGamificacaoDisponivel(false)
     const gamificacao = useGamificacaoStore()

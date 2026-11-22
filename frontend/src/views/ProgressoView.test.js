@@ -143,7 +143,7 @@ describe('ProgressoView: usuário logado (FE-12, RF26.2)', () => {
     expect(interruptor(wrapper).attributes('role')).toBe('switch')
   })
 
-  it('501 (BE-16 sem a regra): "Progresso ainda não disponível", sem o interruptor', async () => {
+  it('501 (backend sem a regra): "Progresso ainda não disponível", sem o interruptor', async () => {
     await entrar()
     simulacao.definirGamificacaoDisponivel(false)
 
