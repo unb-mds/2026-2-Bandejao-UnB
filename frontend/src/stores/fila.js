@@ -18,8 +18,10 @@ import { mensagemForaDoHorario } from '@/constants/refeicoes'
  *
  * A previsão carregada e a "indisponível" (501, defesa contra um backend sem
  * a rota) valem por 5 minutos, como o cardápio; a `FilaPrevisao` confere a
- * validade a cada minuto e, enquanto revalida, continua mostrando as faixas
- * antigas. O erro não fica guardado.
+ * validade a cada minuto, em segundo plano: não passa pelo "Carregando…",
+ * não insiste num erro (para isso há o "Tentar novamente") e, se falhar,
+ * mantém a previsão antiga e tenta de novo no minuto seguinte. O erro não
+ * fica guardado.
  */
 
 // 400 dados_invalidos só acontece se o próprio PWA montar o corpo errado (por
@@ -78,9 +80,10 @@ export const useFilaStore = defineStore('fila', () => {
     return previsoes.value[chaveDaPrevisao(pedido)] ?? null
   }
 
-  function carregarPrevisao(pedido, { forcar = false } = {}) {
+  function carregarPrevisao(pedido, { forcar = false, emSegundoPlano = false } = {}) {
     const chave = chaveDaPrevisao(pedido)
     const atual = previsoes.value[chave]
+    if (emSegundoPlano && atual?.situacao === 'erro') return Promise.resolve(atual)
     const aindaVale =
       ['carregado', 'indisponivel'].includes(atual?.situacao) && Date.now() < atual.expiraEm
     if (!forcar && aindaVale) return Promise.resolve(atual)
@@ -90,7 +93,7 @@ export const useFilaStore = defineStore('fila', () => {
       refeicao: pedido.refeicao,
       data: pedido.data,
     })
-    previsoes.value[chave] = { ...atual, situacao: 'carregando', erro: null }
+    if (!emSegundoPlano) previsoes.value[chave] = { ...atual, situacao: 'carregando', erro: null }
     const promessa = apiClient
       .get(`/fila/previsao/?${parametros}`)
       .then((resposta) => {
@@ -126,11 +129,14 @@ export const useFilaStore = defineStore('fila', () => {
         }
       })
       .then((estado) => {
+        const manterAntiga =
+          emSegundoPlano && estado.situacao === 'erro' && atual?.situacao === 'carregado'
+        const final = manterAntiga ? atual : estado
         if (pedidosDePrevisao.get(chave) === promessa) {
-          previsoes.value[chave] = estado
+          previsoes.value[chave] = final
           pedidosDePrevisao.delete(chave)
         }
-        return estado
+        return final
       })
     pedidosDePrevisao.set(chave, promessa)
     return promessa

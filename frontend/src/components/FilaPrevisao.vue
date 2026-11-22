@@ -62,7 +62,10 @@ watch(pedido, (valor) => fila.carregarPrevisao(valor), { immediate: true })
 
 let revalidacao = null
 onMounted(() => {
-  revalidacao = setInterval(() => fila.carregarPrevisao(pedido.value), INTERVALO_DE_REVALIDACAO)
+  revalidacao = setInterval(
+    () => fila.carregarPrevisao(pedido.value, { emSegundoPlano: true }),
+    INTERVALO_DE_REVALIDACAO,
+  )
 })
 onBeforeUnmount(() => clearInterval(revalidacao))
 
