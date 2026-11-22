@@ -56,7 +56,9 @@ cd 2026-2-Bandejao-UnB
 ```
 
 Em produção vale a branch `main`, a do deploy automático (ver
-[Deploy automático (CD)](#deploy-automático-cd)).
+[Deploy automático (CD)](#deploy-automático-cd)). Até a release, a VM roda a
+`develop` (`git checkout develop`) e passa para a `main` no passo 5 de
+[Configurar](#configurar-uma-vez).
 
 ### 2. Criar o `.env` e o `.env.db`
 
@@ -399,27 +401,38 @@ continua recebendo a senha do root, porque o `.env` vai inteiro para ele.
 Cada push na `main` (o merge de um PR) vai sozinho para a VM. O workflow
 `.github/workflows/deploy.yml`:
 
-1. espera o **Backend CI** e o **Frontend CI** do mesmo commit terminarem; se
-   um deles falhar, não há deploy;
+1. espera o **Backend CI** e o **Frontend CI** do mesmo commit, num push na
+   `main`, terminarem; se um deles falhar, não há deploy;
 2. entra na VM pelo SSH, com uma chave que só serve para o deploy, e chama o
    `bandejao-deploy` com o commit.
 
 O `bandejao-deploy` (cópia instalada do `deploy/cd/deploy.sh`):
 
 1. impede dois deploys ao mesmo tempo;
-2. confere se a VM está na `main`, sem mudanças locais, e se o commit está na
-   `origin/main`;
-3. faz o backup do banco em `~/backups/deploy-<data>-<commit>.sql.gz` (ficam
-   os 10 mais recentes);
-4. avança a `main` até o commit (só fast-forward);
+2. confere se a VM está na `main`, sem mudanças locais, se o commit está na
+   `origin/main` e se ele vem depois do commit da VM (só fast-forward);
+3. faz o backup do banco em `~/backups/deploy-<data>-<commit>.sql.gz`;
+4. avança a `main` até o commit;
 5. roda `docker compose up -d --build --wait`: as migrations novas rodam na
    subida do backend;
-6. confere se `https://bandejaounb.com.br/api/campi/` responde 200.
+6. recarrega o Caddy se o `Caddyfile` mudou (ele entra por bind mount, e o
+   `up` não recria o container só por isso);
+7. confere se `https://bandejaounb.com.br/` (o PWA) e
+   `https://bandejaounb.com.br/api/campi/` respondem 200;
+8. só então roda a rotação dos backups: ficam os 10 mais recentes, e o backup
+   de antes do último deploy que deu certo também fica em
+   `~/backups/ultimo-ok.sql.gz`, fora da rotação.
 
 Não há rollback automático. Se um passo falhar, o job fica vermelho na aba
 **Actions** e o log mostra o commit anterior e o backup para voltar à mão.
+Como a rotação só roda depois de um deploy que deu certo, novas tentativas
+depois de uma migration que quebrou não apagam o backup de antes dela.
 Um deploy atrasado, de um commit mais antigo que o que está no ar, é pulado e
 não volta o site.
+
+Cada passo que pode travar tem tempo limite (`git fetch` 2 min, backup
+15 min, build e subida 30 min, reload do Caddy 1 min): um passo travado não
+segura a trava para sempre. O status 124 no log é tempo esgotado.
 
 O script não reinstala o cron nem a si mesmo. Se o merge mudar
 `deploy/cron/` ou `deploy/cd/deploy.sh`, o log avisa, e é preciso reinstalar
@@ -472,13 +485,31 @@ A linha sai do arquivo de chave do próprio servidor, sem passar pela rede.
 - *Deployment branches and tags*: só a `main`;
 - secrets `DEPLOY_SSH_KEY` (o conteúdo inteiro da chave privada) e
   `DEPLOY_KNOWN_HOSTS` (a linha do passo 3);
-- variables `DEPLOY_HOST` (`20.102.232.122`) e `DEPLOY_USER` (`azureuser`).
+- variables (em *Environment variables*, e não em secrets) `DEPLOY_HOST`
+  (`20.102.232.122`) e `DEPLOY_USER` (`azureuser`). O workflow lê
+  `vars.DEPLOY_HOST`: num secret, o destino do `ssh` sairia vazio.
+
+**5. Passar a VM para a `main`**, depois do merge da release `develop` →
+`main` e antes do primeiro push seguinte na `main`. O script exige a VM na
+`main`, sem mudanças locais. Na VM:
+
+```bash
+cd ~/2026-2-Bandejao-UnB
+git status --short                 # tem que sair vazio
+git fetch origin && git switch main && git merge --ff-only origin/main
+```
+
+O push da release já disparou o workflow. Se ele chegou à VM antes da troca,
+o job fica vermelho com "a VM está na branch 'develop'": use **Re-run jobs**
+na aba **Actions** depois da troca.
 
 ### Deploy à mão
 
-Na VM, como `azureuser` (nunca com `sudo`), com o commit completo da `main`:
+Na VM, como `azureuser` (nunca com `sudo`), com o commit completo da `main`.
+O `fetch` vem antes, para não pegar uma `origin/main` velha:
 
 ```bash
+git -C ~/2026-2-Bandejao-UnB fetch origin main
 bandejao-deploy "$(git -C ~/2026-2-Bandejao-UnB rev-parse origin/main)"
 ```
 
@@ -489,7 +520,8 @@ usar **Re-run jobs**: o mesmo commit passa de novo por todos os passos.
 
 ```bash
 tail -n 30 /var/log/bandejao/deploy.log
-journalctl -t bandejao-deploy --since "7 days ago"   # deploys que falharam
+journalctl -t bandejao-deploy --since "7 days ago"   # falhas e deploys pulados
+ls -lt ~/backups/ | head                             # backups dos deploys
 ```
 
 O `deploy.log` entra na rotação semanal dos logs do cron
@@ -498,9 +530,10 @@ O `deploy.log` entra na rotação semanal dos logs do cron
 ## Deploy do M2 (FE-06)
 
 O M2 é o check-in funcionando em produção (MC-01). O PWA com o check-in
-(FE-05, #141) já está na `develop`. Até a release, o deploy foi o da seção
-[Atualizar](#atualizar), feito à mão na `develop`; desde a issue #240, a VM
-roda a `main`, com o [Deploy automático (CD)](#deploy-automático-cd).
+(FE-05, #141) já está na `develop`. Até a release, o deploy é o da seção
+[Atualizar](#atualizar), feito à mão na `develop`. Depois da release, a VM
+passa para a `main` (passo 5 de [Configurar](#configurar-uma-vez)) e o deploy
+fica com o [Deploy automático (CD)](#deploy-automático-cd).
 
 O build de produção nunca usa o servidor simulado: no `vite build` o Vite
 fixa `import.meta.env.DEV` em `false`, e o `if (import.meta.env.DEV)` de
@@ -670,6 +703,11 @@ deploy automático grava no `/var/log/bandejao/deploy.log` (ver
 
 ## Cuidados
 
+- **Merge na `main` é deploy em produção.** Com o
+  [Deploy automático (CD)](#deploy-automático-cd), todo push na `main`, por
+  PR ou direto, vai para o site assim que o CI do commit passa. A `main` só
+  recebe a release da `develop` (com "Create a merge commit", nunca squash)
+  ou um hotfix por PR.
 - **Scripts de `db/init/` só rodam na primeira subida**, com o volume
   `mysql_dados` vazio. Se um script mudar depois, aplique-o na mão: o
   `10-usuarios.sh` como em [Banco](#banco); um `.sql` com
