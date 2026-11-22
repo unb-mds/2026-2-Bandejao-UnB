@@ -591,7 +591,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
   Os patches foram gerados pela IA e aplicados e commitados pela autora.
 - TDD: `16654a4` (testes) → `d93139b` (código).
-- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 773 testes passando (95,37% de linhas / 91,04% de ramos) e `npm run build` sem erro; layout conferido em 360 px e 1366 px no DevTools, com as capturas no PR.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 778 testes passando (95,38% de linhas / 91,11% de ramos) e `npm run build` sem erro; layout conferido em 360 px e 1366 px no DevTools, com as capturas no PR.
 - Revisão humana: Álvaro Bento revisou o PR #234. Ajustes aplicados, com os testes antes do código:
   - uma resposta `disponivel` sem pico, ou `dados_insuficientes` com faixas, vira erro;
   - a lista de faixas virou um grid único, que encolhe em 360 px;
@@ -609,4 +609,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - os textos que tratavam a BE-15 como futura (cabeçalhos da `filaStore` e do simulado, C4) foram atualizados, e o 501 ficou só como defesa;
   - com a tela parada, a `FilaPrevisao` confere a validade a cada minuto e, enquanto revalida, mantém as faixas antigas;
   - um `@supports` cobre os navegadores sem `subgrid`.
+
+  Na terceira conferência, a revalidação passou a rodar em segundo plano: não passa pelo "Carregando…", não insiste num erro (para isso há o "Tentar novamente") e, se falhar, mantém a previsão antiga e tenta de novo no minuto seguinte. Há testes de rede fora e de falha da revalidação.
 - Situação: aguardando nova revisão.
