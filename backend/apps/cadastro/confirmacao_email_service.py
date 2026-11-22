@@ -200,18 +200,35 @@ class ConfirmacaoEmailService:
         revelaria que a conta existe. Só os envios que saíram contam. O
         primeiro link, do cadastro, não passa por este limite (sai pelo
         `enviar_link` direto).
+
+        Pelo mesmo motivo, um erro inesperado daqui para baixo (banco fora,
+        lock no cache do limite, bug) também não sobe (#205). Este trecho só roda
+        para conta pendente: um 500 só nela responderia "este e-mail tem conta
+        pendente?", e o e-mail institucional é fácil de adivinhar.
         """
         if conta is None:
             return
         if conta.status != StatusUsuario.PENDENTE or conta.email_confirmado:
             return
-        limite = LimiteReenvioPorConta()
-        if not limite.permite(conta):
-            return
-        # A vaga só é gasta se o e-mail saiu: com o SMTP fora, a pessoa pode
-        # tentar de novo quando ele voltar.
-        if self.enviar_link(conta):
-            limite.registrar(conta)
+        try:
+            limite = LimiteReenvioPorConta()
+            if not limite.permite(conta):
+                return
+            # A vaga só é gasta se o e-mail saiu: com o SMTP fora, a pessoa
+            # pode tentar de novo quando ele voltar.
+            if self.enviar_link(conta):
+                limite.registrar(conta)
+        except Exception as exc:  # noqa: BLE001
+            # Exception, e não só DatabaseError: qualquer 500 aqui vaza do
+            # mesmo jeito, inclusive um bug que só aparece em produção. O erro
+            # não some: vai para o log com o id da conta e o nome da exceção.
+            # A mensagem e o traceback ficam de fora porque podem trazer o
+            # e-mail ou o token (ADR 0008).
+            logger.error(
+                "Falha inesperada no reenvio do link da conta %s: %s",
+                conta.pk,
+                type(exc).__name__,
+            )
 
     def _link_do_pwa(self, token: str) -> str:
         """O link abre a página `/confirmar-email` do PWA, e não a API.
