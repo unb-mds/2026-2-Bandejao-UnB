@@ -5,7 +5,7 @@ e classificação pelos cortes de 25/50/75%. Cada um é testado sozinho, sem
 banco, PDF nem interface.
 """
 
-from datetime import date, time
+from datetime import date, time, timedelta
 from fractions import Fraction
 from itertools import pairwise
 from unittest import mock
@@ -19,7 +19,7 @@ from apps.fila.faixa_horario_generator import FaixaHorario, FaixaHorarioGenerato
 from apps.fila.janela_historico_resolver import JanelaHistoricoResolver
 from apps.fila.media_por_faixa_calculator import MediaPorFaixaCalculator
 from apps.fila.suficiencia_dados_validator import SuficienciaDadosValidator
-from apps.fila.tests.apoio_previsao import JANELA, QUARTA
+from apps.fila.tests.apoio_previsao import JANELA, PROXIMA_QUARTA, QUARTA
 from config.parametros import HorariosRefeicaoConfig, ParametrosFilaConfig
 
 
@@ -31,17 +31,42 @@ def dia(n, *por_faixa):
 # --- 1. JanelaHistoricoResolver ----------------------------------------------
 
 
+def janela(data, hoje=QUARTA):
+    return JanelaHistoricoResolver().datas_da_janela(data, hoje)
+
+
 def test_janela_sao_as_4_semanas_anteriores_no_mesmo_dia_da_semana():
-    assert JanelaHistoricoResolver().datas_da_janela(QUARTA) == JANELA
+    assert janela(QUARTA) == JANELA
 
 
 def test_janela_nao_inclui_o_proprio_dia():
     """O dia pedido ainda pode estar acontecendo: a previsão é do histórico."""
-    assert QUARTA not in JanelaHistoricoResolver().datas_da_janela(QUARTA)
+    assert QUARTA not in janela(QUARTA)
+
+
+def test_janela_de_data_futura_nao_inclui_hoje():
+    """Na quarta seguinte, a primeira data da janela seria hoje, com a
+    refeição talvez em andamento: fica de fora (revisão do #236)."""
+    assert janela(PROXIMA_QUARTA) == JANELA[:3]
+
+
+def test_janela_nao_inclui_dias_futuros():
+    """Daqui a 3 semanas, só a semana passada já aconteceu."""
+    assert janela(QUARTA + timedelta(weeks=3)) == JANELA[:1]
+
+
+def test_janela_muito_a_frente_fica_vazia():
+    assert janela(QUARTA + timedelta(weeks=5)) == []
+
+
+def test_janela_de_data_passada_tem_as_4_semanas():
+    passada = QUARTA - timedelta(weeks=10)
+
+    assert janela(passada) == [passada - timedelta(weeks=n) for n in (1, 2, 3, 4)]
 
 
 def test_janela_mantem_o_dia_da_semana_na_virada_do_ano():
-    datas = JanelaHistoricoResolver().datas_da_janela(date(2027, 1, 13))
+    datas = janela(date(2027, 1, 13), hoje=date(2027, 1, 13))
 
     assert datas[-1] == date(2026, 12, 16)
     assert {d.weekday() for d in datas} == {date(2027, 1, 13).weekday()}
@@ -49,7 +74,7 @@ def test_janela_mantem_o_dia_da_semana_na_virada_do_ano():
 
 def test_janela_le_as_semanas_da_configuracao():
     with mock.patch.object(ParametrosFilaConfig, "janela_semanas", 2):
-        assert JanelaHistoricoResolver().datas_da_janela(QUARTA) == JANELA[:2]
+        assert janela(QUARTA) == JANELA[:2]
 
 
 # --- 2. FaixaHorarioGenerator -------------------------------------------------

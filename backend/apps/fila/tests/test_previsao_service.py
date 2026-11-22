@@ -18,6 +18,7 @@ from apps.fila.tests.apoio_previsao import (
     CINCO_SEMANAS,
     DUAS,
     JANELA,
+    PROXIMA_QUARTA,
     QUARTA,
     QUATRO,
     TERCA_PASSADA,
@@ -37,8 +38,8 @@ H11_00, H11_15, H11_30, H11_45, H12_00 = (
 )
 
 
-def calcular(campus, tipo=ALMOCO, data=QUARTA):
-    return PrevisaoService().calcular(campus, tipo, data)
+def calcular(campus, tipo=ALMOCO, data=QUARTA, hoje=QUARTA):
+    return PrevisaoService().calcular(campus, tipo, data, hoje)
 
 
 def por_inicio(previsao):
@@ -187,6 +188,26 @@ def test_checkins_do_proprio_dia_nao_entram(darcy):
     mesmo_movimento(darcy, [UMA, DUAS, QUARTA], {H11_00: 2})
 
     assert calcular(darcy).status is StatusPrevisao.DADOS_INSUFICIENTES
+
+
+def test_previsao_de_data_futura_nao_conta_os_checkins_de_hoje(darcy):
+    """Pedida a quarta seguinte, a janela começaria hoje: os check-ins de
+    hoje, de uma refeição talvez em andamento, não entram (revisão do #236)."""
+    mesmo_movimento(darcy, [QUARTA, UMA, DUAS], {H11_00: 2})
+
+    assert (
+        calcular(darcy, data=PROXIMA_QUARTA).status
+        is StatusPrevisao.DADOS_INSUFICIENTES
+    )
+
+
+def test_previsao_de_data_futura_usa_as_semanas_que_ja_passaram(darcy):
+    mesmo_movimento(darcy, [UMA, DUAS, TRES], {H11_00: 2})
+
+    previsao = calcular(darcy, data=PROXIMA_QUARTA)
+
+    assert previsao.status is StatusPrevisao.DISPONIVEL
+    assert previsao.data == PROXIMA_QUARTA
 
 
 def test_previsao_de_um_campus_ignora_o_outro(darcy, gama):

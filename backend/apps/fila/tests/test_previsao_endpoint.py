@@ -16,6 +16,8 @@ from apps.fila.tests.apoio import RU_DARCY, ao_norte
 from apps.fila.tests.apoio_previsao import (
     DUAS,
     JANELA,
+    MEIO_DIA_DA_QUARTA,
+    PROXIMA_QUARTA,
     QUARTA,
     TERCA_PASSADA,
     TRES,
@@ -31,9 +33,8 @@ def cliente():
     return APIClient()
 
 
-def consultar(cliente, agora=None, **parametros):
-    if agora is None:
-        return cliente.get(ROTA, parametros)
+def consultar(cliente, agora=MEIO_DIA_DA_QUARTA, **parametros):
+    """GET com o relógio parado: por padrão, ao meio-dia da quarta."""
     with mock.patch("django.utils.timezone.now", return_value=agora):
         return cliente.get(ROTA, parametros)
 
@@ -160,6 +161,24 @@ def test_faixa_do_checkin_e_a_do_horario_local(cliente, darcy, conta):
     faixas = previsao_de(cliente, darcy).json()["faixas"]
 
     assert [f["inicio"] for f in faixas if f["ehPico"]] == ["12:00:00"]
+
+
+def test_data_futura_nao_conta_os_checkins_de_hoje_em_brasilia(cliente, darcy):
+    """Às 23h30 de quarta em Brasília (quinta em UTC), pedida a quarta
+    seguinte: o "hoje" que sai da janela é a quarta, e não a quinta."""
+    mesmo_movimento(darcy, [QUARTA, UMA, DUAS], {time(11, 0): 1})
+    quinta_em_utc = datetime(2026, 11, 26, 2, 30, tzinfo=UTC)
+
+    resposta = consultar(
+        cliente,
+        quinta_em_utc,
+        campus=darcy.id,
+        refeicao="almoco",
+        data=PROXIMA_QUARTA.isoformat(),
+    )
+
+    assert resposta.json()["data"] == "2026-12-02"
+    assert resposta.json()["status"] == "dados_insuficientes"
 
 
 def test_outro_dia_da_semana_nao_conta(cliente, darcy):
