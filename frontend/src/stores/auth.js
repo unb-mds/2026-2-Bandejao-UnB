@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { ApiError, apiClient, definirAoPerderSessao } from '@/services/apiClient'
+import { useGamificacaoStore } from '@/stores/gamificacao'
 
 /**
  * Sessão do usuário (RF01–RF04). Sem token (ADR 0007): a sessão fica no
@@ -36,6 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
   function limpar() {
     geracao++
     usuario.value = null
+    useGamificacaoStore().limpar()
   }
   definirAoPerderSessao(limpar)
 

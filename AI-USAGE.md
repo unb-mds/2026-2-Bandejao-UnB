@@ -493,3 +493,66 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - TDD dos ajustes: `9c0b19a` (`test`, 11 testes falhando) → `1205342` (`fix`). Sabotagem das regras novas: 7 alterações (contrato sem `nullable`, sem a categoria `Cf`, sem os fillers, sem `isspace`, `any` no lugar de `all`, duplo toque marcado como editada, edição normal sem `editada_em`); todas derrubam ao menos um teste.
 - Validação após os ajustes: `pytest` com 1768 testes aprovados e 1 ignorado, cobertura de `apps` de 99%; `ruff check`, `ruff format --check` e `spectacular --validate --fail-on-warn` aprovados. Conflito com a `develop` no `AI-USAGE.md` (entrada da FE-15, #228) resolvido no merge `acaa7ab`, mantendo as duas entradas.
 - Situação: ajustes da revisão aplicados; aguardando o `testes-mysql` do CI e a aprovação.
+
+## FE-10 — gamificacaoStore e PontosAviso
+
+- Issue: [#171](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/171). PR: [#231 — FE-10: gamificacaoStore e PontosAviso](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/231).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `gamificacaoStore` nova, com `registrarPontos` (guarda o último bloco `pontos`; com `total > 0` abre o aviso e marca o progresso como desatualizado; um bloco fora do contrato é ignorado e vai para o console);
+  - `PontosAviso` no `App` raiz: aviso flutuante "+N pontos" ("+1 ponto" quando o total é 1), com uma região `role="status"` só com o texto e o "×" ao lado; some em 4 s ou no "×";
+  - repasse do bloco `pontos` pela `filaStore` e pela `avaliacoesStore`, e o "+N pontos" de dentro do `CheckinBotao` e do `AvaliacaoWidget` retirado, para não aparecer duplicado;
+  - os 10 pontos do check-in (Anexo A) no simulado. O backend real devolve 0 até a BE-14 (#166), e com 0 o aviso não aparece;
+  - nota no C4.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `b6ce8d4` (testes) → `024b1ed` (código).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 701 testes passando (95,16% de linhas / 90,62% de ramos; `gamificacao.js` e `PontosAviso.vue` com 100% de linhas, agora na meta de cobertura) e `npm run build` sem erro. Sem as capturas em 360 px e 1366 px: a localização do PC da autora não funcionou no `npm run dev` para fazer o check-in (combinado com o revisor).
+- Revisão humana: Álvaro Bento revisou o PR #231. Ajustes aplicados, com os testes antes do código:
+  - `gamificacao.js` e `PontosAviso.vue` na meta de cobertura do `vitest.config.js`;
+  - plano de testes atualizado (avaliar mostra o aviso, editar não);
+  - repasse dos pontos protegido por `try/catch` nas duas stores: um bloco ausente, malformado ou uma falha da store não desfaz o check-in ou a avaliação já gravados;
+  - `fila.ultimosPontos` retirado;
+  - os três campos validados como no `openapi.yaml`;
+  - a store limpa no logout e no 401;
+  - testes de dois avisos de mesmo total, aviso aberto antes de montar e bloco ruim depois de um válido;
+  - o "×" fora da região viva;
+  - C4 e comentário do simulado atualizados.
+
+  Os comentários sugeridos no código (JSDoc, `App.vue` e o `76px`) ficaram de fora por serem sugestão.
+- Situação: aguardando nova revisão.
+
+## #205 — Reenvio da confirmação sem 500 que revela conta pendente
+
+- Issue: [#205](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/205), apontada na revisão da BE-20 (#204). PR: [#232 — #205: reenvio responde o mesmo 200 quando dá erro inesperado](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/232).
+- Ferramenta: Claude (Anthropic).
+- Apoio: teste e correção do `ConfirmacaoEmailService.reenviar()`. O trecho que só roda para conta pendente (leitura do limite por conta, no cache em banco, e `enviar_link`) passou a capturar qualquer exceção, registrar no log só o id da conta, o nome da exceção e o arquivo e a linha do último ponto do código do projeto, sem mensagem nem traceback (ADR 0008), e deixar a rota responder o mesmo 200 de conta inexistente (RF02.2). C4 4b: nota "Erro inesperado no reenvio (#205)". O código foi gerado pela IA.
+- Decisões: captura `Exception`, e não só `DatabaseError`, porque qualquer 500 nesse trecho vaza do mesmo jeito, inclusive um bug que só aparece em produção. A BLE001 está ativa no padrão do ruff 0.17.4 (o fixado no `requirements-dev.txt`) e só aceita `except Exception` que registre o traceback, como os `logger.exception` do Leitor de Cardápio. Aqui o traceback não pode ir ao log, então a linha leva `# noqa: BLE001`; sem ele, o `ruff check` falha. Descartados: capturar na view (a busca da conta roda igual para qualquer e-mail e não vaza nada) e `transaction.on_commit(..., robust=True)`, que registra a mensagem e o traceback da exceção e poderia levar o e-mail ao log.
+- TDD: `3d6debd` (`test`, 3 casos falhando com 500: erro de banco no INSERT do token, erro de banco na leitura do limite por conta e `ValueError` na montagem do link) → `a320d4c` (`fix`).
+- Validação local (SQLite, Python 3.14): `pytest` sem `apps/cardapio` (falta o `bs4` no venv local) com 1144 testes aprovados e 1 ignorado; `ruff check`, `ruff format --check` e `bandit -lll` aprovados. `apps/cardapio`, `testes-mysql`, `semgrep` e `pip-audit` ficam com o CI.
+- Revisão humana: [revisão de corinaxc no #232](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/232#issuecomment-7081731700), sem críticos. O ponto importante pedia tirar o `# noqa: BLE001`, por entender que a regra não estava ativa (o padrão do ruff já foi só E4, E7, E9 e F). Conferido no ruff 0.17.4: a regra está ativa, e sem o `noqa` o `ruff check` acusa a linha. Os outros oito `except Exception` passam porque chamam `logger.exception`. O `noqa` ficou, e as frases do C4 e deste registro foram corrigidas para dizer o motivo certo. As três sugestões foram aplicadas: teste do erro depois de o e-mail sair (o link chega, a resposta não muda e a vaga não é contada), arquivo e linha do último ponto do código do projeto no log, e comentário do `except` em duas linhas.
+- TDD dos ajustes: `41446a9` (`test`, 4 testes falhando: os três casos sem o local do erro no log e o caso novo) → `3a20853` (`fix`). Conflito com a `develop` no `AI-USAGE.md` (entrada da FE-10, #231) resolvido no merge `26db3a3`, mantendo as duas entradas.
+- Validação após os ajustes: `pytest` sem `apps/cardapio` com 1145 testes aprovados e 1 ignorado; `ruff check`, `ruff format --check` e `bandit -lll` aprovados.
+- Situação: ajustes da revisão aplicados; aguardando o CI e a aprovação.
+
+## BE-14 — Pontuação
+
+- Issue: [#166](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/166). PR: [#235 — BE-14: pontuação de check-in e avaliação](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/235).
+- Ferramenta: Claude (Anthropic).
+- Apoio: testes e implementação da regra dos pontos em `PontuacaoService.registrar_contribuicao`, seguindo o guia da BE-14: `PontuacaoRepository` (trava por conta com `select_for_update`, criação da linha faltando num savepoint com o `IntegrityError` do UNIQUE virando nova leitura com trava, soma do semestre carregando e salvando para o `auto_now` do desempate), `OrigemContribuicaoRepository` (marcador `pontos_concedidos_em` lido do banco, mesma refeição por campus + tipo + data, avaliação oculta fora), `PontuacaoPolicy` (só o tipo, RI11) e `SemestreResolver` (RN12, datas pelo construtor nos testes). `ParametrosGamificacaoConfig` ganhou `semestre_inicial = "2026.2"` e o término de 2026.2 em 14/12/2026. `TipoContribuicao`, `RefeicaoRef` e `ResultadoPontuacao` foram para `gamificacao/contribuicao.py` para evitar import circular com a política e o repositório; Fila e Avaliação continuam importando de `pontuacao_service`. C4 4a: `avaliacaoOculta`, `semestreInicial`, `somarPontosSemestre` sem `agora` e as notas da avaliação oculta e do semestre sem data. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Decisões (grupo, 22/11/2026): semestre sem data configurada é `"2026.2"`; término de 2026.2 em 14/12/2026; avaliação ocultada não pontua e os pontos concedidos antes da ocultação ficam; este PR entra antes do #225 (BD-12), que faz o rebase. `apagar_contadores` não entra aqui (é do #225). Sem `bonusSemana` no contrato (sequência é a BE-E6). No check-in que libera a avaliação, os dois pontos são da mesma refeição, então o total e a linha do semestre são gravados uma vez só.
+- TDD: `test` (os arquivos de unidade falham com `ImportError`; endpoints, integração e config com 6 falhas) → `feat`.
+- Sabotagem manual (módulo crítico): 18 alterações (sem "uma vez só", oculta pontuando, avaliação sem check-in, check-in sem liberar, liberação ignorando o campus, liberando oculta, check-in de outra conta, check-in ignorando o tipo, sem marcar, `.update()` sem `auto_now`, semestre fixo, término exclusivo, semestre seguinte errado, semestre vazio errado, saída valendo 10, `avaliacaoLiberada` zerado, sem trava e sem savepoint). As 16 primeiras derrubam testes no SQLite; as duas da trava e do savepoint, só os testes de concorrência no banco MySQL/MariaDB, como esperado.
+- Validação local: SQLite (Python 3.13): `pytest` com 1814 testes aprovados e 6 ignorados (eram 1766 e 3 na `develop` em `1f893c7`; os 3 novos ignorados são os de concorrência), cobertura de `apps` de 99% e 100% nos módulos novos; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` (nenhuma migration nova) e `spectacular --validate --fail-on-warn` (`openapi.yaml` idêntico ao gerado, sem mudança no contrato). MariaDB 10.11 com READ COMMITTED: testes de gamificação, fila, avaliação e config (363) aprovados, inclusive os 3 de concorrência. MySQL 8.4 (Docker, Python 3.15): os 3 testes de concorrência aprovados. `testes-mysql` (MySQL 8.4), `semgrep` e `pip-audit` ficam com o CI.
+- Revisão humana: Álvaro Bento revisou o PR #235 (com o PR Review Toolkit do Claude Code; o deadlock foi conferido à mão). Ajustes aplicados, com os testes antes do código:
+  - deadlock entre editar a avaliação e fazer check-in na mesma refeição (a edição travava a avaliação e depois a conta; o check-in, a conta e depois a avaliação): o `AvaliacaoService` passa a travar a conta antes, com o novo `PontuacaoService.travar_conta`. Reproduzido no MariaDB (erro 1213) pelos services de verdade antes da correção;
+  - `marcar_pontuada` devolve se marcou; sem marcar, a pontuação levanta `OrigemContribuicaoNaoEncontradaError` e não concede nada (um `origem_id` inexistente ou de outro tipo pontuava a cada chamada);
+  - testes de rollback com a pontuação real no check-in (com avaliação para liberar) e na avaliação: não sobra registro, marcador nem ponto;
+  - testes de concorrência com a sobreposição forçada dentro do serviço (sem a trava, o check-in duplo agora falha sempre) e o caso de duas avaliações ao mesmo tempo depois do check-in;
+  - sanidade dos rótulos e da ordem dos semestres na config, teste do término de 2026.2 só pela chave, cópia das datas no `SemestreResolver`, política cobrindo todo `TipoContribuicao`, pergunta de saída que não libera a avaliação, `RefeicaoRef.tipo_refeicao` como `TipoRefeicao`;
+  - docstrings (passo 3, semestre seguinte, `semestre_inicial` sem prazo de validade, valores dos pontos só na `PontuacaoPolicy`) e C4: `travarConta` e a nota do deadlock no 4a e no C4 da Avaliação, `marcarPontuada` devolvendo `bool`, `avaliacaoOculta` no 4b e `semestreInicial` nos quatro diagramas.
+
+  O check-in não trava a conta antes: a pontuação que roda nele escreve na avaliação, mas a que roda na avaliação só lê o `Checkin`, então não há ciclo desse lado.
+- TDD da revisão: `test` (deadlock com erro 1213 no MariaDB; trava, origem inexistente, cópia das datas e política vermelhos no SQLite) → `fix`. Sabotagem dos ajustes: sem `travar_conta` (deadlock de volta), sem `select_for_update` (o check-in duplo falha nas 3 rodadas) e sem o `raise` do marcador (4 testes falham).
+- Validação após a revisão: SQLite (Python 3.13): `pytest` com 1828 aprovados e 8 ignorados (os 5 de concorrência), cobertura de `apps` de 99% e 100% nos módulos da pontuação; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` e `spectacular --validate --fail-on-warn` (contrato sem mudança). MariaDB 10.11 com READ COMMITTED: gamificação, fila, avaliação e config (381) aprovados, inclusive os 5 de concorrência.
+- Situação: ajustes da revisão aplicados; aguardando o `testes-mysql` do CI e a nova revisão.

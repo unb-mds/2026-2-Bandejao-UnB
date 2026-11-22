@@ -703,7 +703,9 @@ function avaliacoesDaRefeicaoPorId(refeicaoId, agora) {
 
 /**
  * POST /avaliacoes/ (contrato da BE-13): sempre upsert. 201 na primeira, 200
- * na edição (não pontua de novo). Até a BE-14 o bloco `pontos` volta zerado.
+ * na edição (não pontua de novo). O bloco `pontos` volta zerado: os 5 pontos
+ * só valem com check-in na mesma refeição (Anexo A), e o simulado não liga a
+ * avaliação ao check-in; o check-in, que não depende disso, já dá os 10.
  */
 function avaliar(corpo, agora) {
   const usuario = usuarioDaSessao()
@@ -860,8 +862,9 @@ function registrarCheckin(corpo, agora) {
   const checkin = { id: estado.proximoId++, campus, tipoRefeicao, data }
   estado.checkins.push({ ...checkin, usuarioId: usuario.id })
   banco.salvar()
-  // Até a BE-14 o bloco `pontos` volta zerado.
-  return ok({ checkin, pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 } }, 201)
+  // Os 10 pontos do check-in confirmado (Anexo A, RN09), como a BE-14 vai
+  // devolver; o backend real ainda volta zerado até lá.
+  return ok({ checkin, pontos: { total: 10, contribuicao: 10, avaliacaoLiberada: 0 } }, 201)
 }
 
 // Terceiro item: nome do limite por IP da rota (LIMITES_POR_IP), se houver.

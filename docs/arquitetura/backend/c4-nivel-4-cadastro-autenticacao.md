@@ -340,6 +340,21 @@ classDiagram
   vale o e-mail; se ele não achar conta, o token é tentado. Ao contrário do
   login, o reenvio não confere o domínio: um e-mail fora do padrão só não acha
   conta. A resposta HTTP é sempre a mesma, exista ou não a conta (RF02.2).
+- **Erro inesperado no reenvio (#205).** Só a conta pendente passa pelo
+  limite por conta (cache em banco) e pelo `enviarLink`, então um erro ali
+  (banco fora, lock no cache) dava 500 só para ela. Como o e-mail
+  institucional é fácil de adivinhar, isso responderia "este e-mail tem conta
+  pendente?". O `reenviar()` captura qualquer exceção desse trecho, registra
+  no log só o id da conta, o nome da exceção e o arquivo e a linha do último
+  ponto do código do projeto (sem mensagem nem traceback, que podem trazer o
+  e-mail ou o token; ADR 0008) e a rota devolve o mesmo 200. Captura
+  `Exception`, e não só `DatabaseError`, porque um bug que só aparece em
+  produção vazaria do mesmo jeito. A regra BLE001 do ruff (ativa no padrão do
+  ruff 0.17) só aceita `except Exception` que registre o traceback, como os
+  `logger.exception` do Leitor de Cardápio; como aqui ele não pode ir ao log,
+  a linha leva `# noqa: BLE001`. Se o erro vier depois de o e-mail sair, o
+  link chega, mas a vaga do limite por conta não é contada: enquanto o cache
+  estiver com problema, só o limite por IP segura os reenvios.
 
 ## Nível 4c — Login e recuperação de senha
 

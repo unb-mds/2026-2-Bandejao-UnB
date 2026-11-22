@@ -958,7 +958,7 @@ describe('POST /checkins/ (RF11, RF12, contrato da BE-09)', () => {
     expect(resposta.dados.codigo).toBe('nao_autenticado')
   })
 
-  it('201 com o check-in e o bloco de pontos zerado (até a BE-14), sem coordenadas', async () => {
+  it('201 com o check-in e os 10 pontos do Anexo A, sem coordenadas', async () => {
     await entrarComAviso()
 
     const resposta = await post('/checkins/', CHECKIN)
@@ -966,7 +966,7 @@ describe('POST /checkins/ (RF11, RF12, contrato da BE-09)', () => {
     expect(resposta.status).toBe(201)
     expect(resposta.dados).toEqual({
       checkin: { id: expect.any(Number), campus: 1, tipoRefeicao: 'almoco', data: '2026-09-28' },
-      pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 },
+      pontos: { total: 10, contribuicao: 10, avaliacaoLiberada: 0 },
     })
   })
 

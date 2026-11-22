@@ -50,7 +50,8 @@ def test_primeira_avaliacao_devolve_201_com_avaliacao_e_pontos(logado, almoco):
             "criadaEm": "2026-11-24T12:07:00-03:00",
             "editadaEm": None,
         },
-        # Versão mínima da pontuação: a BE-14 passa a conceder os pontos.
+        # Sem check-in nesta refeição, a avaliação ainda não pontua: os 5
+        # pontos vêm quando o check-in for feito (RN09).
         "pontos": {"total": 0, "contribuicao": 0, "avaliacaoLiberada": 0},
     }
 
