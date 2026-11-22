@@ -392,6 +392,16 @@ Convite ao cadastro (RF05)."]
   `RankingAdesaoToggle`, a `PosicaoRanking` e a própria Bandeja de Ouro. Para
   o **visitante**, a rota abre normalmente e mostra o `ConviteLogin` (seta
   tracejada), sem redirecionar.
+- **Versão simplificada da FE-12 (#173).** A primeira `ProgressoView` traz só
+  a patente, os pontos totais, quanto falta para a próxima (com uma barra)
+  ou "patente máxima", o `RankingAdesaoToggle` e o `BotaoSair`; a
+  `SequenciaSemana`, a `PosicaoRanking` e o `DistintivoIndicador` ficam
+  para depois. Chega-se a ela pelo item "Meu progresso" do menu da Início.
+  Enquanto a BE-16 (#168) responde 501, a tela mostra "Progresso ainda não
+  disponível", sem erro, e esconde o interruptor; o `BotaoSair` continua.
+  O aviso do interruptor (`role="switch"`) diz que o apelido e a patente
+  ficam visíveis no ranking e nos comentários das avaliações, ainda sem
+  citar a Bandeja de Ouro.
 - **`RankingView` (rota `/ranking/:campusId`) é pública** e mostra o ranking
   **do semestre** do campus escolhido no `SeletorCampus`: até 10 linhas
   (Anexo A) com posição, apelido, patente e, quando houver, a Bandeja de
@@ -593,7 +603,12 @@ trata erros (RNF04, ADR 0007)."]
   **Ao mudar a adesão** (`POST`/`DELETE /api/gamificacao/adesao/`), a store
   recarrega o progresso e o ranking e pede ao `avaliacoesStore` que descarte
   os comentários guardados, porque a Bandeja de Ouro de quem desligou some
-  na hora (RF27.1).
+  na hora (RF27.1). Desde a FE-12, o progresso e cada ranking guardam a
+  situação (`carregando`, `carregado`, `indisponivel` no 501 ou `erro`), com
+  a resposta validada contra o OpenAPI; o progresso é pedido de novo quando
+  chegam pontos novos (`progressoDesatualizado`), recarrega só os rankings
+  já abertos ao mudar a adesão, ignora um segundo toque enquanto a mudança
+  não termina e é limpo no logout e no 401.
 - **Pontos recebidos (decisão 7 da #66, RF24.2).** Não há endpoint de
   pontos: as respostas de check-in, de resposta de saída e de avaliação
   trazem o mesmo bloco
