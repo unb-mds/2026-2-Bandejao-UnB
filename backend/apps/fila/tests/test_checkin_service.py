@@ -29,6 +29,7 @@ from apps.fila.models import (
     TentativaCheckin,
 )
 from apps.fila.tests.apoio import RU_DARCY, RU_GAMA, ao_norte
+from apps.gamificacao.models import PontosSemestreCampus, PontuacaoUsuario
 from apps.gamificacao.pontuacao_service import (
     PontuacaoService,
     RefeicaoRef,
@@ -332,3 +333,34 @@ def test_no_ru_do_proprio_campus_confirma(conta, darcy, gama):
     registrar(conta, gama, coordenadas=RU_GAMA)
 
     assert Checkin.objects.get().campus == gama
+
+
+# --- Pontuação de verdade (BE-14) --------------------------------------------
+
+
+def test_checkin_confirmado_soma_os_pontos_da_gamificacao(conta, darcy):
+    registrado = registrar(conta, darcy)
+
+    assert registrado.pontos.total == 10
+    assert PontuacaoUsuario.objects.get(usuario=conta).pontos_totais == 10
+    assert Checkin.objects.get().pontos_concedidos_em is not None
+
+
+@pytest.mark.parametrize(
+    ("erro", "dados"),
+    [
+        (CheckinForaDoHorarioError, {"agora": FORA_DO_HORARIO}),
+        (LocalizacaoNaoConfirmadaError, {"coordenadas": LONGE}),
+    ],
+    ids=["fora-do-horario", "longe-do-ru"],
+)
+def test_checkin_rejeitado_nao_pontua(conta, darcy, erro, dados):
+    """A recusa sai antes da pontuação: nenhum ponto, nenhuma linha do
+    semestre (o desempate do ranking não muda)."""
+    PontuacaoService().inicializar_conta(conta)
+
+    with pytest.raises(erro):
+        registrar(conta, darcy, **dados)
+
+    assert PontuacaoUsuario.objects.get(usuario=conta).pontos_totais == 0
+    assert not PontosSemestreCampus.objects.exists()
