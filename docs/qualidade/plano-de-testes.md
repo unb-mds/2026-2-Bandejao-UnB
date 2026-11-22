@@ -96,7 +96,7 @@ Um navegador de verdade fazendo os fluxos do usuário, com PWA, API e banco roda
 | Cadastro → confirmação do e-mail → login → logout | M1 |
 | Login → aviso de privacidade → check-in no RU (com a localização simulada pelo Playwright) | M2 |
 | Tela do campus → cardápio → filtro de dieta e de marcador | M3 |
-| Avaliar e editar a avaliação → "+N pontos" | M3 |
+| Avaliar → aviso "+N pontos" (`PontosAviso`); editar → sem aviso | M3 |
 | Previsão de pico, progresso e ranking | M4 |
 
 - **Ferramenta:** Playwright (a pasta `frontend/e2e/` já está excluída do vitest).

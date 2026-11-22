@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import AvaliacaoWidget from './AvaliacaoWidget.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
+import { useGamificacaoStore } from '@/stores/gamificacao'
 import { apiClient } from '@/services/apiClient'
 import { CONTA_DEMO, banco } from '@/services/mock/banco'
 import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
@@ -186,7 +187,7 @@ describe('AvaliacaoWidget — criar (RF15.1)', () => {
     expect(texto(wrapper)).toContain('3/500')
   })
 
-  it('pontos > 0 na resposta: mostra "+N pontos"', async () => {
+  it('pontos > 0 na resposta: vão para o PontosAviso global, sem repetir no widget', async () => {
     await entrar()
     vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
       avaliacao: {
@@ -204,16 +205,18 @@ describe('AvaliacaoWidget — criar (RF15.1)', () => {
     await escolherNota(wrapper, 5)
     await enviar(wrapper)
 
-    expect(texto(wrapper)).toContain('+5 pontos')
+    expect(useGamificacaoStore().aviso).toMatchObject({ total: 5 })
+    expect(texto(wrapper)).not.toMatch(/\+\d+ pontos/)
   })
 
-  it('pontos zerados (até a BE-14): sem "+N pontos"', async () => {
+  it('pontos zerados: nenhum aviso de pontos', async () => {
     await entrar()
     const wrapper = await montar()
 
     await escolherNota(wrapper, 5)
     await enviar(wrapper)
 
+    expect(useGamificacaoStore().aviso).toBeNull()
     expect(texto(wrapper)).not.toMatch(/\+\d+ pontos/)
   })
 
@@ -532,6 +535,7 @@ describe('AvaliacaoWidget — troca de refeição no meio do envio', () => {
 
     expect(texto(wrapper)).not.toContain('Avaliação enviada!')
     expect(texto(wrapper)).not.toContain('+5 pontos')
+    expect(useGamificacaoStore().aviso).toMatchObject({ total: 5 })
     expect(wrapper.get('[data-teste="avaliacao-enviar"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-teste="avaliacao-enviar"]').text()).toBe('Enviar avaliação')
   })
