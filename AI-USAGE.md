@@ -566,12 +566,23 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - estados de carregando, erro com "Tentar novamente" (menos no 400 e no 404) e o 501 do backend antes da BE-15 (#167) como "Previsão ainda não disponível";
   - a previsão da refeição encerrada sai junto com o check-in (RN05);
   - `carregarPrevisao` na `filaStore`, com cache por campus, refeição e dia, o mesmo pedido saindo uma vez só e a resposta validada;
-  - o cartão "Em breve" e a legenda repetida saíram da `FilaView`;
+  - o cartão "Em breve" e a legenda repetida saíram da `FilaView`, e o "Como vai funcionar?" virou "Como funciona?", com o texto no presente;
   - previsão de exemplo no simulado (almoço com 3 picos empatados, café com 1, Fazenda Água Limpa com dados insuficientes), com as validações do contrato e o 501 simulável;
   - nota no C4.
 
   Os patches foram gerados pela IA e aplicados e commitados pela autora.
 - TDD: `16654a4` (testes) → `d93139b` (código).
-- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 744 testes passando (95,35% de linhas / 90,57% de ramos) e `npm run build` sem erro.
-- Revisão humana: pendente.
-- Situação: PR aberto.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 759 testes passando (95,36% de linhas / 90,79% de ramos) e `npm run build` sem erro.
+- Revisão humana: Álvaro Bento revisou o PR #234. Ajustes aplicados, com os testes antes do código:
+  - uma resposta `disponivel` sem pico, ou `dados_insuficientes` com faixas, vira erro;
+  - a lista de faixas virou um grid único, que encolhe em 360 px;
+  - os três trechos contraditórios do C4 foram corrigidos;
+  - a previsão carregada e a "indisponível" valem 5 minutos, como o cardápio;
+  - testes de corrida com `forcar`, "Tentar novamente" por status, RN05 às 16h, no limite de 19h30/19h31 e com o relógio virando, e dia passado sem previsão;
+  - os estados ficam numa região `aria-live`, com a lista fora dela;
+  - o erro de resposta inválida leva a chave e o corpo;
+  - os cabeçalhos da `filaStore` e do simulado foram atualizados, e as props novas da `FilaView` passaram a ser obrigatórias;
+  - a RN06 entrou na rastreabilidade.
+
+  Os comentários novos sugeridos no código ficaram de fora por serem sugestão.
+- Situação: aguardando nova revisão.
