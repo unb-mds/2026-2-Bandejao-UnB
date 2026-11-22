@@ -450,6 +450,46 @@ describe('filaStore: previsão da fila (FE-11, RF13)', () => {
     expect(get).toHaveBeenCalledTimes(2)
   })
 
+  it('em segundo plano, com o estado em erro: não vai à rede', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+    get.mockRejectedValueOnce(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
+    await fila.carregarPrevisao(PEDIDO)
+
+    await fila.carregarPrevisao(PEDIDO, { emSegundoPlano: true })
+
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('erro')
+  })
+
+  it('em segundo plano: não passa por "carregando"', async () => {
+    const fila = useFilaStore()
+    await fila.carregarPrevisao(PEDIDO)
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+
+    const pedido = fila.carregarPrevisao(PEDIDO, { emSegundoPlano: true })
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+    await pedido
+
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
+  it('em segundo plano, a revalidação de uma previsão boa falha: a antiga fica e tenta de novo depois', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+    await fila.carregarPrevisao(PEDIDO)
+    const antiga = fila.estadoDaPrevisao(PEDIDO)
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+    get.mockRejectedValueOnce(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
+
+    await fila.carregarPrevisao(PEDIDO, { emSegundoPlano: true })
+    expect(fila.estadoDaPrevisao(PEDIDO)).toBe(antiga)
+
+    await fila.carregarPrevisao(PEDIDO, { emSegundoPlano: true })
+    expect(get).toHaveBeenCalledTimes(3)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
   it('forcar com um pedido antigo pendente: a resposta antiga não sobrescreve a nova', async () => {
     const fila = useFilaStore()
     const getOriginal = apiClient.get.bind(apiClient)

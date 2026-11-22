@@ -137,6 +137,41 @@ describe('FilaPrevisao (FE-11, RF13, RN06)', () => {
     expect(faixas(wrapper)).toHaveLength(14)
   })
 
+  it('rede fora: a revalidação não fica alternando entre "Carregando…" e o erro', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+    vi.setSystemTime(SEGUNDA_MEIO_DIA)
+    const get = vi
+      .spyOn(apiClient, 'get')
+      .mockRejectedValue(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
+    const wrapper = await montar()
+    expect(wrapper.find('[data-teste="previsao-erro"]').exists()).toBe(true)
+
+    for (let minuto = 0; minuto < 3; minuto++) {
+      vi.advanceTimersByTime(60 * 1000)
+      await flushPromises()
+      expect(wrapper.text()).not.toContain('Carregando previsão…')
+      expect(wrapper.find('[data-teste="previsao-erro"]').exists()).toBe(true)
+    }
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
+  it('a revalidação de uma previsão boa falha: as faixas continuam na tela', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+    vi.setSystemTime(SEGUNDA_MEIO_DIA)
+    const get = vi.spyOn(apiClient, 'get')
+    const wrapper = await montar()
+    expect(faixas(wrapper)).toHaveLength(14)
+
+    get.mockRejectedValue(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+    vi.advanceTimersByTime(60 * 1000)
+    await flushPromises()
+
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(faixas(wrapper)).toHaveLength(14)
+    expect(wrapper.find('[data-teste="previsao-erro"]').exists()).toBe(false)
+  })
+
   it('desmontar para a revalidação', async () => {
     vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
     vi.setSystemTime(SEGUNDA_MEIO_DIA)
