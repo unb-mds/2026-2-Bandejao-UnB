@@ -14,6 +14,7 @@ from apps.avaliacao.tests.apoio import DURANTE_O_ALMOCO, SEGUNDA, TERCA
 from apps.cardapio.models import TipoRefeicao
 from apps.cardapio.tests.apoio_cardapio import criar_refeicao
 from apps.gamificacao.pontuacao_service import PontuacaoService, ResultadoPontuacao
+from tests.rotas_do_contrato import gerar_schema
 
 ROTA = "/api/avaliacoes/"
 
@@ -66,6 +67,13 @@ def test_comentario_nulo_e_aceito(logado, almoco):
     resposta = postar(logado, {"refeicaoId": almoco.id, "nota": 3, "comentario": None})
 
     assert resposta.status_code == 201
+
+
+def test_contrato_aceita_comentario_nulo():
+    """O contrato diz o mesmo que a view (revisão do #230)."""
+    entrada = gerar_schema()["components"]["schemas"]["AvaliacaoEntradaRequest"]
+
+    assert entrada["properties"]["comentario"]["nullable"] is True
 
 
 def test_avaliar_de_novo_devolve_200_e_edita(logado, almoco):

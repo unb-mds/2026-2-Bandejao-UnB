@@ -115,10 +115,11 @@ def test_avaliacao_da_mesma_conta_em_outra_refeicao_nao_e_editada(conta, almoco)
     assert sorted(Avaliacao.objects.values_list("nota", flat=True)) == [1, 5]
 
 
-def test_corrida_na_primeira_avaliacao_vira_edicao(conta, almoco):
+def test_corrida_na_primeira_avaliacao_atualiza_sem_marcar_como_editada(conta, almoco):
     """Duplo toque: as duas requisições não acham avaliação e tentam inserir.
 
-    A segunda bate no UNIQUE e edita a que a primeira gravou.
+    A segunda bate no UNIQUE e atualiza a que a primeira gravou, mas a pessoa
+    avaliou uma vez só: a avaliação não vira "editada" (revisão do #230).
     """
     avaliar(conta, almoco, nota=1)
     buscar = AvaliacaoRepository.buscar_por_conta_e_refeicao
@@ -135,8 +136,10 @@ def test_corrida_na_primeira_avaliacao_vira_edicao(conta, almoco):
     ):
         registrada = registrar(conta, almoco, nota=5)
 
-    assert registrada.criada is False
-    assert Avaliacao.objects.get().nota == 5
+    avaliacao = Avaliacao.objects.get()
+    assert registrada.criada is True
+    assert avaliacao.nota == 5
+    assert avaliacao.editada_em is None
 
 
 def test_integrity_error_sem_avaliacao_gravada_nao_vira_edicao(conta, almoco):

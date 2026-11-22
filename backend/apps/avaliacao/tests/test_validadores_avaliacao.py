@@ -102,6 +102,32 @@ def test_comentario_ausente_ou_em_branco_vira_none():
     assert validador.validar("   \n ") is None
 
 
+@pytest.mark.parametrize(
+    "texto",
+    [
+        "\u200b",  # espaço de largura zero
+        "\u200b \u200b",
+        "\ufeff",  # BOM
+        "\u2060",  # word joiner
+        "\u200d",  # zero width joiner
+        "\u00a0\u200b",
+        "\u3164",  # Hangul filler, que renderiza como espaço
+        "\u115f\u1160",
+        "\uffa0",
+    ],
+)
+def test_comentario_so_com_caracteres_invisiveis_vira_none(texto):
+    """Senão aparece um comentário em branco para todo mundo (revisão do #230)."""
+    assert ComentarioValidator().validar(texto) is None
+
+
+def test_caractere_invisivel_dentro_do_texto_fica():
+    """O ZWJ junta emojis: só o comentário inteiro invisível vira None."""
+    texto = "Cozinheira 👩\u200d🍳 caprichou"
+
+    assert ComentarioValidator().validar(texto) == texto
+
+
 def test_comentario_sai_sem_os_espacos_das_pontas():
     assert ComentarioValidator().validar("  feijão salgado \n") == "feijão salgado"
 
