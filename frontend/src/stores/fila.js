@@ -6,9 +6,9 @@ import { repassarPontos } from '@/stores/gamificacao'
 import { mensagemForaDoHorario } from '@/constants/refeicoes'
 
 /**
- * Fila do RU (front 3b): por enquanto, o check-in do fluxo 4a (RF11, RF12).
- * A previsão (FE-11) e a pergunta de saída pendente (BE-E1) entram aqui
- * depois.
+ * Fila do RU (front 3b): o check-in do fluxo 4a (RF11, RF12) e a previsão
+ * por faixa (`GET /api/fila/previsao/`, RF13, FE-11). A pergunta de saída
+ * pendente (BE-E1) entra aqui depois.
  *
  * **Nunca guarda coordenadas (RI09).** Elas chegam a `confirmarCheckin` só
  * como argumento, vão no corpo do `POST /api/checkins/` e somem com a
@@ -36,6 +36,24 @@ const MENSAGENS_RECUSA = {
     falha.dados?.mensagem || mensagemForaDoHorario(tipoRefeicao),
 }
 
+const NIVEIS_DA_FILA = ['vazia', 'curta', 'moderada', 'longa']
+const STATUS_DA_PREVISAO = ['disponivel', 'dados_insuficientes']
+const ehHora = (valor) => typeof valor === 'string' && /^\d{2}:\d{2}(:\d{2})?$/.test(valor)
+
+const ehFaixa = (faixa) =>
+  ehHora(faixa?.inicio) &&
+  ehHora(faixa.fim) &&
+  NIVEIS_DA_FILA.includes(faixa.nivel) &&
+  typeof faixa.ehPico === 'boolean'
+
+const ehPrevisao = (resposta) =>
+  STATUS_DA_PREVISAO.includes(resposta?.status) &&
+  Array.isArray(resposta.faixas) &&
+  resposta.faixas.every(ehFaixa) &&
+  (resposta.status === 'dados_insuficientes' || resposta.faixas.length > 0)
+
+const chaveDaPrevisao = ({ campus, refeicao, data }) => `${campus}|${refeicao}|${data}`
+
 /** Só o que o contrato define em `Checkin`: id, campus, tipoRefeicao e data. */
 const copiarCheckin = ({ id, campus, tipoRefeicao, data }) => ({ id, campus, tipoRefeicao, data })
 
@@ -43,6 +61,52 @@ export const useFilaStore = defineStore('fila', () => {
   const enviandoCheckin = ref(false)
   /** @type {import('vue').Ref<{ id: number, campus: number, tipoRefeicao: string, data: string } | null>} */
   const ultimoCheckin = ref(null)
+  const previsoes = ref({})
+  const pedidosDePrevisao = new Map()
+
+  function estadoDaPrevisao(pedido) {
+    return previsoes.value[chaveDaPrevisao(pedido)] ?? null
+  }
+
+  function carregarPrevisao(pedido, { forcar = false } = {}) {
+    const chave = chaveDaPrevisao(pedido)
+    const atual = previsoes.value[chave]
+    if (!forcar && ['carregado', 'indisponivel'].includes(atual?.situacao)) {
+      return Promise.resolve(atual)
+    }
+    if (!forcar && pedidosDePrevisao.has(chave)) return pedidosDePrevisao.get(chave)
+    const parametros = new URLSearchParams({
+      campus: String(pedido.campus),
+      refeicao: pedido.refeicao,
+      data: pedido.data,
+    })
+    previsoes.value[chave] = { ...atual, situacao: 'carregando', erro: null }
+    const promessa = apiClient
+      .get(`/fila/previsao/?${parametros}`)
+      .then((resposta) => {
+        if (!ehPrevisao(resposta)) {
+          throw new Error('Resposta inesperada de GET /api/fila/previsao/.')
+        }
+        return { situacao: 'carregado', previsao: resposta, erro: null }
+      })
+      .catch((falha) => {
+        if (falha?.status === 501) return { situacao: 'indisponivel', previsao: null, erro: null }
+        return {
+          situacao: 'erro',
+          previsao: null,
+          erro: { mensagem: mensagemDeErro(falha), codigo: falha?.codigo ?? null },
+        }
+      })
+      .then((estado) => {
+        if (pedidosDePrevisao.get(chave) === promessa) {
+          previsoes.value[chave] = estado
+          pedidosDePrevisao.delete(chave)
+        }
+        return estado
+      })
+    pedidosDePrevisao.set(chave, promessa)
+    return promessa
+  }
 
   /**
    * POST /api/checkins/ com `{ campus, tipoRefeicao, coordenadas }`.
@@ -100,7 +164,14 @@ export const useFilaStore = defineStore('fila', () => {
     return { desfecho: 'confirmado', checkin: ultimoCheckin.value, pontos: resposta.pontos ?? null }
   }
 
-  return { enviandoCheckin, ultimoCheckin, confirmarCheckin }
+  return {
+    enviandoCheckin,
+    ultimoCheckin,
+    previsoes,
+    estadoDaPrevisao,
+    carregarPrevisao,
+    confirmarCheckin,
+  }
 })
 
 function desfechoDaFalha(falha, { idDoCampus, tipoRefeicao }) {

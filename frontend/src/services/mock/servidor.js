@@ -39,6 +39,7 @@ import { CAMPI_DO_BANCO, idDoCampus, montarCardapioSemana, refeicaoExiste } from
 import { IDS_MARCADORES } from '@/constants/marcadores'
 import { MENSAGEM_CAMPUS_INEXISTENTE } from '@/constants/campi'
 import { APELIDOS_SEMENTE, avaliacoesSemente } from './sementes'
+import { previsaoSimulada } from './previsao'
 import {
   analisarEmailEstudante,
   analisarEmailServidor,
@@ -75,6 +76,7 @@ const reenviosPorConta = new Map() // id do usuário → [instantes]
 /** Se o check-in simulado confirma a localização (o raio real fica só no backend). */
 let localizacaoConfirmada = true
 let resumoDoDiaDisponivel = true
+let previsaoDisponivel = true
 /** `false`: comentários e envio de avaliação respondem 501, como o backend sem a BE-13. */
 let avaliacoesDisponiveis = true
 
@@ -867,6 +869,24 @@ function registrarCheckin(corpo, agora) {
   return ok({ checkin, pontos: { total: 10, contribuicao: 10, avaliacaoLiberada: 0 } }, 201)
 }
 
+function previsaoDaFila(parametros, agora) {
+  const extras = Object.keys(parametros).filter(
+    (nome) => !['campus', 'refeicao', 'data'].includes(nome),
+  )
+  if (
+    !/^[1-9]\d*$/.test(parametros.campus ?? '') ||
+    !Object.hasOwn(REFEICOES, parametros.refeicao ?? '') ||
+    (parametros.data !== undefined && !ehDataISO(parametros.data)) ||
+    extras.length
+  ) {
+    return erro(400, 'parametros_invalidos', 'Parâmetros da previsão inválidos.')
+  }
+  const campus = idDoCampus(parametros.campus)
+  if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
+  if (!previsaoDisponivel) return { status: 501, dados: null }
+  return ok(previsaoSimulada(campus, parametros.refeicao, parametros.data ?? hojeISO(agora)))
+}
+
 // Terceiro item: nome do limite por IP da rota (LIMITES_POR_IP), se houver.
 const ROTAS = [
   ['GET', /^\/csrf\/$/, () => gravarCsrfSeFaltar()],
@@ -900,6 +920,7 @@ const ROTAS = [
   ],
   ['POST', /^\/privacidade\/aceite\/$/, ({ agora }) => registrarAceitePrivacidade(agora)],
   ['POST', /^\/checkins\/$/, ({ corpo, agora }) => registrarCheckin(corpo, agora)],
+  ['GET', /^\/fila\/previsao\/$/, ({ parametros, agora }) => previsaoDaFila(parametros, agora)],
 ]
 
 const ATRASO_MS = import.meta.env.MODE === 'test' ? 0 : 250
@@ -954,6 +975,9 @@ export const simulacao = {
   definirResumoDoDiaDisponivel(disponivel) {
     resumoDoDiaDisponivel = disponivel
   },
+  definirPrevisaoDisponivel(disponivel) {
+    previsaoDisponivel = disponivel
+  },
 }
 
 /** Volta ao estado inicial: banco, sessões, cookies e contadores de tentativas. */
@@ -967,6 +991,7 @@ export function reiniciarSimulacao() {
   reenviosPorConta.clear()
   localizacaoConfirmada = true
   resumoDoDiaDisponivel = true
+  previsaoDisponivel = true
   avaliacoesDisponiveis = true
   cookieSessao = null
   if (typeof document !== 'undefined') {

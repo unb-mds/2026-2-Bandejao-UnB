@@ -50,6 +50,18 @@ const refeicaoDaFila = computed(() => {
 const refeicaoEncerrada = computed(
   () => minutosAgora(agora.value) > minutosDoDia(REFEICOES[refeicaoDaFila.value].fim),
 )
+const dataDaPrevisao = computed(() => preferencias.dataSelecionada ?? hojeISO(agora.value))
+const refeicaoDaPrevisao = computed(() =>
+  REFEICOES[preferencias.refeicaoSelecionada]
+    ? preferencias.refeicaoSelecionada
+    : refeicaoDaFila.value,
+)
+const mostrarPrevisao = computed(
+  () =>
+    !refeicaoEncerrada.value ||
+    dataDaPrevisao.value !== hojeISO(agora.value) ||
+    refeicaoDaPrevisao.value !== refeicaoDaFila.value,
+)
 
 onMounted(() => {
   cardapio.carregarCampi()
@@ -129,6 +141,9 @@ watch(
         :tipo-refeicao="refeicaoDaFila"
         :encerrada="refeicaoEncerrada"
         :campus-confirmado="Boolean(campus)"
+        :refeicao-previsao="refeicaoDaPrevisao"
+        :data-previsao="dataDaPrevisao"
+        :mostrar-previsao="mostrarPrevisao"
       />
       <ContatoEquipe />
     </main>
