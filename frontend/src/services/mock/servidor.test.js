@@ -1138,3 +1138,107 @@ describe('GET /fila/previsao/ (contrato da BE-15, FE-11)', () => {
     expect((await get('/fila/previsao/?campus=1&refeicao=almoco')).status).toBe(200)
   })
 })
+
+describe('gamificação: progresso, adesão e ranking (contrato da BE-16, FE-12)', () => {
+  const darCheckins = (quantidade, campus = 1) => {
+    for (let i = 0; i < quantidade; i++) {
+      banco.estado.checkins.push({
+        id: 2000 + i,
+        usuarioId: 1,
+        campus,
+        tipoRefeicao: 'almoco',
+        data: '2026-09-28',
+      })
+    }
+  }
+
+  it('progresso sem sessão: 401 nao_autenticado', async () => {
+    const { status, dados } = await get('/gamificacao/progresso/')
+
+    expect(status).toBe(401)
+    expect(dados.codigo).toBe('nao_autenticado')
+  })
+
+  it('progresso: 10 pontos por check-in, patente pelos limiares e adesão desligada', async () => {
+    await entrarComDemo()
+    darCheckins(16)
+
+    const { status, dados } = await get('/gamificacao/progresso/')
+
+    expect(status).toBe(200)
+    expect(dados).toEqual({
+      patente: 'RATO_DE_RU',
+      pontosTotais: 160,
+      faltaParaProxima: 290,
+      sequencia: 0,
+      diasNaSemana: 1,
+      minimoDias: 3,
+      participaRanking: false,
+    })
+  })
+
+  it('patente máxima: faltaParaProxima 0', async () => {
+    await entrarComDemo()
+    darCheckins(150)
+
+    const { dados } = await get('/gamificacao/progresso/')
+
+    expect(dados).toMatchObject({ patente: 'LENDA_DO_RU', faltaParaProxima: 0 })
+  })
+
+  it('adesão: POST liga e DELETE desliga, com 204', async () => {
+    await entrarComDemo()
+
+    expect((await post('/gamificacao/adesao/')).status).toBe(204)
+    expect((await get('/gamificacao/progresso/')).dados.participaRanking).toBe(true)
+    expect((await del('/gamificacao/adesao/')).status).toBe(204)
+    expect((await get('/gamificacao/progresso/')).dados.participaRanking).toBe(false)
+  })
+
+  it('adesão sem sessão: 401', async () => {
+    expect((await post('/gamificacao/adesao/')).status).toBe(401)
+  })
+
+  it('ranking é público, sem pontos, e só mostra quem aderiu', async () => {
+    await entrarComDemo()
+    darCheckins(5, 1)
+
+    const antes = (await get('/ranking/1/')).dados
+    await post('/gamificacao/adesao/')
+    const depois = (await get('/ranking/1/')).dados
+
+    expect(antes.linhas.map((l) => l.apelido)).not.toContain(CONTA_DEMO.apelido)
+    expect(depois).toMatchObject({ campusId: 1, semestre: '2026.2' })
+    expect(depois.linhas.find((l) => l.apelido === CONTA_DEMO.apelido)).toEqual({
+      posicao: 5,
+      apelido: CONTA_DEMO.apelido,
+      patente: 'CALOURO_DE_BANDEJA',
+    })
+    for (const linha of depois.linhas) {
+      expect(Object.keys(linha).sort()).toEqual(['apelido', 'patente', 'posicao'])
+    }
+  })
+
+  it('ranking de campus sem ninguém: lista vazia', async () => {
+    const { status, dados } = await get('/ranking/5/')
+
+    expect(status).toBe(200)
+    expect(dados.linhas).toEqual([])
+  })
+
+  it('ranking de campus inexistente: 404 campus_nao_encontrado', async () => {
+    const { status, dados } = await get('/ranking/99/')
+
+    expect(status).toBe(404)
+    expect(dados.codigo).toBe('campus_nao_encontrado')
+  })
+
+  it('simulacao.definirGamificacaoDisponivel(false): 501 nas três rotas, como o backend hoje', async () => {
+    await entrarComDemo()
+    simulacao.definirGamificacaoDisponivel(false)
+
+    expect((await get('/gamificacao/progresso/')).status).toBe(501)
+    expect((await post('/gamificacao/adesao/')).status).toBe(501)
+    expect((await get('/ranking/1/')).status).toBe(501)
+  })
+})
