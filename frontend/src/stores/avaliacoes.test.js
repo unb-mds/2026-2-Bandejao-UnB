@@ -475,7 +475,19 @@ describe('avaliacoesStore: respostas inesperadas e rascunho', () => {
     avaliacoes.guardarRascunho(7, { nota: 3, comentario: 'quase' })
     avaliacoes.limparCache()
 
-    expect(avaliacoes.retomarRascunho(7)).toEqual({ nota: 3, comentario: 'quase' })
+    expect(avaliacoes.retomarRascunho(7)).toEqual({ nota: 3, comentario: 'quase', editando: false })
     expect(avaliacoes.retomarRascunho(7)).toBeNull()
+  })
+
+  it('rascunho guarda se era a edição de uma avaliação existente', () => {
+    const avaliacoes = useAvaliacoesStore()
+
+    avaliacoes.guardarRascunho(7, { nota: 2, comentario: 'mudei de ideia', editando: true })
+
+    expect(avaliacoes.retomarRascunho(7)).toEqual({
+      nota: 2,
+      comentario: 'mudei de ideia',
+      editando: true,
+    })
   })
 })

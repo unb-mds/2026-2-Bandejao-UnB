@@ -578,6 +578,29 @@ describe('AvaliacaoWidget — sessão expirada no envio', () => {
     expect(texto(wrapper)).not.toContain('Sua sessão expirou')
   })
 
+  it('sessão expira no meio de uma edição: o widget novo volta no formulário de edição, com o rascunho', async () => {
+    await entrar()
+    const primeiro = await montar()
+    await escolherNota(primeiro, 5)
+    await enviar(primeiro)
+    await primeiro.get('[data-teste="avaliacao-editar"]').trigger('click')
+    await escolherNota(primeiro, 2)
+    await primeiro.get('textarea').setValue('mudei de ideia')
+    simulacao.expirarSessao()
+    await enviar(primeiro)
+    primeiro.unmount()
+    montados.splice(montados.indexOf(primeiro), 1)
+
+    await entrar()
+    useAvaliacoesStore().limparCache()
+    const wrapper = await montar()
+
+    expect(wrapper.find('[data-teste="avaliacao-enviada"]').exists()).toBe(false)
+    expect(wrapper.get('textarea').element.value).toBe('mudei de ideia')
+    expect(wrapper.get('[data-teste="estrela-2"]').attributes('aria-checked')).toBe('true')
+    expect(wrapper.get('[data-teste="avaliacao-enviar"]').text()).toBe('Salvar alteração')
+  })
+
   it('o rascunho volta uma vez só: depois de usado, um widget novo vem vazio', async () => {
     await entrar()
     const avaliacoes = useAvaliacoesStore()
