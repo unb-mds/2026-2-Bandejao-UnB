@@ -49,7 +49,10 @@ export function somarDias(iso, dias) {
   return paraISO(data)
 }
 
-/** Segunda-feira da semana de `agora`, em ISO. */
+/**
+ * Segunda-feira da semana de `agora`, em ISO. O domingo pertence à semana da
+ * segunda anterior, como no backend (`semana_inicio` + 6 dias).
+ */
 export function inicioDaSemana(agora = new Date()) {
   const data = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
   const deslocamento = (data.getDay() + 6) % 7
