@@ -12,7 +12,6 @@ import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
 
 // Segunda-feira, 28/09/2026, 12h — almoço em andamento.
 const SEGUNDA_MEIO_DIA = new Date(2026, 8, 28, 12, 0)
-const ALMOCO_HOJE = { campus: 3, data: '2026-09-28', refeicao: 'almoco' }
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -61,7 +60,7 @@ describe('authStore com o servidor simulado', () => {
     await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
     simulacao.expirarSessao()
-    const falha = await apiClient.post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 4 }).catch((e) => e)
+    const falha = await apiClient.post('/privacidade/aceite/').catch((e) => e)
 
     expect(falha.status).toBe(401)
     expect(falha.codigo).toBe('nao_autenticado')
@@ -75,7 +74,7 @@ describe('authStore com o servidor simulado', () => {
 
     // Cookie com um token que o servidor não reconhece (ex.: velho, de outra aba).
     document.cookie = 'csrftoken=token-velho; path=/'
-    const falha = await apiClient.post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 4 }).catch((e) => e)
+    const falha = await apiClient.post('/privacidade/aceite/').catch((e) => e)
 
     expect(falha.status).toBe(403)
     expect(falha.codigo).toBe('csrf_invalido')

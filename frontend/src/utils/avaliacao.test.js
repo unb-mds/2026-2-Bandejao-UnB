@@ -16,6 +16,12 @@ describe('motivoAvaliacaoIndisponivel', () => {
     expect(motivoAvaliacaoIndisponivel({ data: HOJE, tipo: 'almoco', agora: em(12) })).toBeNull()
   })
 
+  it('um minuto antes do início (10h59): ainda fechada', () => {
+    expect(motivoAvaliacaoIndisponivel({ data: HOJE, tipo: 'almoco', agora: em(10, 59) })).toBe(
+      'A avaliação do almoço abre às 11h, quando a refeição começa.',
+    )
+  })
+
   it('no minuto exato do início: disponível', () => {
     expect(motivoAvaliacaoIndisponivel({ data: HOJE, tipo: 'almoco', agora: em(11) })).toBeNull()
   })
@@ -34,6 +40,12 @@ describe('motivoAvaliacaoIndisponivel', () => {
 
   it('refeição de um dia que já passou', () => {
     expect(motivoAvaliacaoIndisponivel({ data: '2026-11-08', tipo: 'almoco', agora: em(12) })).toBe(
+      'Só é possível avaliar refeições de hoje. A avaliação deste dia já fechou.',
+    )
+  })
+
+  it('refeição de ontem, mesmo antes do horário em que abriria hoje', () => {
+    expect(motivoAvaliacaoIndisponivel({ data: '2026-11-08', tipo: 'jantar', agora: em(8) })).toBe(
       'Só é possível avaliar refeições de hoje. A avaliação deste dia já fechou.',
     )
   })

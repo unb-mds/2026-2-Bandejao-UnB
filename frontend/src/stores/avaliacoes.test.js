@@ -272,8 +272,8 @@ describe('avaliacoesStore: avaliações de uma refeição (contrato da BE-13)', 
     const refeicaoId = await idDoAlmoco(avaliacoes)
     let alvo = { refeicaoId, campus: 3, data: HOJE, nota: 4, comentario: '', ...mudanca }
     if (mudanca.data) {
-      const ontem = await avaliacoes.carregarResumoDoDia(3, mudanca.data)
-      alvo = { ...alvo, refeicaoId: ontem.find((r) => r.tipo === 'almoco').refeicaoId }
+      const outroDia = await avaliacoes.carregarResumoDoDia(3, mudanca.data)
+      alvo = { ...alvo, refeicaoId: outroDia.find((r) => r.tipo === 'almoco').refeicaoId }
     }
 
     const resultado = await avaliacoes.avaliar(alvo)
@@ -355,5 +355,127 @@ describe('avaliacoesStore: avaliações de uma refeição (contrato da BE-13)', 
 
     expect(avaliacoes.avaliacoesDaRefeicao(refeicaoId)).toBeNull()
     expect(avaliacoes.minhaAvaliacao(refeicaoId, CONTA_DEMO.apelido)).toBeNull()
+  })
+})
+
+/** Casos da revisão do PR #223. */
+describe('avaliacoesStore: respostas inesperadas e rascunho', () => {
+  const HOJE = '2026-09-28'
+
+  async function preparar() {
+    await useAuthStore().entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+    const avaliacoes = useAvaliacoesStore()
+    const resumo = await avaliacoes.carregarResumoDoDia(3, HOJE)
+    const refeicaoId = resumo.find((r) => r.tipo === 'almoco').refeicaoId
+    return { avaliacoes, refeicaoId, alvo: { refeicaoId, campus: 3, data: HOJE, nota: 4 } }
+  }
+
+  it.each([
+    ['sem corpo', null],
+    ['sem o bloco avaliacao', { pontos: { total: 0 } }],
+  ])(
+    '2xx %s: não rejeita, devolve erro "resposta_invalida" e registra no console',
+    async (_caso, corpo) => {
+      const { avaliacoes, refeicaoId, alvo } = await preparar()
+      vi.spyOn(apiClient, 'post').mockResolvedValueOnce(corpo)
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const resultado = await avaliacoes.avaliar(alvo)
+
+      expect(resultado).toEqual({
+        desfecho: 'erro',
+        codigo: 'resposta_invalida',
+        mensagem:
+          'Não deu para confirmar se a avaliação foi salva. Recarregue a página para conferir.',
+      })
+      expect(log).toHaveBeenCalledTimes(1)
+      expect(avaliacoes.minhaAvaliacao(refeicaoId, null)).toBeNull()
+    },
+  )
+
+  it('2xx com a recarga falhando: "criada" com atualizada=false e os dados anteriores mantidos', async () => {
+    const { avaliacoes, refeicaoId, alvo } = await preparar()
+    const antes = await avaliacoes.carregarAvaliacoesDaRefeicao(refeicaoId)
+    const get = vi.spyOn(apiClient, 'get')
+    get.mockRejectedValue(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const resultado = await avaliacoes.avaliar(alvo)
+
+    expect(resultado).toMatchObject({ desfecho: 'criada', atualizada: false })
+    expect(avaliacoes.avaliacoesDaRefeicao(refeicaoId)).toEqual(antes)
+    expect(avaliacoes.situacaoDaRefeicao(refeicaoId)).toBe('carregado')
+    expect(avaliacoes.erroDaRefeicao(refeicaoId)).toBeNull()
+    expect(avaliacoes.minhaAvaliacao(refeicaoId, null)).toEqual({ nota: 4, comentario: '' })
+  })
+
+  it('2xx com a recarga ok: atualizada=true', async () => {
+    const { avaliacoes, alvo } = await preparar()
+
+    expect(await avaliacoes.avaliar(alvo)).toMatchObject({ desfecho: 'criada', atualizada: true })
+  })
+
+  it('400 dados_invalidos: mensagem genérica e registro no console', async () => {
+    const { avaliacoes, alvo } = await preparar()
+    vi.spyOn(apiClient, 'post').mockRejectedValueOnce(
+      new ApiError(400, { codigo: 'dados_invalidos', mensagem: 'refeicaoId: inteiro.' }),
+    )
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const resultado = await avaliacoes.avaliar(alvo)
+
+    expect(resultado).toEqual({
+      desfecho: 'erro',
+      codigo: 'dados_invalidos',
+      mensagem: 'Não foi possível enviar a avaliação. Tente de novo.',
+    })
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('código inesperado (403 csrf_invalido): mensagem da API e registro no console', async () => {
+    const { avaliacoes, alvo } = await preparar()
+    vi.spyOn(apiClient, 'post').mockRejectedValueOnce(
+      new ApiError(403, { codigo: 'csrf_invalido', mensagem: 'Recarregue a página.' }),
+    )
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const resultado = await avaliacoes.avaliar(alvo)
+
+    expect(resultado).toEqual({
+      desfecho: 'erro',
+      codigo: 'csrf_invalido',
+      mensagem: 'Recarregue a página.',
+    })
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('falha de rede ou 5xx no POST não vai para o console (não é erro do app)', async () => {
+    const { avaliacoes, alvo } = await preparar()
+    vi.spyOn(apiClient, 'post').mockRejectedValueOnce(new ApiError(503, {}))
+    const log = vi.spyOn(console, 'error')
+
+    expect((await avaliacoes.avaliar(alvo)).desfecho).toBe('erro')
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('GET dos comentários com 5xx ou 404 vai para o console; o 501 não', async () => {
+    const avaliacoes = useAvaliacoesStore()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(new ApiError(500, {}))
+
+    await avaliacoes.carregarAvaliacoesDaRefeicao(42)
+    await avaliacoes.carregarAvaliacoesDaRefeicao(999)
+
+    expect(log).toHaveBeenCalledTimes(2)
+  })
+
+  it('rascunho: guardarRascunho e retomarRascunho (uma vez só), e sobrevive ao limparCache', () => {
+    const avaliacoes = useAvaliacoesStore()
+
+    avaliacoes.guardarRascunho(7, { nota: 3, comentario: 'quase' })
+    avaliacoes.limparCache()
+
+    expect(avaliacoes.retomarRascunho(7)).toEqual({ nota: 3, comentario: 'quase' })
+    expect(avaliacoes.retomarRascunho(7)).toBeNull()
   })
 })

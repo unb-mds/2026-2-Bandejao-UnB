@@ -76,9 +76,15 @@ describe('AvaliacaoWidget — média, quantidade e comentários (RF15.2)', () =>
   it('mostra a média e a quantidade da refeição, sem login', async () => {
     const wrapper = await montar()
 
-    const resumo = wrapper.get('[data-teste="avaliacao-resumo"]').text()
-    expect(resumo).toMatch(/\d,\d/)
-    expect(resumo).toMatch(/\d+ avaliações/)
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = avaliacoes.daResumoDoDia(3, HOJE).find((r) => r.tipo === 'almoco').refeicaoId
+    const { media, quantidade } = avaliacoes.avaliacoesDaRefeicao(refeicaoId).resumoAvaliacoes
+    expect(wrapper.get('[data-teste="avaliacao-media"]').text()).toBe(
+      media.toFixed(1).replace('.', ','),
+    )
+    expect(wrapper.get('[data-teste="avaliacao-quantidade"]').text()).toBe(
+      `${quantidade} avaliações`,
+    )
   })
 
   it('mostra os comentários com o apelido do autor', async () => {
@@ -86,7 +92,7 @@ describe('AvaliacaoWidget — média, quantidade e comentários (RF15.2)', () =>
 
     const comentarios = wrapper.findAll('[data-teste="avaliacao-comentario"]')
     expect(comentarios.length).toBeGreaterThan(0)
-    expect(comentarios[0].find('.apelido').text()).not.toBe('')
+    expect(comentarios[0].get('[data-teste="comentario-apelido"]').text()).not.toBe('')
   })
 
   it('autor com conta removida aparece como "usuário removido"', async () => {
@@ -103,7 +109,9 @@ describe('AvaliacaoWidget — média, quantidade e comentários (RF15.2)', () =>
     const primeiro = wrapper.findAll('[data-teste="avaliacao-comentario"]')[0]
     expect(primeiro.text()).toContain('usuário removido')
     expect(primeiro.text()).toContain('Salgado')
-    expect(primeiro.find('.apelido--removido').exists()).toBe(true)
+    expect(primeiro.get('[data-teste="comentario-apelido"]').attributes('data-removido')).toBe(
+      'true',
+    )
   })
 
   it('refeição sem avaliações: "Sem avaliações ainda"', async () => {
@@ -148,7 +156,7 @@ describe('AvaliacaoWidget — criar (RF15.1)', () => {
     await entrar()
     const wrapper = await montar()
     const quantidade = () =>
-      Number(wrapper.get('[data-teste="avaliacao-resumo"] .resumo-total').text().match(/\d+/)[0])
+      Number(wrapper.get('[data-teste="avaliacao-quantidade"]').text().match(/\d+/)[0])
     const antes = quantidade()
 
     await escolherNota(wrapper, 5)
@@ -240,7 +248,10 @@ describe('AvaliacaoWidget — editar (RF15.1)', () => {
 
     expect(texto(wrapper)).toContain('Sua nota: 2 estrelas')
     expect(formulario(wrapper).exists()).toBe(false)
-    expect(wrapper.find('[data-teste="avaliacao-editar"]').exists()).toBe(true)
+
+    // Editar depois de recarregar: o formulário vem com a nota do servidor.
+    await wrapper.get('[data-teste="avaliacao-editar"]').trigger('click')
+    expect(wrapper.get('[data-teste="estrela-2"]').attributes('aria-checked')).toBe('true')
   })
 
   it('Editar abre o formulário preenchido e salva pelo mesmo POST (upsert)', async () => {
@@ -352,7 +363,7 @@ describe('AvaliacaoWidget — motivos de indisponível (RF15.1, RF05)', () => {
     expect(formulario(wrapper).exists()).toBe(false)
   })
 
-  it('sessão perdida no envio (401): volta ao convite ao login', async () => {
+  it('sessão perdida no envio (401): volta ao convite ao login, dizendo que expirou', async () => {
     await entrar()
     const wrapper = await montar()
     simulacao.expirarSessao()
@@ -360,7 +371,8 @@ describe('AvaliacaoWidget — motivos de indisponível (RF15.1, RF05)', () => {
     await escolherNota(wrapper, 4)
     await enviar(wrapper)
 
-    expect(texto(wrapper)).toContain('Entre para avaliar')
+    expect(texto(wrapper)).toContain('Sua sessão expirou')
+    expect(formulario(wrapper).exists()).toBe(false)
   })
 
   it('trocar de refeição descarta o rascunho e o motivo anterior', async () => {
@@ -373,5 +385,230 @@ describe('AvaliacaoWidget — motivos de indisponível (RF15.1, RF05)', () => {
     await flushPromises()
 
     expect(wrapper.get('textarea').element.value).toBe('')
+  })
+})
+
+/** Casos da revisão do PR #223. */
+describe('AvaliacaoWidget — respostas inesperadas e falhas de carga', () => {
+  it('2xx sem corpo: o botão volta de "Enviando…" e a mensagem aparece', async () => {
+    await entrar()
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce(null)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const wrapper = await montar()
+
+    await escolherNota(wrapper, 4)
+    await enviar(wrapper)
+
+    const botao = wrapper.get('[data-teste="avaliacao-enviar"]')
+    expect(botao.text()).toBe('Enviar avaliação')
+    expect(botao.attributes('disabled')).toBeUndefined()
+    expect(formulario(wrapper).text()).toContain('Não deu para confirmar se a avaliação foi salva.')
+  })
+
+  it('resumo do dia com 500: "Notas indisponíveis", erro com "Tentar de novo" que recupera', async () => {
+    await entrar()
+    const { ApiError } = await import('@/services/apiClient')
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(new ApiError(500, {}))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const wrapper = await montar()
+
+    expect(wrapper.get('[data-teste="avaliacao-resumo"]').text()).toBe('Notas indisponíveis')
+    expect(texto(wrapper)).not.toContain('Carregando')
+    const erro = wrapper.get('[data-teste="avaliacao-erro"]')
+    expect(erro.text()).toContain('Não foi possível carregar as avaliações.')
+
+    await erro.get('[data-teste="avaliacao-tentar-de-novo"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-teste="avaliacao-erro"]').exists()).toBe(false)
+    expect(formulario(wrapper).exists()).toBe(true)
+    expect(wrapper.find('[data-teste="avaliacao-quantidade"]').exists()).toBe(true)
+  })
+
+  it('dia sem cardápio: o cartão de resumo diz "Sem avaliações ainda" (visitante e logada)', async () => {
+    // Domingo: o Gama não abre.
+    const visitante = await montar({ ...ALMOCO_HOJE, data: '2026-10-04' })
+    expect(visitante.get('[data-teste="avaliacao-resumo"]').text()).toBe('Sem avaliações ainda')
+
+    await entrar()
+    const logada = await montar({ ...ALMOCO_HOJE, data: '2026-10-04' })
+    expect(logada.get('[data-teste="avaliacao-resumo"]').text()).toBe('Sem avaliações ainda')
+  })
+
+  it('GET dos comentários falha: o formulário aparece mesmo assim, e os comentários têm "Tentar de novo"', async () => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+    await avaliacoes.carregarResumoDoDia(3, HOJE)
+    const { ApiError } = await import('@/services/apiClient')
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(new ApiError(500, {}))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const wrapper = await montar()
+
+    expect(formulario(wrapper).exists()).toBe(true)
+    expect(wrapper.get('[data-teste="avaliacao-resumo"]').text()).toBe('Notas indisponíveis')
+    const erro = wrapper.get('[data-teste="avaliacao-erro"]')
+
+    await erro.get('[data-teste="avaliacao-tentar-de-novo"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-teste="avaliacao-comentario"]').length).toBeGreaterThan(0)
+  })
+
+  it('2xx com a recarga falhando: aviso neutro, sem erro vermelho', async () => {
+    await entrar()
+    const wrapper = await montar()
+    const { ApiError } = await import('@/services/apiClient')
+    vi.spyOn(apiClient, 'get').mockRejectedValue(new ApiError(0, { mensagem: 'Sem internet.' }))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await escolherNota(wrapper, 4)
+    await enviar(wrapper)
+
+    expect(texto(wrapper)).toContain('Avaliação enviada!')
+    expect(wrapper.get('[data-teste="avaliacao-desatualizada"]').text()).toContain(
+      'A média e os comentários ainda não foram atualizados.',
+    )
+    expect(wrapper.find('.mensagem--erro').exists()).toBe(false)
+  })
+
+  it.each([
+    ['refeicao_nao_encontrada', 404, 'avaliacao-indisponivel', 'não está no cardápio'],
+    ['nota_invalida', 422, 'avaliacao-formulario', 'Escolha uma nota de 1 a 5 estrelas.'],
+    ['erro_interno', 500, 'avaliacao-formulario', 'Fora do ar.'],
+  ])('%s (%i): mensagem no lugar certo', async (codigo, status, onde, trecho) => {
+    await entrar()
+    const { ApiError } = await import('@/services/apiClient')
+    vi.spyOn(apiClient, 'post').mockRejectedValueOnce(
+      new ApiError(status, { codigo, mensagem: 'Fora do ar.' }),
+    )
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const wrapper = await montar()
+
+    await escolherNota(wrapper, 4)
+    await enviar(wrapper)
+
+    expect(wrapper.get(`[data-teste="${onde}"]`).text()).toContain(trecho)
+  })
+
+  it('envio duplo: dois toques seguidos mandam um POST só', async () => {
+    await entrar()
+    const post = vi.spyOn(apiClient, 'post')
+    const wrapper = await montar()
+    await escolherNota(wrapper, 4)
+
+    wrapper.get('[data-teste="avaliacao-formulario"]').trigger('submit')
+    wrapper.get('[data-teste="avaliacao-formulario"]').trigger('submit')
+    await flushPromises()
+
+    expect(post.mock.calls.filter(([caminho]) => caminho === '/avaliacoes/')).toHaveLength(1)
+  })
+})
+
+describe('AvaliacaoWidget — troca de refeição no meio do envio', () => {
+  it('resposta de um envio antigo não aparece na refeição nova', async () => {
+    await entrar()
+    let responder
+    vi.spyOn(apiClient, 'post').mockImplementationOnce(
+      () => new Promise((resolver) => (responder = resolver)),
+    )
+    const wrapper = await montar()
+    await escolherNota(wrapper, 4)
+    await wrapper.get('[data-teste="avaliacao-formulario"]').trigger('submit')
+
+    await wrapper.setProps({ tipo: 'cafe' })
+    await flushPromises()
+    responder({
+      avaliacao: {
+        id: 1,
+        refeicaoId: 1,
+        nota: 4,
+        comentario: '',
+        criadaEm: SEGUNDA_MEIO_DIA.toISOString(),
+        editadaEm: null,
+      },
+      pontos: { total: 5, contribuicao: 0, avaliacaoLiberada: 5 },
+    })
+    await flushPromises()
+
+    expect(texto(wrapper)).not.toContain('Avaliação enviada!')
+    expect(texto(wrapper)).not.toContain('+5 pontos')
+    expect(wrapper.get('[data-teste="avaliacao-enviar"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-teste="avaliacao-enviar"]').text()).toBe('Enviar avaliação')
+  })
+})
+
+describe('AvaliacaoWidget — sessão expirada no envio', () => {
+  it('avisa que a nota não foi enviada e guarda o rascunho para depois do login', async () => {
+    await entrar()
+    const wrapper = await montar()
+    await escolherNota(wrapper, 4)
+    await wrapper.get('textarea').setValue('Quase perdi isto')
+    simulacao.expirarSessao()
+
+    await enviar(wrapper)
+
+    expect(texto(wrapper)).toContain('Sua sessão expirou')
+    expect(texto(wrapper)).toContain('A avaliação não foi enviada')
+
+    // Entra de novo (sem recarregar a página): o widget volta com o rascunho.
+    await entrar()
+    await flushPromises()
+    expect(wrapper.get('textarea').element.value).toBe('Quase perdi isto')
+    expect(wrapper.get('[data-teste="estrela-4"]').attributes('aria-checked')).toBe('true')
+  })
+})
+
+describe('AvaliacaoWidget — acessibilidade', () => {
+  it('o cartão do motivo é anunciado (role="status")', async () => {
+    await entrar()
+    const wrapper = await montar({ ...ALMOCO_HOJE, tipo: 'jantar' })
+
+    expect(indisponivel(wrapper).attributes('role')).toBe('status')
+  })
+
+  it('depois do envio, o foco vai para a confirmação; o botão Editar fica fora do role="status"', async () => {
+    await entrar()
+    const wrapper = await montar()
+
+    await escolherNota(wrapper, 4)
+    await enviar(wrapper)
+
+    const titulo = wrapper.get('[data-teste="avaliacao-enviada-titulo"]')
+    expect(document.activeElement).toBe(titulo.element)
+    const status = wrapper.get('[data-teste="avaliacao-enviada"] [role="status"]')
+    expect(status.find('[data-teste="avaliacao-editar"]').exists()).toBe(false)
+  })
+
+  it('setas mudam a nota nas estrelas, com um só item tabulável', async () => {
+    await entrar()
+    const wrapper = await montar()
+    const estrela = (n) => wrapper.get(`[data-teste="estrela-${n}"]`)
+
+    await estrela(1).trigger('keydown', { key: 'ArrowRight' })
+    expect(estrela(1).attributes('aria-checked')).toBe('true')
+    await estrela(1).trigger('keydown', { key: 'ArrowRight' })
+    expect(estrela(2).attributes('aria-checked')).toBe('true')
+    expect(document.activeElement).toBe(estrela(2).element)
+    await estrela(2).trigger('keydown', { key: 'ArrowLeft' })
+    expect(estrela(1).attributes('aria-checked')).toBe('true')
+
+    const tabulaveis = [1, 2, 3, 4, 5].filter((n) => estrela(n).attributes('tabindex') === '0')
+    expect(tabulaveis).toEqual([1])
+  })
+})
+
+describe('AvaliacaoWidget — relógio', () => {
+  it('a janela abre sozinha quando dá a hora, com o widget aberto', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+    vi.setSystemTime(new Date(2026, 8, 28, 10, 59, 40))
+    await entrar()
+    const wrapper = await montar()
+    expect(indisponivel(wrapper).text()).toContain('abre às 11h')
+
+    vi.advanceTimersByTime(30 * 1000)
+    await flushPromises()
+
+    expect(indisponivel(wrapper).exists()).toBe(false)
+    expect(formulario(wrapper).exists()).toBe(true)
   })
 })
