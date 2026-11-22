@@ -6,6 +6,7 @@ aqui, porque é o fluxo que o PWA vê: cadastrar, receber o e-mail, confirmar.
 """
 
 import logging
+import re
 from datetime import date, timedelta
 from smtplib import SMTPException
 from unittest import mock
@@ -210,13 +211,30 @@ def test_reenvio_sem_email_e_sem_token_da_422(cliente, corpo):
     assert mail.outbox == []
 
 
+def assert_log_do_erro_inesperado(caplog, usuario, erro, arquivo):
+    """Uma linha de erro, só com o id da conta, a exceção e onde ela saiu (ADR 0008)."""
+    falhas = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert len(falhas) == 1
+    mensagem = falhas[0].getMessage()
+    assert type(erro).__name__ in mensagem
+    assert str(usuario.pk) in mensagem
+    # O último ponto do código do projeto, e não o mock nem o Django: é onde
+    # dá para procurar o bug.
+    assert re.search(rf"apps/cadastro/{arquivo}:\d+", mensagem)
+    assert "@" not in mensagem
+    assert "202400001" not in mensagem
+    assert "database is locked" not in mensagem
+    assert falhas[0].exc_info is None
+
+
 @pytest.mark.parametrize(
-    ("alvo", "erro"),
+    ("alvo", "erro", "arquivo"),
     [
         # Antes do e-mail: o INSERT do token novo.
         (
             "apps.cadastro.confirmacao_email_service.Token.objects.create",
             OperationalError("database is locked"),
+            "confirmacao_email_service.py",
         ),
         # Antes até do token: a leitura do limite por conta (cache em banco).
         # Não dá para mockar o `cache.get` inteiro: o limite por IP, que roda
@@ -224,16 +242,18 @@ def test_reenvio_sem_email_e_sem_token_da_422(cliente, corpo):
         (
             "apps.cadastro.limite_de_taxa.LimiteReenvioPorConta._historico",
             OperationalError("database is locked"),
+            "limite_de_taxa.py",
         ),
         # Não é de banco: um bug que só aparece em produção vazaria igual.
         (
             "apps.cadastro.confirmacao_email_service.ConfirmacaoEmailService._link_do_pwa",
             ValueError("database is locked"),
+            "confirmacao_email_service.py",
         ),
     ],
 )
 def test_erro_inesperado_no_reenvio_da_a_mesma_resposta_da_conta_inexistente(
-    cliente, usuario, caplog, alvo, erro
+    cliente, usuario, caplog, alvo, erro, arquivo
 ):
     """Um 500 só para conta pendente revelaria que ela existe (#205, RF02.2).
 
@@ -254,16 +274,38 @@ def test_erro_inesperado_no_reenvio_da_a_mesma_resposta_da_conta_inexistente(
     assert pendente.status_code == inexistente.status_code == 200
     assert pendente.content == inexistente.content
     assert mail.outbox == []
-    # O erro vai para o log só com o id da conta e o nome da exceção (ADR 0008).
-    falhas = [r for r in caplog.records if r.levelno >= logging.ERROR]
-    assert len(falhas) == 1
-    mensagem = falhas[0].getMessage()
-    assert type(erro).__name__ in mensagem
-    assert str(usuario.pk) in mensagem
-    assert "@" not in mensagem
-    assert "202400001" not in mensagem
-    assert "database is locked" not in mensagem
-    assert falhas[0].exc_info is None
+    assert_log_do_erro_inesperado(caplog, usuario, erro, arquivo)
+
+
+def test_erro_depois_do_email_sair_da_o_mesmo_200_e_o_link_chega(
+    cliente, usuario, caplog
+):
+    """O e-mail saiu, mas a vaga do limite por conta não foi contada (#205).
+
+    A pessoa recebe o link, e a resposta não muda. O preço: enquanto o cache
+    estiver com problema, o limite por conta não conta os envios. O limite por
+    IP continua valendo.
+    """
+    inexistente = cliente.post(
+        ROTA_REENVIO, {"emailInstitucional": "209999999@aluno.unb.br"}, format="json"
+    )
+    erro = OperationalError("database is locked")
+
+    with mock.patch(
+        "apps.cadastro.limite_de_taxa.LimiteReenvioPorConta.registrar",
+        side_effect=erro,
+    ):
+        pendente = cliente.post(
+            ROTA_REENVIO,
+            {"emailInstitucional": "202400001@aluno.unb.br"},
+            format="json",
+        )
+
+    assert pendente.status_code == inexistente.status_code == 200
+    assert pendente.content == inexistente.content
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == [usuario.email_institucional]
+    assert_log_do_erro_inesperado(caplog, usuario, erro, "confirmacao_email_service.py")
 
 
 # --- Envio do link no cadastro (CadastroService -> ConfirmacaoEmailService) ---
