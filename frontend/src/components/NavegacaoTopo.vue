@@ -27,7 +27,7 @@ const ativo = (item) => itemAtivo(item, route.name, { marcarInicio: true })
         >
           {{ item.rotulo }}
         </RouterLink>
-        <a :href="CANAL_CONTATO" class="item item--contato" :title="EMAIL_CONTATO">
+        <a :href="CANAL_CONTATO" class="item item--contato">
           Contato
           <span class="visualmente-oculto">: {{ EMAIL_CONTATO }}</span>
         </a>

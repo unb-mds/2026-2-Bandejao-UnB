@@ -2,9 +2,8 @@
 import { CANAL_CONTATO, EMAIL_CONTATO } from '@/constants/contato'
 
 /**
- * Canal de contato para reclamações (RNF08, Visão 9.1), visível sem login e
- * em qualquer largura. No celular a barra do topo some, então é aqui que o
- * contato fica à vista.
+ * Canal de contato para reclamações e pedidos de exclusão da conta (RNF08,
+ * RNF07.4, Visão 9.1): o e-mail da equipe por extenso, com link `mailto`.
  */
 </script>
 
@@ -24,7 +23,8 @@ import { CANAL_CONTATO, EMAIL_CONTATO } from '@/constants/contato'
   text-align: center;
   font-size: 12px;
   line-height: 1.6;
-  color: var(--texto-suave);
+  /* --texto-suave sobre o bege fica abaixo de 4,5:1 em 12 px (WCAG AA). */
+  color: var(--texto-escuro);
 }
 
 .contato-equipe a {

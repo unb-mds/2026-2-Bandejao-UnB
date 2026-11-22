@@ -130,7 +130,6 @@ watch(
         :encerrada="refeicaoEncerrada"
         :campus-confirmado="Boolean(campus)"
       />
-      <!-- RNF08: o contato fica à vista no celular, onde a barra do topo some. -->
       <ContatoEquipe />
     </main>
 
