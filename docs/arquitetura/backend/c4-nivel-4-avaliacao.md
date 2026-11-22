@@ -130,7 +130,9 @@ classDiagram
 - **Corrida no upsert e campos que a edição não grava (BE-13).** Duas
   requisições simultâneas da primeira avaliação (duplo toque) passam juntas
   pela busca; a segunda bate no UNIQUE (conta, refeição) em `inserir` e
-  edita a que a primeira gravou. A edição trava a linha
+  atualiza nota e comentário da que a primeira gravou, sem preencher
+  `editadaEm`: a pessoa avaliou uma vez só, e as duas respostas saem como
+  criação (201). A edição trava a linha
   (`select_for_update`) e `salvarEdicao` grava só nota, comentário e
   `editadaEm`: `pontosConcedidosEm` (Gamificação) e `oculta` (equipe) nunca
   são regravados com um valor lido antes.
