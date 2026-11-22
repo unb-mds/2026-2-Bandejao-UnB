@@ -627,7 +627,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## #240 — Deploy automático (CD)
 
-- Issue: [#240](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/240). PR: [CONFIRMAR o número]
+- Issue: [#240](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/240). PR: [#241](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/241)
 - Ferramenta: Claude (Anthropic).
 - Apoio: desenho do CD e código gerado pela IA: `.github/workflows/deploy.yml` (push na `main`, espera o Backend CI e o Frontend CI do mesmo commit, SSH com a chave do servidor fixada em secret, `concurrency` sem cancelar), `deploy/cd/deploy.sh` (instalado como `/usr/local/bin/bandejao-deploy`: trava, confere branch, mudanças locais e commit na `origin/main`, backup do banco antes das migrations, fast-forward, `docker compose up -d --build --wait` e conferência de `/api/campi/`; pula um commit mais antigo que o que está no ar) e a seção "Deploy automático (CD)" do `deploy-producao.md`. Configuração na VM e no GitHub feita pelo autor, guiada passo a passo no chat. Os commits foram aplicados pelo autor do PR.
 - Decisões (autor, 22/11/2026): o deploy dispara pela `main`, sem aprovação manual; a chave do GitHub fica presa ao script por `command=...,restrict` no `authorized_keys`; sem rollback automático (as migrations rodam na subida do backend), com o backup e o commit anterior no log.
