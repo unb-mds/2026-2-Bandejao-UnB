@@ -67,9 +67,13 @@ class ParametrosGamificacaoConfig:
     limiares_patente: Final = (0, 150, 450, 900, 1500)
     tamanho_ranking: Final = 10
 
-    # Preencher com datas confirmadas pela equipe no calendário acadêmico.
-    # Sem data configurada, o período do ranking permanece aberto (RN12).
-    datas_termino_semestre: Final[dict[str, date]] = {}
+    # Semestre de quem pontua sem nenhuma data de término configurada: o
+    # semestre atual (decisão do grupo, 22/11/2026). A BE-17 usa o mesmo valor.
+    semestre_inicial: Final = "2026.2"
+    # Término de cada semestre, pelo calendário acadêmico da UnB. Depois do
+    # último término, a data já é do semestre seguinte, que fica aberto até
+    # alguém configurar o término dele (RN12, SemestreResolver).
+    datas_termino_semestre: Final[dict[str, date]] = {"2026.2": date(2026, 12, 14)}
 
 
 class ParametrosSessaoConfig:
