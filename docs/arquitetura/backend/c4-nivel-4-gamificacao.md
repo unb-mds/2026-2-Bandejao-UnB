@@ -563,6 +563,16 @@ classDiagram
 - **`GET /api/gamificacao/progresso/` (logado)** devolve o `Progresso`. O
   visitante não chama este endpoint: o PWA mostra direto o convite ao
   cadastro.
+  Até a sequência semanal (BE-E6), `sequencia` vem da coluna
+  `sequencia_atual` (0) e `diasNaSemana` vem 0; `minimoDias` já sai da
+  config (BE-16).
+- **`Progresso` desta Release (BE-16):** só os sete campos do contrato
+  (`patente`, `pontosTotais`, `faltaParaProxima`, `sequencia`,
+  `diasNaSemana`, `minimoDias`, `participaRanking`). `posicoesAtuais`,
+  `posicoesSemestreAnterior` e `distintivo` ficam fora (backlog, seção 3,
+  item 6), e com eles as setas do `ProgressoService` para `RankingService`,
+  `PontuacaoRepository` (posições) e `BandejaOuroResolver`. O desenho acima
+  continua valendo para depois da Release.
 - **"Meu progresso" (RF26.2, RF33.3) só é visto pelo próprio usuário.** O
   `Progresso` traz a posição atual em cada campus em que ele é elegível e a
   posição final do semestre anterior (ex.: "2026.2: 12º no Gama"); a quem

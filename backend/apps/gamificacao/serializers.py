@@ -31,10 +31,16 @@ class ProgressoSerializer(serializers.Serializer):
         help_text="Pontos que faltam para a próxima patente. 0 na última.",
     )
     sequencia = serializers.IntegerField(
-        help_text="Semanas seguidas completadas (RN10).",
+        help_text=(
+            "Semanas seguidas completadas (RN10). 0 até a sequência semanal "
+            "(BE-E6) entrar."
+        ),
     )
     diasNaSemana = serializers.IntegerField(
-        help_text="Dias com check-in na semana corrente.",
+        help_text=(
+            "Dias com check-in na semana corrente. 0 até a sequência semanal "
+            "(BE-E6) entrar."
+        ),
     )
     minimoDias = serializers.IntegerField(
         help_text="Dias necessários para completar a semana.",

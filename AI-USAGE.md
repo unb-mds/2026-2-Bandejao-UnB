@@ -613,6 +613,18 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   Na terceira conferência, a revalidação passou a rodar em segundo plano: não passa pelo "Carregando…", não insiste num erro (para isso há o "Tentar novamente") e, se falhar, mantém a previsão antiga e tenta de novo no minuto seguinte. Há testes de rede fora e de falha da revalidação.
 - Situação: aguardando nova revisão.
 
+## BE-16 — Progresso e adesão
+
+- Issue: [#168](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/168). PR: [#237](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/237)
+- Ferramenta: Claude (Anthropic).
+- Apoio: testes e implementação seguindo o guia da BE-16: `Patente` (`StrEnum` na ordem dos limiares), `PatenteResolver` (`patente` e `falta_para_proxima` com `bisect_right`, limiares lidos da `ParametrosGamificacaoConfig` e conferidos no construtor: um por patente, o primeiro 0, crescentes), `Progresso` (só os 7 campos do contrato) e `ProgressoService.montar(conta, hoje)` (só leitura, sem trava e sem criar linha; sem `PontuacaoUsuario`, zero ponto e sem adesão). `PontuacaoRepository.alterar_adesao` abre a própria transação, reaproveita `travar_por_conta` (cria a linha que falta e mantém a ordem de travas da BE-14) e grava só `participa_ranking` e `atualizado_em`, sem tocar na `PontosSemestreCampus`. `ProgressoView` e `RankingAdesaoView` saem do 501 (200 e 204). Contrato: `help_text` de `sequencia` e `diasNaSemana` e `openapi.yaml` regerado (só descrição). C4 4c: notas do `Progresso` desta Release e dos campos de sequência. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Decisões (grupo, 22/11/2026): os campos de sequência ficam no contrato, com `sequencia` = `sequencia_atual`, `diasNaSemana` = 0 e `minimoDias` da config até a BE-E6. Sem posição, Bandeja de Ouro nem `distintivo` (backlog, seção 3, item 6). A linha que falta é criada na adesão, nunca no `GET`. O 401 sem sessão não foi duplicado nos testes novos (já coberto por `test_acesso_contrato.py` e `test_csrf_rotas_reais.py`).
+- TDD: `test` (os arquivos de unidade falham com `ImportError`; adesão e endpoints com 20 falhas contra o 501) → `feat` → `docs`.
+- Sabotagem manual (módulo crítico): 6 alterações (`<=` virando `<` no limiar, limiares fixos no código, falta da patente errada, `save()` sem `update_fields` na adesão, gravar a linha do semestre na adesão, criar linha no `GET`). Todas derrubam ao menos um teste no SQLite.
+- Validação local: SQLite (Python 3.13): `pytest` com 1977 testes aprovados e 8 ignorados (eram 1917 na `develop` em `e651805`), cobertura de `apps` de 99% e 100% nos módulos novos e nos alterados; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` (nenhuma migration nova) e `spectacular --validate --fail-on-warn` (diff do `openapi.yaml` só de descrição). `testes-mysql`, `semgrep` e `pip-audit` ficam com o CI.
+- Revisão humana: pendente (revisão de outra frente, DoD 1.4).
+- Situação: aguardando revisão.
+
 ## FE-12 — ProgressoView (Meu progresso)
 
 - Issue: [#173](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/173). PR: [#238 — FE-12: ProgressoView (Meu progresso)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/238).
@@ -631,7 +643,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   Os patches foram gerados pela IA e aplicados e commitados pela autora.
 - TDD: `7b1944a` (testes) → `acb70f9` (código) → `b48a39d` (docs).
 - Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 829 testes passando (95,57% de linhas / 91,24% de ramos) e `npm run build` sem erro; layout conferido em 360 px e 1366 px no DevTools, com as capturas no PR.
-- Dependência: a BE-16 (#168) ainda está aberta e o backend real responde 501; até ela entrar, a tela mostra "Progresso ainda não disponível", sem erro.
+- Dependência: quando o PR foi aberto, a BE-16 (#168) ainda respondia 501, e a tela mostrava "Progresso ainda não disponível", sem erro.
 - Revisão humana: Álvaro Bento revisou o PR #238. Ajustes aplicados, com os testes antes do código (`bc8bb4a` → `e17655d` → `202f402` → `c3637a6`):
   - com o 204 da adesão, o `participaRanking` muda na hora e o progresso recarrega sem voltar a "carregando", então o interruptor não some; se o recarregamento falhar, o novo estado fica e o progresso é pedido de novo na próxima abertura;
   - o `limpar()` descarta o pedido de progresso em andamento, os rankings e os pedidos de ranking, e uma resposta que chega depois do logout ou de um pedido mais novo é descartada;
@@ -643,4 +655,5 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - o C4 foi corrigido, e os comentários sugeridos entraram (origem dos limiares, JSDoc da store e notas do simulado);
   - testes novos de corrida, 401, ranking fora do contrato, 501 do ranking, falha ao sair, falha ao desligar e limiares da barra.
 - Validação após a revisão: `npm run lint:ci` sem achados, `npm run test:ci` com 858 testes passando (95,73% de linhas / 91,45% de ramos) e `npm run build` sem erro.
+- Depois que a BE-16 (#237) entrou na `develop`, o conflito do `AI-USAGE.md` foi resolvido e os textos que a tratavam como futura (cabeçalhos da store e do simulado, nomes de testes, C4 e descrição do PR) foram atualizados: o progresso e a adesão já respondem 200 e 204, e o 501 ficou como defesa; o ranking continua em 501 no backend.
 - Situação: ajustes da revisão aplicados; aguardando nova revisão.
