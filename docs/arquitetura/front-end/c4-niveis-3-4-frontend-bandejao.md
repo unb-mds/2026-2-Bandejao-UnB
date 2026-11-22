@@ -576,7 +576,12 @@ trata erros (RNF04, ADR 0007)."]
   `"pontos": {"total", "contribuicao", "avaliacaoLiberada", "bonusSemana"}`.
   `filaStore` e `avaliacoesStore` repassam esse bloco à `gamificacaoStore`
   (setas "pontos recebidos"), que mostra o `PontosAviso` quando `total > 0`
-  e marca o progresso como desatualizado.
+  e marca o progresso como desatualizado. Desde a FE-10 (#171), o
+  `PontosAviso` é um aviso flutuante na raiz, acima da barra inferior no
+  celular, com `role="status"`: some sozinho em 4 segundos ou no "×", e um
+  aviso novo substitui o anterior. O `CheckinBotao` e o `AvaliacaoWidget`
+  não repetem o "+N pontos". Um bloco fora do contrato (sem `total` inteiro
+  e não negativo) é ignorado e registrado no console.
 - **Bandeja de Ouro nas respostas públicas (decisão 12 da #66).** Cada linha
   do ranking e cada autor de comentário traz o campo opcional
   `distintivo`: `null` ou
