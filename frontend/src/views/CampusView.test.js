@@ -110,6 +110,48 @@ describe('CampusView (FE-07, front 3a.2)', () => {
     expect(wrapper.text()).toContain('Entre para fazer check-in')
   })
 
+  it('a previsão da fila aparece na tela do campus, sem login (FE-11, RF13)', async () => {
+    const { wrapper } = await montarEm('/campus/1')
+
+    await vi.waitFor(() =>
+      expect(wrapper.findAll('[data-teste="previsao-faixa"]').length).toBeGreaterThan(0),
+    )
+    expect(wrapper.get('#titulo-previsao').text()).toContain('hoje')
+    expect(wrapper.find('[data-teste="previsao-pico"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('A previsão de fila chega na próxima versão')
+  })
+
+  it('a previsão segue o dia e a refeição escolhidos no cardápio', async () => {
+    const get = vi.spyOn(apiClient, 'get')
+    const { wrapper } = await montarEm('/campus/1')
+    await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
+
+    usePreferenciasStore().selecionar('2026-09-29', 'jantar')
+    await flushPromises()
+
+    await vi.waitFor(() =>
+      expect(wrapper.get('#titulo-previsao').text()).toBe('Previsão · Jantar, ter 29/09'),
+    )
+    expect(get.mock.calls.map(([caminho]) => caminho)).toContain(
+      '/fila/previsao/?campus=1&refeicao=jantar&data=2026-09-29',
+    )
+  })
+
+  it('a falha da previsão não derruba o cardápio nem o check-in', async () => {
+    const getOriginal = apiClient.get.bind(apiClient)
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
+      caminho.startsWith('/fila/previsao/')
+        ? Promise.reject(new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }))
+        : getOriginal(caminho, opcoes),
+    )
+
+    const { wrapper } = await montarEm('/campus/1')
+
+    await vi.waitFor(() => expect(wrapper.find('[data-teste="previsao-erro"]').exists()).toBe(true))
+    expect(wrapper.find('.prato').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Entre para fazer check-in')
+  })
+
   it('uma seção falhando não derruba a outra', async () => {
     const getOriginal = apiClient.get.bind(apiClient)
     vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
@@ -297,6 +339,25 @@ describe('CampusView (FE-07, front 3a.2)', () => {
     )
     expect(wrapper.text()).not.toContain('Entre para fazer check-in')
     expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(false)
+  })
+
+  it('refeição encerrada: a previsão dela também sai; a de outro dia continua (RN05)', async () => {
+    vi.setSystemTime(SEGUNDA(20))
+    const { wrapper } = await montarEm('/campus/1')
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-teste="refeicao-encerrada"]').exists()).toBe(true),
+    )
+    usePreferenciasStore().selecionar(hojeISO(SEGUNDA(20)), 'jantar')
+    await flushPromises()
+    expect(wrapper.find('#titulo-previsao').exists()).toBe(false)
+
+    usePreferenciasStore().selecionar('2026-09-29', 'almoco')
+    await flushPromises()
+
+    await vi.waitFor(() =>
+      expect(wrapper.get('#titulo-previsao').text()).toBe('Previsão · Almoço, ter 29/09'),
+    )
+    expect(wrapper.find('[data-teste="refeicao-encerrada"]').exists()).toBe(true)
   })
 
   it('o check-in usa o campus da tela e a refeição selecionada', async () => {
