@@ -624,3 +624,15 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação local: SQLite (Python 3.13): `pytest` com 1977 testes aprovados e 8 ignorados (eram 1917 na `develop` em `e651805`), cobertura de `apps` de 99% e 100% nos módulos novos e nos alterados; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` (nenhuma migration nova) e `spectacular --validate --fail-on-warn` (diff do `openapi.yaml` só de descrição). `testes-mysql`, `semgrep` e `pip-audit` ficam com o CI.
 - Revisão humana: pendente (revisão de outra frente, DoD 1.4).
 - Situação: aguardando revisão.
+
+## BE-17 — Ranking por campus
+
+- Issue: [#185](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/185). PR: a preencher após a abertura.
+- Ferramenta: Claude (Anthropic), pelo Claude Code.
+- Apoio: testes e implementação do `GET /api/ranking/{campusId}/`: `PontuacaoRepository.elegiveis` (na forma do BD-10: `EXISTS` dentro de `CASE`, com `alias`, sem join, ordem `-pontos, atualizado_em`, sem corte), `RankingService` (`semestre_corrente` pelo `SemestreResolver`; `top_publico` com o `LIMIT` do `tamanho_ranking` no banco e as contas numa segunda consulta, por `in_bulk` com a pontuação junto), `LinhaRanking`/`LinhaRankingPublica` e `RankingPublicoMapper` (posição, apelido e patente dos pontos totais, sem pontos nem `distintivo`). A `RankingView` sai do 501 e usa o `buscar_campus` (404 `campus_nao_encontrado`). O `test_indices_bd10.py` passa a chamar o próprio `elegiveis`. Docs: nota da Release no C4 4c e texto do `indices-bd10.md`. O código foi gerado pela IA; os commits foram feitos pelo Claude Code a pedido do autor do PR.
+- Decisões: sem `distintivo`, `classificacao` e `posicaoDe` nesta Release (backlog, seção 3, item 6); a patente é a dos pontos totais, os pontos do semestre só ordenam; conta pendente ou removida também fica de fora (filtro por `status = ativo`). Contrato sem mudança: o `openapi.yaml` da BE-03 já tinha a resposta (`test_contrato_openapi` verde).
+- TDD: `test` (os três arquivos novos falham com `ImportError` antes do código) → `feat` → `docs`.
+- Sabotagem manual (módulo crítico): 9 alterações (sem filtro de adesão, sem filtro de conta ativa, aceitar zero ponto, desempate invertido, desempate por id, sem corte, sem `select_related`, posição a partir de 0, patente pelos pontos do semestre). Todas derrubam ao menos um teste no SQLite.
+- Validação local: SQLite (Python 3.14): `apps/gamificacao` e os testes de contrato, de índices (BD-10) e de CSRF com 260 aprovados e 5 ignorados; `ruff check` e `ruff format --check`. A suíte completa, o `testes-mysql` (com o EXPLAIN do BD-10 no MySQL), `semgrep` e `pip-audit` ficam com o CI.
+- Revisão humana: pendente (revisão de outra frente, DoD 1.4).
+- Situação: aguardando revisão.
