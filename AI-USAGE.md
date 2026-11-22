@@ -461,7 +461,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## FE-09 — AvaliacaoWidget ligado à API
 
-- Issue: [#145](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/145). PR: [#NUMERO — FE-09: AvaliacaoWidget ligado à API](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/NUMERO).
+- Issue: [#145](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/145). PR: [#236 — FE-09: AvaliacaoWidget ligado à API](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/236).
 - Ferramenta: Claude (Anthropic).
 - Apoio: `AvaliacaoWidget` ligado ao contrato da BE-13 (`GET /api/refeicoes/{refeicaoId}/avaliacoes/` e `POST /api/avaliacoes/`, com o `refeicaoId` do resumo do dia), edição pelo mesmo envio (upsert), motivos de indisponível (`utils/avaliacao.js`), comentários com apelido e "usuário removido", `ConviteLogin` citando os pontos na avaliação e no check-in, `avaliacoesStore` com as funções novas e servidor simulado no contrato. Os patches foram gerados pela IA e aplicados e commitados pela autora.
 - Contrato: o backend ainda responde 501 nas três rotas de avaliação (BE-13, #140, aberta). A tela trata o 501 como "As avaliações ainda não estão disponíveis", e o simulado imita isso com `simulacao.definirAvaliacoesDisponiveis(false)`. O contrato não tem rota de "minha avaliação": ela vem da resposta do POST e, depois de recarregar a página, do comentário com o apelido da sessão.
@@ -559,7 +559,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BE-15 — Previsão de pico
 
-- Issue: [#167](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/167). PR: [#NUMERO — BE-15: previsão da fila (GET /api/fila/previsao/)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/NUMERO).
+- Issue: [#167](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/167). PR: [#236 — BE-15: previsão da fila (GET /api/fila/previsao/)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/236).
 - Ferramenta: Claude (Anthropic).
 - Apoio: testes e implementação dos seis passos do Nível 4c da Fila, uma classe por passo: `JanelaHistoricoResolver` (4 semanas anteriores no mesmo dia da semana, sem o próprio dia), `FaixaHorarioGenerator` (faixas de 15 min cobrindo o horário do Anexo A, última faixa cortada no fim da refeição), `CheckinRepository.contar_por_faixa` com `ContagemDia` (uma consulta agrupada, na forma conferida pela BD-10; só os dias com dados; o check-in do minuto final na última faixa), `SuficienciaDadosValidator` (3 dias distintos), `MediaPorFaixaCalculator` (média só nos dias com dados, faixa vazia conta como zero, em `Fraction`) e `ClassificadorNivelFila` (cortes de 25/50/75%, `NivelFila`). O `PrevisaoService` monta a `PrevisaoPico`; no empate, todas as faixas com a maior média são longas e pico. A `PrevisaoView` sai do 501 com os mesmos 400 `parametros_invalidos` e 404 `campus_nao_encontrado` do cardápio e do resumo das avaliações (#217). Contrato: descrição do endpoint detalhada e `nivel` como enum (`NivelEnum`), `openapi.yaml` regerado. C4 4c: tipos `Fraction` e a nota dos detalhes da BE-15. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
 - Decisões: o dia pedido não entra na janela (a refeição de hoje pode estar em andamento); médias em fração exata, para o corte de 75% e o empate não dependerem de arredondamento; `status` continua texto no contrato (um `ChoiceField` geraria um `StatusEnum` genérico no schema). Sem `esperaEstimadaMin` (passo 7, BE-E1).
