@@ -1,4 +1,4 @@
-# Uso de IA
+﻿# Uso de IA
 
 Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido, as evidências de validação e a situação da revisão humana. Os resultados detalhados dos testes ficam no PR e nas execuções do CI.
 
@@ -429,10 +429,10 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BD-12 — Exclusão de conta
 
-- Issue: [#164](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/164). PR: #NÚMERO.
+- Issue: [#164](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/164). PR: #225.
 - Ferramenta: Claude (Anthropic).
 - Apoio: `RemoverContaCommand` (transação única), `PontuacaoService.apagar_contadores`, `SessoesDaConta.encerrar_todas`, `ContaRepository.excluir`, migration `0004_remove_status_removido_bd12`, ajuste de `Usuario.is_active` e testes em `backend/apps/cadastro/tests/test_remover_conta.py`.
-- TDD: testes no commit `HASH_DO_TEST`, antes do código.
+- TDD: testes no commit `88831bf`, antes do código.
 - Testes: os quatro efeitos (contadores apagados, check-ins desvinculados, sessões de todos os aparelhos encerradas, linha de `USUARIO` apagada); avaliações mantidas com `usuario` nulo; tokens em cascata; mesma matrícula, e-mail e apelido livres para novo cadastro; outras contas intactas; conta já apagada devolve `False`; rollback em cada etapa (falha sem o `transaction.atomic()`, conferido localmente); cada colaborador removido do comando faz um teste falhar (mutação conferida localmente).
 - Ajustes em testes existentes: o status `removido` e `removido_em` saíram, então os parâmetros `REMOVIDO` foram retirados; o teste de migration da BD-03 passou a fixar o esquema de `cadastro` da época (`0003`).
 - Validação local (SQLite): `pytest` sem falhas, `ruff` sem achados nos arquivos alterados, `makemigrations --check` sem mudanças pendentes.
