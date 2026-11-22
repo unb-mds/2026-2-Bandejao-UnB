@@ -429,7 +429,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BD-09 — Monitor de disponibilidade
 
-- Issue: [#ISSUE](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/ISSUE). PR: #NUMERO.
+- Issue: BD-09 do backlog. PR: [#226](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/226).
 - Ferramenta: Claude (Anthropic).
 - Apoio: texto do guia `docs/operacao/monitor-disponibilidade.md` (monitores, alertas, o que fazer ao receber um alerta, método de cálculo da disponibilidade na janela de 7h às 19h30), modelo do relatório parcial e links no menu lateral e no guia de deploy. O texto foi gerado pela IA e revisado, commitado e aplicado pelo autor.
 - Feito pelo autor, sem a IA: criação da conta e dos dois monitores no UptimeRobot (site e `/api/campi/` com a palavra `Darcy Ribeiro`, a cada 5 minutos, com alerta por e-mail) e conferência de que os dois ficaram `Up`.
