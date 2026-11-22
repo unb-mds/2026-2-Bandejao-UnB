@@ -439,7 +439,10 @@ Convite ao cadastro (RF05)."]
   mudar a arquitetura: ele chama `authStore.sair()`, descarta os comentários
   guardados e volta à Início. Se o servidor não confirmar a saída, a conta
   sai deste aparelho, mas a tela fica e avisa que o servidor não confirmou,
-  porque o cookie de sessão pode continuar valendo.
+  porque o cookie de sessão pode continuar valendo. Essa lógica fica no
+  composable `useSair`, que o item "Sair da conta" do menu da Início também
+  usa: lá a tela continua na Início, recarrega as avaliações de hoje e mostra
+  o mesmo aviso quando o servidor não confirma.
 
 ---
 
