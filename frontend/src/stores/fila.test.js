@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useFilaStore } from './fila'
 import { useAuthStore } from './auth'
+import { useGamificacaoStore } from './gamificacao'
 import { apiClient } from '@/services/apiClient'
 import { CONTA_DEMO } from '@/services/mock/banco'
 import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
@@ -85,11 +86,43 @@ describe('filaStore.confirmarCheckin', () => {
       tipoRefeicao: 'almoco',
       data: '2026-11-09',
     })
-    // Até a BE-14 o bloco volta zerado.
-    expect(resultado.pontos).toEqual({ total: 0, contribuicao: 0, avaliacaoLiberada: 0 })
+    expect(resultado.pontos).toEqual({ total: 10, contribuicao: 10, avaliacaoLiberada: 0 })
     expect(fila.ultimoCheckin).toEqual(resultado.checkin)
     expect(fila.ultimosPontos).toEqual(resultado.pontos)
     esperarSemCoordenadas(fila)
+  })
+
+  it('201: repassa o bloco pontos à gamificacaoStore (RF24.2)', async () => {
+    await entrarComAvisoAceito()
+
+    await useFilaStore().confirmarCheckin(CHECKIN_ALMOCO)
+
+    const gamificacao = useGamificacaoStore()
+    expect(gamificacao.ultimosPontos).toEqual({ total: 10, contribuicao: 10, avaliacaoLiberada: 0 })
+    expect(gamificacao.aviso).toMatchObject({ total: 10 })
+  })
+
+  it('201 com pontos zerados: a gamificacaoStore guarda o bloco sem abrir aviso', async () => {
+    await entrarComAvisoAceito()
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      checkin: { id: 7, campus: 1, tipoRefeicao: 'almoco', data: '2026-11-09' },
+      pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 },
+    })
+
+    await useFilaStore().confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(useGamificacaoStore().ultimosPontos).toMatchObject({ total: 0 })
+    expect(useGamificacaoStore().aviso).toBeNull()
+  })
+
+  it('recusa (422) não passa nada à gamificacaoStore', async () => {
+    vi.setSystemTime(SEGUNDA_16H)
+    await entrarComAvisoAceito()
+
+    await useFilaStore().confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(useGamificacaoStore().ultimosPontos).toBeNull()
+    expect(useGamificacaoStore().aviso).toBeNull()
   })
 
   it('422 fora_do_horario: recusado com a mensagem do servidor, que traz a janela', async () => {
