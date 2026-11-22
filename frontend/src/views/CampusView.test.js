@@ -396,6 +396,7 @@ describe('CampusView — canal de contato (RNF08, FE-15)', () => {
 
   it('logada também vê', async () => {
     await useAuthStore().entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+    expect(useAuthStore().estaAutenticado).toBe(true)
     const { wrapper } = await montarEm('/campus/1')
 
     expect(contato(wrapper).exists()).toBe(true)

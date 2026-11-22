@@ -5,7 +5,6 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { routes } from '@/router'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { reiniciarSimulacao } from '@/services/mock/servidor'
-import { CANAL_CONTATO } from '@/constants/contato'
 import { ITENS_NAVEGACAO, ITENS_NAVEGACAO_TOPO, itemAtivo } from '@/constants/navegacao'
 import App from '@/App.vue'
 import NavegacaoInferior from './NavegacaoInferior.vue'
@@ -96,13 +95,12 @@ describe('NavegacaoTopo e NavegacaoInferior', () => {
   it('a do topo tem o canal de contato (RNF08): o e-mail da equipe', async () => {
     const { wrapper } = await montar(NavegacaoTopo)
 
-    const contato = wrapper.find(`a[href="${CANAL_CONTATO}"]`)
+    const contato = wrapper.findAll('a').find((a) => a.text().startsWith('Contato'))
 
-    expect(contato.exists()).toBe(true)
-    expect(CANAL_CONTATO).toBe('mailto:equipe@bandejaounb.com.br')
-    expect(contato.text()).toContain('Contato')
-    // O endereço também chega a quem usa leitor de tela.
+    expect(contato.attributes('href')).toBe('mailto:equipe@bandejaounb.com.br')
+    // O endereço chega a quem usa leitor de tela uma vez só: sem `title` repetindo.
     expect(contato.text()).toContain('equipe@bandejaounb.com.br')
+    expect(contato.attributes('title')).toBeUndefined()
     expect(contato.attributes('target')).toBeUndefined()
   })
 
