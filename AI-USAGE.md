@@ -627,7 +627,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BE-17 — Ranking por campus
 
-- Issue: [#185](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/185). PR: a preencher após a abertura.
+- Issue: [#185](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/185). PR: [#239](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/239)
 - Ferramenta: Claude (Anthropic), pelo Claude Code.
 - Apoio: testes e implementação do `GET /api/ranking/{campusId}/`: `PontuacaoRepository.elegiveis` (na forma do BD-10: `EXISTS` dentro de `CASE`, com `alias`, sem join, ordem `-pontos, atualizado_em`, sem corte), `RankingService` (`semestre_corrente` pelo `SemestreResolver`; `top_publico` com o `LIMIT` do `tamanho_ranking` no banco e as contas numa segunda consulta, por `in_bulk` com a pontuação junto), `LinhaRanking`/`LinhaRankingPublica` e `RankingPublicoMapper` (posição, apelido e patente dos pontos totais, sem pontos nem `distintivo`). A `RankingView` sai do 501 e usa o `buscar_campus` (404 `campus_nao_encontrado`). O `test_indices_bd10.py` passa a chamar o próprio `elegiveis`. Docs: nota da Release no C4 4c e texto do `indices-bd10.md`. O código foi gerado pela IA; os commits foram feitos pelo Claude Code a pedido do autor do PR.
 - Decisões: sem `distintivo`, `classificacao` e `posicaoDe` nesta Release (backlog, seção 3, item 6); a patente é a dos pontos totais, os pontos do semestre só ordenam; conta pendente ou removida também fica de fora (filtro por `status = ativo`). Contrato sem mudança: o `openapi.yaml` da BE-03 já tinha a resposta (`test_contrato_openapi` verde).
