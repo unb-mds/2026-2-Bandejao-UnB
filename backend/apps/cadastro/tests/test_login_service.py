@@ -189,7 +189,7 @@ def test_conta_pendente_com_senha_errada_nao_revela_a_pendencia(servico, db):
         servico.autenticar(EMAIL, "senha-errada")
 
 
-@pytest.mark.parametrize("status", [StatusUsuario.SUSPENSO, StatusUsuario.REMOVIDO])
+@pytest.mark.parametrize("status", [StatusUsuario.SUSPENSO])
 def test_conta_suspensa_ou_removida_recebe_a_mensagem_generica(servico, status, db):
     """ADR 0004 e 0007: `is_active = False` não entra, com a mesma mensagem."""
     criar_conta(status=status)

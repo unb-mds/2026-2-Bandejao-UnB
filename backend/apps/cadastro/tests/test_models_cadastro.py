@@ -182,7 +182,6 @@ class TestCriacaoDeConta:
         assert usuario.tentativas_login_falhas == 0
         assert usuario.primeira_falha_login_em is None
         assert usuario.bloqueado_ate is None
-        assert usuario.removido_em is None
 
     def test_senha_nunca_e_guardada_em_texto_plano(self):
         usuario = criar_usuario(password=SENHA)
@@ -240,10 +239,9 @@ class TestStatus:
             (StatusUsuario.PENDENTE, True),
             (StatusUsuario.ATIVO, True),
             (StatusUsuario.SUSPENSO, False),
-            (StatusUsuario.REMOVIDO, False),
         ],
     )
-    def test_suspenso_e_removido_ficam_inativos(self, status, ativo):
+    def test_so_suspenso_fica_inativo(self, status, ativo):
         usuario = criar_usuario(status=status)
         assert usuario.is_active is ativo
 
@@ -253,10 +251,9 @@ class TestStatus:
             (StatusUsuario.PENDENTE, True),
             (StatusUsuario.ATIVO, True),
             (StatusUsuario.SUSPENSO, False),
-            (StatusUsuario.REMOVIDO, False),
         ],
     )
-    def test_conta_suspensa_ou_removida_nao_autentica(self, status, autentica):
+    def test_conta_suspensa_nao_autentica(self, status, autentica):
         usuario = criar_usuario(status=status)
         autenticado = authenticate(username=usuario.matricula_siape, password=SENHA)
         assert (autenticado is not None) is autentica

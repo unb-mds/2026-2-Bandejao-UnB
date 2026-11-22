@@ -7,12 +7,15 @@ from django.utils import timezone
 
 MIGRACAO_ANTERIOR = ("gamificacao", "0001_initial")
 MIGRACAO_BD03 = ("gamificacao", "0002_inicializar_pontuacao_usuarios")
+# O esquema de `cadastro` na época da BD-03 (antes da BD-12 remover `removido_em`).
+CADASTRO_NA_EPOCA = ("cadastro", "0003_tabela_do_cache")
 
 
 def migrar_para(destino):
+    alvos = [destino, CADASTRO_NA_EPOCA]
     executor = MigrationExecutor(connection)
-    executor.migrate([destino])
-    return executor.loader.project_state([destino]).apps
+    executor.migrate(alvos)
+    return executor.loader.project_state(alvos).apps
 
 
 @pytest.fixture

@@ -202,7 +202,7 @@ def test_professor_inexistente_e_senha_errada_dao_a_mesma_resposta(cliente, cont
     assert inexistente.json() == senha_errada.json()
 
 
-@pytest.mark.parametrize("status", [StatusUsuario.SUSPENSO, StatusUsuario.REMOVIDO])
+@pytest.mark.parametrize("status", [StatusUsuario.SUSPENSO])
 def test_conta_suspensa_ou_removida_da_a_mesma_mensagem_generica(cliente, status, db):
     criar_conta(status=status)
 
@@ -405,7 +405,7 @@ def test_get_com_aviso_atual_diz_que_nao_ha_pendencia(cliente, db):
     }
 
 
-@pytest.mark.parametrize("status", [StatusUsuario.SUSPENSO, StatusUsuario.REMOVIDO])
+@pytest.mark.parametrize("status", [StatusUsuario.SUSPENSO])
 def test_conta_suspensa_perde_a_sessao_aberta(logado, conta, status):
     """ADR 0007: a sessão já aberta deixa de autenticar na requisição seguinte."""
     get_user_model().objects.filter(pk=conta.pk).update(status=status)
