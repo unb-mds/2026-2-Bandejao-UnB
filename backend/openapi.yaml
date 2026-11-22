@@ -1224,10 +1224,12 @@ components:
           description: Pontos que faltam para a próxima patente. 0 na última.
         sequencia:
           type: integer
-          description: Semanas seguidas completadas (RN10).
+          description: Semanas seguidas completadas (RN10). 0 até a sequência semanal
+            (BE-E6) entrar.
         diasNaSemana:
           type: integer
-          description: Dias com check-in na semana corrente.
+          description: Dias com check-in na semana corrente. 0 até a sequência semanal
+            (BE-E6) entrar.
         minimoDias:
           type: integer
           description: Dias necessários para completar a semana.

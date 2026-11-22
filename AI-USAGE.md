@@ -574,3 +574,15 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - TDD da revisão: `e1c4703` (`test`, 29 falhas) → ``8649b2f``. Sabotagem da regra nova: janela com `<=`, sem o filtro e "hoje" em UTC; as três derrubam ao menos um teste.
 - Validação após a revisão: testes da fila e do contrato (275) aprovados localmente (SQLite, Python 3.14); `ruff check`, `ruff format --check` e `spectacular --validate --fail-on-warn` aprovados. A suíte completa e o `testes-mysql` ficam com o CI.
 - Situação: ajustes da revisão aplicados; aguardando a nova revisão.
+
+## BE-16 — Progresso e adesão
+
+- Issue: [#168](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/168). PR: a preencher ao abrir.
+- Ferramenta: Claude (Anthropic).
+- Apoio: testes e implementação seguindo o guia da BE-16: `Patente` (`StrEnum` na ordem dos limiares), `PatenteResolver` (`patente` e `falta_para_proxima` com `bisect_right`, limiares lidos da `ParametrosGamificacaoConfig` e conferidos no construtor: um por patente, o primeiro 0, crescentes), `Progresso` (só os 7 campos do contrato) e `ProgressoService.montar(conta, hoje)` (só leitura, sem trava e sem criar linha; sem `PontuacaoUsuario`, zero ponto e sem adesão). `PontuacaoRepository.alterar_adesao` abre a própria transação, reaproveita `travar_por_conta` (cria a linha que falta e mantém a ordem de travas da BE-14) e grava só `participa_ranking` e `atualizado_em`, sem tocar na `PontosSemestreCampus`. `ProgressoView` e `RankingAdesaoView` saem do 501 (200 e 204). Contrato: `help_text` de `sequencia` e `diasNaSemana` e `openapi.yaml` regerado (só descrição). C4 4c: notas do `Progresso` desta Release e dos campos de sequência. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Decisões (grupo, 22/11/2026): os campos de sequência ficam no contrato, com `sequencia` = `sequencia_atual`, `diasNaSemana` = 0 e `minimoDias` da config até a BE-E6. Sem posição, Bandeja de Ouro nem `distintivo` (backlog, seção 3, item 6). A linha que falta é criada na adesão, nunca no `GET`. O 401 sem sessão não foi duplicado nos testes novos (já coberto por `test_acesso_contrato.py` e `test_csrf_rotas_reais.py`).
+- TDD: `test` (os arquivos de unidade falham com `ImportError`; adesão e endpoints com 20 falhas contra o 501) → `feat` → `docs`.
+- Sabotagem manual (módulo crítico): 6 alterações (`<=` virando `<` no limiar, limiares fixos no código, falta da patente errada, `save()` sem `update_fields` na adesão, gravar a linha do semestre na adesão, criar linha no `GET`). Todas derrubam ao menos um teste no SQLite.
+- Validação local: SQLite (Python 3.13): `pytest` com 1977 testes aprovados e 8 ignorados (eram 1917 na `develop` em `e651805`), cobertura de `apps` de 99% e 100% nos módulos novos e nos alterados; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` (nenhuma migration nova) e `spectacular --validate --fail-on-warn` (diff do `openapi.yaml` só de descrição). `testes-mysql`, `semgrep` e `pip-audit` ficam com o CI.
+- Revisão humana: pendente (revisão de outra frente, DoD 1.4).
+- Situação: aguardando revisão.
