@@ -341,6 +341,65 @@ describe('CampusView (FE-07, front 3a.2)', () => {
     expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(false)
   })
 
+  it('às 16h: a previsão do almoço de hoje sai e a do jantar de hoje aparece (RN05)', async () => {
+    vi.setSystemTime(SEGUNDA(16))
+    const { wrapper } = await montarEm('/campus/1')
+    await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
+    const preferencias = usePreferenciasStore()
+
+    preferencias.selecionar(hojeISO(SEGUNDA(16)), 'almoco')
+    await flushPromises()
+    expect(wrapper.find('#titulo-previsao').exists()).toBe(false)
+
+    preferencias.selecionar(hojeISO(SEGUNDA(16)), 'jantar')
+    await flushPromises()
+    await vi.waitFor(() =>
+      expect(wrapper.get('#titulo-previsao').text()).toBe('Previsão · Jantar, hoje'),
+    )
+  })
+
+  it.each([
+    ['19h30, último minuto do jantar', SEGUNDA(19, 30), true],
+    ['19h31, jantar encerrado', SEGUNDA(19, 31), false],
+  ])('%s: previsão do jantar de hoje aparece? %s', async (_caso, agora, aparece) => {
+    vi.setSystemTime(agora)
+    const { wrapper } = await montarEm('/campus/1')
+    await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
+
+    usePreferenciasStore().selecionar(hojeISO(agora), 'jantar')
+    await flushPromises()
+
+    expect(wrapper.find('#titulo-previsao').exists()).toBe(aparece)
+  })
+
+  it('o relógio vira com a tela aberta: a previsão do almoço sai depois das 14h30', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+    vi.setSystemTime(SEGUNDA(14, 30))
+    const { wrapper } = await montarEm('/campus/1')
+    await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
+    usePreferenciasStore().selecionar(hojeISO(SEGUNDA(14, 30)), 'almoco')
+    await flushPromises()
+    await vi.waitFor(() => expect(wrapper.find('#titulo-previsao').exists()).toBe(true))
+
+    vi.setSystemTime(SEGUNDA(14, 31))
+    vi.advanceTimersByTime(30 * 1000)
+    await flushPromises()
+
+    expect(wrapper.find('#titulo-previsao').exists()).toBe(false)
+  })
+
+  it('dia que já passou na semana: sem previsão', async () => {
+    const QUARTA = new Date(2026, 8, 30, 12, 0)
+    vi.setSystemTime(QUARTA)
+    const { wrapper } = await montarEm('/campus/1')
+    await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
+
+    usePreferenciasStore().selecionar('2026-09-28', 'almoco')
+    await flushPromises()
+
+    expect(wrapper.find('#titulo-previsao').exists()).toBe(false)
+  })
+
   it('refeição encerrada: a previsão dela também sai; a de outro dia continua (RN05)', async () => {
     vi.setSystemTime(SEGUNDA(20))
     const { wrapper } = await montarEm('/campus/1')

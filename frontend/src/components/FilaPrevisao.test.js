@@ -130,6 +130,34 @@ describe('FilaPrevisao (FE-11, RF13, RN06)', () => {
     expect(wrapper.find('[data-teste="previsao-erro"] button').exists()).toBe(false)
   })
 
+  it.each([
+    ['400 parametros_invalidos', 400, { codigo: 'parametros_invalidos', mensagem: 'Inválido.' }, false],
+    ['404 campus_nao_encontrado', 404, { codigo: 'campus_nao_encontrado', mensagem: 'Não há.' }, false],
+    ['404 sem codigo (página de proxy)', 404, {}, false],
+    ['500', 500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }, true],
+  ])('%s: "Tentar novamente" aparece? %s', async (_caso, status, dados, comBotao) => {
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(new ApiError(status, dados))
+
+    const wrapper = await montar()
+
+    expect(wrapper.find('[data-teste="previsao-erro"]').exists()).toBe(true)
+    expect(wrapper.find('[data-teste="previsao-erro"] button').exists()).toBe(comBotao)
+  })
+
+  it('os estados ficam numa região aria-live fixa; a lista de faixas fica fora dela', async () => {
+    simulacao.definirPrevisaoDisponivel(false)
+    const wrapper = await montar()
+
+    const regiao = wrapper.get('[aria-live="polite"]')
+    expect(regiao.find('[data-teste="previsao-indisponivel"]').exists()).toBe(true)
+
+    simulacao.definirPrevisaoDisponivel(true)
+    const comFaixas = await montar({ tipoRefeicao: 'cafe' })
+    const regiaoComFaixas = comFaixas.get('[aria-live="polite"]')
+    expect(regiaoComFaixas.find('[data-teste="previsao-pico"]').exists()).toBe(true)
+    expect(regiaoComFaixas.find('ol').exists()).toBe(false)
+  })
+
   it('título com a refeição e "hoje"; outro dia aparece com dia e data', async () => {
     const wrapper = await montar()
     expect(wrapper.get('#titulo-previsao').text()).toBe('Previsão · Almoço, hoje')

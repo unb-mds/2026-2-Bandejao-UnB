@@ -411,12 +411,64 @@ describe('filaStore: previsão da fila (FE-11, RF13)', () => {
 
     await fila.carregarPrevisao(PEDIDO)
 
-    expect(fila.estadoDaPrevisao(PEDIDO)).toEqual({
+    expect(fila.estadoDaPrevisao(PEDIDO)).toMatchObject({
       situacao: 'indisponivel',
       previsao: null,
       erro: null,
     })
     expect(log).not.toHaveBeenCalled()
+  })
+
+  it('501 vale 5 minutos: dentro deles não vai à rede; depois, pede de novo', async () => {
+    const fila = useFilaStore()
+    simulacao.definirPrevisaoDisponivel(false)
+    const get = vi.spyOn(apiClient, 'get')
+
+    await fila.carregarPrevisao(PEDIDO)
+    await fila.carregarPrevisao(PEDIDO)
+    expect(get).toHaveBeenCalledTimes(1)
+
+    simulacao.definirPrevisaoDisponivel(true)
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+    await fila.carregarPrevisao(PEDIDO)
+
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
+  it('a previsão carregada também vale 5 minutos', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await fila.carregarPrevisao(PEDIDO)
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 4 * 60 * 1000))
+    await fila.carregarPrevisao(PEDIDO)
+    expect(get).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+    await fila.carregarPrevisao(PEDIDO)
+    expect(get).toHaveBeenCalledTimes(2)
+  })
+
+  it('forcar com um pedido antigo pendente: a resposta antiga não sobrescreve a nova', async () => {
+    const fila = useFilaStore()
+    const getOriginal = apiClient.get.bind(apiClient)
+    let liberarAntigo
+    const antigo = new Promise((resolver) => {
+      liberarAntigo = resolver
+    })
+    vi.spyOn(apiClient, 'get')
+      .mockImplementationOnce(() => antigo)
+      .mockImplementation((caminho, opcoes) => getOriginal(caminho, opcoes))
+
+    const primeiro = fila.carregarPrevisao(PEDIDO)
+    await fila.carregarPrevisao(PEDIDO, { forcar: true })
+    const novo = fila.estadoDaPrevisao(PEDIDO)
+    liberarAntigo({ status: 'dados_insuficientes', faixas: [] })
+    await primeiro
+
+    expect(fila.estadoDaPrevisao(PEDIDO)).toBe(novo)
+    expect(fila.estadoDaPrevisao(PEDIDO).previsao.status).toBe('disponivel')
   })
 
   it('404 campus_nao_encontrado: erro com o código', async () => {
@@ -439,6 +491,7 @@ describe('filaStore: previsão da fila (FE-11, RF13)', () => {
     expect(fila.estadoDaPrevisao(PEDIDO).erro).toEqual({
       codigo: 'sem_conexao',
       mensagem: 'Sem internet.',
+      status: 0,
     })
     await fila.carregarPrevisao(PEDIDO)
 
@@ -461,14 +514,36 @@ describe('filaStore: previsão da fila (FE-11, RF13)', () => {
       'faixa sem ehPico',
       { status: 'disponivel', faixas: [{ inicio: '11:00:00', fim: '11:15:00', nivel: 'vazia' }] },
     ],
-  ])('resposta fora do contrato (%s): erro e registro no console', async (_caso, resposta) => {
+    [
+      'disponível sem nenhum pico',
+      {
+        status: 'disponivel',
+        faixas: [
+          { inicio: '11:00:00', fim: '11:15:00', nivel: 'vazia', ehPico: false },
+          { inicio: '11:15:00', fim: '11:30:00', nivel: 'curta', ehPico: false },
+        ],
+      },
+    ],
+    [
+      'dados insuficientes com faixas',
+      {
+        status: 'dados_insuficientes',
+        faixas: [{ inicio: '11:00:00', fim: '11:15:00', nivel: 'longa', ehPico: true }],
+      },
+    ],
+  ])('resposta fora do contrato (%s): erro com mensagem para a tela', async (_caso, resposta) => {
     const fila = useFilaStore()
     vi.spyOn(apiClient, 'get').mockResolvedValueOnce(resposta)
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     await fila.carregarPrevisao(PEDIDO)
 
-    expect(fila.estadoDaPrevisao(PEDIDO)).toMatchObject({ situacao: 'erro', previsao: null })
-    expect(log).toHaveBeenCalledTimes(1)
+    const estado = fila.estadoDaPrevisao(PEDIDO)
+    expect(estado).toMatchObject({ situacao: 'erro', previsao: null })
+    expect(estado.erro.mensagem).toEqual(expect.any(String))
+    expect(estado.erro.mensagem.length).toBeGreaterThan(0)
+    const falha = log.mock.calls[0][0]
+    expect(falha.message).toContain('1|almoco|2026-11-09')
+    expect(falha.cause).toBe(resposta)
   })
 })
