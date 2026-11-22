@@ -398,10 +398,12 @@ Convite ao cadastro (RF05)."]
   `SequenciaSemana`, a `PosicaoRanking` e o `DistintivoIndicador` ficam
   para depois. Chega-se a ela pelo item "Meu progresso" do menu da Início.
   Enquanto a BE-16 (#168) responde 501, a tela mostra "Progresso ainda não
-  disponível", sem erro, e esconde o interruptor; o `BotaoSair` continua.
-  O aviso do interruptor (`role="switch"`) diz que o apelido e a patente
-  ficam visíveis no ranking e nos comentários das avaliações, ainda sem
-  citar a Bandeja de Ouro.
+  disponível", sem erro; o `BotaoSair` continua. O interruptor só aparece com
+  o progresso carregado (não no 501, no primeiro carregamento nem no erro) e,
+  depois de mudar a adesão, continua na tela, desativado, enquanto o
+  progresso recarrega. O aviso do interruptor (`role="switch"`) diz que o
+  apelido e a patente ficam visíveis para todos no ranking do semestre, ainda
+  sem citar a Bandeja de Ouro.
 - **`RankingView` (rota `/ranking/:campusId`) é pública** e mostra o ranking
   **do semestre** do campus escolhido no `SeletorCampus`: até 10 linhas
   (Anexo A) com posição, apelido, patente e, quando houver, a Bandeja de
@@ -433,7 +435,10 @@ Convite ao cadastro (RF05)."]
   sem acrescentar interações (RNF03).
 - **`BotaoSair` fica em "Meu progresso"**, que é a área da conta do
   usuário logado (RF03.3). A dupla pode movê-lo para um menu de conta sem
-  mudar a arquitetura: ele só chama `authStore.sair()`.
+  mudar a arquitetura: ele chama `authStore.sair()`, descarta os comentários
+  guardados e volta à Início. Se o servidor não confirmar a saída, a conta
+  sai deste aparelho, mas a tela fica e avisa que o servidor não confirmou,
+  porque o cookie de sessão pode continuar valendo.
 
 ---
 
@@ -605,10 +610,15 @@ trata erros (RNF04, ADR 0007)."]
   os comentários guardados, porque a Bandeja de Ouro de quem desligou some
   na hora (RF27.1). Desde a FE-12, o progresso e cada ranking guardam a
   situação (`carregando`, `carregado`, `indisponivel` no 501 ou `erro`), com
-  a resposta validada contra o OpenAPI; o progresso é pedido de novo quando
-  chegam pontos novos (`progressoDesatualizado`), recarrega só os rankings
-  já abertos ao mudar a adesão, ignora um segundo toque enquanto a mudança
-  não termina e é limpo no logout e no 401.
+  a resposta validada contra o OpenAPI. Com pontos novos, o progresso fica
+  marcado como desatualizado (`progressoDesatualizado`) e é pedido de novo na
+  próxima vez que a tela abrir. Ao mudar a adesão, a store grava o novo
+  `participaRanking` assim que o servidor confirma, recarrega o progresso sem
+  voltar a "carregando" (se o recarregamento falhar, mantém o que tinha e o
+  marca como desatualizado) e recarrega só os rankings já abertos; um segundo
+  toque é ignorado enquanto a mudança não termina. Progresso, rankings e o
+  erro da adesão são limpos no logout e no 401, e uma resposta que chega
+  depois disso, ou depois de um pedido mais novo, é descartada.
 - **Pontos recebidos (decisão 7 da #66, RF24.2).** Não há endpoint de
   pontos: as respostas de check-in, de resposta de saída e de avaliação
   trazem o mesmo bloco
