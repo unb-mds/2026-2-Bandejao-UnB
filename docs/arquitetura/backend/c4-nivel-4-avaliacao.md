@@ -92,6 +92,7 @@ classDiagram
   }
   class PontuacaoService {
     <<App Gamificação>>
+    +travarConta(conta: Conta) void
     +registrarContribuicao(conta: Conta, tipo: TipoContribuicao, origemId: int, refeicao: RefeicaoRef) ResultadoPontuacao
   }
   class ResultadoPontuacao {
@@ -108,7 +109,7 @@ classDiagram
   ComentarioValidator ..> ComentarioMuitoLongoError : lança se > 500 caracteres
   AvaliacaoService --> AvaliacaoRepository : busca existente (upsert) / salva
   AvaliacaoService --> Avaliacao : cria ou edita
-  AvaliacaoService --> PontuacaoService : registra contribuição (mesma transação)
+  AvaliacaoService --> PontuacaoService : trava a conta e registra contribuição (mesma transação)
   AvaliacaoService --> AvaliacaoRegistrada : devolve
   AvaliacaoRegistrada --> ResultadoPontuacao : tem
   AvaliacaoRepository ..> Avaliacao : grava/lê
@@ -141,6 +142,12 @@ classDiagram
   refeicao)`, da Gamificação), na **mesma `transaction.atomic()`** que grava
   a avaliação. Se a pontuação falhar, a avaliação não é gravada, e o usuário
   pode tentar de novo.
+- **A trava da conta vem antes da trava da avaliação (revisão da BE-14).**
+  A transação começa com `PontuacaoService.travarConta(conta)` e só depois
+  busca a avaliação com `select_for_update`. O check-in da mesma refeição
+  trava a conta e depois marca a avaliação feita antes; na ordem inversa,
+  editar a avaliação durante o check-in daria deadlock (erro 1213). Ver a
+  nota de `travarConta` no Nível 4a da Gamificação.
 - **Quem decide se a avaliação pontua é o `PontuacaoService`, não este
   componente.** A RN09 só dá pontos à avaliação quando a refeição passa a
   ter, para o usuário, uma avaliação **e** um check-in confirmado, o que vier
