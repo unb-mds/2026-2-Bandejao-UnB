@@ -1,2 +1,7 @@
-/** Canal público de contato para reclamações (RNF08). */
-export const CANAL_CONTATO = 'https://github.com/unb-mds/2026-2-Bandejao-UnB/issues'
+/**
+ * Canal público de contato para reclamações e pedidos de exclusão da conta
+ * (RNF08, RNF07.4, Visão 9.1). É o endereço da equipe da ADR 0012, o mesmo
+ * do aviso de privacidade.
+ */
+export const EMAIL_CONTATO = 'equipe@bandejaounb.com.br'
+export const CANAL_CONTATO = `mailto:${EMAIL_CONTATO}`

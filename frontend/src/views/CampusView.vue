@@ -9,6 +9,7 @@ import { abrirAvisoLocalizacao } from '@/composables/avisoLocalizacao'
 import { refeicaoPadrao } from '@/utils/cardapio'
 import { hojeISO, minutosAgora, minutosDoDia } from '@/utils/datas'
 import AvisoExecutivo from '@/components/AvisoExecutivo.vue'
+import ContatoEquipe from '@/components/ContatoEquipe.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
 import NavegacaoInferior from '@/components/NavegacaoInferior.vue'
 import CardapioView from './CardapioView.vue'
@@ -118,6 +119,7 @@ watch(
     <main v-if="naoEncontrado" class="conteudo sem-barra estado">
       <p class="estado-titulo">Campus não encontrado</p>
       <RouterLink :to="{ name: 'campus' }" class="botao botao--primario">Escolher o campus</RouterLink>
+      <ContatoEquipe />
     </main>
 
     <main v-else class="conteudo sem-barra">
@@ -128,6 +130,8 @@ watch(
         :encerrada="refeicaoEncerrada"
         :campus-confirmado="Boolean(campus)"
       />
+      <!-- RNF08: o contato fica à vista no celular, onde a barra do topo some. -->
+      <ContatoEquipe />
     </main>
 
     <NavegacaoInferior />

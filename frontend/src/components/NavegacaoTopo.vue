@@ -1,6 +1,6 @@
 <script setup>
 import { useRoute } from 'vue-router'
-import { CANAL_CONTATO } from '@/constants/contato'
+import { CANAL_CONTATO, EMAIL_CONTATO } from '@/constants/contato'
 import { ITENS_NAVEGACAO_TOPO, itemAtivo } from '@/constants/navegacao'
 import AppLogo from './AppLogo.vue'
 
@@ -27,14 +27,9 @@ const ativo = (item) => itemAtivo(item, route.name, { marcarInicio: true })
         >
           {{ item.rotulo }}
         </RouterLink>
-        <a
-          :href="CANAL_CONTATO"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="item item--contato"
-        >
+        <a :href="CANAL_CONTATO" class="item item--contato" :title="EMAIL_CONTATO">
           Contato
-          <span class="visualmente-oculto">(abre em nova aba)</span>
+          <span class="visualmente-oculto">: {{ EMAIL_CONTATO }}</span>
         </a>
       </nav>
     </div>
