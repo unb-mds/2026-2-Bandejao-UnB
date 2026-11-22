@@ -100,6 +100,7 @@ classDiagram
     +avisoSujeitoAAlteracao: str
     +alergenosIndisponivel: bool
     +filtroMarcadorDesativado: bool
+    +semServico: bool
     +categorias: list~CategoriaFiltrada~
   }
   class StatusCardapio {
@@ -299,8 +300,14 @@ classDiagram
     item 3 da RN05; vale também para a refeição pedida pelo seletor.
   - **Dia futuro ou passado sem `refeicao`**: a primeira refeição do dia
     futuro e a última (encerrada) do dia passado.
-  - **Sem dia com serviço** do dia pedido em diante: `NAO_PUBLICADO`, com o
-    dia pedido e a refeição escolhida pelos horários do Anexo A.
+  - **Sem dia com serviço** do dia pedido em diante (nos 7 dias seguintes),
+    sem `refeicao` no pedido: o dia exibido é o pedido, e a refeição vem dos
+    horários do Anexo A. Com a semana do dia pedido publicada, sai
+    `PUBLICADO` com `semServico: true` e `categorias` vazia: o PDF diz que o
+    RU não abre (sábado nos campi que só servem de segunda a sexta, domingo
+    sem a semana seguinte publicada, recesso). Sem ela, sai `NAO_PUBLICADO`
+    com `semServico: false` (#217, decisão de 21/11/2026). Em qualquer outra
+    resposta, `semServico` é `false`.
   - **Refeição pedida que o PDF não traz no dia** (ex.: `refeicao=cafe` num
     dia só com almoço): `PUBLICADO`, com `categorias` vazia. O contrato
     ainda não diz quais refeições existem em cada dia (ponto em aberto com o
