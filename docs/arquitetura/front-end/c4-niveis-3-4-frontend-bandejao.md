@@ -282,13 +282,14 @@ os pontos (RF05)."]
   previstos". Com `status: "dados_insuficientes"`, mostra "Dados
   insuficientes", sem faixas nem valor de reserva (RF13). Uma resposta
   `disponivel` sem nenhum pico, ou `dados_insuficientes` com faixas, fica
-  fora do contrato e vira erro. O 501 (backend antes da BE-15) vira
-  "Previsão ainda não disponível", sem erro; os outros erros mostram a
-  mensagem, com "Tentar novamente" menos no status 400 e 404. Os estados
-  ficam numa região `aria-live`. A `filaStore` guarda a previsão por campus,
-  refeição e dia: a carregada e a "indisponível" valem 5 minutos, como no
-  cardápio, para a previsão aparecer sem recarregar quando a BE-15 entrar;
-  o erro não fica guardado. A regra da RN05 está na nota de "Refeição
+  fora do contrato e vira erro. Um 501, como defesa contra um backend sem a
+  rota (a BE-15, #236, já calcula a previsão), vira "Previsão fora do ar no
+  momento", sem erro; os outros erros mostram a mensagem, com "Tentar
+  novamente" menos no status 400 e 404. Os estados ficam numa região
+  `aria-live`. A `filaStore` guarda a previsão por campus, refeição e dia:
+  a carregada e a "indisponível" valem 5 minutos, como no cardápio; a
+  `FilaPrevisao` confere a validade a cada minuto e, enquanto revalida,
+  mantém as faixas antigas na tela. O erro não fica guardado. A regra da RN05 está na nota de "Refeição
   encerrada".
 - **`EsperaEstimada` fica dentro de `FilaPrevisao`**: mostra os minutos em
   destaque só nas faixas com `esperaEstimadaMin` diferente de `null`; nas
