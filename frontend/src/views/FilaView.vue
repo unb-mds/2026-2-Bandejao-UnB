@@ -1,23 +1,18 @@
 <script setup>
-import { computed } from 'vue'
 import { REFEICOES } from '@/constants/refeicoes'
-import { hojeISO } from '@/utils/datas'
 import CheckinBotao from '@/components/CheckinBotao.vue'
 import FilaPrevisao from '@/components/FilaPrevisao.vue'
 import RefeicaoEncerrada from '@/components/RefeicaoEncerrada.vue'
 
-const props = defineProps({
+defineProps({
   campusId: { type: Number, required: true },
   tipoRefeicao: { type: String, required: true },
   encerrada: { type: Boolean, default: false },
   campusConfirmado: { type: Boolean, default: true },
-  refeicaoPrevisao: { type: String, default: null },
-  dataPrevisao: { type: String, default: null },
-  mostrarPrevisao: { type: Boolean, default: true },
+  refeicaoPrevisao: { type: String, required: true },
+  dataPrevisao: { type: String, required: true },
+  mostrarPrevisao: { type: Boolean, required: true },
 })
-
-const refeicaoDaPrevisao = computed(() => props.refeicaoPrevisao ?? props.tipoRefeicao)
-const diaDaPrevisao = computed(() => props.dataPrevisao ?? hojeISO())
 </script>
 
 <template>
@@ -27,8 +22,8 @@ const diaDaPrevisao = computed(() => props.dataPrevisao ?? hojeISO())
     <FilaPrevisao
       v-if="mostrarPrevisao"
       :campus-id="campusId"
-      :tipo-refeicao="refeicaoDaPrevisao"
-      :data="diaDaPrevisao"
+      :tipo-refeicao="refeicaoPrevisao"
+      :data="dataPrevisao"
     />
 
     <RefeicaoEncerrada v-if="encerrada" :tipo-refeicao="tipoRefeicao" />

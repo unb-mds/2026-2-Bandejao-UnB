@@ -27,11 +27,11 @@ const pedido = computed(() => ({
 const estado = computed(() => fila.estadoDaPrevisao(pedido.value))
 const situacao = computed(() => estado.value?.situacao ?? 'carregando')
 const previsao = computed(() => estado.value?.previsao ?? null)
-const faixas = computed(() => previsao.value?.faixas ?? [])
-const picos = computed(() => faixas.value.filter((faixa) => faixa.ehPico))
-const podeTentarDeNovo = computed(
-  () => !['parametros_invalidos', 'campus_nao_encontrado'].includes(estado.value?.erro?.codigo),
+const faixas = computed(() =>
+  situacao.value === 'carregado' ? (previsao.value?.faixas ?? []) : [],
 )
+const picos = computed(() => faixas.value.filter((faixa) => faixa.ehPico))
+const podeTentarDeNovo = computed(() => ![400, 404].includes(estado.value?.erro?.status))
 
 const dia = computed(() =>
   props.data === hojeISO() ? 'hoje' : `${diaCurto(props.data).toLowerCase()} ${diaMes(props.data)}`,
@@ -66,59 +66,58 @@ function tentarNovamente() {
   <section class="cartao previsao pilha-3" aria-labelledby="titulo-previsao">
     <p id="titulo-previsao" class="titulo-secao pequeno">{{ titulo }}</p>
 
-    <p v-if="situacao === 'carregando'" class="texto-pequeno estado" role="status">
-      Carregando previsão…
-    </p>
+    <div class="estados" aria-live="polite">
+      <p v-if="situacao === 'carregando'" class="texto-pequeno estado">Carregando previsão…</p>
 
-    <div v-else-if="situacao === 'indisponivel'" class="estado" data-teste="previsao-indisponivel">
-      <p class="estado-titulo">Previsão ainda não disponível</p>
-      <p class="texto-pequeno">
-        A previsão por horário ainda não está no ar. Seus check-ins já ajudam a montá-la.
-      </p>
-    </div>
+      <div v-else-if="situacao === 'indisponivel'" class="estado" data-teste="previsao-indisponivel">
+        <p class="estado-titulo">Previsão ainda não disponível</p>
+        <p class="texto-pequeno">
+          A previsão por horário ainda não está no ar. Seus check-ins já ajudam a montá-la.
+        </p>
+      </div>
 
-    <div v-else-if="situacao === 'erro'" class="estado" data-teste="previsao-erro">
-      <p class="estado-titulo">Não foi possível carregar a previsão</p>
-      <p class="texto-pequeno">{{ estado.erro.mensagem }}</p>
-      <button
-        v-if="podeTentarDeNovo"
-        type="button"
-        class="botao-pequeno tentar"
-        @click="tentarNovamente"
-      >
-        Tentar novamente
-      </button>
-    </div>
-
-    <div
-      v-else-if="previsao.status === 'dados_insuficientes'"
-      class="estado"
-      data-teste="previsao-dados-insuficientes"
-    >
-      <p class="estado-titulo">Dados insuficientes</p>
-      <p class="texto-pequeno">
-        A previsão aparece quando houver check-ins em pelo menos 3 dias diferentes nas últimas 4
-        semanas, neste dia da semana. Faça check-in quando estiver no RU para ajudar.
-      </p>
-    </div>
-
-    <template v-else>
-      <p class="resumo-pico" data-teste="previsao-pico">{{ resumoDoPico }}</p>
-      <ol class="faixas" aria-label="Nível previsto da fila a cada 15 minutos">
-        <li
-          v-for="faixa in faixas"
-          :key="faixa.inicio"
-          class="faixa"
-          :class="{ 'faixa--pico': faixa.ehPico }"
-          data-teste="previsao-faixa"
+      <div v-else-if="situacao === 'erro'" class="estado" data-teste="previsao-erro">
+        <p class="estado-titulo">Não foi possível carregar a previsão</p>
+        <p class="texto-pequeno">{{ estado.erro.mensagem }}</p>
+        <button
+          v-if="podeTentarDeNovo"
+          type="button"
+          class="botao-pequeno tentar"
+          @click="tentarNovamente"
         >
-          <span class="faixa-hora">{{ intervalo(faixa) }}</span>
-          <span class="faixa-barra" :class="`faixa-barra--${faixa.nivel}`" aria-hidden="true" />
-          <span class="faixa-nivel">{{ ROTULOS_DOS_NIVEIS[faixa.nivel] }}</span>
-          <span class="faixa-pico"><span v-if="faixa.ehPico" class="selo-pico">Pico</span></span>
-        </li>
-      </ol>
-    </template>
+          Tentar novamente
+        </button>
+      </div>
+
+      <div
+        v-else-if="previsao.status === 'dados_insuficientes'"
+        class="estado"
+        data-teste="previsao-dados-insuficientes"
+      >
+        <p class="estado-titulo">Dados insuficientes</p>
+        <p class="texto-pequeno">
+          A previsão aparece quando houver check-ins em pelo menos 3 dias diferentes nas últimas 4
+          semanas, neste dia da semana. Faça check-in quando estiver no RU para ajudar.
+        </p>
+      </div>
+
+      <p v-else class="resumo-pico" data-teste="previsao-pico">{{ resumoDoPico }}</p>
+    </div>
+
+    <ol v-if="faixas.length" class="faixas" aria-label="Nível previsto da fila a cada 15 minutos">
+      <li
+        v-for="faixa in faixas"
+        :key="faixa.inicio"
+        class="faixa"
+        :class="{ 'faixa--pico': faixa.ehPico }"
+        data-teste="previsao-faixa"
+      >
+        <span class="faixa-hora">{{ intervalo(faixa) }}</span>
+        <span class="faixa-barra" :class="`faixa-barra--${faixa.nivel}`" aria-hidden="true" />
+        <span class="faixa-nivel">{{ ROTULOS_DOS_NIVEIS[faixa.nivel] }}</span>
+        <span class="faixa-pico"><span v-if="faixa.ehPico" class="selo-pico">Pico</span></span>
+      </li>
+    </ol>
   </section>
 </template>
 
@@ -153,9 +152,9 @@ function tentarNovamente() {
 }
 
 .faixas {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: auto minmax(16px, 1fr) auto auto;
+  row-gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -163,7 +162,8 @@ function tentarNovamente() {
 
 .faixa {
   display: grid;
-  grid-template-columns: 7.5em minmax(24px, 1fr) 5.5em 3.75em;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
@@ -216,5 +216,17 @@ function tentarNovamente() {
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+@media (max-width: 380px) {
+  .previsao {
+    padding: 12px;
+  }
+
+  .faixa {
+    gap: 6px;
+    padding: 6px;
+    font-size: 12px;
+  }
 }
 </style>

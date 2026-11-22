@@ -56,12 +56,11 @@ const refeicaoDaPrevisao = computed(() =>
     ? preferencias.refeicaoSelecionada
     : refeicaoDaFila.value,
 )
-const mostrarPrevisao = computed(
-  () =>
-    !refeicaoEncerrada.value ||
-    dataDaPrevisao.value !== hojeISO(agora.value) ||
-    refeicaoDaPrevisao.value !== refeicaoDaFila.value,
-)
+const mostrarPrevisao = computed(() => {
+  const hoje = hojeISO(agora.value)
+  if (dataDaPrevisao.value !== hoje) return dataDaPrevisao.value > hoje
+  return !refeicaoEncerrada.value || refeicaoDaPrevisao.value !== refeicaoDaFila.value
+})
 
 onMounted(() => {
   cardapio.carregarCampi()

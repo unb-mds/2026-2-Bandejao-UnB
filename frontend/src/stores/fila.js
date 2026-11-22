@@ -12,8 +12,13 @@ import { mensagemForaDoHorario } from '@/constants/refeicoes'
  *
  * **Nunca guarda coordenadas (RI09).** Elas chegam a `confirmarCheckin` só
  * como argumento, vão no corpo do `POST /api/checkins/` e somem com a
- * chamada, em qualquer desfecho. O estado só tem o check-in como o backend o
- * devolve (sem coordenadas) e o bloco `pontos`.
+ * chamada, em qualquer desfecho. O estado tem `enviandoCheckin`, o último
+ * check-in como o backend o devolve (sem coordenadas) e as previsões; o
+ * bloco `pontos` vai para a `gamificacaoStore`.
+ *
+ * A previsão carregada e a "indisponível" (501) valem por 5 minutos, como o
+ * cardápio: assim, quando a BE-15 entrar, quem está com o app aberto passa
+ * a ver a previsão sem recarregar. O erro não fica guardado.
  */
 
 // 400 dados_invalidos só acontece se o próprio PWA montar o corpo errado (por
@@ -46,11 +51,15 @@ const ehFaixa = (faixa) =>
   NIVEIS_DA_FILA.includes(faixa.nivel) &&
   typeof faixa.ehPico === 'boolean'
 
+const VALIDADE_DA_PREVISAO = 5 * 60 * 1000
+
 const ehPrevisao = (resposta) =>
   STATUS_DA_PREVISAO.includes(resposta?.status) &&
   Array.isArray(resposta.faixas) &&
   resposta.faixas.every(ehFaixa) &&
-  (resposta.status === 'dados_insuficientes' || resposta.faixas.length > 0)
+  (resposta.status === 'dados_insuficientes'
+    ? resposta.faixas.length === 0
+    : resposta.faixas.some((faixa) => faixa.ehPico))
 
 const chaveDaPrevisao = ({ campus, refeicao, data }) => `${campus}|${refeicao}|${data}`
 
@@ -71,9 +80,9 @@ export const useFilaStore = defineStore('fila', () => {
   function carregarPrevisao(pedido, { forcar = false } = {}) {
     const chave = chaveDaPrevisao(pedido)
     const atual = previsoes.value[chave]
-    if (!forcar && ['carregado', 'indisponivel'].includes(atual?.situacao)) {
-      return Promise.resolve(atual)
-    }
+    const aindaVale =
+      ['carregado', 'indisponivel'].includes(atual?.situacao) && Date.now() < atual.expiraEm
+    if (!forcar && aindaVale) return Promise.resolve(atual)
     if (!forcar && pedidosDePrevisao.has(chave)) return pedidosDePrevisao.get(chave)
     const parametros = new URLSearchParams({
       campus: String(pedido.campus),
@@ -85,16 +94,34 @@ export const useFilaStore = defineStore('fila', () => {
       .get(`/fila/previsao/?${parametros}`)
       .then((resposta) => {
         if (!ehPrevisao(resposta)) {
-          throw new Error('Resposta inesperada de GET /api/fila/previsao/.')
+          throw new Error(`Resposta inesperada de GET /api/fila/previsao/ (${chave}).`, {
+            cause: resposta,
+          })
         }
-        return { situacao: 'carregado', previsao: resposta, erro: null }
+        return {
+          situacao: 'carregado',
+          previsao: resposta,
+          erro: null,
+          expiraEm: Date.now() + VALIDADE_DA_PREVISAO,
+        }
       })
       .catch((falha) => {
-        if (falha?.status === 501) return { situacao: 'indisponivel', previsao: null, erro: null }
+        if (falha?.status === 501) {
+          return {
+            situacao: 'indisponivel',
+            previsao: null,
+            erro: null,
+            expiraEm: Date.now() + VALIDADE_DA_PREVISAO,
+          }
+        }
         return {
           situacao: 'erro',
           previsao: null,
-          erro: { mensagem: mensagemDeErro(falha), codigo: falha?.codigo ?? null },
+          erro: {
+            mensagem: mensagemDeErro(falha),
+            codigo: falha?.codigo ?? null,
+            status: falha?.status ?? null,
+          },
         }
       })
       .then((estado) => {

@@ -22,7 +22,11 @@
  * As avaliações seguem o contrato da BE-13 (FE-09): `POST /avaliacoes/` e
  * `GET /refeicoes/{refeicaoId}/avaliacoes/`, com o `refeicaoId` do resumo do
  * dia; as duas respondem 501, como o backend hoje, depois de
- * `simulacao.definirAvaliacoesDisponiveis(false)`. Recuperação de senha, a
+ * `simulacao.definirAvaliacoesDisponiveis(false)`. O `GET /fila/previsao/`
+ * (FE-11) segue o OpenAPI e as validações do cardápio (#217), com uma
+ * previsão de exemplo de `./previsao.js`; responde 501, como o backend antes
+ * da BE-15, depois de `simulacao.definirPrevisaoDisponivel(false)`.
+ * Recuperação de senha, a
  * semana do cardápio (`/cardapio/<campus>/`) e as listas de avaliação da
  * HomeView (`GET /avaliacoes/` e o resumo da semana) ainda têm o formato do
  * MVP: entram no contrato na FE-E2.
