@@ -128,6 +128,7 @@ DUMP_COMPLETO = (
 DOCKER_FALSO = """#!/bin/sh
 { pwd -W 2>/dev/null || pwd; } > "$SAIDA_DOCKER"
 for arg in "$@"; do printf '%s\\n' "$arg" >> "$SAIDA_DOCKER"; done
+cat > "$SAIDA_DOCKER.entrada"
 if [ -n "${ERRO_DOCKER:-}" ]; then printf '%s\\n' "$ERRO_DOCKER" >&2; fi
 printf '%s' "${DUMP_TEXTO:-}"
 exit "${FALHA_DOCKER:-0}"
@@ -159,7 +160,7 @@ def ambiente(tmp_path):
 
 @pytest.fixture
 def rodar(ambiente):
-    def rodar(dump=DUMP_COMPLETO, falha=None, erro=None, **extra):
+    def rodar(dump=DUMP_COMPLETO, falha=None, erro=None, entrada="", **extra):
         env = {
             k: v
             for k, v in os.environ.items()
@@ -185,8 +186,14 @@ def rodar(ambiente):
             capture_output=True,
             text=True,
             encoding="utf-8",
+            input=entrada,
         )
         resultado.docker = ler_linhas(ambiente["docker"])
+        resultado.entrada_do_docker = (
+            Path(str(ambiente["docker"]) + ".entrada").read_text(encoding="utf-8")
+            if Path(str(ambiente["docker"]) + ".entrada").exists()
+            else None
+        )
         resultado.logger = ler_linhas(ambiente["logger"]) or []
         return resultado
 
@@ -243,6 +250,15 @@ def test_backup_chama_o_mysqldump_no_container_db_sem_levar_a_senha(rodar):
     # A senha é lida do ambiente do container, dentro do sh -c.
     assert '"$MYSQL_ROOT_PASSWORD"' in texto
     assert argumentos[-2:] == ["sh", "bandejao"]
+
+
+@precisa_de_sh
+def test_docker_nao_le_o_teclado_do_terminal(rodar):
+    """Sem isso, rodar o script à mão num terminal travava em silêncio: o
+    `docker compose exec -T` ficava esperando entrada, dentro do `timeout`."""
+    resultado = rodar(entrada="digitado no terminal")
+    assert resultado.returncode == 0, resultado.stderr
+    assert resultado.entrada_do_docker == ""
 
 
 @precisa_de_sh
@@ -418,7 +434,9 @@ case "$1" in
             *"-i "*) cat > "$SAIDA_DOCKER.dump"; exit "${FALHA_RESTAURAR:-0}" ;;
             *django_migrations*) echo "${MIGRACOES:-41}"; exit 0 ;;
             *"COUNT(*) FROM information_schema"*) echo "${TABELAS_TEMP:-30}"; exit 0 ;;
-            *) printf 'cadastro_usuario\\t3\\n'; exit 0 ;;
+            *"SELECT table_name"*) echo cadastro_usuario; exit 0 ;;
+            *'COUNT(*) FROM `'*) echo "${LINHAS:-3}"; exit 0 ;;
+            *) exit 0 ;;
         esac ;;
     compose) echo "${TABELAS_PROD:-30}"; exit 0 ;;
 esac
@@ -465,6 +483,17 @@ def test_restauracao_confere_a_copia_mais_recente(restaurar, ambiente):
     assert "OK: a restauração de bandejao-20261120T064500Z.sql.gz" in resultado.stdout
     restaurado = Path(str(ambiente["docker"]) + ".dump").read_text(encoding="utf-8")
     assert restaurado == DUMP_COMPLETO
+
+
+@precisa_de_sh
+def test_restauracao_mostra_a_contagem_exata_de_linhas(restaurar, ambiente):
+    """O `table_rows` do information_schema é uma estimativa (0 logo depois de
+    restaurar); a lista tem que vir de COUNT(*)."""
+    criar_copia(ambiente, "bandejao-20261120T064500Z.sql.gz", 1 * DIA)
+    resultado = restaurar(LINHAS="7")
+    assert resultado.returncode == 0, resultado.stderr
+    assert "  cadastro_usuario\t7" in resultado.stdout
+    assert "table_rows" not in RESTAURACAO.read_text(encoding="utf-8").lower()
 
 
 @precisa_de_sh
