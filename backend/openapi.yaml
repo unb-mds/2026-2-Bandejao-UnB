@@ -33,6 +33,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/AvaliacaoRegistrada'
           description: Avaliação anterior editada. Não pontua de novo.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Corpo fora do formato: `refeicaoId` ausente ou que não seja
+            inteiro, ou `comentario` que não seja texto. `codigo`: `dados_invalidos`.'
         '401':
           content:
             application/json:
@@ -837,7 +844,8 @@ components:
           description: Obrigatória, de 1 a 5.
         comentario:
           type: string
-          description: Opcional, até 500 caracteres.
+          nullable: true
+          description: 'Opcional, até 500 caracteres. Vazio ou null: sem comentário.'
           maxLength: 500
       required:
       - nota

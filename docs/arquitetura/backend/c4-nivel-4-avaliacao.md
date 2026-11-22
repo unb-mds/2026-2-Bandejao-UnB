@@ -63,7 +63,8 @@ classDiagram
   class ComentarioMuitoLongoError
   class AvaliacaoRepository {
     +buscarPorContaERefeicao(conta: Conta, refeicao: Refeicao) Avaliacao
-    +salvar(avaliacao: Avaliacao) Avaliacao
+    +inserir(avaliacao: Avaliacao) Avaliacao
+    +salvarEdicao(avaliacao: Avaliacao) Avaliacao
     +listarPorRefeicao(refeicao: Refeicao) list~Avaliacao~
     +mediaEQuantidade(refeicao: Refeicao) ResumoAvaliacoes
     +resumosDoDia(campus: Campus, data: date) list~ResumoRefeicao~
@@ -126,6 +127,15 @@ classDiagram
   já rejeitaria uma nova tentativa de avaliar por outro motivo. Por isso
   não existe uma regra de edição separada da regra de criação neste
   desenho: as duas dependem da mesma validação de janela.
+- **Corrida no upsert e campos que a edição não grava (BE-13).** Duas
+  requisições simultâneas da primeira avaliação (duplo toque) passam juntas
+  pela busca; a segunda bate no UNIQUE (conta, refeição) em `inserir` e
+  atualiza nota e comentário da que a primeira gravou, sem preencher
+  `editadaEm`: a pessoa avaliou uma vez só, e as duas respostas saem como
+  criação (201). A edição trava a linha
+  (`select_for_update`) e `salvarEdicao` grava só nota, comentário e
+  `editadaEm`: `pontosConcedidosEm` (Gamificação) e `oculta` (equipe) nunca
+  são regravados com um valor lido antes.
 - **Depois do upsert, o `AvaliacaoService` chama a pontuação**
   (`PontuacaoService.registrarContribuicao(conta, AVALIACAO, avaliacao.id,
   refeicao)`, da Gamificação), na **mesma `transaction.atomic()`** que grava
@@ -192,7 +202,8 @@ classDiagram
   }
   class AvaliacaoRepository {
     +buscarPorContaERefeicao(conta: Conta, refeicao: Refeicao) Avaliacao
-    +salvar(avaliacao: Avaliacao) Avaliacao
+    +inserir(avaliacao: Avaliacao) Avaliacao
+    +salvarEdicao(avaliacao: Avaliacao) Avaliacao
     +listarPorRefeicao(refeicao: Refeicao) list~Avaliacao~
     +mediaEQuantidade(refeicao: Refeicao) ResumoAvaliacoes
     +resumosDoDia(campus: Campus, data: date) list~ResumoRefeicao~
