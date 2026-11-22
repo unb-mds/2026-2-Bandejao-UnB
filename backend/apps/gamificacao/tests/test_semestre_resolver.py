@@ -79,3 +79,16 @@ def test_config_real_termina_2026_2_em_14_de_dezembro():
 
     assert padrao.semestre_de(date(2026, 12, 14)) == "2026.2"
     assert padrao.semestre_de(date(2026, 12, 15)) == "2027.1"
+
+
+def test_guarda_uma_copia_das_datas():
+    """Mexer no dicionário depois (num teste, por exemplo) não muda o
+    resolver, nem a config global."""
+    datas = {"2026.2": date(2026, 12, 14)}
+    copiado = SemestreResolver(datas=datas, inicial="2026.2")
+    padrao = SemestreResolver()
+
+    datas["2026.2"] = date(2026, 1, 1)
+
+    assert copiado.semestre_de(date(2026, 11, 24)) == "2026.2"
+    assert padrao.datas is not ParametrosGamificacaoConfig.datas_termino_semestre

@@ -11,7 +11,9 @@ from unittest import mock
 
 import pytest
 
+from apps.avaliacao.tests.apoio import avaliar
 from apps.cardapio.models import TipoRefeicao
+from apps.cardapio.tests.apoio_cardapio import criar_refeicao
 from apps.fila.checkin_repository import CheckinRepository
 from apps.fila.checkin_service import CheckinService
 from apps.fila.confirmacao_localizacao_service import ConfirmacaoLocalizacaoService
@@ -30,6 +32,7 @@ from apps.fila.models import (
 )
 from apps.fila.tests.apoio import RU_DARCY, RU_GAMA, ao_norte
 from apps.gamificacao.models import PontosSemestreCampus, PontuacaoUsuario
+from apps.gamificacao.pontuacao_repository import PontuacaoRepository
 from apps.gamificacao.pontuacao_service import (
     PontuacaoService,
     RefeicaoRef,
@@ -362,5 +365,28 @@ def test_checkin_rejeitado_nao_pontua(conta, darcy, erro, dados):
     with pytest.raises(erro):
         registrar(conta, darcy, **dados)
 
+    assert PontuacaoUsuario.objects.get(usuario=conta).pontos_totais == 0
+    assert not PontosSemestreCampus.objects.exists()
+
+
+def test_falha_ao_somar_os_pontos_desfaz_checkin_e_marcadores(conta, darcy):
+    """Com a pontuação de verdade e uma avaliação para liberar: se a soma do
+    semestre falha, não sobra check-in, o marcador da avaliação continua
+    vazio e o total continua 0. Sem isso, a pessoa perderia os pontos para
+    sempre (ADR 0011)."""
+    PontuacaoService().inicializar_conta(conta)
+    avaliacao = avaliar(conta, criar_refeicao(darcy, date(2026, 11, 17), ALMOCO))
+
+    with (
+        mock.patch.object(
+            PontuacaoRepository, "somar_pontos_semestre", side_effect=RuntimeError
+        ),
+        pytest.raises(RuntimeError),
+    ):
+        registrar(conta, darcy)
+
+    assert not Checkin.objects.exists()
+    avaliacao.refresh_from_db()
+    assert avaliacao.pontos_concedidos_em is None
     assert PontuacaoUsuario.objects.get(usuario=conta).pontos_totais == 0
     assert not PontosSemestreCampus.objects.exists()

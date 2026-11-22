@@ -17,6 +17,9 @@ from apps.avaliacao.models import Avaliacao
 from apps.avaliacao.tests.apoio import DURANTE_O_ALMOCO, SEGUNDA, TERCA, avaliar
 from apps.cardapio.models import TipoRefeicao
 from apps.cardapio.tests.apoio_cardapio import criar_campus, criar_refeicao, em_brasilia
+from apps.fila.models import Checkin
+from apps.gamificacao.models import PontosSemestreCampus, PontuacaoUsuario
+from apps.gamificacao.pontuacao_repository import PontuacaoRepository
 from apps.gamificacao.pontuacao_service import (
     PontuacaoService,
     RefeicaoRef,
@@ -295,3 +298,67 @@ def test_falha_na_pontuacao_desfaz_a_edicao(conta, almoco):
         "Frio",
         None,
     )
+
+
+# --- Trava da conta e rollback com a pontuação de verdade (revisão da BE-14) -
+
+
+def test_trava_a_conta_antes_de_travar_a_avaliacao(conta, almoco):
+    """A trava da conta vem antes da trava da avaliação. Na ordem inversa, a
+    edição e um check-in da mesma refeição se travam (deadlock): o check-in
+    trava a conta e depois marca a avaliação feita antes."""
+    ordem = []
+    travar_conta = PontuacaoService.travar_conta
+    buscar = AvaliacaoRepository.buscar_por_conta_e_refeicao
+
+    def travando_a_conta(servico, conta):
+        ordem.append("conta")
+        return travar_conta(servico, conta)
+
+    def buscando_a_avaliacao(repositorio, *args, **kwargs):
+        ordem.append("avaliacao")
+        return buscar(repositorio, *args, **kwargs)
+
+    with (
+        mock.patch.object(
+            PontuacaoService,
+            "travar_conta",
+            autospec=True,
+            side_effect=travando_a_conta,
+        ),
+        mock.patch.object(
+            AvaliacaoRepository,
+            "buscar_por_conta_e_refeicao",
+            autospec=True,
+            side_effect=buscando_a_avaliacao,
+        ),
+    ):
+        registrar(conta, almoco)
+
+    assert ordem[:2] == ["conta", "avaliacao"]
+
+
+def test_falha_ao_somar_os_pontos_desfaz_avaliacao_e_marcador(conta, almoco):
+    """Com a pontuação de verdade: se a soma do semestre falha, não sobra
+    avaliação com o marcador gravado e o total continua 0 (ADR 0011)."""
+    Checkin.objects.create(
+        usuario=conta,
+        campus=almoco.campus,
+        tipo_refeicao=almoco.tipo,
+        data=almoco.data,
+        registrado_em=DURANTE_O_ALMOCO,
+        faixa_inicio=time(12, 0),
+    )
+    PontuacaoService().inicializar_conta(conta)
+
+    with (
+        mock.patch.object(
+            PontuacaoRepository, "somar_pontos_semestre", side_effect=RuntimeError
+        ),
+        pytest.raises(RuntimeError),
+    ):
+        registrar(conta, almoco)
+
+    assert not Avaliacao.objects.exists()
+    assert PontuacaoUsuario.objects.get(usuario=conta).pontos_totais == 0
+    assert not PontosSemestreCampus.objects.exists()

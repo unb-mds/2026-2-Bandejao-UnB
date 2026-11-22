@@ -20,7 +20,11 @@ from apps.cardapio.models import TipoRefeicao
 from apps.cardapio.tests.apoio_cardapio import criar_refeicao, em_brasilia
 from apps.fila.models import Checkin, PerguntaSaida
 from apps.fila.tests.apoio import RU_GAMA, criar_campus
+from apps.gamificacao.erros import OrigemContribuicaoNaoEncontradaError
 from apps.gamificacao.models import PontosSemestreCampus, PontuacaoUsuario
+from apps.gamificacao.origem_contribuicao_repository import (
+    OrigemContribuicaoRepository,
+)
 from apps.gamificacao.pontuacao_policy import PontuacaoPolicy
 from apps.gamificacao.pontuacao_repository import PontuacaoRepository
 from apps.gamificacao.pontuacao_service import (
@@ -427,8 +431,16 @@ def test_politica_so_depende_do_tipo(tipo, pontos):
     assert PontuacaoPolicy().pontos_por(tipo) == pontos
 
 
-def test_resposta_saida_concede_15_e_marca_a_pergunta_uma_vez(conta, darcy):
+@pytest.mark.parametrize("tipo", list(TipoContribuicao))
+def test_politica_cobre_todo_tipo_de_contribuicao(tipo):
+    """Um tipo novo esquecido na política falha aqui, e não com `KeyError` em
+    produção."""
+    assert PontuacaoPolicy().pontos_por(tipo) > 0
+
+
+def test_resposta_saida_concede_15_e_marca_a_pergunta_uma_vez(conta, darcy, almoco):
     checkin = fazer_checkin(conta, darcy)
+    avaliacao = avaliar(conta, almoco)
     agora = timezone.now()
     pergunta = PerguntaSaida.objects.create(
         checkin=checkin,
@@ -445,7 +457,53 @@ def test_resposta_saida_concede_15_e_marca_a_pergunta_uma_vez(conta, darcy):
     assert recarregar(pergunta).pontos_concedidos_em is not None
     assert responder().total == 0
     assert pontos_totais(conta) == 15
-    # A pergunta não libera avaliação: só o check-in libera (RN09).
+    # A pergunta não libera a avaliação feita antes: só o check-in libera
+    # (RN09). Nem o check-in dela é marcado.
+    assert recarregar(avaliacao).pontos_concedidos_em is None
+    assert recarregar(checkin).pontos_concedidos_em is None
+
+
+# --- Origem que não existe (revisão da BE-14) --------------------------------
+
+
+def test_marcar_pontuada_diz_se_marcou(conta, darcy):
+    origens = OrigemContribuicaoRepository()
+    checkin = fazer_checkin(conta, darcy)
+    agora = timezone.now()
+
+    assert origens.marcar_pontuada(CHECKIN, checkin.id, agora) is True
+    assert origens.marcar_pontuada(CHECKIN, checkin.id, agora) is False
+    assert origens.marcar_pontuada(CHECKIN, checkin.id + 1000, agora) is False
+
+
+@pytest.mark.parametrize(
+    "tipo",
+    [CHECKIN, AVALIACAO, TipoContribuicao.RESPOSTA_SAIDA],
+)
+def test_origem_que_nao_existe_nao_pontua_e_desfaz(conta, darcy, tipo):
+    """Um `origem_id` que não existe (ou de outro tipo) não pode pontuar: sem o
+    marcador gravado, cada nova chamada pontuaria de novo. O erro desfaz a
+    transação de quem chamou."""
+    checkin = fazer_checkin(conta, darcy)
+    inexistente = checkin.id + 1000
+
+    with pytest.raises(OrigemContribuicaoNaoEncontradaError):
+        PontuacaoService().registrar_contribuicao(conta, tipo, inexistente, ref(darcy))
+
+    assert pontos_totais(conta) == 0
+    assert not PontosSemestreCampus.objects.exists()
+
+
+def test_id_de_checkin_como_resposta_de_saida_nao_pontua(conta, darcy):
+    """O id existe, mas é de um `Checkin`, não de uma `PerguntaSaida`."""
+    checkin = fazer_checkin(conta, darcy)
+
+    with pytest.raises(OrigemContribuicaoNaoEncontradaError):
+        PontuacaoService().registrar_contribuicao(
+            conta, TipoContribuicao.RESPOSTA_SAIDA, checkin.id, ref(darcy)
+        )
+
+    assert pontos_totais(conta) == 0
     assert recarregar(checkin).pontos_concedidos_em is None
 
 
