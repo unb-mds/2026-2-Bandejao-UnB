@@ -52,8 +52,11 @@ class PrevisaoService:
         self.medias = MediaPorFaixaCalculator()
         self.classificador = ClassificadorNivelFila()
 
-    def calcular(self, campus: Campus, tipo_refeicao: str, data: date) -> PrevisaoPico:
-        """Os seis passos do N4, na ordem.
+    def calcular(
+        self, campus: Campus, tipo_refeicao: str, data: date, hoje: date
+    ) -> PrevisaoPico:
+        """Os seis passos do N4, na ordem. `hoje` é o dia corrente em Brasília,
+        calculado uma vez na view, como o `agora` do check-in.
 
         Com menos de 3 dias com dados, sai `DADOS_INSUFICIENTES` e nenhuma
         faixa, sem valor de reserva (RF13). A faixa mais cheia é o pico; no
@@ -61,7 +64,7 @@ class PrevisaoService:
         decisão do grupo). As médias são frações exatas, então o empate é
         igualdade de verdade.
         """
-        datas = self.janela.datas_da_janela(data)
+        datas = self.janela.datas_da_janela(data, hoje)
         faixas = self.gerador_de_faixas.faixas(tipo_refeicao)
         contagens = self.repositorio.contar_por_faixa(
             campus, tipo_refeicao, datas, faixas

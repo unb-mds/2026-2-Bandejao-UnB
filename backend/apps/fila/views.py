@@ -166,11 +166,11 @@ class CheckinView(APIView):
         return Response(saida.data, status=status.HTTP_201_CREATED)
 
 
-def ler_parametros_da_previsao(query):
+def ler_parametros_da_previsao(query, hoje):
     """`(campus, refeicao, data)` da query string, ou 400/404.
 
     Todos os 400 vêm antes do 404 do campus, como no cardápio (#217). Sem
-    `data`, vale o dia de hoje no horário de Brasília.
+    `data`, vale `hoje` (o dia corrente no horário de Brasília).
     """
     desconhecidos = [nome for nome in query if nome not in PARAMETROS_DA_PREVISAO]
     if desconhecidos:
@@ -190,7 +190,7 @@ def ler_parametros_da_previsao(query):
         raise ParametrosInvalidos("Informe a refeição.")
     if refeicao not in TipoRefeicao.values:
         raise ParametrosInvalidos("A refeição deve ser cafe, almoco ou jantar.")
-    data = ler_data(query.get("data"), "data") or timezone.localdate()
+    data = ler_data(query.get("data"), "data") or hoje
     # Por último: depois de todos os 400.
     return buscar_campus(campus_id), refeicao, data
 
@@ -205,8 +205,8 @@ class PrevisaoView(APIView):
         summary="Previsão de pico por faixa de horário",
         description=(
             "Calculada sob demanda a partir dos check-ins confirmados das 4 "
-            "semanas anteriores, no mesmo dia da semana (o próprio dia não "
-            "entra), e só deles: as respostas à pergunta de saída não mudam "
+            "semanas anteriores, no mesmo dia da semana (o próprio dia e os "
+            "dias que ainda não passaram não entram), e só deles: as respostas à pergunta de saída não mudam "
             "o nível (RF13, ADR 0010). As faixas de 15 minutos cobrem o "
             "horário da refeição, em horário de Brasília. A média de cada "
             "faixa considera só os dias com check-in, e neles a faixa vazia "
@@ -235,7 +235,12 @@ class PrevisaoView(APIView):
                 "data",
                 OpenApiTypes.DATE,
                 OpenApiParameter.QUERY,
-                description="Dia da previsão. Omitido: dia corrente.",
+                description=(
+                    "Dia da previsão. Omitido: dia corrente. Pensado para o "
+                    "dia corrente: a janela só usa dias que já passaram, então "
+                    "uma data futura perde as semanas que ainda não "
+                    "aconteceram e tende a `dados_insuficientes`."
+                ),
             ),
         ],
         responses={
@@ -257,8 +262,9 @@ class PrevisaoView(APIView):
         },
     )
     def get(self, request):
-        campus, refeicao, data = ler_parametros_da_previsao(request.query_params)
-        previsao = PrevisaoService().calcular(campus, refeicao, data)
+        hoje = timezone.localdate()
+        campus, refeicao, data = ler_parametros_da_previsao(request.query_params, hoje)
+        previsao = PrevisaoService().calcular(campus, refeicao, data, hoje)
         saida = PrevisaoPicoSerializer(
             {
                 "campus": previsao.campus.id,

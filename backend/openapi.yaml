@@ -418,13 +418,13 @@ paths:
     get:
       operationId: fila_previsao_retrieve
       description: 'Calculada sob demanda a partir dos check-ins confirmados das 4
-        semanas anteriores, no mesmo dia da semana (o próprio dia não entra), e só
-        deles: as respostas à pergunta de saída não mudam o nível (RF13, ADR 0010).
-        As faixas de 15 minutos cobrem o horário da refeição, em horário de Brasília.
-        A média de cada faixa considera só os dias com check-in, e neles a faixa vazia
-        conta como zero. Em empate na maior média, todas essas faixas têm `ehPico`
-        (RN06). Com poucos dados volta 200 com `status` igual a `dados_insuficientes`
-        e `faixas` vazia, e não erro.'
+        semanas anteriores, no mesmo dia da semana (o próprio dia e os dias que ainda
+        não passaram não entram), e só deles: as respostas à pergunta de saída não
+        mudam o nível (RF13, ADR 0010). As faixas de 15 minutos cobrem o horário da
+        refeição, em horário de Brasília. A média de cada faixa considera só os dias
+        com check-in, e neles a faixa vazia conta como zero. Em empate na maior média,
+        todas essas faixas têm `ehPico` (RN06). Com poucos dados volta 200 com `status`
+        igual a `dados_insuficientes` e `faixas` vazia, e não erro.'
       summary: Previsão de pico por faixa de horário
       parameters:
       - in: query
@@ -438,7 +438,9 @@ paths:
         schema:
           type: string
           format: date
-        description: 'Dia da previsão. Omitido: dia corrente.'
+        description: 'Dia da previsão. Omitido: dia corrente. Pensado para o dia corrente:
+          a janela só usa dias que já passaram, então uma data futura perde as semanas
+          que ainda não aconteceram e tende a `dados_insuficientes`.'
       - in: query
         name: refeicao
         schema:
