@@ -1,6 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+const ehPontuacao = (valor) => Number.isInteger(valor) && valor >= 0
+
+const ehBlocoDePontos = (pontos) =>
+  ehPontuacao(pontos?.total) &&
+  ehPontuacao(pontos.contribuicao) &&
+  ehPontuacao(pontos.avaliacaoLiberada)
+
 export const useGamificacaoStore = defineStore('gamificacao', () => {
   const ultimosPontos = ref(null)
   const aviso = ref(null)
@@ -8,16 +15,12 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
   let ultimoIdDoAviso = 0
 
   function registrarPontos(pontos) {
-    const total = pontos?.total
-    if (!Number.isInteger(total) || total < 0) {
+    if (!ehBlocoDePontos(pontos)) {
       console.error('Bloco pontos fora do contrato.', pontos)
       return
     }
-    ultimosPontos.value = {
-      total,
-      contribuicao: pontos.contribuicao ?? 0,
-      avaliacaoLiberada: pontos.avaliacaoLiberada ?? 0,
-    }
+    const { total, contribuicao, avaliacaoLiberada } = pontos
+    ultimosPontos.value = { total, contribuicao, avaliacaoLiberada }
     if (total === 0) return
     ultimoIdDoAviso += 1
     aviso.value = { id: ultimoIdDoAviso, total }
@@ -28,5 +31,19 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
     if (aviso.value?.id === id) aviso.value = null
   }
 
-  return { ultimosPontos, aviso, progressoDesatualizado, registrarPontos, fecharAviso }
+  function limpar() {
+    ultimosPontos.value = null
+    aviso.value = null
+    progressoDesatualizado.value = false
+  }
+
+  return { ultimosPontos, aviso, progressoDesatualizado, registrarPontos, fecharAviso, limpar }
 })
+
+export function repassarPontos(pontos, origem) {
+  try {
+    useGamificacaoStore().registrarPontos(pontos)
+  } catch (falha) {
+    console.error(`Falha ao registrar os pontos ${origem}.`, falha)
+  }
+}

@@ -628,7 +628,6 @@ async function enviar() {
   color: var(--sucesso-texto-suave);
 }
 
-
 .enviada-editar {
   flex-shrink: 0;
   font-size: 12px;

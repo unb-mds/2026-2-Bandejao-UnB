@@ -25,20 +25,23 @@ onBeforeUnmount(() => clearTimeout(temporizador))
 </script>
 
 <template>
-  <div class="pontos-aviso" role="status" aria-live="polite">
-    <div v-if="gamificacao.aviso" :key="gamificacao.aviso.id" class="caixa" data-teste="pontos-aviso">
-      <span class="estrela" aria-hidden="true">★</span>
-      <span class="texto">{{ texto }}</span>
-      <button
-        type="button"
-        class="fechar"
-        aria-label="Fechar o aviso de pontos"
-        data-teste="pontos-aviso-fechar"
-        @click="gamificacao.fecharAviso()"
-      >
-        ×
-      </button>
-    </div>
+  <div class="pontos-aviso" :class="{ 'pontos-aviso--aberto': gamificacao.aviso }">
+    <p class="texto" role="status" aria-live="polite">
+      <span v-if="gamificacao.aviso" :key="gamificacao.aviso.id" data-teste="pontos-aviso">
+        <span class="estrela" aria-hidden="true">★</span>
+        {{ texto }}
+      </span>
+    </p>
+    <button
+      v-if="gamificacao.aviso"
+      type="button"
+      class="fechar"
+      aria-label="Fechar o aviso de pontos"
+      data-teste="pontos-aviso-fechar"
+      @click="gamificacao.fecharAviso()"
+    >
+      ×
+    </button>
   </div>
 </template>
 
@@ -48,29 +51,34 @@ onBeforeUnmount(() => clearTimeout(temporizador))
   left: 50%;
   bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: max-content;
   max-width: calc(100% - 32px);
   transform: translateX(-50%);
   pointer-events: none;
 }
 
-.caixa {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.pontos-aviso--aberto {
   padding: 10px 8px 10px 16px;
   border-radius: var(--raio-xl);
   background: var(--verde-escuro);
   color: #fff;
   box-shadow: 0 8px 24px rgb(10 26 12 / 25%);
-  font-family: var(--fonte-titulo);
-  font-weight: 800;
-  font-size: 15px;
   pointer-events: auto;
   animation: entrar 0.2s ease-out;
 }
 
+.texto {
+  margin: 0;
+  font-family: var(--fonte-titulo);
+  font-weight: 800;
+  font-size: 15px;
+}
+
 .estrela {
+  margin-right: 6px;
   color: var(--dourado);
   font-size: 18px;
   line-height: 1;
@@ -105,12 +113,11 @@ onBeforeUnmount(() => clearTimeout(temporizador))
 @keyframes entrar {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .caixa {
+  .pontos-aviso--aberto {
     animation: none;
   }
 }

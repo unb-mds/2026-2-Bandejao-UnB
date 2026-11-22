@@ -703,7 +703,9 @@ function avaliacoesDaRefeicaoPorId(refeicaoId, agora) {
 
 /**
  * POST /avaliacoes/ (contrato da BE-13): sempre upsert. 201 na primeira, 200
- * na edição (não pontua de novo). Até a BE-14 o bloco `pontos` volta zerado.
+ * na edição (não pontua de novo). O bloco `pontos` volta zerado: os 5 pontos
+ * só valem com check-in na mesma refeição (Anexo A), e o simulado não liga a
+ * avaliação ao check-in; o check-in, que não depende disso, já dá os 10.
  */
 function avaliar(corpo, agora) {
   const usuario = usuarioDaSessao()
