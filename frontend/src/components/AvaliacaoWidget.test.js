@@ -556,6 +556,43 @@ describe('AvaliacaoWidget — sessão expirada no envio', () => {
     expect(wrapper.get('textarea').element.value).toBe('Quase perdi isto')
     expect(wrapper.get('[data-teste="estrela-4"]').attributes('aria-checked')).toBe('true')
   })
+
+  it('fluxo real: o "Entrar" desmonta o widget, e o widget novo volta com o rascunho', async () => {
+    await entrar()
+    const primeiro = await montar()
+    await escolherNota(primeiro, 3)
+    await primeiro.get('textarea').setValue('Escrito antes de expirar')
+    simulacao.expirarSessao()
+    await enviar(primeiro)
+    // O ConviteLogin leva a /login: o widget sai da tela.
+    primeiro.unmount()
+    montados.splice(montados.indexOf(primeiro), 1)
+
+    // A LoginView entra e limpa o cache das avaliações.
+    await entrar()
+    useAvaliacoesStore().limparCache()
+    const wrapper = await montar()
+
+    expect(wrapper.get('textarea').element.value).toBe('Escrito antes de expirar')
+    expect(wrapper.get('[data-teste="estrela-3"]').attributes('aria-checked')).toBe('true')
+    expect(texto(wrapper)).not.toContain('Sua sessão expirou')
+  })
+
+  it('o rascunho volta uma vez só: depois de usado, um widget novo vem vazio', async () => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+    const resumo = await avaliacoes.carregarResumoDoDia(3, HOJE)
+    const refeicaoId = resumo.find((r) => r.tipo === 'almoco').refeicaoId
+    avaliacoes.guardarRascunho(refeicaoId, { nota: 2, comentario: 'uma vez' })
+    const primeiro = await montar()
+    expect(primeiro.get('textarea').element.value).toBe('uma vez')
+    primeiro.unmount()
+    montados.splice(montados.indexOf(primeiro), 1)
+
+    const wrapper = await montar()
+
+    expect(wrapper.get('textarea').element.value).toBe('')
+  })
 })
 
 describe('AvaliacaoWidget — acessibilidade', () => {
