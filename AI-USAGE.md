@@ -448,3 +448,14 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação após o item 5: `pytest` com 1583 testes aprovados e 1 ignorado, cobertura de `apps` de 98,68%; `ruff check`, `ruff format --check`, `bandit -lll` e `spectacular --validate --fail-on-warn` aprovados. Sem conflito com a `develop` em `f6adc09`.
 - Recheck do item 5 (head `0c42103`): regra e testes aprovados; o texto do `semServico` no `help_text` do serializer, na descrição da `CardapioView` e no `openapi.yaml` dizia "nos dias seguintes da semana", mas o código usa os 7 dias seguintes, que passam do fim da semana (o sábado com a segunda seguinte servida mostra a segunda, com `semServico` false). Texto trocado pela redação sugerida na revisão, comentários do `CardapioFiltrado` e do serviço alinhados e `openapi.yaml` regerado; sem mudança de comportamento.
 - Situação: ajuste do texto aplicado; aguardando a aprovação de AlvaroBento12. O mock do front segue na #224.
+
+## BD-15 — Backup diário do banco de produção
+
+- Issue: [#183](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/183). PR: [#NÚMERO — backup diário do banco](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/NÚMERO).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `deploy/backup/backup-banco.sh` (mysqldump no container `db`, conferido e comprimido, rotação por idade de 7 dias), `deploy/backup/testar-restauracao.sh` (MySQL temporário sem rede, restauração e comparação com a produção), `deploy/backup/bandejao-backup` (cron das 03h45 de Brasília, depois da retenção da fila), `docs/deploy/backup-banco.md`, link no sidebar e no guia de deploy.
+- TDD: `backend/tests/test_backup_producao.py` escrito junto dos scripts, com `docker` e `logger` falsos no PATH (HASH_DO_TEST antes de HASH_DO_FEAT): dump completo, incompleto e vazio, falha do `mysqldump`, rotação (cópia de 6 dias e 23 h sai, a de 6 dias e 21 h fica, e a rotação roda mesmo com o dump falhando), retenção e banco inválidos, pasta inexistente ou sem escrita, trava contra execução dupla, permissões 600/700, o cron depois da retenção da fila e a restauração com tabelas diferentes, migrações vazias, erro no MySQL e arquivo corrompido.
+- Validação: `pytest` dos testes novos e do `test_cron_producao.py` juntos (92 passaram, 3 ignorados), `ruff check` e `ruff format --check`. A parte que depende do MySQL real (o `mysqldump` e a restauração) é conferida na VM: primeiro backup à mão, `testar-restauracao.sh` e a rotação depois de uma semana.
+- Decisão de projeto: a rotação roda antes do dump e mesmo que ele falhe, porque o prazo de 7 dias (RNF07.4) vale mais que ter uma cópia. A rotação é por minutos (6 dias e 22 h), e não por `-mtime +6`, que deixaria 8 cópias.
+- Revisão humana: pendente.
+- Situação: aguardando revisão. O #221 (BD-07) já está na `develop`, e a regra do `.gitattributes` e o teste dele cobrem `deploy/`.
