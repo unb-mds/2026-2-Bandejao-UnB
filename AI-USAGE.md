@@ -426,3 +426,15 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - Ficam com o backend o `semServico` e o código `campus_nao_encontrado` no `GET /api/cardapio/`.
 - Validação: `npm run test:ci` com 557 testes passando (cobertura de 91,84% de linhas / 85,22% de ramos), `npm run lint:ci` sem achados e `npm run build` sem erro, no PC da autora.
 - Situação: aguardando nova revisão.
+
+## BD-12 — Exclusão de conta
+
+- Issue: [#164](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/164). PR: #NÚMERO.
+- Ferramenta: Claude (Anthropic).
+- Apoio: `RemoverContaCommand` (transação única), `PontuacaoService.apagar_contadores`, `SessoesDaConta.encerrar_todas`, `ContaRepository.excluir`, migration `0004_remove_status_removido_bd12`, ajuste de `Usuario.is_active` e testes em `backend/apps/cadastro/tests/test_remover_conta.py`.
+- TDD: testes no commit `HASH_DO_TEST`, antes do código.
+- Testes: os quatro efeitos (contadores apagados, check-ins desvinculados, sessões de todos os aparelhos encerradas, linha de `USUARIO` apagada); avaliações mantidas com `usuario` nulo; tokens em cascata; mesma matrícula, e-mail e apelido livres para novo cadastro; outras contas intactas; conta já apagada devolve `False`; rollback em cada etapa (falha sem o `transaction.atomic()`, conferido localmente); cada colaborador removido do comando faz um teste falhar (mutação conferida localmente).
+- Ajustes em testes existentes: o status `removido` e `removido_em` saíram, então os parâmetros `REMOVIDO` foram retirados; o teste de migration da BD-03 passou a fixar o esquema de `cadastro` da época (`0003`).
+- Validação local (SQLite): `pytest` sem falhas, `ruff` sem achados nos arquivos alterados, `makemigrations --check` sem mudanças pendentes.
+- Atenção: a BE-14 deve chamar `PontuacaoService.apagar_contadores` se criar novos contadores.
+- Situação: aguardando revisão.
