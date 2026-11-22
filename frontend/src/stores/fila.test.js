@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useFilaStore } from './fila'
 import { useAuthStore } from './auth'
 import { useGamificacaoStore } from './gamificacao'
-import { apiClient } from '@/services/apiClient'
+import { ApiError, apiClient } from '@/services/apiClient'
 import { CONTA_DEMO } from '@/services/mock/banco'
 import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
 
@@ -344,5 +344,246 @@ describe('filaStore.confirmarCheckin', () => {
 
     expect(fila.ultimoCheckin).not.toBeNull()
     esperarSemCoordenadas(fila)
+  })
+})
+
+describe('filaStore: previsão da fila (FE-11, RF13)', () => {
+  const PEDIDO = { campus: 1, refeicao: 'almoco', data: '2026-11-09' }
+
+  it('carrega sem login e guarda a previsão por campus, refeição e dia', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    const estado = await fila.carregarPrevisao(PEDIDO)
+
+    expect(get).toHaveBeenCalledWith('/fila/previsao/?campus=1&refeicao=almoco&data=2026-11-09')
+    expect(estado.situacao).toBe('carregado')
+    expect(fila.estadoDaPrevisao(PEDIDO).previsao.status).toBe('disponivel')
+    expect(fila.estadoDaPrevisao({ ...PEDIDO, refeicao: 'jantar' })).toBeNull()
+  })
+
+  it('o mesmo pedido de novo vem do cache, e ao mesmo tempo sai uma vez só', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await Promise.all([fila.carregarPrevisao(PEDIDO), fila.carregarPrevisao(PEDIDO)])
+    await fila.carregarPrevisao(PEDIDO)
+
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
+  it('forcar pede de novo', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await fila.carregarPrevisao(PEDIDO)
+    await fila.carregarPrevisao(PEDIDO, { forcar: true })
+
+    expect(get).toHaveBeenCalledTimes(2)
+  })
+
+  it('fica "carregando" enquanto espera a resposta', async () => {
+    const fila = useFilaStore()
+
+    const pedido = fila.carregarPrevisao(PEDIDO)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregando')
+    await pedido
+
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
+  it('dados insuficientes é uma previsão carregada, não um erro', async () => {
+    const fila = useFilaStore()
+
+    await fila.carregarPrevisao({ ...PEDIDO, campus: 5 })
+
+    expect(fila.estadoDaPrevisao({ ...PEDIDO, campus: 5 })).toMatchObject({
+      situacao: 'carregado',
+      previsao: { status: 'dados_insuficientes', faixas: [] },
+      erro: null,
+    })
+  })
+
+  it('501 (backend sem a rota): "indisponivel", sem erro e sem log', async () => {
+    const fila = useFilaStore()
+    simulacao.definirPrevisaoDisponivel(false)
+    const log = vi.spyOn(console, 'error')
+
+    await fila.carregarPrevisao(PEDIDO)
+
+    expect(fila.estadoDaPrevisao(PEDIDO)).toMatchObject({
+      situacao: 'indisponivel',
+      previsao: null,
+      erro: null,
+    })
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('501 vale 5 minutos: dentro deles não vai à rede; depois, pede de novo', async () => {
+    const fila = useFilaStore()
+    simulacao.definirPrevisaoDisponivel(false)
+    const get = vi.spyOn(apiClient, 'get')
+
+    await fila.carregarPrevisao(PEDIDO)
+    await fila.carregarPrevisao(PEDIDO)
+    expect(get).toHaveBeenCalledTimes(1)
+
+    simulacao.definirPrevisaoDisponivel(true)
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+    await fila.carregarPrevisao(PEDIDO)
+
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
+  it('a previsão carregada também vale 5 minutos', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await fila.carregarPrevisao(PEDIDO)
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 4 * 60 * 1000))
+    await fila.carregarPrevisao(PEDIDO)
+    expect(get).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+    await fila.carregarPrevisao(PEDIDO)
+    expect(get).toHaveBeenCalledTimes(2)
+  })
+
+  it('em segundo plano, com o estado em erro: não vai à rede', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+    get.mockRejectedValueOnce(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
+    await fila.carregarPrevisao(PEDIDO)
+
+    await fila.carregarPrevisao(PEDIDO, { emSegundoPlano: true })
+
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('erro')
+  })
+
+  it('em segundo plano: não passa por "carregando"', async () => {
+    const fila = useFilaStore()
+    await fila.carregarPrevisao(PEDIDO)
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+
+    const pedido = fila.carregarPrevisao(PEDIDO, { emSegundoPlano: true })
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+    await pedido
+
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
+  it('em segundo plano, a revalidação de uma previsão boa falha: a antiga fica e tenta de novo depois', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+    await fila.carregarPrevisao(PEDIDO)
+    const antiga = fila.estadoDaPrevisao(PEDIDO)
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+    get.mockRejectedValueOnce(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
+
+    await fila.carregarPrevisao(PEDIDO, { emSegundoPlano: true })
+    expect(fila.estadoDaPrevisao(PEDIDO)).toBe(antiga)
+
+    await fila.carregarPrevisao(PEDIDO, { emSegundoPlano: true })
+    expect(get).toHaveBeenCalledTimes(3)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
+  it('forcar com um pedido antigo pendente: a resposta antiga não sobrescreve a nova', async () => {
+    const fila = useFilaStore()
+    const getOriginal = apiClient.get.bind(apiClient)
+    let liberarAntigo
+    const antigo = new Promise((resolver) => {
+      liberarAntigo = resolver
+    })
+    vi.spyOn(apiClient, 'get')
+      .mockImplementationOnce(() => antigo)
+      .mockImplementation((caminho, opcoes) => getOriginal(caminho, opcoes))
+
+    const primeiro = fila.carregarPrevisao(PEDIDO)
+    await fila.carregarPrevisao(PEDIDO, { forcar: true })
+    const novo = fila.estadoDaPrevisao(PEDIDO)
+    liberarAntigo({ status: 'dados_insuficientes', faixas: [] })
+    await primeiro
+
+    expect(fila.estadoDaPrevisao(PEDIDO)).toBe(novo)
+    expect(fila.estadoDaPrevisao(PEDIDO).previsao.status).toBe('disponivel')
+  })
+
+  it('404 campus_nao_encontrado: erro com o código', async () => {
+    const fila = useFilaStore()
+
+    await fila.carregarPrevisao({ ...PEDIDO, campus: 99 })
+
+    expect(fila.estadoDaPrevisao({ ...PEDIDO, campus: 99 })).toMatchObject({
+      situacao: 'erro',
+      erro: { codigo: 'campus_nao_encontrado', mensagem: 'Campus não encontrado.' },
+    })
+  })
+
+  it('erro não fica no cache: a próxima vez pede de novo', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+    get.mockRejectedValueOnce(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
+
+    await fila.carregarPrevisao(PEDIDO)
+    expect(fila.estadoDaPrevisao(PEDIDO).erro).toEqual({
+      codigo: 'sem_conexao',
+      mensagem: 'Sem internet.',
+      status: 0,
+    })
+    await fila.carregarPrevisao(PEDIDO)
+
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
+  it.each([
+    ['sem corpo', null],
+    ['status desconhecido', { status: 'outro', faixas: [] }],
+    ['disponível sem faixas', { status: 'disponivel', faixas: [] }],
+    [
+      'faixa com nível desconhecido',
+      {
+        status: 'disponivel',
+        faixas: [{ inicio: '11:00:00', fim: '11:15:00', nivel: 'cheia', ehPico: true }],
+      },
+    ],
+    [
+      'faixa sem ehPico',
+      { status: 'disponivel', faixas: [{ inicio: '11:00:00', fim: '11:15:00', nivel: 'vazia' }] },
+    ],
+    [
+      'disponível sem nenhum pico',
+      {
+        status: 'disponivel',
+        faixas: [
+          { inicio: '11:00:00', fim: '11:15:00', nivel: 'vazia', ehPico: false },
+          { inicio: '11:15:00', fim: '11:30:00', nivel: 'curta', ehPico: false },
+        ],
+      },
+    ],
+    [
+      'dados insuficientes com faixas',
+      {
+        status: 'dados_insuficientes',
+        faixas: [{ inicio: '11:00:00', fim: '11:15:00', nivel: 'longa', ehPico: true }],
+      },
+    ],
+  ])('resposta fora do contrato (%s): erro com mensagem para a tela', async (_caso, resposta) => {
+    const fila = useFilaStore()
+    vi.spyOn(apiClient, 'get').mockResolvedValueOnce(resposta)
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await fila.carregarPrevisao(PEDIDO)
+
+    const estado = fila.estadoDaPrevisao(PEDIDO)
+    expect(estado).toMatchObject({ situacao: 'erro', previsao: null })
+    expect(estado.erro.mensagem).toEqual(expect.any(String))
+    expect(estado.erro.mensagem.length).toBeGreaterThan(0)
+    const falha = log.mock.calls[0][0]
+    expect(falha.message).toContain('1|almoco|2026-11-09')
+    expect(falha.cause).toBe(resposta)
   })
 })
