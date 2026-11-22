@@ -19,6 +19,8 @@ import hashlib
 import logging
 import secrets
 import smtplib
+import traceback
+from pathlib import Path
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -51,6 +53,21 @@ Se você não criou uma conta no Bandejão UnB, ignore este e-mail.
 def hash_do_token(token: str) -> str:
     """SHA-256 em hexadecimal (64 caracteres), o formato de `Token.token_hash`."""
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _onde_saiu(exc: BaseException) -> str:
+    """`apps/.../arquivo.py:linha` do último ponto do código do projeto no traceback.
+
+    Pula os frames de fora (Django, bibliotecas), onde não há o que corrigir.
+    Só o arquivo e a linha: a mensagem e os argumentos podem trazer o e-mail ou
+    o token (ADR 0008).
+    """
+    raiz = Path(settings.BASE_DIR)
+    for frame in reversed(traceback.extract_tb(exc.__traceback__)):
+        caminho = Path(frame.filename)
+        if caminho.is_relative_to(raiz / "apps"):
+            return f"{caminho.relative_to(raiz).as_posix()}:{frame.lineno}"
+    return "fora do código do projeto"
 
 
 class ConfirmacaoEmailService:
@@ -204,7 +221,10 @@ class ConfirmacaoEmailService:
         Pelo mesmo motivo, um erro inesperado daqui para baixo (banco fora,
         lock no cache do limite, bug) também não sobe (#205). Este trecho só roda
         para conta pendente: um 500 só nela responderia "este e-mail tem conta
-        pendente?", e o e-mail institucional é fácil de adivinhar.
+        pendente?", e o e-mail institucional é fácil de adivinhar. Por isso a
+        captura é de `Exception`, e não só `DatabaseError`: um bug que só
+        aparece em produção vazaria do mesmo jeito. O log diz a conta, a
+        exceção e onde ela saiu.
         """
         if conta is None:
             return
@@ -219,15 +239,13 @@ class ConfirmacaoEmailService:
             if self.enviar_link(conta):
                 limite.registrar(conta)
         except Exception as exc:  # noqa: BLE001
-            # Exception, e não só DatabaseError: qualquer 500 aqui vaza do
-            # mesmo jeito, inclusive um bug que só aparece em produção. O erro
-            # não some: vai para o log com o id da conta e o nome da exceção.
-            # A mensagem e o traceback ficam de fora porque podem trazer o
-            # e-mail ou o token (ADR 0008).
+            # A BLE001 só aceita este except com o traceback no log, e ele
+            # pode trazer o e-mail ou o token (ADR 0008).
             logger.error(
-                "Falha inesperada no reenvio do link da conta %s: %s",
+                "Falha inesperada no reenvio do link da conta %s: %s em %s",
                 conta.pk,
                 type(exc).__name__,
+                _onde_saiu(exc),
             )
 
     def _link_do_pwa(self, token: str) -> str:
