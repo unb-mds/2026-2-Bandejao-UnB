@@ -1,5 +1,5 @@
 <script setup>
-import { computed, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { REFEICOES } from '@/constants/refeicoes'
 import { useFilaStore } from '@/stores/fila'
 import { diaCurto, diaMes, hojeISO } from '@/utils/datas'
@@ -9,6 +9,8 @@ const props = defineProps({
   tipoRefeicao: { type: String, required: true },
   data: { type: String, required: true },
 })
+
+const INTERVALO_DE_REVALIDACAO = 60 * 1000
 
 const ROTULOS_DOS_NIVEIS = {
   vazia: 'Vazia',
@@ -27,9 +29,10 @@ const pedido = computed(() => ({
 const estado = computed(() => fila.estadoDaPrevisao(pedido.value))
 const situacao = computed(() => estado.value?.situacao ?? 'carregando')
 const previsao = computed(() => estado.value?.previsao ?? null)
-const faixas = computed(() =>
-  situacao.value === 'carregado' ? (previsao.value?.faixas ?? []) : [],
+const mostraPrevisao = computed(
+  () => Boolean(previsao.value) && ['carregado', 'carregando'].includes(situacao.value),
 )
+const faixas = computed(() => (mostraPrevisao.value ? previsao.value.faixas : []))
 const picos = computed(() => faixas.value.filter((faixa) => faixa.ehPico))
 const podeTentarDeNovo = computed(() => ![400, 404].includes(estado.value?.erro?.status))
 
@@ -57,6 +60,12 @@ const resumoDoPico = computed(() => {
 
 watch(pedido, (valor) => fila.carregarPrevisao(valor), { immediate: true })
 
+let revalidacao = null
+onMounted(() => {
+  revalidacao = setInterval(() => fila.carregarPrevisao(pedido.value), INTERVALO_DE_REVALIDACAO)
+})
+onBeforeUnmount(() => clearInterval(revalidacao))
+
 function tentarNovamente() {
   fila.carregarPrevisao(pedido.value, { forcar: true })
 }
@@ -67,12 +76,14 @@ function tentarNovamente() {
     <p id="titulo-previsao" class="titulo-secao pequeno">{{ titulo }}</p>
 
     <div class="estados" aria-live="polite">
-      <p v-if="situacao === 'carregando'" class="texto-pequeno estado">Carregando previsão…</p>
+      <p v-if="situacao === 'carregando' && !previsao" class="texto-pequeno estado">
+        Carregando previsão…
+      </p>
 
       <div v-else-if="situacao === 'indisponivel'" class="estado" data-teste="previsao-indisponivel">
-        <p class="estado-titulo">Previsão ainda não disponível</p>
+        <p class="estado-titulo">Previsão fora do ar no momento</p>
         <p class="texto-pequeno">
-          A previsão por horário ainda não está no ar. Seus check-ins já ajudam a montá-la.
+          Não foi possível calcular a previsão agora. Tente de novo daqui a alguns minutos.
         </p>
       </div>
 
@@ -216,6 +227,12 @@ function tentarNovamente() {
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+@supports not (grid-template-columns: subgrid) {
+  .faixa {
+    grid-template-columns: auto minmax(16px, 1fr) auto auto;
+  }
 }
 
 @media (max-width: 380px) {

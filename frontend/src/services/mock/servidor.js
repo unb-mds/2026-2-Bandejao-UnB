@@ -23,13 +23,12 @@
  * `GET /refeicoes/{refeicaoId}/avaliacoes/`, com o `refeicaoId` do resumo do
  * dia; as duas respondem 501, como o backend hoje, depois de
  * `simulacao.definirAvaliacoesDisponiveis(false)`. O `GET /fila/previsao/`
- * (FE-11) segue o OpenAPI e as validações do cardápio (#217), com uma
- * previsão de exemplo de `./previsao.js`; responde 501, como o backend antes
- * da BE-15, depois de `simulacao.definirPrevisaoDisponivel(false)`.
- * Recuperação de senha, a
- * semana do cardápio (`/cardapio/<campus>/`) e as listas de avaliação da
- * HomeView (`GET /avaliacoes/` e o resumo da semana) ainda têm o formato do
- * MVP: entram no contrato na FE-E2.
+ * (FE-11) segue o contrato da BE-15 (#236), com uma previsão de exemplo de
+ * `./previsao.js`; `simulacao.definirPrevisaoDisponivel(false)` faz ele
+ * responder 501, para testar a defesa do front contra um backend sem a rota.
+ * Recuperação de senha, a semana do cardápio (`/cardapio/<campus>/`) e as
+ * listas de avaliação da HomeView (`GET /avaliacoes/` e o resumo da semana)
+ * ainda têm o formato do MVP: entram no contrato na FE-E2.
  */
 import {
   ORDEM_REFEICOES,

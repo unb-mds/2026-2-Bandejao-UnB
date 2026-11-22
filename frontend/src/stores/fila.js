@@ -16,9 +16,10 @@ import { mensagemForaDoHorario } from '@/constants/refeicoes'
  * check-in como o backend o devolve (sem coordenadas) e as previsões; o
  * bloco `pontos` vai para a `gamificacaoStore`.
  *
- * A previsão carregada e a "indisponível" (501) valem por 5 minutos, como o
- * cardápio: assim, quando a BE-15 entrar, quem está com o app aberto passa
- * a ver a previsão sem recarregar. O erro não fica guardado.
+ * A previsão carregada e a "indisponível" (501, defesa contra um backend sem
+ * a rota) valem por 5 minutos, como o cardápio; a `FilaPrevisao` confere a
+ * validade a cada minuto e, enquanto revalida, continua mostrando as faixas
+ * antigas. O erro não fica guardado.
  */
 
 // 400 dados_invalidos só acontece se o próprio PWA montar o corpo errado (por
