@@ -576,7 +576,17 @@ trata erros (RNF04, ADR 0007)."]
   `"pontos": {"total", "contribuicao", "avaliacaoLiberada", "bonusSemana"}`.
   `filaStore` e `avaliacoesStore` repassam esse bloco à `gamificacaoStore`
   (setas "pontos recebidos"), que mostra o `PontosAviso` quando `total > 0`
-  e marca o progresso como desatualizado.
+  e marca o progresso como desatualizado. Desde a FE-10 (#171), o
+  `PontosAviso` é um aviso flutuante na raiz, acima da barra inferior no
+  celular: "+N pontos" ("+1 ponto" quando o total é 1), numa região
+  `role="status"` só com o texto e o "×" ao lado; some sozinho em 4 segundos
+  ou no "×", e um aviso novo substitui o anterior. O `CheckinBotao` e o
+  `AvaliacaoWidget` não repetem o aviso. A store guarda só `total`,
+  `contribuicao` e `avaliacaoLiberada`, os três obrigatórios e inteiros não
+  negativos, como no `ResultadoPontuacao` do `openapi.yaml` (o `bonusSemana`
+  entra com a BE-E6); um bloco fora disso é ignorado e registrado no
+  console, sem desfazer o check-in ou a avaliação já gravados. O logout e o
+  401 limpam a store.
 - **Bandeja de Ouro nas respostas públicas (decisão 12 da #66).** Cada linha
   do ranking e cada autor de comentário traz o campo opcional
   `distintivo`: `null` ou

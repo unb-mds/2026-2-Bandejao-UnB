@@ -317,6 +317,24 @@ describe('CampusView (FE-07, front 3a.2)', () => {
     await vi.waitFor(() => expect(wrapper.text()).toContain('Check-in confirmado'))
   })
 
+  it('check-in confirmado: o PontosAviso da raiz mostra "+10 pontos" uma vez só (RF24.2)', async () => {
+    simularGps()
+    await entrarComAvisoAceito()
+    const { wrapper } = await montarEm('/campus/1')
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true),
+    )
+
+    await wrapper.get('[data-teste="checkin-botao"]').trigger('click')
+    await flushPromises()
+
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-teste="pontos-aviso"]').exists()).toBe(true),
+    )
+    expect(wrapper.get('[data-teste="pontos-aviso"]').text()).toContain('+10 pontos')
+    expect(wrapper.text().match(/\+10 pontos/g)).toHaveLength(1)
+  })
+
   it('trocar a refeição durante a leitura do GPS: nenhum POST com a refeição nova', async () => {
     const gps = simularGps({ responderNaHora: false })
     await entrarComAvisoAceito()
