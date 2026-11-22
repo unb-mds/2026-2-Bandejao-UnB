@@ -477,10 +477,10 @@ classDiagram
     +get(campus: Campus, tipoRefeicao: str) Response
   }
   class PrevisaoService {
-    +calcular(campus: Campus, tipoRefeicao: str, data: date) PrevisaoPico
+    +calcular(campus: Campus, tipoRefeicao: str, data: date, hoje: date) PrevisaoPico
   }
   class JanelaHistoricoResolver {
-    +datasDaJanela(data: date) list~date~
+    +datasDaJanela(data: date, hoje: date) list~date~
   }
   class FaixaHorarioGenerator {
     +faixas(tipoRefeicao: str) list~FaixaHorario~
@@ -630,8 +630,12 @@ classDiagram
   horário local (America/Sao_Paulo), não UTC, senão as faixas ficam
   deslocadas em relação aos horários das refeições.
 - **Detalhes da implementação (BE-15):** a janela são as 4 semanas
-  *anteriores* no mesmo dia da semana; o próprio dia pedido não entra, porque
-  a refeição de hoje ainda pode estar acontecendo. O `contarPorFaixa`
+  *anteriores* no mesmo dia da semana, só com os dias que já passaram: hoje
+  não entra, porque a refeição ainda pode estar acontecendo, nem numa data
+  futura cuja janela começaria em hoje ou depois (revisão do #236). A
+  previsão foi pensada para o dia corrente; bem à frente, a janela fica
+  vazia e sai "dados insuficientes". O `hoje` (dia corrente em Brasília) é
+  calculado uma vez na `PrevisaoView`, como o `agora` do check-in. O `contarPorFaixa`
   devolve só os dias com pelo menos um check-in nas faixas da refeição, e
   o check-in feito no minuto final (ex.: 14h30, aceito pelo
   `JanelaCheckinValidator`) entra na última faixa; um check-in fora das
