@@ -93,15 +93,17 @@ describe('NavegacaoTopo e NavegacaoInferior', () => {
     expect(atuais[0].text()).toBe('Início')
   })
 
-  it('a do topo tem o canal de contato (RNF08), abrindo em outra aba com segurança', async () => {
+  it('a do topo tem o canal de contato (RNF08): o e-mail da equipe', async () => {
     const { wrapper } = await montar(NavegacaoTopo)
 
     const contato = wrapper.find(`a[href="${CANAL_CONTATO}"]`)
 
     expect(contato.exists()).toBe(true)
-    expect(contato.attributes('target')).toBe('_blank')
-    expect(contato.attributes('rel')).toContain('noopener')
-    expect(contato.text()).toContain('(abre em nova aba)')
+    expect(CANAL_CONTATO).toBe('mailto:equipe@bandejaounb.com.br')
+    expect(contato.text()).toContain('Contato')
+    // O endereço também chega a quem usa leitor de tela.
+    expect(contato.text()).toContain('equipe@bandejaounb.com.br')
+    expect(contato.attributes('target')).toBeUndefined()
   })
 
   it.each([

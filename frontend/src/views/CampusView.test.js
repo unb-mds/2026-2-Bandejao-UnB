@@ -383,3 +383,34 @@ describe('CampusView (FE-07, front 3a.2)', () => {
     expect(checkinsEnviados(post)).toEqual([])
   })
 })
+
+describe('CampusView — canal de contato (RNF08, FE-15)', () => {
+  const contato = (wrapper) => wrapper.find('[data-teste="contato-equipe"]')
+
+  it('visitante vê o e-mail da equipe na tela do campus, sem login', async () => {
+    const { wrapper } = await montarEm('/campus/1')
+
+    expect(contato(wrapper).exists()).toBe(true)
+    expect(contato(wrapper).get('a').attributes('href')).toBe('mailto:equipe@bandejaounb.com.br')
+  })
+
+  it('logada também vê', async () => {
+    await useAuthStore().entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+    const { wrapper } = await montarEm('/campus/1')
+
+    expect(contato(wrapper).exists()).toBe(true)
+  })
+
+  it('no "Campus não encontrado" o contato continua lá', async () => {
+    const { wrapper } = await montarEm('/campus/999')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Campus não encontrado'))
+
+    expect(contato(wrapper).exists()).toBe(true)
+  })
+
+  it('aparece uma vez só na tela', async () => {
+    const { wrapper } = await montarEm('/campus/3')
+
+    expect(wrapper.findAll('[data-teste="contato-equipe"]')).toHaveLength(1)
+  })
+})
