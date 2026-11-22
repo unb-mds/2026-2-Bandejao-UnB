@@ -198,7 +198,7 @@ function mostrarResultado(resultado) {
   <ConviteLogin
     v-if="!auth.estaAutenticado"
     titulo="Entre para fazer check-in"
-    texto="Com uma conta, você confirma que está no RU e ajuda a prever a fila."
+    texto="Com uma conta, você confirma que está no RU, ajuda a prever a fila e ganha pontos."
   />
 
   <AvisoPrivacidade

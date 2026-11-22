@@ -99,6 +99,8 @@ describe('CheckinBotao — visitante (RF05)', () => {
 
     expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(false)
     expect(texto(wrapper)).toContain('Entre para fazer check-in')
+    // Release 2: o convite cita os pontos da gamificação (RF05).
+    expect(texto(wrapper)).toContain('ganha pontos')
     expect(getCurrentPosition).not.toHaveBeenCalled()
   })
 })
