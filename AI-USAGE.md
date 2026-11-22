@@ -494,6 +494,34 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação após os ajustes: `pytest` com 1768 testes aprovados e 1 ignorado, cobertura de `apps` de 99%; `ruff check`, `ruff format --check` e `spectacular --validate --fail-on-warn` aprovados. Conflito com a `develop` no `AI-USAGE.md` (entrada da FE-15, #228) resolvido no merge `acaa7ab`, mantendo as duas entradas.
 - Situação: ajustes da revisão aplicados; aguardando o `testes-mysql` do CI e a aprovação.
 
+## FE-10 — gamificacaoStore e PontosAviso
+
+- Issue: [#171](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/171). PR: [#231 — FE-10: gamificacaoStore e PontosAviso](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/231).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `gamificacaoStore` nova, com `registrarPontos` (guarda o último bloco `pontos`; com `total > 0` abre o aviso e marca o progresso como desatualizado; um bloco fora do contrato é ignorado e vai para o console);
+  - `PontosAviso` no `App` raiz: aviso flutuante "+N pontos" ("+1 ponto" quando o total é 1), com uma região `role="status"` só com o texto e o "×" ao lado; some em 4 s ou no "×";
+  - repasse do bloco `pontos` pela `filaStore` e pela `avaliacoesStore`, e o "+N pontos" de dentro do `CheckinBotao` e do `AvaliacaoWidget` retirado, para não aparecer duplicado;
+  - os 10 pontos do check-in (Anexo A) no simulado. O backend real devolve 0 até a BE-14 (#166), e com 0 o aviso não aparece;
+  - nota no C4.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `b6ce8d4` (testes) → `024b1ed` (código).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 701 testes passando (95,16% de linhas / 90,62% de ramos; `gamificacao.js` e `PontosAviso.vue` com 100% de linhas, agora na meta de cobertura) e `npm run build` sem erro. Sem as capturas em 360 px e 1366 px: a localização do PC da autora não funcionou no `npm run dev` para fazer o check-in (combinado com o revisor).
+- Revisão humana: Álvaro Bento revisou o PR #231. Ajustes aplicados, com os testes antes do código:
+  - `gamificacao.js` e `PontosAviso.vue` na meta de cobertura do `vitest.config.js`;
+  - plano de testes atualizado (avaliar mostra o aviso, editar não);
+  - repasse dos pontos protegido por `try/catch` nas duas stores: um bloco ausente, malformado ou uma falha da store não desfaz o check-in ou a avaliação já gravados;
+  - `fila.ultimosPontos` retirado;
+  - os três campos validados como no `openapi.yaml`;
+  - a store limpa no logout e no 401;
+  - testes de dois avisos de mesmo total, aviso aberto antes de montar e bloco ruim depois de um válido;
+  - o "×" fora da região viva;
+  - C4 e comentário do simulado atualizados.
+
+  Os comentários sugeridos no código (JSDoc, `App.vue` e o `76px`) ficaram de fora por serem sugestão.
+- Situação: aguardando nova revisão.
+
 ## BE-14 — Pontuação
 
 - Issue: [#166](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/166). PR: [#235 — BE-14: pontuação de check-in e avaliação](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/235).

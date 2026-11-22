@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAvaliacoesStore } from './avaliacoes'
 import { useAuthStore } from './auth'
+import { useGamificacaoStore } from './gamificacao'
 import { ApiError, apiClient } from '@/services/apiClient'
 import { CONTA_DEMO } from '@/services/mock/banco'
 import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
@@ -206,6 +207,50 @@ describe('avaliacoesStore: avaliações de uma refeição (contrato da BE-13)', 
     })
   })
 
+  it('avaliar repassa o bloco pontos à gamificacaoStore (RF24.2)', async () => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      avaliacao: { id: 9, refeicaoId, nota: 5, comentario: '', criadaEm: HOJE, editadaEm: null },
+      pontos: { total: 5, contribuicao: 5, avaliacaoLiberada: 0 },
+    })
+
+    await avaliacoes.avaliar({ refeicaoId, campus: 3, data: HOJE, nota: 5 })
+
+    expect(useGamificacaoStore().ultimosPontos).toEqual({
+      total: 5,
+      contribuicao: 5,
+      avaliacaoLiberada: 0,
+    })
+    expect(useGamificacaoStore().aviso).toMatchObject({ total: 5 })
+  })
+
+  it('avaliação com pontos zerados não abre o aviso de pontos', async () => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+
+    await avaliacoes.avaliar({ refeicaoId, campus: 3, data: HOJE, nota: 4 })
+
+    expect(useGamificacaoStore().ultimosPontos).toMatchObject({ total: 0 })
+    expect(useGamificacaoStore().aviso).toBeNull()
+  })
+
+  it('falha no envio da avaliação não passa nada à gamificacaoStore', async () => {
+    await entrar()
+    const avaliacoes = useAvaliacoesStore()
+    const refeicaoId = await idDoAlmoco(avaliacoes)
+    vi.spyOn(apiClient, 'post').mockRejectedValueOnce(
+      new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }),
+    )
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await avaliacoes.avaliar({ refeicaoId, campus: 3, data: HOJE, nota: 4 })
+
+    expect(useGamificacaoStore().ultimosPontos).toBeNull()
+  })
+
   it('avaliar recarrega os comentários e o resumo do dia (média nova)', async () => {
     await entrar()
     const avaliacoes = useAvaliacoesStore()
@@ -390,8 +435,39 @@ describe('avaliacoesStore: respostas inesperadas e rascunho', () => {
       })
       expect(log).toHaveBeenCalledTimes(1)
       expect(avaliacoes.minhaAvaliacao(refeicaoId, null)).toBeNull()
+      expect(useGamificacaoStore().ultimosPontos).toBeNull()
     },
   )
+
+  it.each([
+    ['sem o bloco pontos', undefined],
+    ['com o bloco pontos malformado', { total: 'cinco' }],
+  ])('2xx %s: continua "criada", sem aviso e com registro no console', async (_caso, pontos) => {
+    const { avaliacoes, refeicaoId, alvo } = await preparar()
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      avaliacao: { id: 9, refeicaoId, nota: 4, comentario: '', criadaEm: HOJE, editadaEm: null },
+      pontos,
+    })
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const resultado = await avaliacoes.avaliar(alvo)
+
+    expect(resultado.desfecho).toBe('criada')
+    expect(useGamificacaoStore().aviso).toBeNull()
+    expect(log).toHaveBeenCalledWith('Bloco pontos fora do contrato.', pontos)
+  })
+
+  it('2xx com a gamificacaoStore lançando ao registrar: a avaliação continua "criada"', async () => {
+    const { avaliacoes, alvo } = await preparar()
+    vi.spyOn(useGamificacaoStore(), 'registrarPontos').mockImplementation(() => {
+      throw new Error('quebrou')
+    })
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(avaliacoes.avaliar(alvo)).resolves.toMatchObject({ desfecho: 'criada' })
+
+    expect(log).toHaveBeenCalledWith('Falha ao registrar os pontos da avaliação.', expect.any(Error))
+  })
 
   it('2xx com a recarga falhando: "criada" com atualizada=false e os dados anteriores mantidos', async () => {
     const { avaliacoes, refeicaoId, alvo } = await preparar()

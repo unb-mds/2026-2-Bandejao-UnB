@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import CheckinBotao from './CheckinBotao.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useFilaStore } from '@/stores/fila'
+import { useGamificacaoStore } from '@/stores/gamificacao'
 import { apiClient } from '@/services/apiClient'
 import { CONTA_DEMO } from '@/services/mock/banco'
 import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
@@ -330,16 +331,22 @@ describe('CheckinBotao — respostas do POST /api/checkins/', () => {
     expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(false)
   })
 
-  it('201 com pontos zerados (até a BE-14): não mostra "+N pontos"', async () => {
+  it('201 com pontos zerados (backend antes da BE-14): nenhum aviso de pontos', async () => {
     await entrar()
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      checkin: { id: 7, campus: 1, tipoRefeicao: 'almoco', data: '2026-11-09' },
+      pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 },
+    })
     const wrapper = await montar()
 
     await tocarNoBotao(wrapper)
 
+    expect(texto(wrapper)).toContain('Check-in confirmado')
+    expect(useGamificacaoStore().aviso).toBeNull()
     expect(texto(wrapper)).not.toMatch(/\+\d+ pontos/)
   })
 
-  it('201 com pontos: mostra "+N pontos"', async () => {
+  it('201 com pontos: vão para o PontosAviso global, sem repetir no botão', async () => {
     await entrar()
     vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
       checkin: { id: 7, campus: 1, tipoRefeicao: 'almoco', data: '2026-11-09' },
@@ -349,7 +356,8 @@ describe('CheckinBotao — respostas do POST /api/checkins/', () => {
 
     await tocarNoBotao(wrapper)
 
-    expect(texto(wrapper)).toContain('+10 pontos')
+    expect(useGamificacaoStore().aviso).toMatchObject({ total: 10 })
+    expect(texto(wrapper)).not.toMatch(/\+\d+ pontos/)
   })
 
   it('422 fora_do_horario: mostra a mensagem com o horário da refeição', async () => {
@@ -456,7 +464,7 @@ describe('CheckinBotao — respostas do POST /api/checkins/', () => {
           liberar = () =>
             resolver({
               checkin: { id: 9, campus: 1, tipoRefeicao: 'almoco', data: '2026-11-09' },
-              pontos: { total: 5 },
+              pontos: { total: 5, contribuicao: 5, avaliacaoLiberada: 0 },
             })
         }),
     )

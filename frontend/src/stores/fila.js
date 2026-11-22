@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { ApiError, apiClient, mensagemDeErro } from '@/services/apiClient'
 import { idDeCampusValido } from '@/constants/campi'
+import { repassarPontos } from '@/stores/gamificacao'
 import { mensagemForaDoHorario } from '@/constants/refeicoes'
 
 /**
@@ -42,11 +43,6 @@ export const useFilaStore = defineStore('fila', () => {
   const enviandoCheckin = ref(false)
   /** @type {import('vue').Ref<{ id: number, campus: number, tipoRefeicao: string, data: string } | null>} */
   const ultimoCheckin = ref(null)
-  /**
-   * Último bloco `pontos` do check-in.
-   * TODO(FE-10): repassar à gamificacaoStore com registrarPontos(pontos) (RF24.2).
-   */
-  const ultimosPontos = ref(null)
 
   /**
    * POST /api/checkins/ com `{ campus, tipoRefeicao, coordenadas }`.
@@ -100,11 +96,11 @@ export const useFilaStore = defineStore('fila', () => {
       }
     }
     ultimoCheckin.value = copiarCheckin(resposta.checkin)
-    ultimosPontos.value = { ...resposta.pontos }
-    return { desfecho: 'confirmado', checkin: ultimoCheckin.value, pontos: ultimosPontos.value }
+    repassarPontos(resposta.pontos, 'do check-in')
+    return { desfecho: 'confirmado', checkin: ultimoCheckin.value, pontos: resposta.pontos ?? null }
   }
 
-  return { enviandoCheckin, ultimoCheckin, ultimosPontos, confirmarCheckin }
+  return { enviandoCheckin, ultimoCheckin, confirmarCheckin }
 })
 
 function desfechoDaFalha(falha, { idDoCampus, tipoRefeicao }) {
