@@ -1,30 +1,14 @@
 <script setup>
-import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useAvaliacoesStore } from '@/stores/avaliacoes'
+import { AVISO_SAIR_SEM_CONFIRMACAO, useSair } from '@/composables/sair'
 
 const auth = useAuthStore()
-const avaliacoes = useAvaliacoesStore()
 const router = useRouter()
-const saindo = ref(false)
-const semConfirmacao = ref(false)
+const { saindo, semConfirmacao, sair } = useSair()
 
-async function sair() {
-  if (saindo.value) return
-  saindo.value = true
-  semConfirmacao.value = false
-  try {
-    await auth.sair()
-    avaliacoes.limparCache()
-    await router.push({ name: 'raiz' })
-  } catch (falha) {
-    console.error(falha)
-    avaliacoes.limparCache()
-    semConfirmacao.value = true
-  } finally {
-    saindo.value = false
-  }
+async function sairDaConta() {
+  if (await sair()) await router.push({ name: 'raiz' })
 }
 </script>
 
@@ -36,13 +20,12 @@ async function sair() {
       class="botao botao--contorno"
       :disabled="saindo"
       data-teste="botao-sair"
-      @click="sair"
+      @click="sairDaConta"
     >
       {{ saindo ? 'Saindo…' : 'Sair da conta' }}
     </button>
     <p v-if="semConfirmacao" class="texto-pequeno aviso" role="alert" data-teste="sair-aviso">
-      Saímos deste aparelho, mas o servidor não confirmou. Se o aparelho for compartilhado,
-      recarregue a página com internet e saia de novo.
+      {{ AVISO_SAIR_SEM_CONFIRMACAO }}
     </p>
   </div>
 </template>
