@@ -231,6 +231,7 @@ def _para_o_contrato(cardapio):
         "avisoSujeitoAAlteracao": cardapio.aviso_sujeito_a_alteracao,
         "alergenosIndisponivel": cardapio.alergenos_indisponivel,
         "filtroMarcadorDesativado": cardapio.filtro_marcador_desativado,
+        "semServico": cardapio.sem_servico,
         "categorias": [
             {
                 "nome": categoria.nome,
@@ -354,7 +355,9 @@ class CardapioView(APIView):
         description=(
             "Os filtros de marcador e de dieta são aplicados no backend "
             "(ADR 0005). Cardápio ainda não publicado volta 200 com "
-            "`status` igual a `nao_publicado` (RF18)."
+            "`status` igual a `nao_publicado` (RF18). Dia sem serviço numa "
+            "semana publicada volta 200 com `status` igual a `publicado`, "
+            "`semServico` true e `categorias` vazia."
         ),
         tags=["cardapio"],
         parameters=[

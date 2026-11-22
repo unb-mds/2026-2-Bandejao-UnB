@@ -222,7 +222,8 @@ paths:
       operationId: cardapio_retrieve
       description: Os filtros de marcador e de dieta são aplicados no backend (ADR
         0005). Cardápio ainda não publicado volta 200 com `status` igual a `nao_publicado`
-        (RF18).
+        (RF18). Dia sem serviço numa semana publicada volta 200 com `status` igual
+        a `publicado`, `semServico` true e `categorias` vazia.
       summary: Cardápio de uma refeição, já filtrado
       parameters:
       - in: query
@@ -965,6 +966,13 @@ components:
           type: boolean
         filtroMarcadorDesativado:
           type: boolean
+        semServico:
+          type: boolean
+          description: 'true quando a semana do dia pedido está publicada, mas o RU
+            não serve nesse dia nem nos seguintes da semana (ex.: sábado nos campi
+            que só servem de segunda a sexta). Vem com `status` "publicado", `data`
+            igual ao dia pedido, a refeição padrão do Anexo A e `categorias` vazia.
+            Só sem `refeicao` no pedido; com ela, é sempre false.'
         categorias:
           type: array
           items:
@@ -978,6 +986,7 @@ components:
       - filtroMarcadorDesativado
       - refeicao
       - refeicaoEncerrada
+      - semServico
       - status
     CategoriaFiltrada:
       type: object

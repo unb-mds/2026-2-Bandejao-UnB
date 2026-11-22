@@ -52,4 +52,7 @@ class CardapioFiltrado:
     alergenos_indisponivel: bool
     filtro_marcador_desativado: bool
     categorias: list[CategoriaFiltrada]
+    # True só quando a semana do dia pedido está publicada e não há dia com
+    # serviço dele em diante (#217): o RU não abre, e não "não publicou".
+    sem_servico: bool = False
     aviso_sujeito_a_alteracao: str = AVISO_SUJEITO_A_ALTERACAO
