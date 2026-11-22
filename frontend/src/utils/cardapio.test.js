@@ -63,8 +63,8 @@ describe('selecaoPadrao', () => {
   })
 
   it('sem cardápio hoje, seleciona o próximo dia disponível', () => {
-    const domingo = new Date(2026, 8, 27, 12, 0)
-    expect(selecaoPadrao(semana, domingo)).toEqual({ data: '2026-09-28', refeicao: 'cafe' })
+    const diaAntes = new Date(2026, 8, 27, 12, 0)
+    expect(selecaoPadrao(semana, diaAntes)).toEqual({ data: '2026-09-28', refeicao: 'cafe' })
   })
 
   it('semana sem dias não seleciona nada', () => {
@@ -99,18 +99,49 @@ describe('formatarNota', () => {
 })
 
 describe('diasDaSemanaVigente (AbasSemana, RF07.1)', () => {
-  it('de segunda a sábado da semana atual', () => {
-    expect(diasDaSemanaVigente(new Date(2026, 8, 30, 12))).toEqual([
-      '2026-09-28',
-      '2026-09-29',
-      '2026-09-30',
-      '2026-10-01',
-      '2026-10-02',
-      '2026-10-03',
-    ])
+  const SEMANA = [
+    '2026-09-28',
+    '2026-09-29',
+    '2026-09-30',
+    '2026-10-01',
+    '2026-10-02',
+    '2026-10-03',
+    '2026-10-04',
+  ]
+
+  it('de segunda a domingo da semana atual (7 abas)', () => {
+    expect(diasDaSemanaVigente(new Date(2026, 8, 30, 12))).toEqual(SEMANA)
   })
 
-  it('no domingo, já mostra a semana seguinte', () => {
-    expect(diasDaSemanaVigente(new Date(2026, 9, 4, 12))[0]).toBe('2026-10-05')
+  it('na segunda já inclui o domingo da mesma semana', () => {
+    expect(diasDaSemanaVigente(new Date(2026, 8, 28, 0, 0))).toEqual(SEMANA)
+  })
+
+  it('no domingo, mostra a semana corrente com o domingo', () => {
+    expect(diasDaSemanaVigente(new Date(2026, 9, 4, 23, 59))).toEqual(SEMANA)
+  })
+
+  it('na virada de domingo para segunda, já passa para a semana seguinte', () => {
+    expect(diasDaSemanaVigente(new Date(2026, 9, 5, 0, 0))).toEqual([
+      '2026-10-05',
+      '2026-10-06',
+      '2026-10-07',
+      '2026-10-08',
+      '2026-10-09',
+      '2026-10-10',
+      '2026-10-11',
+    ])
+  })
+})
+
+describe('selecaoPadrao no domingo', () => {
+  const domingo = new Date(2026, 9, 4, 12, 0)
+
+  it('com cardápio no domingo (Darcy), seleciona o domingo', () => {
+    const semana = [
+      { data: '2026-10-03', refeicoes: [{ tipo: 'almoco' }] },
+      { data: '2026-10-04', refeicoes: [{ tipo: 'cafe' }, { tipo: 'almoco' }, { tipo: 'jantar' }] },
+    ]
+    expect(selecaoPadrao(semana, domingo)).toEqual({ data: '2026-10-04', refeicao: 'almoco' })
   })
 })

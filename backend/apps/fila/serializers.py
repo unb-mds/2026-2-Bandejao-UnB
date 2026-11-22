@@ -3,6 +3,7 @@
 from rest_framework import serializers
 
 from apps.cardapio.models import Campus, TipoRefeicao
+from apps.fila.classificador_nivel_fila import NivelFila
 from apps.gamificacao.serializers import ResultadoPontuacaoSerializer
 
 
@@ -47,8 +48,13 @@ class FaixaPrevistaSerializer(serializers.Serializer):
 
     inicio = serializers.TimeField(help_text="Horário local, America/Sao_Paulo.")
     fim = serializers.TimeField()
-    nivel = serializers.CharField(
-        help_text='Um de "vazia", "curta", "moderada" ou "longa".',
+    nivel = serializers.ChoiceField(
+        choices=[nivel.value for nivel in NivelFila],
+        help_text=(
+            "Média da faixa contra a da faixa mais cheia: menos de 25% é "
+            "vazia, menos de 50% curta, menos de 75% moderada, e o resto "
+            "longa (RN06)."
+        ),
     )
     ehPico = serializers.BooleanField(
         help_text="true na faixa mais cheia (em empate, em todas elas).",
@@ -62,7 +68,10 @@ class PrevisaoPicoSerializer(serializers.Serializer):
     tipoRefeicao = serializers.CharField()
     data = serializers.DateField()
     status = serializers.CharField(
-        help_text='"disponivel" ou "dados_insuficientes" (RF13).',
+        help_text=(
+            '"disponivel" ou "dados_insuficientes" (RF13): o segundo com '
+            "check-ins em menos de 3 dias distintos da janela."
+        ),
     )
     faixas = FaixaPrevistaSerializer(
         many=True,
