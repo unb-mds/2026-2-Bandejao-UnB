@@ -85,3 +85,21 @@ def test_contrato_tem_so_os_endpoints_da_v1(schema):
     """Endpoint fora da Tabela 2 (ex.: rascunho da v2) não entra sem aviso."""
     no_schema = {(rota, metodo) for rota, metodo, _ in operacoes(schema)}
     assert no_schema == set(ENDPOINTS_V1)
+
+
+# Rotas com `campus` na query que respondem 404 `campus_nao_encontrado` (#217).
+# A FE-09 (#145) e a FE-11 (#172) dependem desse 404: tirar o `404:` do
+# `extend_schema` e regerar o yaml passaria no teste 1, mas não neste.
+ROTAS_COM_404_DE_CAMPUS = [
+    "/api/cardapio/",
+    "/api/avaliacoes/resumo/",
+    "/api/fila/previsao/",
+]
+
+
+@pytest.mark.parametrize("rota", ROTAS_COM_404_DE_CAMPUS)
+def test_campus_inexistente_e_404_no_contrato(schema, rota):
+    resposta = schema["paths"][rota]["get"]["responses"]["404"]
+    corpo = resposta["content"]["application/json"]["schema"]
+    assert corpo == {"$ref": "#/components/schemas/Erro"}
+    assert "`campus_nao_encontrado`" in resposta["description"]

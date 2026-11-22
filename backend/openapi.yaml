@@ -98,7 +98,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Parâmetro ausente ou inválido, como `campus`. `codigo`: `parametros_invalidos`.'
+          description: 'Parâmetro ausente ou inválido, como `campus` ausente ou que
+            não seja só dígitos. Com o campus inexistente e outro parâmetro inválido,
+            a resposta é este 400. `codigo`: `parametros_invalidos`.'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Campus inexistente. `codigo`: `campus_nao_encontrado`.'
   /api/cadastro/:
     post:
       operationId: cadastro_create
@@ -214,7 +222,9 @@ paths:
       operationId: cardapio_retrieve
       description: Os filtros de marcador e de dieta são aplicados no backend (ADR
         0005). Cardápio ainda não publicado volta 200 com `status` igual a `nao_publicado`
-        (RF18).
+        (RF18). Sem `refeicao`, sem dia com serviço do dia pedido até 7 dias depois
+        e com a semana do dia pedido publicada, volta 200 com `status` igual a `publicado`,
+        `semServico` true, `data` igual ao dia pedido e `categorias` vazia.
       summary: Cardápio de uma refeição, já filtrado
       parameters:
       - in: query
@@ -283,9 +293,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Parâmetro ausente ou inválido, como `campus`; parâmetro fora
-            da lista acima ou repetido; data fora da faixa ou `dia` fora da `semana`.
-            `codigo`: `parametros_invalidos`.'
+          description: 'Parâmetro ausente ou inválido, como `campus` ausente ou que
+            não seja só dígitos; parâmetro fora da lista acima ou repetido; data fora
+            da faixa ou `dia` fora da `semana`. Com o campus inexistente e outro parâmetro
+            inválido, a resposta é este 400. `codigo`: `parametros_invalidos`.'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Campus inexistente. `codigo`: `campus_nao_encontrado`.'
   /api/checkins/:
     post:
       operationId: checkins_create
@@ -437,7 +454,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Parâmetro ausente ou inválido, como `campus`. `codigo`: `parametros_invalidos`.'
+          description: 'Parâmetro ausente ou inválido, como `campus` ausente ou que
+            não seja só dígitos. Com o campus inexistente e outro parâmetro inválido,
+            a resposta é este 400. `codigo`: `parametros_invalidos`.'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Campus inexistente. `codigo`: `campus_nao_encontrado`.'
   /api/gamificacao/adesao/:
     post:
       operationId: gamificacao_adesao_create
@@ -942,6 +967,14 @@ components:
           type: boolean
         filtroMarcadorDesativado:
           type: boolean
+        semServico:
+          type: boolean
+          description: 'true quando não há dia com serviço do dia pedido até 7 dias
+            depois e a semana do dia pedido está publicada: vem com `status` "publicado",
+            `data` igual ao dia pedido, a refeição padrão do Anexo A e `categorias`
+            vazia. Se houver dia com serviço nesse intervalo, a resposta traz esse
+            dia em `data`, com `semServico` false. Só sem `refeicao` no pedido; com
+            ela, é sempre false.'
         categorias:
           type: array
           items:
@@ -955,6 +988,7 @@ components:
       - filtroMarcadorDesativado
       - refeicao
       - refeicaoEncerrada
+      - semServico
       - status
     CategoriaFiltrada:
       type: object
