@@ -55,8 +55,8 @@ git clone https://github.com/unb-mds/2026-2-Bandejao-UnB.git
 cd 2026-2-Bandejao-UnB
 ```
 
-Em produção vale a branch `main`. Antes da release, pode-se usar a `develop`
-(`git checkout develop`).
+Em produção vale a branch `main`, a do deploy automático (ver
+[Deploy automático (CD)](#deploy-automático-cd)).
 
 ### 2. Criar o `.env` e o `.env.db`
 
@@ -354,7 +354,9 @@ verificado.
 
 ## Atualizar
 
-Depois de um merge na branch de produção:
+O deploy de cada merge na `main` é automático (ver
+[Deploy automático (CD)](#deploy-automático-cd)). Para atualizar à mão, sem
+o backup do `bandejao-deploy`:
 
 ```bash
 cd ~/2026-2-Bandejao-UnB
@@ -392,13 +394,113 @@ Numa VM com um `.env` anterior ao `.env.db`, tire a linha
 `MYSQL_ROOT_PASSWORD` do `.env` e passe-a para o `.env.db`. Senão, o backend
 continua recebendo a senha do root, porque o `.env` vai inteiro para ele.
 
+## Deploy automático (CD)
+
+Cada push na `main` (o merge de um PR) vai sozinho para a VM. O workflow
+`.github/workflows/deploy.yml`:
+
+1. espera o **Backend CI** e o **Frontend CI** do mesmo commit terminarem; se
+   um deles falhar, não há deploy;
+2. entra na VM pelo SSH, com uma chave que só serve para o deploy, e chama o
+   `bandejao-deploy` com o commit.
+
+O `bandejao-deploy` (cópia instalada do `deploy/cd/deploy.sh`):
+
+1. impede dois deploys ao mesmo tempo;
+2. confere se a VM está na `main`, sem mudanças locais, e se o commit está na
+   `origin/main`;
+3. faz o backup do banco em `~/backups/deploy-<data>-<commit>.sql.gz` (ficam
+   os 10 mais recentes);
+4. avança a `main` até o commit (só fast-forward);
+5. roda `docker compose up -d --build --wait`: as migrations novas rodam na
+   subida do backend;
+6. confere se `https://bandejaounb.com.br/api/campi/` responde 200.
+
+Não há rollback automático. Se um passo falhar, o job fica vermelho na aba
+**Actions** e o log mostra o commit anterior e o backup para voltar à mão.
+Um deploy atrasado, de um commit mais antigo que o que está no ar, é pulado e
+não volta o site.
+
+O script não reinstala o cron nem a si mesmo. Se o merge mudar
+`deploy/cron/` ou `deploy/cd/deploy.sh`, o log avisa, e é preciso reinstalar
+o arquivo à mão (o do cron como em
+[Tarefas periódicas](#tarefas-periódicas-cron); o do deploy como no passo 2
+abaixo).
+
+### Configurar (uma vez)
+
+**1. Chave só para o deploy.** No seu computador, sem senha (o GitHub não
+digita senha):
+
+```bash
+ssh-keygen -t ed25519 -N "" -C "github-actions-deploy" -f bandejao-deploy
+```
+
+A chave privada (`bandejao-deploy`) vai só para o secret do GitHub e depois é
+apagada do computador. A pública (`bandejao-deploy.pub`) vai para a VM.
+
+**2. Na VM**, instalar o script e prender a chave a ele:
+
+```bash
+cd ~/2026-2-Bandejao-UnB
+sudo install -m 755 -o root -g root deploy/cd/deploy.sh /usr/local/bin/bandejao-deploy
+```
+
+No `~/.ssh/authorized_keys` do `azureuser`, acrescentar uma linha com a chave
+pública precedida das opções:
+
+```text
+command="/usr/local/bin/bandejao-deploy",restrict ssh-ed25519 AAAA... github-actions-deploy
+```
+
+Com o `command=`, essa chave não abre um terminal nem roda outro comando: só o
+`bandejao-deploy`. O `restrict` desliga o terminal, os túneis e o
+encaminhamento. Para cortar o deploy automático, basta apagar essa linha.
+
+**3. A chave do servidor**, para o GitHub ter certeza de que fala com a VM.
+Na VM:
+
+```bash
+echo "20.102.232.122 $(cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub)"
+```
+
+A linha sai do arquivo de chave do próprio servidor, sem passar pela rede.
+
+**4. No GitHub**, em *Settings → Environments*, criar o environment
+`producao` com:
+
+- *Deployment branches and tags*: só a `main`;
+- secrets `DEPLOY_SSH_KEY` (o conteúdo inteiro da chave privada) e
+  `DEPLOY_KNOWN_HOSTS` (a linha do passo 3);
+- variables `DEPLOY_HOST` (`20.102.232.122`) e `DEPLOY_USER` (`azureuser`).
+
+### Deploy à mão
+
+Na VM, como `azureuser` (nunca com `sudo`), com o commit completo da `main`:
+
+```bash
+bandejao-deploy "$(git -C ~/2026-2-Bandejao-UnB rev-parse origin/main)"
+```
+
+Para refazer o último deploy, também dá para abrir o job na aba **Actions** e
+usar **Re-run jobs**: o mesmo commit passa de novo por todos os passos.
+
+### Log
+
+```bash
+tail -n 30 /var/log/bandejao/deploy.log
+journalctl -t bandejao-deploy --since "7 days ago"   # deploys que falharam
+```
+
+O `deploy.log` entra na rotação semanal dos logs do cron
+(`/var/log/bandejao/*.log`).
+
 ## Deploy do M2 (FE-06)
 
 O M2 é o check-in funcionando em produção (MC-01). O PWA com o check-in
-(FE-05, #141) já está na `develop`. O deploy é o mesmo da seção
-[Atualizar](#atualizar), feito na `develop`, que é a branch que a VM roda até
-a release; depois da release, passa a ser a `main` (ver
-[Clonar o repositório](#1-clonar-o-repositório)).
+(FE-05, #141) já está na `develop`. Até a release, o deploy foi o da seção
+[Atualizar](#atualizar), feito à mão na `develop`; desde a issue #240, a VM
+roda a `main`, com o [Deploy automático (CD)](#deploy-automático-cd).
 
 O build de produção nunca usa o servidor simulado: no `vite build` o Vite
 fixa `import.meta.env.DEV` em `false`, e o `if (import.meta.env.DEV)` de
@@ -562,7 +664,9 @@ docker compose logs --tail 100 caddy
 Cada container guarda no máximo 3 arquivos de 10 MB de log.
 
 As tarefas do cron têm o próprio log, um arquivo por comando, em
-`/var/log/bandejao/` (ver [Tarefas periódicas](#tarefas-periódicas-cron)).
+`/var/log/bandejao/` (ver [Tarefas periódicas](#tarefas-periódicas-cron)). O
+deploy automático grava no `/var/log/bandejao/deploy.log` (ver
+[Deploy automático (CD)](#deploy-automático-cd)).
 
 ## Cuidados
 

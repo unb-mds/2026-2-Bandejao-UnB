@@ -624,3 +624,15 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação local: SQLite (Python 3.13): `pytest` com 1977 testes aprovados e 8 ignorados (eram 1917 na `develop` em `e651805`), cobertura de `apps` de 99% e 100% nos módulos novos e nos alterados; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` (nenhuma migration nova) e `spectacular --validate --fail-on-warn` (diff do `openapi.yaml` só de descrição). `testes-mysql`, `semgrep` e `pip-audit` ficam com o CI.
 - Revisão humana: pendente (revisão de outra frente, DoD 1.4).
 - Situação: aguardando revisão.
+
+## #240 — Deploy automático (CD)
+
+- Issue: [#240](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/240). PR: [CONFIRMAR o número]
+- Ferramenta: Claude (Anthropic).
+- Apoio: desenho do CD e código gerado pela IA: `.github/workflows/deploy.yml` (push na `main`, espera o Backend CI e o Frontend CI do mesmo commit, SSH com a chave do servidor fixada em secret, `concurrency` sem cancelar), `deploy/cd/deploy.sh` (instalado como `/usr/local/bin/bandejao-deploy`: trava, confere branch, mudanças locais e commit na `origin/main`, backup do banco antes das migrations, fast-forward, `docker compose up -d --build --wait` e conferência de `/api/campi/`; pula um commit mais antigo que o que está no ar) e a seção "Deploy automático (CD)" do `deploy-producao.md`. Configuração na VM e no GitHub feita pelo autor, guiada passo a passo no chat. Os commits foram aplicados pelo autor do PR.
+- Decisões (autor, 22/11/2026): o deploy dispara pela `main`, sem aprovação manual; a chave do GitHub fica presa ao script por `command=...,restrict` no `authorized_keys`; sem rollback automático (as migrations rodam na subida do backend), com o backup e o commit anterior no log.
+- Validação local: o script rodou contra repositórios git locais, com o `docker` e o `curl` simulados: deploy normal, commit atrasado (pulado), re-run do mesmo commit, commit fora da `main`, mudança local, trava ocupada (status 75), falha do Compose (mostra como voltar) e branch errada.
+- Validação na VM (22/11/2026): a chave do deploy não roda outro comando (`whoami` respondeu com o uso do script); com um commit real, o script rodou e parou em "a VM está na branch 'develop'", sem mudar nada.
+- Pendente: primeiro deploy pelo workflow, depois da release `develop` → `main` e da troca da VM para a `main`.
+- Revisão humana: pendente.
+- Situação: aguardando revisão.
