@@ -3,8 +3,8 @@
 Versão mínima: `inicializar_conta` (BE-05), chamada pelo cadastro na mesma
 transação, e `registrar_contribuicao` (BE-09), chamada pelo check-in na mesma
 transação, que ainda não concede pontos. A BE-14 acrescenta a regra dos
-pontos e os outros métodos (`apagar_contadores`...) sem mudar a assinatura
-destes dois.
+pontos e os outros métodos sem mudar a assinatura destes dois.
+`apagar_contadores` entrou antes, com a exclusão de conta (BD-12).
 """
 
 from dataclasses import dataclass
@@ -12,7 +12,7 @@ from datetime import date
 from enum import StrEnum
 
 from apps.cardapio.models import Campus
-from apps.gamificacao.models import PontuacaoUsuario
+from apps.gamificacao.models import PontosSemestreCampus, PontuacaoUsuario
 
 
 class TipoContribuicao(StrEnum):
@@ -65,3 +65,13 @@ class PontuacaoService:
         marcador `pontos_concedidos_em` e os valores do Anexo A.
         """
         return ResultadoPontuacao()
+
+    def apagar_contadores(self, conta) -> None:
+        """Apaga os contadores da conta: a pontuação total e os pontos de cada
+        semestre e campus (RNF07.4). Sem eles, a conta sai do ranking na hora.
+
+        Quem chama é o `RemoverContaCommand`, dentro da transação dele. Conta
+        sem contador não é erro.
+        """
+        PontosSemestreCampus.objects.filter(usuario=conta).delete()
+        PontuacaoUsuario.objects.filter(usuario=conta).delete()
