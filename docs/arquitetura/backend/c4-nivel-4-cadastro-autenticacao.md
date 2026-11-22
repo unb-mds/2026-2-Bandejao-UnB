@@ -345,11 +345,16 @@ classDiagram
   (banco fora, lock no cache) dava 500 só para ela. Como o e-mail
   institucional é fácil de adivinhar, isso responderia "este e-mail tem conta
   pendente?". O `reenviar()` captura qualquer exceção desse trecho, registra
-  no log só o id da conta e o nome da exceção (sem mensagem nem traceback,
-  que podem trazer o e-mail ou o token; ADR 0008) e a rota devolve o mesmo
-  200. Captura `Exception`, e não só `DatabaseError`, porque um bug que só
-  aparece em produção vazaria do mesmo jeito. É a única exceção à regra BLE001
-  do ruff no projeto (`# noqa: BLE001`, com o motivo no comentário).
+  no log só o id da conta, o nome da exceção e o arquivo e a linha do último
+  ponto do código do projeto (sem mensagem nem traceback, que podem trazer o
+  e-mail ou o token; ADR 0008) e a rota devolve o mesmo 200. Captura
+  `Exception`, e não só `DatabaseError`, porque um bug que só aparece em
+  produção vazaria do mesmo jeito. A regra BLE001 do ruff (ativa no padrão do
+  ruff 0.17) só aceita `except Exception` que registre o traceback, como os
+  `logger.exception` do Leitor de Cardápio; como aqui ele não pode ir ao log,
+  a linha leva `# noqa: BLE001`. Se o erro vier depois de o e-mail sair, o
+  link chega, mas a vaga do limite por conta não é contada: enquanto o cache
+  estiver com problema, só o limite por IP segura os reenvios.
 
 ## Nível 4c — Login e recuperação de senha
 
