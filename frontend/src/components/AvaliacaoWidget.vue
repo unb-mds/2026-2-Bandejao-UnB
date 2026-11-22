@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
 import { REFEICOES } from '@/constants/refeicoes'
@@ -11,7 +11,7 @@ import EstrelasNota from './EstrelasNota.vue'
 import IconeSvg from './IconeSvg.vue'
 
 /**
- * Avaliação de uma refeição ligada à API (RF15, RF05, front 3a.2, FE-09).
+ * Avaliação de uma refeição ligada à API (RF15, RF05).
  *
  * - Média, quantidade e comentários com apelido (ou "usuário removido"),
  *   para qualquer visitante (RF15.2), de
@@ -19,11 +19,15 @@ import IconeSvg from './IconeSvg.vue'
  * - O `refeicaoId` vem do resumo do dia (`GET /api/avaliacoes/resumo/`).
  * - Logado: nota de 1 a 5 e comentário opcional de até 500 caracteres pelo
  *   `POST /api/avaliacoes/`, que é sempre upsert, então "Editar" usa o mesmo
- *   envio (RF15.1).
+ *   envio (RF15.1). O formulário não depende do GET dos comentários.
  * - Quando não dá para avaliar, mostra o motivo no lugar do formulário: outro
  *   dia, refeição que ainda não começou, sem cardápio, janela fechada no
- *   servidor ou backend ainda sem a BE-13 (501).
- * - Visitante: ConviteLogin citando os pontos (RF05, RF24).
+ *   servidor ou rotas de avaliação ainda respondendo 501.
+ * - Falha ao carregar o resumo ou os comentários: "Notas indisponíveis" e um
+ *   "Tentar de novo", em vez de "Carregando…" para sempre.
+ * - Visitante: ConviteLogin citando os pontos (RF05). Se a sessão expira no
+ *   envio, o convite diz que a nota não foi enviada, e o rascunho volta
+ *   depois do login.
  */
 const props = defineProps({
   /** Id do campus no backend. */
@@ -37,7 +41,7 @@ const props = defineProps({
 const ROTULOS_NOTA = ['', 'Péssimo', 'Ruim', 'Regular', 'Bom', 'Ótimo']
 const LIMITE_COMENTARIO = 500
 const USUARIO_REMOVIDO = 'usuário removido'
-const MENSAGEM_501 = 'As avaliações ainda não estão disponíveis. Tente de novo mais tarde.'
+const MENSAGEM_INDISPONIVEL = 'As avaliações ainda não estão disponíveis. Tente de novo mais tarde.'
 const INTERVALO_DO_RELOGIO = 30 * 1000
 
 const auth = useAuthStore()
@@ -54,17 +58,24 @@ const motivoDoServidor = ref('')
 /** Último envio que deu certo: 'criada' | 'editada' | null. */
 const ultimoEnvio = ref(null)
 const pontosRecebidos = ref(0)
+/** O envio deu certo, mas a média e os comentários não foram recarregados. */
+const desatualizada = ref(false)
+/** A sessão expirou no envio: o convite explica e o rascunho fica guardado. */
+const sessaoExpirou = ref(false)
+const tituloEnviada = ref(null)
+const estrelas = ref([])
 // A janela de avaliação depende da hora: o motivo é recalculado a cada 30 s.
 const agora = ref(new Date())
 let relogio = null
 
+const chaveAtual = () => `${props.campusId}|${props.data}|${props.tipo}`
+
 const situacaoDoResumo = computed(() =>
   avaliacoes.situacaoDoResumoDoDia(props.campusId, props.data),
 )
+const resumoDoDia = computed(() => avaliacoes.daResumoDoDia(props.campusId, props.data))
 const refeicaoId = computed(
-  () =>
-    avaliacoes.daResumoDoDia(props.campusId, props.data)?.find((r) => r.tipo === props.tipo)
-      ?.refeicaoId ?? null,
+  () => resumoDoDia.value?.find((r) => r.tipo === props.tipo)?.refeicaoId ?? null,
 )
 const situacaoDaRefeicao = computed(() =>
   refeicaoId.value ? avaliacoes.situacaoDaRefeicao(refeicaoId.value) : null,
@@ -82,28 +93,49 @@ const minha = computed(() =>
     : null,
 )
 
+/** O backend ainda responde 501 no resumo ou nos comentários. */
+const indisponivelNoServidor = computed(
+  () => situacaoDoResumo.value === 'indisponivel' || situacaoDaRefeicao.value === 'indisponivel',
+)
+/** O resumo do dia veio, e a refeição não está nele (sem cardápio). */
+const semRefeicao = computed(() => Boolean(resumoDoDia.value) && !refeicaoId.value)
+const falhaNoResumo = computed(() => situacaoDoResumo.value === 'erro' && !resumoDoDia.value)
+const falhaNaRefeicao = computed(() => situacaoDaRefeicao.value === 'erro' && !dados.value)
+const falhaAoCarregar = computed(() => falhaNoResumo.value || falhaNaRefeicao.value)
+
+const textoDoResumo = computed(() => {
+  if (resumo.value || semRefeicao.value) return 'Sem avaliações ainda'
+  if (indisponivelNoServidor.value || falhaAoCarregar.value) return 'Notas indisponíveis'
+  return 'Carregando…'
+})
+
 const motivo = computed(() => {
-  if (situacaoDoResumo.value === 'indisponivel' || situacaoDaRefeicao.value === 'indisponivel') {
-    return MENSAGEM_501
-  }
-  const semRefeicao = situacaoDoResumo.value === 'carregado' && !refeicaoId.value
+  if (indisponivelNoServidor.value) return MENSAGEM_INDISPONIVEL
   return (
     motivoAvaliacaoIndisponivel({
       data: props.data,
       tipo: props.tipo,
       agora: agora.value,
-      semRefeicao,
+      semRefeicao: semRefeicao.value,
     }) ||
     motivoDoServidor.value ||
     null
   )
 })
 
-const notaVisivel = computed(() => notaSobMouse.value || nota.value)
-const pergunta = computed(() => `Como foi o ${REFEICOES[props.tipo].rotuloCurto}?`)
-const tituloEnviada = computed(() =>
-  ultimoEnvio.value === 'editada' ? 'Avaliação atualizada!' : 'Avaliação enviada!',
+/** O formulário só precisa do `refeicaoId`; os comentários podem ter falhado. */
+const carregandoAcao = computed(
+  () => !refeicaoId.value || (!dados.value && situacaoDaRefeicao.value !== 'erro'),
 )
+
+const notaVisivel = computed(() => notaSobMouse.value || nota.value)
+const estrelaTabulavel = computed(() => nota.value || 1)
+const pergunta = computed(() => `Como foi o ${REFEICOES[props.tipo].rotuloCurto}?`)
+const textoTituloEnviada = computed(() => {
+  if (ultimoEnvio.value === 'editada') return 'Avaliação atualizada!'
+  if (ultimoEnvio.value === 'criada') return 'Avaliação enviada!'
+  return 'Você já avaliou'
+})
 
 const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`
 
@@ -112,10 +144,12 @@ function descartarRascunho() {
   notaSobMouse.value = 0
   comentario.value = ''
   editando.value = false
+  enviando.value = false
   erroEnvio.value = ''
   motivoDoServidor.value = ''
   ultimoEnvio.value = null
   pontosRecebidos.value = 0
+  desatualizada.value = false
 }
 
 // Outra refeição: rascunho e motivo novos; carrega o que faltar.
@@ -140,6 +174,20 @@ watch(
   { immediate: true },
 )
 
+// Entrou de novo depois da sessão expirar: o rascunho volta ao formulário.
+watch(
+  () => auth.estaAutenticado,
+  (autenticado) => {
+    if (!autenticado || !refeicaoId.value) return
+    sessaoExpirou.value = false
+    const rascunho = avaliacoes.retomarRascunho(refeicaoId.value)
+    if (!rascunho) return
+    nota.value = rascunho.nota
+    comentario.value = rascunho.comentario
+    editando.value = Boolean(minha.value)
+  },
+)
+
 onMounted(() => {
   relogio = setInterval(() => {
     agora.value = new Date()
@@ -147,10 +195,16 @@ onMounted(() => {
 })
 onBeforeUnmount(() => clearInterval(relogio))
 
+function tentarDeNovo() {
+  if (falhaNoResumo.value) avaliacoes.carregarResumoDoDia(props.campusId, props.data)
+  else if (refeicaoId.value) avaliacoes.carregarAvaliacoesDaRefeicao(refeicaoId.value)
+}
+
 function editar() {
   nota.value = minha.value.nota
   comentario.value = minha.value.comentario ?? ''
   erroEnvio.value = ''
+  desatualizada.value = false
   editando.value = true
 }
 
@@ -159,32 +213,58 @@ function cancelarEdicao() {
   erroEnvio.value = ''
 }
 
+/** Setas, Home e End mudam a nota (padrão de radiogroup). */
+function navegarEstrelas(evento) {
+  const passos = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }
+  let nova
+  if (evento.key in passos) nova = Math.min(5, Math.max(1, (nota.value || 0) + passos[evento.key]))
+  else if (evento.key === 'Home') nova = 1
+  else if (evento.key === 'End') nova = 5
+  else return
+  evento.preventDefault()
+  nota.value = nova
+  estrelas.value[nova - 1]?.focus()
+}
+
 async function enviar() {
   if (nota.value === 0 || enviando.value || !refeicaoId.value) return
+  // Se a refeição mudar durante o envio, a resposta não vale para a nova.
+  const chave = chaveAtual()
+  const rascunho = { nota: nota.value, comentario: comentario.value }
+  const id = refeicaoId.value
   enviando.value = true
   erroEnvio.value = ''
-  const resultado = await avaliacoes.avaliar({
-    refeicaoId: refeicaoId.value,
-    campus: props.campusId,
-    data: props.data,
-    nota: nota.value,
-    comentario: comentario.value,
-  })
-  enviando.value = false
+  let resultado
+  try {
+    resultado = await avaliacoes.avaliar({
+      refeicaoId: id,
+      campus: props.campusId,
+      data: props.data,
+      ...rascunho,
+    })
+  } finally {
+    if (chave === chaveAtual()) enviando.value = false
+  }
+  if (chave !== chaveAtual()) return
 
   switch (resultado.desfecho) {
     case 'criada':
     case 'editada':
       ultimoEnvio.value = resultado.desfecho
       pontosRecebidos.value = resultado.pontos?.total ?? 0
+      desatualizada.value = !resultado.atualizada
       editando.value = false
+      await nextTick()
+      tituloEnviada.value?.focus()
       return
     case 'indisponivel':
       motivoDoServidor.value = resultado.mensagem
       editando.value = false
       return
     case 'nao_autenticado':
-      // O authStore já foi limpo: o ConviteLogin aparece sozinho.
+      // O authStore já foi limpo: o convite aparece no lugar do formulário.
+      avaliacoes.guardarRascunho(id, rascunho)
+      sessaoExpirou.value = true
       return
     default:
       erroEnvio.value = resultado.mensagem
@@ -197,21 +277,33 @@ async function enviar() {
     <div class="cartao resumo" data-teste="avaliacao-resumo">
       <template v-if="resumo?.quantidade">
         <EstrelasNota :valor="resumo.media" :tamanho="15" />
-        <span class="resumo-nota">{{ formatarNota(resumo.media) }}</span>
-        <span class="resumo-total">{{ plural(resumo.quantidade, 'avaliação', 'avaliações') }}</span>
+        <span class="resumo-nota" data-teste="avaliacao-media">{{
+          formatarNota(resumo.media)
+        }}</span>
+        <span class="resumo-total" data-teste="avaliacao-quantidade">{{
+          plural(resumo.quantidade, 'avaliação', 'avaliações')
+        }}</span>
       </template>
-      <span v-else-if="resumo" class="resumo-total">Sem avaliações ainda</span>
-      <span v-else-if="motivo === MENSAGEM_501" class="resumo-total">Notas indisponíveis</span>
-      <span v-else class="resumo-total">Carregando…</span>
+      <span v-else class="resumo-total">{{ textoDoResumo }}</span>
     </div>
 
     <ConviteLogin
-      v-if="!auth.estaAutenticado"
+      v-if="!auth.estaAutenticado && sessaoExpirou"
+      titulo="Sua sessão expirou"
+      texto="A avaliação não foi enviada. Entre de novo e ela volta preenchida."
+    />
+    <ConviteLogin
+      v-else-if="!auth.estaAutenticado"
       titulo="Entre para avaliar"
       texto="Com uma conta, você avalia as refeições e ganha pontos quando avalia uma refeição em que fez check-in."
     />
 
-    <div v-else-if="motivo" class="cartao indisponivel" data-teste="avaliacao-indisponivel">
+    <div
+      v-else-if="motivo"
+      class="cartao indisponivel"
+      role="status"
+      data-teste="avaliacao-indisponivel"
+    >
       <div class="indisponivel-icone">
         <IconeSvg nome="relogio" :tamanho="20" cor="var(--texto-suave)" />
       </div>
@@ -221,20 +313,24 @@ async function enviar() {
       </div>
     </div>
 
-    <p v-else-if="!refeicaoId || !dados" class="vazio" role="status">Carregando avaliação…</p>
+    <template v-else-if="falhaNoResumo" />
 
-    <div
-      v-else-if="minha && !editando"
-      class="enviada"
-      role="status"
-      data-teste="avaliacao-enviada"
-    >
+    <p v-else-if="carregandoAcao" class="vazio" role="status">Carregando avaliação…</p>
+
+    <div v-else-if="minha && !editando" class="enviada" data-teste="avaliacao-enviada">
       <div class="enviada-linha">
         <div class="enviada-icone">
           <IconeSvg nome="check" :tamanho="20" cor="var(--sucesso-icone)" espessura="2.5" />
         </div>
-        <div class="enviada-textos">
-          <p class="enviada-titulo">{{ ultimoEnvio ? tituloEnviada : 'Você já avaliou' }}</p>
+        <div class="enviada-textos" role="status">
+          <p
+            ref="tituloEnviada"
+            class="enviada-titulo"
+            tabindex="-1"
+            data-teste="avaliacao-enviada-titulo"
+          >
+            {{ textoTituloEnviada }}
+          </p>
           <p class="enviada-texto">
             Sua nota: {{ plural(minha.nota, 'estrela', 'estrelas') }}. Dá para editar até 23h59.
           </p>
@@ -244,6 +340,9 @@ async function enviar() {
           Editar
         </button>
       </div>
+      <p v-if="desatualizada" class="desatualizada" data-teste="avaliacao-desatualizada">
+        Sua avaliação foi salva. A média e os comentários ainda não foram atualizados.
+      </p>
     </div>
 
     <form
@@ -258,15 +357,18 @@ async function enviar() {
         <button
           v-for="i in 5"
           :key="i"
+          ref="estrelas"
           type="button"
           class="estrela"
           role="radio"
           :data-teste="`estrela-${i}`"
+          :tabindex="i === estrelaTabulavel ? 0 : -1"
           :aria-checked="nota === i"
           :aria-label="`${plural(i, 'estrela', 'estrelas')} — ${ROTULOS_NOTA[i]}`"
           @mouseenter="notaSobMouse = i"
           @mouseleave="notaSobMouse = 0"
           @click="nota = i"
+          @keydown="navegarEstrelas"
         >
           <IconeSvg
             nome="estrela"
@@ -312,9 +414,20 @@ async function enviar() {
 
     <h2 class="titulo-secao">Comentários</h2>
 
-    <p v-if="situacaoDaRefeicao === 'erro'" class="mensagem mensagem--erro" role="alert">
-      {{ avaliacoes.erroDaRefeicao(refeicaoId) }}
-    </p>
+    <div v-if="falhaAoCarregar" class="cartao falha" role="alert" data-teste="avaliacao-erro">
+      <p>
+        Não foi possível carregar as avaliações.
+        {{ falhaNaRefeicao ? avaliacoes.erroDaRefeicao(refeicaoId) : '' }}
+      </p>
+      <button
+        type="button"
+        class="botao-pequeno"
+        data-teste="avaliacao-tentar-de-novo"
+        @click="tentarDeNovo"
+      >
+        Tentar de novo
+      </button>
+    </div>
     <p v-else-if="dados && comentariosEscritos.length === 0" class="vazio">
       {{
         resumo?.quantidade
@@ -333,7 +446,12 @@ async function enviar() {
         <span class="inicial" aria-hidden="true">{{
           item.apelido === USUARIO_REMOVIDO ? '?' : item.apelido.slice(0, 1).toUpperCase()
         }}</span>
-        <span class="apelido" :class="{ 'apelido--removido': item.apelido === USUARIO_REMOVIDO }">
+        <span
+          class="apelido"
+          :class="{ 'apelido--removido': item.apelido === USUARIO_REMOVIDO }"
+          :data-removido="item.apelido === USUARIO_REMOVIDO"
+          data-teste="comentario-apelido"
+        >
           {{ item.apelido }}
         </span>
         <EstrelasNota :valor="item.nota" :tamanho="11" />
@@ -572,5 +690,27 @@ async function enviar() {
   line-height: 1.6;
   color: var(--texto-suave);
   overflow-wrap: anywhere;
+}
+
+.falha {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px;
+  font-size: 13px;
+  color: var(--erro-texto);
+  background: var(--erro-fundo);
+  border-color: var(--erro-borda);
+}
+
+.desatualizada {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--alerta-texto);
+}
+
+.enviada-titulo:focus {
+  outline: none;
 }
 </style>

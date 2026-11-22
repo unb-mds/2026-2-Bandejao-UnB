@@ -1,5 +1,6 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
+import { useAvaliacoesStore } from '@/stores/avaliacoes'
 import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { ORDEM_REFEICOES, REFEICOES } from '@/constants/refeicoes'
@@ -10,22 +11,40 @@ import BotaoVoltar from '@/components/BotaoVoltar.vue'
 import NavegacaoInferior from '@/components/NavegacaoInferior.vue'
 
 /**
- * Avaliações da refeição selecionada no cardápio (RF15). Sem refeição
- * selecionada, a de hoje em andamento ou a próxima. Tudo o que fala com a
- * API fica no AvaliacaoWidget (FE-09).
+ * Avaliações da refeição selecionada no cardápio (RF15). Tudo o que fala com
+ * a API sobre a refeição fica no AvaliacaoWidget.
+ *
+ * Qual refeição abre: o dia selecionado (ou hoje) e a refeição selecionada,
+ * se o campus a serve nesse dia. Senão, entre as refeições servidas (do
+ * resumo do dia), a em andamento ou a próxima, se o dia é hoje, ou a
+ * primeira do dia.
  */
+const avaliacoes = useAvaliacoesStore()
 const cardapio = useCardapioStore()
 cardapio.carregarCampi()
 const preferencias = usePreferenciasStore()
 
 const campusId = computed(() => preferencias.campusId)
-const temSelecao = computed(
-  () =>
-    Boolean(preferencias.dataSelecionada) && Boolean(REFEICOES[preferencias.refeicaoSelecionada]),
+const data = computed(() => preferencias.dataSelecionada || hojeISO())
+const tiposServidos = computed(
+  () => avaliacoes.daResumoDoDia(campusId.value, data.value)?.map((r) => r.tipo) ?? null,
 )
-const data = computed(() => (temSelecao.value ? preferencias.dataSelecionada : hojeISO()))
-const tipo = computed(() =>
-  temSelecao.value ? preferencias.refeicaoSelecionada : refeicaoPadrao(ORDEM_REFEICOES),
+const tipo = computed(() => {
+  const escolhida = preferencias.refeicaoSelecionada
+  const servidos = tiposServidos.value
+  if (REFEICOES[escolhida] && (!servidos || servidos.includes(escolhida))) return escolhida
+  const tipos = servidos?.length ? servidos : ORDEM_REFEICOES
+  return data.value === hojeISO() ? refeicaoPadrao(tipos) : tipos[0]
+})
+
+watch(
+  [campusId, data],
+  ([campus, dia]) => {
+    if (campus && [null, 'erro'].includes(avaliacoes.situacaoDoResumoDoDia(campus, dia))) {
+      avaliacoes.carregarResumoDoDia(campus, dia)
+    }
+  },
+  { immediate: true },
 )
 
 const subtitulo = computed(() =>
@@ -48,7 +67,14 @@ const subtitulo = computed(() =>
     </header>
 
     <main class="conteudo sem-barra corpo">
-      <AvaliacaoWidget v-if="campusId" :campus-id="campusId" :data="data" :tipo="tipo" />
+      <!-- :key: outra refeição é outro widget, sem estado nem envio da anterior. -->
+      <AvaliacaoWidget
+        v-if="campusId"
+        :key="`${campusId}|${data}|${tipo}`"
+        :campus-id="campusId"
+        :data="data"
+        :tipo="tipo"
+      />
     </main>
 
     <NavegacaoInferior />

@@ -6,11 +6,14 @@ const chaveRefeicao = ({ campus, data, refeicao }) => `${campus}|${data}|${refei
 
 const MENSAGEM_INDISPONIVEL_NO_SERVIDOR =
   'As avaliações ainda não estão disponíveis. Tente de novo mais tarde.'
+const MENSAGEM_RESPOSTA_INCOMPLETA =
+  'Não deu para confirmar se a avaliação foi salva. Recarregue a página para conferir.'
+const MENSAGEM_ERRO_DO_APP = 'Não foi possível enviar a avaliação. Tente de novo.'
 
 /**
- * Mensagem e desfecho por `codigo` do POST /api/avaliacoes/ (contrato da
- * BE-13). 'indisponivel' troca o formulário pelo motivo; 'erro' fica no
- * formulário para a pessoa corrigir ou tentar de novo.
+ * Mensagem e desfecho por `codigo` do POST /api/avaliacoes/. 'indisponivel'
+ * troca o formulário pelo motivo; 'erro' fica no formulário para a pessoa
+ * corrigir ou tentar de novo.
  */
 const FALHAS_DO_ENVIO = {
   janela_avaliacao_fechada: {
@@ -30,16 +33,18 @@ const FALHAS_DO_ENVIO = {
 }
 
 /**
- * Avaliações das refeições (RF15, front 3b).
+ * Avaliações das refeições (RF15).
  *
- * Contrato da BE-13 (FE-09): o resumo do dia dá o `refeicaoId` de cada
- * refeição; `GET /api/refeicoes/{refeicaoId}/avaliacoes/` dá a média, a
- * quantidade e os comentários; `POST /api/avaliacoes/` cria ou edita (upsert).
+ * O resumo do dia dá o `refeicaoId` de cada refeição;
+ * `GET /api/refeicoes/{refeicaoId}/avaliacoes/` dá a média, a quantidade e os
+ * comentários; `POST /api/avaliacoes/` cria ou edita (upsert). Enquanto o
+ * backend responde 501 nessas rotas, a situação fica 'indisponivel', sem erro.
  *
  * O contrato não tem "minha avaliação": ela vem da resposta do POST e, depois
  * de recarregar a página, do comentário com o apelido da sessão (o apelido é
- * único). `carregar`, `carregarResumo` e `daRefeicao` são do formato do MVP,
- * ainda usados pela HomeView: saem na FE-E2.
+ * único). Não acha a avaliação ocultada pela moderação, que não aparece na
+ * lista. `carregar`, `carregarResumo` e `daRefeicao` são do formato antigo da
+ * API, ainda usados pela HomeView.
  */
 export const useAvaliacoesStore = defineStore('avaliacoes', () => {
   const porRefeicao = ref({})
@@ -51,6 +56,11 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
   const erroPorId = ref({})
   /** refeicaoId → `{ nota, comentario }` da resposta do POST, nesta sessão. */
   const minhasPorId = ref({})
+  /**
+   * refeicaoId → `{ nota, comentario }` que não chegou a ser enviado porque a
+   * sessão expirou. Sobrevive ao limparCache do login para voltar ao widget.
+   */
+  const rascunhos = {}
   const resumoDoDia = ref({})
   const situacaoDoResumo = ref({})
   const erro = ref(null)
@@ -131,6 +141,7 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
       if (falha?.status === 501) {
         situacaoPorId.value[refeicaoId] = 'indisponivel'
       } else {
+        console.error('Falha ao carregar as avaliações da refeição:', falha)
         situacaoPorId.value[refeicaoId] = 'erro'
         erroPorId.value[refeicaoId] = mensagemDeErro(falha)
       }
@@ -147,35 +158,75 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
   }
 
   /**
+   * Recarga depois de um envio que deu certo: se falhar, os dados anteriores
+   * ficam (desatualizados), sem virar erro na tela. Devolve se atualizou.
+   */
+  async function recarregarDepoisDoEnvio(refeicaoId, campus, data) {
+    const anteriores = avaliacoesDaRefeicao(refeicaoId)
+    await Promise.all([carregarAvaliacoesDaRefeicao(refeicaoId), carregarResumoDoDia(campus, data)])
+    if (situacaoDaRefeicao(refeicaoId) === 'carregado') return true
+    if (anteriores) {
+      daRefeicaoPorId.value[refeicaoId] = anteriores
+      situacaoPorId.value[refeicaoId] = 'carregado'
+      erroPorId.value[refeicaoId] = null
+    }
+    return false
+  }
+
+  /**
    * POST /api/avaliacoes/ com `{ refeicaoId, nota, comentario }`: sempre
    * upsert (avaliar de novo edita). Depois recarrega os comentários e o
    * resumo do dia, para a média e a quantidade novas.
    *
-   * Resolve (nunca rejeita) com `{ desfecho, ... }`:
-   * - 'criada' ou 'editada': `{ avaliacao, pontos }`;
+   * Nunca rejeita. Resolve com `{ desfecho, ... }`:
+   * - 'criada' ou 'editada': `{ avaliacao, pontos, atualizada }`, com
+   *   `atualizada: false` se a recarga falhou (a avaliação foi salva);
    * - 'indisponivel': `{ codigo, mensagem }` (janela fechada, refeição fora
    *   do cardápio, 501);
    * - 'nao_autenticado' (401): o apiClient já limpou o authStore;
-   * - 'erro': `{ codigo, mensagem }` (nota, comentário, sem conexão, 5xx).
+   * - 'erro': `{ codigo, mensagem }` (nota, comentário, 2xx sem a avaliação,
+   *   código inesperado, sem conexão, 5xx).
    *
    * @param {{ refeicaoId: number, campus: number, data: string, nota: number, comentario?: string }} pedido
    */
   async function avaliar({ refeicaoId, campus, data, nota, comentario = '' }) {
+    // Só o POST fica no `try`: o que vem depois não pode virar falha do envio,
+    // porque a avaliação já foi gravada.
     let resposta
     try {
       resposta = await apiClient.post('/avaliacoes/', { refeicaoId, nota, comentario })
     } catch (falha) {
       return desfechoDaFalha(falha)
     }
+    if (!resposta?.avaliacao) {
+      console.error('2xx da avaliação sem o bloco avaliacao.', { refeicaoId })
+      return {
+        desfecho: 'erro',
+        codigo: 'resposta_invalida',
+        mensagem: MENSAGEM_RESPOSTA_INCOMPLETA,
+      }
+    }
     const { avaliacao, pontos } = resposta
     minhasPorId.value[refeicaoId] = { nota: avaliacao.nota, comentario: avaliacao.comentario }
-    await Promise.all([carregarAvaliacoesDaRefeicao(refeicaoId), carregarResumoDoDia(campus, data)])
+    const atualizada = await recarregarDepoisDoEnvio(refeicaoId, campus, data)
     return {
       // Sem acesso ao status (201 ou 200): `editadaEm` diz se editou.
       desfecho: avaliacao.editadaEm ? 'editada' : 'criada',
       avaliacao,
       pontos,
+      atualizada,
     }
+  }
+
+  function guardarRascunho(refeicaoId, rascunho) {
+    rascunhos[refeicaoId] = { nota: rascunho.nota, comentario: rascunho.comentario }
+  }
+
+  /** Devolve o rascunho guardado (uma vez só), ou null. */
+  function retomarRascunho(refeicaoId) {
+    const rascunho = rascunhos[refeicaoId] ?? null
+    delete rascunhos[refeicaoId]
+    return rascunho
   }
 
   /** Após login/logout, a "minha avaliação" de cada refeição muda. */
@@ -204,6 +255,8 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
     carregarAvaliacoesDaRefeicao,
     minhaAvaliacao,
     avaliar,
+    guardarRascunho,
+    retomarRascunho,
     limparCache,
   }
 })
@@ -220,5 +273,15 @@ function desfechoDaFalha(falha) {
   }
   const conhecida = FALHAS_DO_ENVIO[falha.codigo]
   if (conhecida) return { ...conhecida, codigo: falha.codigo }
-  return { desfecho: 'erro', codigo: falha.codigo, mensagem: falha.message }
+  // Rede e 5xx não são erro do app: só a mensagem da API.
+  if (falha.status === 0 || falha.status >= 500) {
+    return { desfecho: 'erro', codigo: falha.codigo, mensagem: falha.message }
+  }
+  // 4xx fora do contrato (400 dados_invalidos, 403 csrf_invalido...): fica o rastro.
+  console.error('Avaliação recusada com um código inesperado.', {
+    status: falha.status,
+    codigo: falha.codigo,
+  })
+  const mensagem = falha.status === 400 ? MENSAGEM_ERRO_DO_APP : falha.message
+  return { desfecho: 'erro', codigo: falha.codigo, mensagem }
 }

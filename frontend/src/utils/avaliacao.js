@@ -4,9 +4,9 @@ import { hojeISO, minutosAgora, minutosDoDia } from './datas'
 /**
  * Por que a refeição não pode ser avaliada agora (RF15.1), ou `null` se pode.
  * Só refeições do dia corrente que já começaram, editáveis até 23h59, e só
- * se a refeição existe no cardápio. É a mesma regra do backend
- * (`JanelaAvaliacaoValidator`, 422 `janela_avaliacao_fechada`), que continua
- * sendo quem decide: aqui a tela só mostra o motivo antes de tentar.
+ * se a refeição existe no cardápio. Quem decide é o backend (422
+ * `janela_avaliacao_fechada` para o dia e o horário); aqui a tela só mostra o
+ * motivo antes de tentar.
  *
  * @param {{ data: string, tipo: string, agora?: Date, semRefeicao?: boolean }} refeicao
  */
