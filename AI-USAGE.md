@@ -493,3 +493,14 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - TDD dos ajustes: `9c0b19a` (`test`, 11 testes falhando) → `1205342` (`fix`). Sabotagem das regras novas: 7 alterações (contrato sem `nullable`, sem a categoria `Cf`, sem os fillers, sem `isspace`, `any` no lugar de `all`, duplo toque marcado como editada, edição normal sem `editada_em`); todas derrubam ao menos um teste.
 - Validação após os ajustes: `pytest` com 1768 testes aprovados e 1 ignorado, cobertura de `apps` de 99%; `ruff check`, `ruff format --check` e `spectacular --validate --fail-on-warn` aprovados. Conflito com a `develop` no `AI-USAGE.md` (entrada da FE-15, #228) resolvido no merge `acaa7ab`, mantendo as duas entradas.
 - Situação: ajustes da revisão aplicados; aguardando o `testes-mysql` do CI e a aprovação.
+
+## #205 — Reenvio da confirmação sem 500 que revela conta pendente
+
+- Issue: [#205](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/205), apontada na revisão da BE-20 (#204). PR: branch `feature/205-reenvio-resposta-uniforme`.
+- Ferramenta: Claude (Anthropic).
+- Apoio: teste e correção do `ConfirmacaoEmailService.reenviar()`. O trecho que só roda para conta pendente (leitura do limite por conta, no cache em banco, e `enviar_link`) passou a capturar qualquer exceção, registrar no log só o id da conta e o nome da exceção, sem mensagem nem traceback (ADR 0008), e deixar a rota responder o mesmo 200 de conta inexistente (RF02.2). C4 4b: nota "Erro inesperado no reenvio (#205)". O código foi gerado pela IA.
+- Decisões: captura `Exception`, e não só `DatabaseError`, porque qualquer 500 nesse trecho vaza do mesmo jeito, inclusive um bug que só aparece em produção. É o primeiro `# noqa: BLE001` do projeto, com o motivo no comentário. Descartados: capturar na view (a busca da conta roda igual para qualquer e-mail e não vaza nada) e `transaction.on_commit(..., robust=True)`, que registra a mensagem e o traceback da exceção e poderia levar o e-mail ao log.
+- TDD: `3d6debd` (`test`, 3 casos falhando com 500: erro de banco no INSERT do token, erro de banco na leitura do limite por conta e `ValueError` na montagem do link) → `a320d4c` (`fix`).
+- Validação local (SQLite, Python 3.14): `pytest` sem `apps/cardapio` (falta o `bs4` no venv local) com 1144 testes aprovados e 1 ignorado; `ruff check`, `ruff format --check` e `bandit -lll` aprovados. `apps/cardapio`, `testes-mysql`, `semgrep` e `pip-audit` ficam com o CI.
+- Revisão humana: pendente.
+- Situação: aguardando revisão.
