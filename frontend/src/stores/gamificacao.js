@@ -36,6 +36,10 @@ const ehRanking = (resposta, campusId) =>
   Array.isArray(resposta.linhas) &&
   resposta.linhas.every(ehLinhaDoRanking)
 
+/**
+ * 501 quer dizer que a BE-16 ainda não tem a regra: vira `indisponivel`, sem
+ * mensagem de erro, para a tela mostrar "ainda não disponível".
+ */
 function estadoDaFalha(falha) {
   if (falha?.status === 501) return { situacao: 'indisponivel', dados: null, erro: null }
   return {
@@ -56,8 +60,15 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
   const erroDaAdesao = ref(null)
   let pedidoDoProgresso = null
   const pedidosDeRanking = new Map()
+  /** Muda a cada `limpar()`: o que chega de um pedido de antes do logout é descartado. */
   let geracao = 0
 
+  /**
+   * GET /api/gamificacao/progresso/. Sem `forcar`, usa o que já está em dia ou
+   * o pedido em andamento. Com dados na tela, recarrega sem voltar a
+   * "carregando" e, se falhar, mantém os dados e os marca como desatualizados.
+   * Só grava a resposta do pedido mais novo e da mesma `geracao`.
+   */
   function carregarProgresso({ forcar = false } = {}) {
     const emDia = progresso.value.situacao === 'carregado' && !progressoDesatualizado.value
     if (!forcar && emDia) return Promise.resolve(progresso.value)
@@ -97,6 +108,11 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
     return rankings.value[Number(campusId)] ?? null
   }
 
+  /**
+   * GET /api/ranking/{campusId}/, com cache por campus. A guarda
+   * `pedidosDeRanking.get(campusId) === promessa` impede que uma resposta
+   * antiga sobrescreva a de um pedido com `forcar` feito depois.
+   */
   function carregarRanking(id, { forcar = false } = {}) {
     const campusId = Number(id)
     const atual = rankings.value[campusId]
@@ -125,6 +141,12 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
     return promessa
   }
 
+  /**
+   * POST/DELETE /api/gamificacao/adesao/ (RF27.1). Com o 204, grava o novo
+   * `participaRanking` na hora, descarta os comentários guardados e recarrega
+   * o progresso e os rankings já abertos. Um segundo toque enquanto o primeiro
+   * não termina é ignorado.
+   */
   async function alterarAdesao(participar) {
     if (alterandoAdesao.value) return { desfecho: 'ignorado' }
     const geracaoDoPedido = geracao

@@ -5,6 +5,7 @@ const PONTOS_POR_CHECKIN = 10
 const MINIMO_DE_DIAS = 3
 const SEMESTRE = '2026.2'
 
+/** Pontos = do semestre no campus; patente = pelos pontos totais (RN12). */
 const RANKING_SEMENTE = {
   1: [
     ['bandejeiro_raiz', 320, 'VETERANO'],
@@ -21,6 +22,7 @@ const RANKING_SEMENTE = {
   5: [],
 }
 
+/** Só para o simulado: o front real usa a patente que vem do servidor. */
 export function patenteDosPontos(pontos) {
   return PATENTES.findLast((patente) => pontos >= patente.minimo).id
 }
@@ -34,6 +36,10 @@ function segundaDaSemana(agora) {
   return hojeISO(segunda)
 }
 
+/**
+ * O simulado só pontua check-in (sem resposta de saída, avaliação nem bônus
+ * de sequência), e a `sequencia` é sempre 0.
+ */
 export function progressoSimulado(estado, usuario, agora) {
   const checkins = checkinsDe(estado, usuario.id)
   const pontosTotais = checkins.length * PONTOS_POR_CHECKIN
