@@ -479,3 +479,20 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação local: `npm run lint:ci`, `npx vitest run --coverage` (651 testes) e `npm run build`. Sem rolagem horizontal em 360 px e 1366 px (largura da página igual à da janela).
 - Revisão humana: pendente.
 - Situação: PR aberto.
+
+## FE-10 — gamificacaoStore e PontosAviso
+
+- Issue: [#171](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/171). PR: [#231 — FE-10: gamificacaoStore e PontosAviso](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/231).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `gamificacaoStore` nova, com `registrarPontos` (guarda o último bloco `pontos`; com `total > 0` abre o aviso e marca o progresso como desatualizado; um bloco fora do contrato é ignorado e vai para o console);
+  - `PontosAviso` no `App` raiz: aviso flutuante "+N pontos" com `role="status"`, que some em 4 s ou no "×";
+  - repasse do bloco `pontos` pela `filaStore` e pela `avaliacoesStore`, e o "+N pontos" de dentro do `CheckinBotao` e do `AvaliacaoWidget` retirado, para não aparecer duplicado;
+  - os 10 pontos do check-in (Anexo A) no simulado. O backend real devolve 0 até a BE-14 (#166), e com 0 o aviso não aparece;
+  - nota no C4.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `b6ce8d4` (testes) → `024b1ed` (código).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 682 testes passando (95,13% de linhas / 90,61% de ramos) e `npm run build` sem erro. Sem as capturas em 360 px e 1366 px: a localização do PC da autora não funcionou no `npm run dev` para fazer o check-in (combinado com o revisor).
+- Revisão humana: pendente.
+- Situação: PR aberto.
