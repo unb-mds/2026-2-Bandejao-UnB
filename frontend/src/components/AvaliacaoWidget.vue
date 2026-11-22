@@ -63,7 +63,8 @@ const desatualizada = ref(false)
 /** A sessão expirou no envio: o convite explica e o rascunho fica guardado. */
 const sessaoExpirou = ref(false)
 const tituloEnviada = ref(null)
-const estrelas = ref([])
+// Botões das estrelas pela posição: o array de `ref` do v-for não garante a ordem.
+const estrelas = []
 // A janela de avaliação depende da hora: o motivo é recalculado a cada 30 s.
 const agora = ref(new Date())
 let relogio = null
@@ -175,17 +176,20 @@ watch(
 )
 
 // Entrou de novo depois da sessão expirar: o rascunho volta ao formulário.
+// `immediate` e o `refeicaoId` juntos: no app, o "Entrar" leva a /login e
+// desmonta este widget; o rascunho volta no widget novo, montado já logado.
 watch(
-  () => auth.estaAutenticado,
-  (autenticado) => {
-    if (!autenticado || !refeicaoId.value) return
+  [() => auth.estaAutenticado, refeicaoId],
+  ([autenticado, id]) => {
+    if (!autenticado || !id) return
     sessaoExpirou.value = false
-    const rascunho = avaliacoes.retomarRascunho(refeicaoId.value)
+    const rascunho = avaliacoes.retomarRascunho(id)
     if (!rascunho) return
     nota.value = rascunho.nota
     comentario.value = rascunho.comentario
     editando.value = Boolean(minha.value)
   },
+  { immediate: true },
 )
 
 onMounted(() => {
@@ -223,7 +227,7 @@ function navegarEstrelas(evento) {
   else return
   evento.preventDefault()
   nota.value = nova
-  estrelas.value[nova - 1]?.focus()
+  estrelas[nova - 1]?.focus()
 }
 
 async function enviar() {
@@ -357,7 +361,7 @@ async function enviar() {
         <button
           v-for="i in 5"
           :key="i"
-          ref="estrelas"
+          :ref="(el) => (estrelas[i - 1] = el)"
           type="button"
           class="estrela"
           role="radio"
