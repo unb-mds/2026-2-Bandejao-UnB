@@ -62,6 +62,10 @@ class AvaliacaoService:
         self.nota.validar(nota)
         comentario = self.comentario.validar(comentario)
         with transaction.atomic():
+            # A conta antes da avaliação: o check-in trava a conta e depois
+            # marca a avaliação feita antes. Na ordem inversa, editar e fazer
+            # check-in na mesma refeição ao mesmo tempo dá deadlock.
+            self.pontuacao.travar_conta(conta)
             avaliacao = self._gravar(conta, refeicao, nota, comentario, agora)
             # Sempre chama, também na edição: quem decide se pontua (check-in
             # na mesma refeição, uma vez só) é a Gamificação. A refeição é a
