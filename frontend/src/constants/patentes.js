@@ -16,7 +16,3 @@ export function proximaPatente(id) {
   const indice = IDS_PATENTES.indexOf(id)
   return indice >= 0 ? (PATENTES[indice + 1] ?? null) : null
 }
-
-export function patenteDosPontos(pontos) {
-  return PATENTES.findLast((patente) => pontos >= patente.minimo).id
-}

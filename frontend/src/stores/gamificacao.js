@@ -63,7 +63,7 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
     if (!forcar && emDia) return Promise.resolve(progresso.value)
     if (!forcar && pedidoDoProgresso) return pedidoDoProgresso
     const geracaoDoPedido = geracao
-    progresso.value = { ...progresso.value, situacao: 'carregando', erro: null }
+    if (!progresso.value.dados) progresso.value = { situacao: 'carregando', dados: null, erro: null }
     const promessa = apiClient
       .get('/gamificacao/progresso/')
       .then((resposta) => {
@@ -76,10 +76,16 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
       })
       .catch(estadoDaFalha)
       .then((estado) => {
-        if (pedidoDoProgresso === promessa) pedidoDoProgresso = null
-        if (geracaoDoPedido === geracao) {
+        const atual = pedidoDoProgresso === promessa
+        if (atual) pedidoDoProgresso = null
+        if (!atual || geracaoDoPedido !== geracao) return progresso.value
+        if (estado.situacao === 'carregado') {
           progresso.value = estado
-          if (estado.situacao === 'carregado') progressoDesatualizado.value = false
+          progressoDesatualizado.value = false
+        } else if (progresso.value.dados) {
+          progressoDesatualizado.value = true
+        } else {
+          progresso.value = estado
         }
         return progresso.value
       })
@@ -88,10 +94,11 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
   }
 
   function rankingDe(campusId) {
-    return rankings.value[campusId] ?? null
+    return rankings.value[Number(campusId)] ?? null
   }
 
-  function carregarRanking(campusId, { forcar = false } = {}) {
+  function carregarRanking(id, { forcar = false } = {}) {
+    const campusId = Number(id)
     const atual = rankings.value[campusId]
     if (!forcar && atual?.situacao === 'carregado') return Promise.resolve(atual)
     if (!forcar && pedidosDeRanking.has(campusId)) return pedidosDeRanking.get(campusId)
@@ -120,20 +127,29 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
 
   async function alterarAdesao(participar) {
     if (alterandoAdesao.value) return { desfecho: 'ignorado' }
+    const geracaoDoPedido = geracao
     alterandoAdesao.value = true
     erroDaAdesao.value = null
     try {
       if (participar) await apiClient.post('/gamificacao/adesao/')
       else await apiClient.delete('/gamificacao/adesao/')
+      if (geracaoDoPedido !== geracao) return { desfecho: 'ignorado' }
       useAvaliacoesStore().limparCache()
+      if (progresso.value.dados) {
+        progresso.value = {
+          ...progresso.value,
+          dados: { ...progresso.value.dados, participaRanking: participar },
+        }
+      }
       await Promise.all([
         carregarProgresso({ forcar: true }),
         ...Object.keys(rankings.value).map((id) => carregarRanking(Number(id), { forcar: true })),
       ])
       return { desfecho: 'ok' }
     } catch (falha) {
-      erroDaAdesao.value = mensagemDeErro(falha)
-      return { desfecho: 'erro', mensagem: erroDaAdesao.value }
+      const mensagem = mensagemDeErro(falha)
+      if (geracaoDoPedido === geracao) erroDaAdesao.value = mensagem
+      return { desfecho: 'erro', mensagem }
     } finally {
       alterandoAdesao.value = false
     }
@@ -172,6 +188,9 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
     aviso.value = null
     progressoDesatualizado.value = false
     progresso.value = { situacao: null, dados: null, erro: null }
+    pedidoDoProgresso = null
+    rankings.value = {}
+    pedidosDeRanking.clear()
     erroDaAdesao.value = null
   }
 

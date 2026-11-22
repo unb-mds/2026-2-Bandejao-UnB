@@ -1,4 +1,4 @@
-import { patenteDosPontos, proximaPatente } from '@/constants/patentes'
+import { PATENTES, proximaPatente } from '@/constants/patentes'
 import { hojeISO } from '@/utils/datas'
 
 const PONTOS_POR_CHECKIN = 10
@@ -19,6 +19,10 @@ const RANKING_SEMENTE = {
   ],
   4: [['planaltina_rango', 60, 'CALOURO_DE_BANDEJA']],
   5: [],
+}
+
+export function patenteDosPontos(pontos) {
+  return PATENTES.findLast((patente) => pontos >= patente.minimo).id
 }
 
 const checkinsDe = (estado, usuarioId) =>

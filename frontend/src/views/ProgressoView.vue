@@ -119,9 +119,9 @@ function alterarAdesao(participar) {
           :erro="gamificacao.erroDaAdesao"
           @alterar="alterarAdesao"
         />
-
-        <BotaoSair class="sair" />
       </template>
+
+      <BotaoSair class="sair" />
     </main>
 
     <NavegacaoInferior />

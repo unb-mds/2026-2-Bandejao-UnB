@@ -11,7 +11,7 @@ const emit = defineEmits(['alterar'])
 <template>
   <section class="cartao adesao pilha-3" aria-labelledby="titulo-adesao">
     <div class="linha">
-      <p id="titulo-adesao" class="titulo-secao pequeno">Participar do ranking do campus</p>
+      <p id="titulo-adesao" class="titulo-secao pequeno">Participar do ranking</p>
       <button
         type="button"
         role="switch"
@@ -28,9 +28,8 @@ const emit = defineEmits(['alterar'])
       </button>
     </div>
     <p id="aviso-adesao" class="texto-pequeno aviso" data-teste="adesao-aviso">
-      Ao participar, seu apelido e sua patente ficam visíveis para todos, no ranking do semestre
-      e ao lado do seu apelido nos comentários das avaliações. Você pode sair quando quiser; os
-      seus pontos continuam contando.
+      Ao participar, seu apelido e sua patente ficam visíveis para todos no ranking do semestre.
+      Você pode sair quando quiser; seus pontos continuam contando.
     </p>
     <p v-if="alterando" class="texto-pequeno estado" role="status">Salvando…</p>
     <p v-else-if="erro" class="texto-pequeno erro" role="alert" data-teste="adesao-erro">
