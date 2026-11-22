@@ -355,9 +355,11 @@ class CardapioView(APIView):
         description=(
             "Os filtros de marcador e de dieta são aplicados no backend "
             "(ADR 0005). Cardápio ainda não publicado volta 200 com "
-            "`status` igual a `nao_publicado` (RF18). Dia sem serviço numa "
-            "semana publicada volta 200 com `status` igual a `publicado`, "
-            "`semServico` true e `categorias` vazia."
+            "`status` igual a `nao_publicado` (RF18). Sem `refeicao`, sem "
+            "dia com serviço do dia pedido até 7 dias depois e com a semana "
+            "do dia pedido publicada, volta 200 com `status` igual a "
+            "`publicado`, `semServico` true, `data` igual ao dia pedido e "
+            "`categorias` vazia."
         ),
         tags=["cardapio"],
         parameters=[

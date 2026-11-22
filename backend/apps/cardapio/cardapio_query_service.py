@@ -80,7 +80,8 @@ class CardapioQueryService:
             padrao = self._refeicao_padrao(campus, inicio, agora)
 
         if padrao is None:
-            # Nenhum dia com serviço de `inicio` em diante. A refeição vem só
+            # Nenhum dia com serviço de `inicio` até 7 dias depois (a janela
+            # do `proximo_dia_com_servico`). A refeição vem só
             # dos horários do Anexo A, e o dia exibido é o pedido. Com a semana
             # dele publicada, o PDF diz que o RU não abre (ex.: sábado nos
             # campi que só servem de segunda a sexta): "sem serviço" (#217).
