@@ -436,7 +436,18 @@ describe('cardápio (RF06, RF07)', () => {
     expect(status).toBe(200)
     expect(dados.publicado).toBe(true)
     expect(dados.dias[0].data).toBe('2026-09-28')
-    expect(dados.dias.at(-1).refeicoes.map((r) => r.tipo)).toEqual(['almoco']) // sábado
+    expect(dados.dias.at(-2).refeicoes.map((r) => r.tipo)).toEqual(['almoco']) // sábado
+    // O Darcy serve aos domingos (#229).
+    expect(dados.dias.at(-1).data).toBe('2026-10-04')
+    expect(dados.dias.at(-1).refeicoes.map((r) => r.tipo)).toEqual(['cafe', 'almoco', 'jantar'])
+  })
+
+  it('no domingo, a semana vigente ainda é a da segunda anterior (#229)', async () => {
+    vi.setSystemTime(new Date(2026, 9, 4, 12, 0))
+    const { dados } = await get('/cardapio/1/')
+    expect(dados.semana.inicio).toBe('2026-09-28')
+    const { dados: refeicao } = await get('/cardapio/?campus=1')
+    expect(refeicao.data).toBe('2026-10-04')
   })
 
   it('indica cardápio não publicado', async () => {

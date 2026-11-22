@@ -27,10 +27,15 @@ export function selecaoPadrao(dias, agora = new Date()) {
   return { data: dia.data, refeicao }
 }
 
+/**
+ * Dias das abas do cardápio (RF07.1): a semana inteira, de segunda a domingo,
+ * como o backend define — o domingo pertence à semana da segunda anterior.
+ * O Darcy Ribeiro serve aos domingos; nos outros campi a aba mostra
+ * "sem serviço".
+ */
 export function diasDaSemanaVigente(agora = new Date()) {
   const segunda = inicioDaSemana(agora)
-  const inicio = agora.getDay() === 0 ? somarDias(segunda, 7) : segunda
-  return Array.from({ length: 6 }, (_, i) => somarDias(inicio, i))
+  return Array.from({ length: 7 }, (_, i) => somarDias(segunda, i))
 }
 
 export function contarFiltrosAtivos(dieta, marcadores) {

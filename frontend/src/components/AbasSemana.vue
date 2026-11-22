@@ -30,17 +30,18 @@ const emit = defineEmits(['escolher'])
 <style scoped>
 .dias {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   overflow-x: auto;
   padding: 0 16px 12px;
 }
 
+/* As 7 abas (seg–dom) dividem a largura e cabem num celular de 320px. */
 .dia {
-  flex-shrink: 0;
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 14px;
+  padding: 6px 0;
   border-radius: var(--raio-md);
   background: var(--branco-08);
   transition: all 0.15s;
