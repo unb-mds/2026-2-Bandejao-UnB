@@ -91,8 +91,13 @@ echo "Tabelas: restauradas=$tabelas_temp, produção=$tabelas_prod; migrações 
 [ "$tabelas_temp" = "$tabelas_prod" ] || fim "o número de tabelas difere do banco de produção"
 [ "${migracoes:-0}" -gt 0 ] || fim "o django_migrations restaurado está vazio"
 
+# Contagem exata (COUNT(*)): a estimativa de linhas do information_schema é só uma
+# aproximação e aparece 0 logo depois de uma restauração.
 echo "Linhas por tabela (restaurado):"
-consulta_temp "SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema=DATABASE() ORDER BY table_name" | sed 's/^/  /'
+for tabela in $(consulta_temp "SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() ORDER BY table_name"); do
+    linhas=$(consulta_temp "SELECT COUNT(*) FROM \`$tabela\`") || fim "não consegui contar as linhas de $tabela"
+    printf '  %s\t%s\n' "$tabela" "$linhas"
+done
 
 echo "OK: a restauração de $(basename -- "$arquivo") foi conferida."
 exit 0
