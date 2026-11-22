@@ -164,6 +164,9 @@ async function sair() {
                   : 'Sem login'
               }}
             </p>
+            <RouterLink :to="{ name: 'progresso' }" class="menu-item" role="menuitem">
+              <IconeSvg nome="estrela" :tamanho="16" /> Meu progresso
+            </RouterLink>
             <RouterLink :to="{ name: 'campus' }" class="menu-item" role="menuitem">
               <IconeSvg nome="mapa" :tamanho="16" /> Trocar campus
             </RouterLink>

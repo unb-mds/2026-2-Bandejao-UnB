@@ -26,6 +26,10 @@
  * (FE-11) segue o contrato da BE-15 (#236), com uma previsão de exemplo de
  * `./previsao.js`; `simulacao.definirPrevisaoDisponivel(false)` faz ele
  * responder 501, para testar a defesa do front contra um backend sem a rota.
+ * O progresso, a adesão e o ranking (FE-12) seguem o OpenAPI da BE-16, com
+ * 10 pontos por check-in do simulado e um ranking de exemplo de
+ * `./gamificacao.js`; respondem 501, como o backend hoje, depois de
+ * `simulacao.definirGamificacaoDisponivel(false)`.
  * Recuperação de senha, a semana do cardápio (`/cardapio/<campus>/`) e as
  * listas de avaliação da HomeView (`GET /avaliacoes/` e o resumo da semana)
  * ainda têm o formato do MVP: entram no contrato na FE-E2.
@@ -43,6 +47,7 @@ import { IDS_MARCADORES } from '@/constants/marcadores'
 import { MENSAGEM_CAMPUS_INEXISTENTE } from '@/constants/campi'
 import { APELIDOS_SEMENTE, avaliacoesSemente } from './sementes'
 import { previsaoSimulada } from './previsao'
+import { progressoSimulado, rankingSimulado } from './gamificacao'
 import {
   analisarEmailEstudante,
   analisarEmailServidor,
@@ -80,6 +85,7 @@ const reenviosPorConta = new Map() // id do usuário → [instantes]
 let localizacaoConfirmada = true
 let resumoDoDiaDisponivel = true
 let previsaoDisponivel = true
+let gamificacaoDisponivel = true
 /** `false`: comentários e envio de avaliação respondem 501, como o backend sem a BE-13. */
 let avaliacoesDisponiveis = true
 
@@ -890,6 +896,29 @@ function previsaoDaFila(parametros, agora) {
   return ok(previsaoSimulada(campus, parametros.refeicao, parametros.data ?? hojeISO(agora)))
 }
 
+function progressoDaGamificacao(agora) {
+  const usuario = usuarioDaSessao()
+  if (!usuario) return naoAutenticado()
+  if (!gamificacaoDisponivel) return { status: 501, dados: null }
+  return ok(progressoSimulado(banco.estado, usuario, agora))
+}
+
+function mudarAdesao(participar) {
+  const usuario = usuarioDaSessao()
+  if (!usuario) return naoAutenticado()
+  if (!gamificacaoDisponivel) return { status: 501, dados: null }
+  usuario.participaRanking = participar
+  banco.salvar()
+  return ok(null, 204)
+}
+
+function rankingDoCampus(valor) {
+  const campus = idDoCampus(valor)
+  if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
+  if (!gamificacaoDisponivel) return { status: 501, dados: null }
+  return ok(rankingSimulado(banco.estado, campus))
+}
+
 // Terceiro item: nome do limite por IP da rota (LIMITES_POR_IP), se houver.
 const ROTAS = [
   ['GET', /^\/csrf\/$/, () => gravarCsrfSeFaltar()],
@@ -924,6 +953,10 @@ const ROTAS = [
   ['POST', /^\/privacidade\/aceite\/$/, ({ agora }) => registrarAceitePrivacidade(agora)],
   ['POST', /^\/checkins\/$/, ({ corpo, agora }) => registrarCheckin(corpo, agora)],
   ['GET', /^\/fila\/previsao\/$/, ({ parametros, agora }) => previsaoDaFila(parametros, agora)],
+  ['GET', /^\/gamificacao\/progresso\/$/, ({ agora }) => progressoDaGamificacao(agora)],
+  ['POST', /^\/gamificacao\/adesao\/$/, () => mudarAdesao(true)],
+  ['DELETE', /^\/gamificacao\/adesao\/$/, () => mudarAdesao(false)],
+  ['GET', /^\/ranking\/(\d+)\/$/, (_, [campus]) => rankingDoCampus(campus)],
 ]
 
 const ATRASO_MS = import.meta.env.MODE === 'test' ? 0 : 250
@@ -981,6 +1014,9 @@ export const simulacao = {
   definirPrevisaoDisponivel(disponivel) {
     previsaoDisponivel = disponivel
   },
+  definirGamificacaoDisponivel(disponivel) {
+    gamificacaoDisponivel = disponivel
+  },
 }
 
 /** Volta ao estado inicial: banco, sessões, cookies e contadores de tentativas. */
@@ -995,6 +1031,7 @@ export function reiniciarSimulacao() {
   localizacaoConfirmada = true
   resumoDoDiaDisponivel = true
   previsaoDisponivel = true
+  gamificacaoDisponivel = true
   avaliacoesDisponiveis = true
   cookieSessao = null
   if (typeof document !== 'undefined') {
