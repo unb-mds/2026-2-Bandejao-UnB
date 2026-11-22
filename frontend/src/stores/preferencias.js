@@ -1,11 +1,13 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { idDeCampusValido, idDoCampusAntigo } from '@/constants/campi'
-import { IDS_MARCADORES } from '@/constants/marcadores'
-import { DIETAS } from '@/constants/dietas'
+import { IDS_MARCADORES, MARCADORES_ANTIGOS } from '@/constants/marcadores'
+import { DIETA_PADRAO, DIETAS, DIETAS_ANTIGAS } from '@/constants/dietas'
 import { contarFiltrosAtivos, selecaoPadrao } from '@/utils/cardapio'
 
 const CHAVE = 'bandejao:preferencias'
+
+const nomeAtual = (antigos, valor) => (Object.hasOwn(antigos, valor) ? antigos[valor] : valor)
 
 /** Só a leitura e o parse ficam no try: erro na validação não pode passar por "sem dados". */
 function lerSalvas() {
@@ -18,16 +20,22 @@ function lerSalvas() {
   }
 }
 
+function marcadoresAtuais(salvos) {
+  const atuais = [...new Set(salvos.map((m) => nomeAtual(MARCADORES_ANTIGOS, m)))]
+  const descartados = atuais.filter((m) => !IDS_MARCADORES.includes(m))
+  if (descartados.length) console.warn('Marcadores salvos desconhecidos descartados:', descartados)
+  return atuais.filter((m) => IDS_MARCADORES.includes(m))
+}
+
 function lerPreferencias() {
   const salvas = lerSalvas()
+  const dieta = nomeAtual(DIETAS_ANTIGAS, salvas.dieta)
   return {
     campusId: Number.isInteger(salvas.campusId)
       ? idDeCampusValido(salvas.campusId)
       : idDoCampusAntigo(salvas.campusId),
-    dieta: DIETAS.some((d) => d.id === salvas.dieta) ? salvas.dieta : 'todos',
-    marcadores: Array.isArray(salvas.marcadores)
-      ? salvas.marcadores.filter((m) => IDS_MARCADORES.includes(m))
-      : [],
+    dieta: DIETAS.some((d) => d.id === dieta) ? dieta : DIETA_PADRAO,
+    marcadores: Array.isArray(salvas.marcadores) ? marcadoresAtuais(salvas.marcadores) : [],
     avisoLocalizacaoAdiado: salvas.avisoLocalizacaoAdiado === true,
     localizacaoPermitida: salvas.localizacaoPermitida === true,
   }

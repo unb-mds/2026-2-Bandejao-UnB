@@ -171,7 +171,7 @@ describe('CampusView (FE-07, front 3a.2)', () => {
     expect(wrapper.find('[data-teste="falha-campi"]').exists()).toBe(false)
   })
 
-  it('/campus/99 sem a lista de campi: o 404 do cardápio vira "Campus não encontrado"', async () => {
+  it('/campus/99 sem a lista de campi: o cardápio dizendo que o campus não existe vira "Campus não encontrado"', async () => {
     campiComo(nuncaResponde)
 
     const { wrapper } = await montarEm('/campus/99')
