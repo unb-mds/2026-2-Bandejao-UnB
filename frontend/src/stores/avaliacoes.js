@@ -57,7 +57,7 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
   /** refeicaoId → `{ nota, comentario }` da resposta do POST, nesta sessão. */
   const minhasPorId = ref({})
   /**
-   * refeicaoId → `{ nota, comentario }` que não chegou a ser enviado porque a
+   * refeicaoId → `{ nota, comentario, editando }` que não chegou a ser enviado porque a
    * sessão expirou. Sobrevive ao limparCache do login para voltar ao widget.
    */
   const rascunhos = {}
@@ -218,8 +218,13 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
     }
   }
 
+  /** `editando`: o rascunho era a edição de uma avaliação já enviada. */
   function guardarRascunho(refeicaoId, rascunho) {
-    rascunhos[refeicaoId] = { nota: rascunho.nota, comentario: rascunho.comentario }
+    rascunhos[refeicaoId] = {
+      nota: rascunho.nota,
+      comentario: rascunho.comentario,
+      editando: Boolean(rascunho.editando),
+    }
   }
 
   /** Devolve o rascunho guardado (uma vez só), ou null. */

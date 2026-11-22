@@ -187,7 +187,9 @@ watch(
     if (!rascunho) return
     nota.value = rascunho.nota
     comentario.value = rascunho.comentario
-    editando.value = Boolean(minha.value)
+    // Pelo rascunho, e não por `minha`: na montagem os comentários ainda não
+    // chegaram, e sem isso a edição sumiria atrás de "Você já avaliou".
+    editando.value = rascunho.editando
   },
   { immediate: true },
 )
@@ -267,7 +269,7 @@ async function enviar() {
       return
     case 'nao_autenticado':
       // O authStore já foi limpo: o convite aparece no lugar do formulário.
-      avaliacoes.guardarRascunho(id, rascunho)
+      avaliacoes.guardarRascunho(id, { ...rascunho, editando: editando.value })
       sessaoExpirou.value = true
       return
     default:
