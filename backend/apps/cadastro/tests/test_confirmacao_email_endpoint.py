@@ -210,6 +210,62 @@ def test_reenvio_sem_email_e_sem_token_da_422(cliente, corpo):
     assert mail.outbox == []
 
 
+@pytest.mark.parametrize(
+    ("alvo", "erro"),
+    [
+        # Antes do e-mail: o INSERT do token novo.
+        (
+            "apps.cadastro.confirmacao_email_service.Token.objects.create",
+            OperationalError("database is locked"),
+        ),
+        # Antes até do token: a leitura do limite por conta (cache em banco).
+        # Não dá para mockar o `cache.get` inteiro: o limite por IP, que roda
+        # antes para todo pedido, também cairia.
+        (
+            "apps.cadastro.limite_de_taxa.LimiteReenvioPorConta._historico",
+            OperationalError("database is locked"),
+        ),
+        # Não é de banco: um bug que só aparece em produção vazaria igual.
+        (
+            "apps.cadastro.confirmacao_email_service.ConfirmacaoEmailService._link_do_pwa",
+            ValueError("database is locked"),
+        ),
+    ],
+)
+def test_erro_inesperado_no_reenvio_da_a_mesma_resposta_da_conta_inexistente(
+    cliente, usuario, caplog, alvo, erro
+):
+    """Um 500 só para conta pendente revelaria que ela existe (#205, RF02.2).
+
+    A mensagem do erro é a mesma nos três casos para conferir que ela não vai
+    para o log.
+    """
+    inexistente = cliente.post(
+        ROTA_REENVIO, {"emailInstitucional": "209999999@aluno.unb.br"}, format="json"
+    )
+
+    with mock.patch(alvo, side_effect=erro):
+        pendente = cliente.post(
+            ROTA_REENVIO,
+            {"emailInstitucional": "202400001@aluno.unb.br"},
+            format="json",
+        )
+
+    assert pendente.status_code == inexistente.status_code == 200
+    assert pendente.content == inexistente.content
+    assert mail.outbox == []
+    # O erro vai para o log só com o id da conta e o nome da exceção (ADR 0008).
+    falhas = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert len(falhas) == 1
+    mensagem = falhas[0].getMessage()
+    assert type(erro).__name__ in mensagem
+    assert str(usuario.pk) in mensagem
+    assert "@" not in mensagem
+    assert "202400001" not in mensagem
+    assert "database is locked" not in mensagem
+    assert falhas[0].exc_info is None
+
+
 # --- Envio do link no cadastro (CadastroService -> ConfirmacaoEmailService) ---
 
 
