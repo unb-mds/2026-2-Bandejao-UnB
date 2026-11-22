@@ -1,4 +1,4 @@
-﻿# Uso de IA
+# Uso de IA
 
 Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido, as evidências de validação e a situação da revisão humana. Os resultados detalhados dos testes ficam no PR e nas execuções do CI.
 
