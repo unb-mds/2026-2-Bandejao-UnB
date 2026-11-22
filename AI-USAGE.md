@@ -521,3 +521,23 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
   Os comentários sugeridos no código (JSDoc, `App.vue` e o `76px`) ficaram de fora por serem sugestão.
 - Situação: aguardando nova revisão.
+
+## FE-11 — FilaPrevisao na tela do campus
+
+- Issue: [#172](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/172). PR: [#234 — FE-11: FilaPrevisao na tela do campus](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/234).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `FilaPrevisao` nova na seção da fila: chama `GET /api/fila/previsao/` com o campus, a refeição e o dia escolhidos no cardápio, sem login, e mostra as faixas de 15 minutos com o nível de cada uma;
+  - pico em destaque em todas as faixas com `ehPico`, com o resumo "Pico previsto" ou "Picos previstos" no empate, e "Dados insuficientes" sem faixas nem valor de reserva (RF13, RN06);
+  - estados de carregando, erro com "Tentar novamente" (menos no 400 e no 404) e o 501 do backend antes da BE-15 (#167) como "Previsão ainda não disponível";
+  - a previsão da refeição encerrada sai junto com o check-in (RN05);
+  - `carregarPrevisao` na `filaStore`, com cache por campus, refeição e dia, o mesmo pedido saindo uma vez só e a resposta validada;
+  - o cartão "Em breve" e a legenda repetida saíram da `FilaView`;
+  - previsão de exemplo no simulado (almoço com 3 picos empatados, café com 1, Fazenda Água Limpa com dados insuficientes), com as validações do contrato e o 501 simulável;
+  - nota no C4.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `16654a4` (testes) → `d93139b` (código).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 744 testes passando (95,35% de linhas / 90,57% de ramos) e `npm run build` sem erro.
+- Revisão humana: pendente.
+- Situação: PR aberto.
