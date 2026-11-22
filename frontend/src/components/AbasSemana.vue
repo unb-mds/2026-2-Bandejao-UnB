@@ -35,7 +35,7 @@ const emit = defineEmits(['escolher'])
   padding: 0 16px 12px;
 }
 
-/* As 7 abas (seg–dom) dividem a largura e cabem num celular de 320px. */
+/* As 7 abas (seg–dom) dividem a largura; em telas muito estreitas ou com zoom, `.dias` rola. */
 .dia {
   flex: 1 1 0;
   display: flex;

@@ -299,6 +299,17 @@ describe('CardapioView: domingo (#229)', () => {
     expect(pedidosDoCardapio(get)[0]).toMatchObject({ campus: '1', dia: '2026-10-04' })
   })
 
+  it('no domingo, campus sem serviço (Gama) abre na aba de domingo com "Sem refeições neste dia"', async () => {
+    vi.setSystemTime(DOMINGO_MEIO_DIA)
+    const wrapper = await montarEm('/campus/3')
+
+    const abas = abasDaSemana(wrapper)
+    expect(abas).toHaveLength(7)
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Sem refeições neste dia'))
+    expect(abas[6].attributes('aria-selected')).toBe('true')
+    expect(wrapper.find('.prato').exists()).toBe(false)
+  })
+
   it('campus sem serviço no domingo (Gama): a aba mostra "Sem refeições neste dia"', async () => {
     const wrapper = await montarEm('/campus/3')
 

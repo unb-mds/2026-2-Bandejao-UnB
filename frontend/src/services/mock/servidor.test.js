@@ -437,7 +437,7 @@ describe('cardápio (RF06, RF07)', () => {
     expect(dados.publicado).toBe(true)
     expect(dados.dias[0].data).toBe('2026-09-28')
     expect(dados.dias.at(-2).refeicoes.map((r) => r.tipo)).toEqual(['almoco']) // sábado
-    // O Darcy serve aos domingos (#229).
+    // No mock, o Darcy serve aos domingos (#229).
     expect(dados.dias.at(-1).data).toBe('2026-10-04')
     expect(dados.dias.at(-1).refeicoes.map((r) => r.tipo)).toEqual(['cafe', 'almoco', 'jantar'])
   })
@@ -448,6 +448,20 @@ describe('cardápio (RF06, RF07)', () => {
     expect(dados.semana.inicio).toBe('2026-09-28')
     const { dados: refeicao } = await get('/cardapio/?campus=1')
     expect(refeicao.data).toBe('2026-10-04')
+  })
+
+  it('no domingo, campus sem serviço responde semServico no próprio domingo (#229)', async () => {
+    vi.setSystemTime(new Date(2026, 9, 4, 12, 0))
+    const { dados } = await get('/cardapio/?campus=3')
+    expect(dados.semServico).toBe(true)
+    expect(dados.data).toBe('2026-10-04')
+  })
+
+  it('na virada de domingo para segunda, a semana vigente passa a ser a seguinte (#229)', async () => {
+    vi.setSystemTime(new Date(2026, 9, 5, 0, 0))
+    const { dados } = await get('/cardapio/1/')
+    expect(dados.semana.inicio).toBe('2026-10-05')
+    expect(dados.dias[0].data).toBe('2026-10-05')
   })
 
   it('indica cardápio não publicado', async () => {

@@ -28,10 +28,10 @@ export function selecaoPadrao(dias, agora = new Date()) {
 }
 
 /**
- * Dias das abas do cardápio (RF07.1): a semana inteira, de segunda a domingo,
- * como o backend define — o domingo pertence à semana da segunda anterior.
- * O Darcy Ribeiro serve aos domingos; nos outros campi a aba mostra
- * "sem serviço".
+ * Dias das abas do cardápio (RF07.1): de segunda a domingo da semana do
+ * calendário; o domingo pertence à semana da segunda anterior. Coincide com a
+ * semana do PDF no backend (`semana_inicio` + 6 dias). Campi sem refeição no
+ * dia respondem com `semServico` e a tela mostra o estado de sem serviço.
  */
 export function diasDaSemanaVigente(agora = new Date()) {
   const segunda = inicioDaSemana(agora)

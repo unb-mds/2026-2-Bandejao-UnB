@@ -220,16 +220,11 @@ const CAMPI_SIMULADOS = {
   5: { publicado: false },
 }
 
-/** Segunda-feira da semana vigente; o domingo pertence à semana da segunda anterior. */
-export function inicioSemanaVigente(agora = new Date()) {
-  return inicioDaSemana(agora)
-}
-
 const escolher = (lista, indice) => lista[indice % lista.length]
 
 export function montarCardapioSemana(campusId, agora = new Date()) {
   const config = CAMPI_SIMULADOS[campusId]
-  const segunda = inicioSemanaVigente(agora)
+  const segunda = inicioDaSemana(agora)
   const semana = { inicio: segunda, fim: somarDias(segunda, 6) }
   if (!config?.publicado) return { campus: campusId, semana, publicado: false, dias: [] }
 

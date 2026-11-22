@@ -63,8 +63,8 @@ describe('selecaoPadrao', () => {
   })
 
   it('sem cardápio hoje, seleciona o próximo dia disponível', () => {
-    const domingo = new Date(2026, 8, 27, 12, 0)
-    expect(selecaoPadrao(semana, domingo)).toEqual({ data: '2026-09-28', refeicao: 'cafe' })
+    const diaAntes = new Date(2026, 8, 27, 12, 0)
+    expect(selecaoPadrao(semana, diaAntes)).toEqual({ data: '2026-09-28', refeicao: 'cafe' })
   })
 
   it('semana sem dias não seleciona nada', () => {
@@ -119,6 +119,18 @@ describe('diasDaSemanaVigente (AbasSemana, RF07.1)', () => {
 
   it('no domingo, mostra a semana corrente com o domingo', () => {
     expect(diasDaSemanaVigente(new Date(2026, 9, 4, 23, 59))).toEqual(SEMANA)
+  })
+
+  it('na virada de domingo para segunda, já passa para a semana seguinte', () => {
+    expect(diasDaSemanaVigente(new Date(2026, 9, 5, 0, 0))).toEqual([
+      '2026-10-05',
+      '2026-10-06',
+      '2026-10-07',
+      '2026-10-08',
+      '2026-10-09',
+      '2026-10-10',
+      '2026-10-11',
+    ])
   })
 })
 
