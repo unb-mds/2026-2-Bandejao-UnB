@@ -213,24 +213,18 @@ export function idDoCampus(valor) {
 
 /** Configuração de cada campus no "PDF" da semana. */
 const CAMPI_SIMULADOS = {
-  1: { publicado: true, deslocamento: 0, sabado: true, jantar: true },
+  1: { publicado: true, deslocamento: 0, sabado: true, domingo: true, jantar: true },
   2: { publicado: true, deslocamento: 2, jantar: true, jantarSemAlergenos: 2 },
   3: { publicado: true, deslocamento: 1, jantar: true },
   4: { publicado: true, deslocamento: 3, jantar: false },
   5: { publicado: false },
 }
 
-/** Segunda-feira da semana vigente; no domingo, já considera a semana seguinte. */
-export function inicioSemanaVigente(agora = new Date()) {
-  const segunda = inicioDaSemana(agora)
-  return agora.getDay() === 0 ? somarDias(segunda, 7) : segunda
-}
-
 const escolher = (lista, indice) => lista[indice % lista.length]
 
 export function montarCardapioSemana(campusId, agora = new Date()) {
   const config = CAMPI_SIMULADOS[campusId]
-  const segunda = inicioSemanaVigente(agora)
+  const segunda = inicioDaSemana(agora)
   const semana = { inicio: segunda, fim: somarDias(segunda, 6) }
   if (!config?.publicado) return { campus: campusId, semana, publicado: false, dias: [] }
 
@@ -254,6 +248,16 @@ export function montarCardapioSemana(campusId, agora = new Date()) {
     dias.push({
       data: somarDias(segunda, 5),
       refeicoes: [{ tipo: 'almoco', categorias: ALMOCO_SABADO }],
+    })
+  }
+  if (config.domingo) {
+    dias.push({
+      data: somarDias(segunda, 6),
+      refeicoes: [
+        { tipo: 'cafe', categorias: escolher(CAFES, config.deslocamento + 6) },
+        { tipo: 'almoco', categorias: escolher(ALMOCOS, config.deslocamento + 6) },
+        { tipo: 'jantar', categorias: escolher(JANTARES, config.deslocamento + 6) },
+      ],
     })
   }
 
