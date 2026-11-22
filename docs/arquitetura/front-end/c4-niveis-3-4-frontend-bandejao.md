@@ -270,6 +270,18 @@ os pontos (RF05)."]
   id da rota e o check-in espera a lista confirmar o campus. O campus do
   link só vira o lembrado depois dessa confirmação, e um campus lembrado que
   saiu do banco é esquecido.
+- **`FilaPrevisao` (FE-11, #172)** chama `GET /api/fila/previsao/` com o
+  campus, a refeição e o dia escolhidos no cardápio (sem escolha, hoje e a
+  refeição do check-in), sem login. Mostra as faixas de 15 minutos com o
+  nível de cada uma e destaca como pico todas as que vierem com
+  `ehPico: true`, com o resumo "Pico previsto" ou, no empate, "Picos
+  previstos". Com `status: "dados_insuficientes"`, mostra "Dados
+  insuficientes", sem faixas nem valor de reserva (RF13). O 501 (backend
+  antes da BE-15) vira "Previsão ainda não disponível", sem erro; os outros
+  erros mostram a mensagem, com "Tentar novamente" menos no 400 e no 404.
+  A `filaStore` guarda a previsão por campus, refeição e dia; o erro não
+  fica no cache. Quando a refeição do check-in encerrou, a previsão dela
+  sai junto (RN05), mas a de outro dia ou refeição continua.
 - **`EsperaEstimada` fica dentro de `FilaPrevisao`**: mostra os minutos em
   destaque só nas faixas com `esperaEstimadaMin` diferente de `null`; nas
   demais, só o nível. O texto de apoio (L12) explica que o nível é relativo
@@ -655,7 +667,7 @@ separação por app do backend (RNF06):
 | `preferenciasStore` | Campus lembrado, escolha manual depois da última detecção, campus detectado, refeição selecionada, filtros de marcador e dieta, "Agora não" do aviso de localização | `localStorage` (RF07, RF08, RF09, RF19, RN04), exceto o campus detectado (memória) |
 | `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, dia, refeição e filtros, com erro e carregamento por pedido; a resposta que depende do relógio e a de "não publicado" valem 5 minutos, e a lista de campi (`GET /api/campi/`, com `carregandoCampi` e `erroCampi`) | Em memória |
 | `avaliacoesStore` | Resumo do dia (notas de todas as refeições, `GET /api/avaliacoes/resumo/`), comentários com `distintivo` e envio/edição da avaliação do usuário | Em memória |
-| `filaStore` | Previsão (com espera estimada), check-in e pergunta de saída pendente | Em memória; nunca guarda coordenadas (RI09) |
+| `filaStore` | Previsão por campus, refeição e dia (a espera estimada entra com o RF22), check-in e pergunta de saída pendente | Em memória; nunca guarda coordenadas (RI09) |
 | `gamificacaoStore` | Progresso, adesão ao ranking, posição própria por campus, posição do semestre anterior, Bandeja de Ouro própria, ranking por campus e último bloco `pontos` | Em memória |
 
 Critério de decisão: **o que precisa sobreviver a um recarregamento de
