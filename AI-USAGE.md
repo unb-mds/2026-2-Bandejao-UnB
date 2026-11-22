@@ -612,3 +612,35 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
   Na terceira conferência, a revalidação passou a rodar em segundo plano: não passa pelo "Carregando…", não insiste num erro (para isso há o "Tentar novamente") e, se falhar, mantém a previsão antiga e tenta de novo no minuto seguinte. Há testes de rede fora e de falha da revalidação.
 - Situação: aguardando nova revisão.
+
+## FE-12 — ProgressoView (Meu progresso)
+
+- Issue: [#173](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/173). PR: [#238 — FE-12: ProgressoView (Meu progresso)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/238).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `ProgressoView` nova em `/progresso`, na versão simplificada da issue: patente, pontos totais e "Faltam N pontos para X" com barra, ou "Você chegou à patente máxima";
+  - `RankingAdesaoToggle`: interruptor (`role="switch"`) com o aviso de que o apelido e a patente ficam visíveis para todos no ranking do semestre;
+  - `BotaoSair`, que encerra a sessão e volta para a Início;
+  - visitante vê o `ConviteLogin`, sem redirecionar e sem pedir o progresso;
+  - `gamificacaoStore` com progresso, ranking por campus e adesão: as respostas são validadas contra o OpenAPI, o mesmo pedido sai uma vez só e a mudança de adesão recarrega o progresso e os rankings abertos e limpa os comentários guardados;
+  - `constants/patentes.js` com as 5 patentes e os limiares do Anexo A;
+  - item "Meu progresso" no menu da Início;
+  - progresso, adesão e ranking de exemplo no simulado, com o 501 simulável;
+  - nota no C4.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `7b1944a` (testes) → `acb70f9` (código) → `b48a39d` (docs).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 829 testes passando (95,57% de linhas / 91,24% de ramos) e `npm run build` sem erro; layout conferido em 360 px e 1366 px no DevTools, com as capturas no PR.
+- Dependência: a BE-16 (#168) ainda está aberta e o backend real responde 501; até ela entrar, a tela mostra "Progresso ainda não disponível", sem erro.
+- Revisão humana: Álvaro Bento revisou o PR #238. Ajustes aplicados, com os testes antes do código (`bc8bb4a` → `e17655d` → `202f402` → `c3637a6`):
+  - com o 204 da adesão, o `participaRanking` muda na hora e o progresso recarrega sem voltar a "carregando", então o interruptor não some; se o recarregamento falhar, o novo estado fica e o progresso é pedido de novo na próxima abertura;
+  - o `limpar()` descarta o pedido de progresso em andamento, os rankings e os pedidos de ranking, e uma resposta que chega depois do logout ou de um pedido mais novo é descartada;
+  - o erro de uma mudança de adesão feita antes de um 401 não passa para a próxima sessão;
+  - o aviso do interruptor fala só do ranking do semestre, e o título virou "Participar do ranking";
+  - se o servidor não confirmar a saída, o `BotaoSair` fica na tela e avisa (`role="alert"`) que o servidor não confirmou;
+  - o `campusId` do ranking é convertido para número;
+  - o `patenteDosPontos` passou para o simulado;
+  - o C4 foi corrigido, e os comentários sugeridos entraram (origem dos limiares, JSDoc da store e notas do simulado);
+  - testes novos de corrida, 401, ranking fora do contrato, 501 do ranking, falha ao sair, falha ao desligar e limiares da barra.
+- Validação após a revisão: `npm run lint:ci` sem achados, `npm run test:ci` com 858 testes passando (95,73% de linhas / 91,45% de ramos) e `npm run build` sem erro.
+- Situação: ajustes da revisão aplicados; aguardando nova revisão.
