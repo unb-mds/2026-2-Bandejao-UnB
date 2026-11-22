@@ -7,7 +7,7 @@ Integração com o APIClient do DRF: validação dos parâmetros (400
 simulado com `unittest.mock.patch` em `django.utils.timezone.now`.
 """
 
-from datetime import time
+from datetime import time, timedelta
 from unittest import mock
 
 import pytest
@@ -38,6 +38,7 @@ CHAVES_DO_CONTRATO = {
     "avisoSujeitoAAlteracao",
     "alergenosIndisponivel",
     "filtroMarcadorDesativado",
+    "semServico",
     "categorias",
 }
 
@@ -114,6 +115,7 @@ def test_sem_login_devolve_o_cardapio_completo_no_formato_do_contrato(
         "avisoSujeitoAAlteracao": AVISO_SUJEITO_A_ALTERACAO,
         "alergenosIndisponivel": False,
         "filtroMarcadorDesativado": False,
+        "semServico": False,
         "categorias": [
             {
                 "nome": "Salada",
@@ -277,8 +279,64 @@ def test_nao_publicado_volta_200_e_nunca_404(cliente, campus):
     corpo = resposta.json()
     assert set(corpo) == CHAVES_DO_CONTRATO
     assert corpo["status"] == "nao_publicado"
+    assert corpo["semServico"] is False
     assert corpo["categorias"] == []
     assert corpo["avisoSujeitoAAlteracao"] == AVISO_SUJEITO_A_ALTERACAO
+
+
+# --- semServico (#217, item 5) ---------------------------------------------
+
+
+def servir_dias_uteis(campus):
+    for dias in range(5):
+        criar_refeicao(campus, SEGUNDA + timedelta(days=dias), TipoRefeicao.ALMOCO)
+
+
+def test_sabado_sem_servico_com_a_semana_publicada_da_sem_servico(cliente, campus):
+    publicar_semana(campus, SEGUNDA)
+    servir_dias_uteis(campus)
+
+    resposta = pedir(cliente, campus=campus.pk, dia="2026-11-28")
+
+    assert resposta.status_code == 200
+    # Dia futuro: a primeira refeição do Anexo A.
+    assert resposta.json() == {
+        "campus": campus.pk,
+        "refeicao": "cafe",
+        "data": "2026-11-28",
+        "refeicaoEncerrada": False,
+        "status": "publicado",
+        "avisoSujeitoAAlteracao": AVISO_SUJEITO_A_ALTERACAO,
+        "alergenosIndisponivel": False,
+        "filtroMarcadorDesativado": False,
+        "semServico": True,
+        "categorias": [],
+    }
+
+
+def test_sabado_com_a_semana_nao_publicada_e_nao_publicado(cliente, campus):
+    servir_dias_uteis(campus)
+
+    corpo = pedir(cliente, campus=campus.pk, dia="2026-11-28").json()
+
+    assert (corpo["status"], corpo["semServico"], corpo["data"]) == (
+        "nao_publicado",
+        False,
+        "2026-11-28",
+    )
+
+
+def test_refeicao_pedida_no_sabado_sem_servico_continua_sem_categorias(cliente, campus):
+    publicar_semana(campus, SEGUNDA)
+    servir_dias_uteis(campus)
+
+    corpo = pedir(cliente, campus=campus.pk, dia="2026-11-28", refeicao="almoco").json()
+
+    assert (corpo["status"], corpo["semServico"], corpo["categorias"]) == (
+        "publicado",
+        False,
+        [],
+    )
 
 
 def test_alergenos_indisponiveis_na_resposta(cliente, campus):
