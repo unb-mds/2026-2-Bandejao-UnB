@@ -178,6 +178,32 @@ describe('gamificacaoStore: progresso, ranking e adesão (FE-12)', () => {
     }
   }
 
+  const progressoValido = (troca = {}) => ({
+    patente: 'CALOURO_DE_BANDEJA',
+    pontosTotais: 0,
+    faltaParaProxima: 150,
+    sequencia: 0,
+    diasNaSemana: 0,
+    minimoDias: 3,
+    participaRanking: false,
+    ...troca,
+  })
+
+  function adiado() {
+    let resolver
+    let rejeitar
+    const promessa = new Promise((resolve, reject) => {
+      resolver = resolve
+      rejeitar = reject
+    })
+    return { promessa, resolver, rejeitar }
+  }
+
+  function perderSessao() {
+    useAuthStore().limpar()
+    return new ApiError(401, { codigo: 'nao_autenticado' })
+  }
+
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(SEGUNDA)
@@ -254,16 +280,7 @@ describe('gamificacaoStore: progresso, ranking e adesão (FE-12)', () => {
     ['pontos negativos', { pontosTotais: -1 }],
   ])('progresso fora do contrato (%s): erro', async (_caso, troca) => {
     await entrar()
-    vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
-      patente: 'CALOURO_DE_BANDEJA',
-      pontosTotais: 0,
-      faltaParaProxima: 150,
-      sequencia: 0,
-      diasNaSemana: 0,
-      minimoDias: 3,
-      participaRanking: false,
-      ...troca,
-    })
+    vi.spyOn(apiClient, 'get').mockResolvedValueOnce(progressoValido(troca))
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const gamificacao = useGamificacaoStore()
 
@@ -281,6 +298,53 @@ describe('gamificacaoStore: progresso, ranking e adesão (FE-12)', () => {
     gamificacao.limpar()
     await pedido
 
+    expect(gamificacao.progresso).toEqual({ situacao: null, dados: null, erro: null })
+  })
+
+  it('sair e entrar com o pedido antigo pendente: pede de novo e não fica preso em "carregando"', async () => {
+    await entrar()
+    const gamificacao = useGamificacaoStore()
+    const antigo = adiado()
+    const get = vi.spyOn(apiClient, 'get').mockReturnValueOnce(antigo.promessa)
+
+    gamificacao.carregarProgresso()
+    gamificacao.limpar()
+    const novo = gamificacao.carregarProgresso()
+    antigo.resolver(progressoValido({ pontosTotais: 999 }))
+    await novo
+
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(gamificacao.progresso.situacao).toBe('carregado')
+    expect(gamificacao.progresso.dados.pontosTotais).toBe(0)
+  })
+
+  it('resposta fora de ordem: um pedido sem forcar que chega depois não desfaz o com forcar', async () => {
+    await entrar()
+    const gamificacao = useGamificacaoStore()
+    const primeiro = adiado()
+    const segundo = adiado()
+    vi.spyOn(apiClient, 'get')
+      .mockReturnValueOnce(primeiro.promessa)
+      .mockReturnValueOnce(segundo.promessa)
+
+    const pedidoA = gamificacao.carregarProgresso()
+    const pedidoB = gamificacao.carregarProgresso({ forcar: true })
+    segundo.resolver(progressoValido({ participaRanking: true }))
+    await pedidoB
+    primeiro.resolver(progressoValido({ participaRanking: false }))
+    await pedidoA
+
+    expect(gamificacao.progresso.dados.participaRanking).toBe(true)
+  })
+
+  it('401 no progresso: a sessão acaba e nada fica gravado', async () => {
+    await entrar()
+    const gamificacao = useGamificacaoStore()
+    vi.spyOn(apiClient, 'get').mockImplementationOnce(() => Promise.reject(perderSessao()))
+
+    await gamificacao.carregarProgresso()
+
+    expect(useAuthStore().estaAutenticado).toBe(false)
     expect(gamificacao.progresso).toEqual({ situacao: null, dados: null, erro: null })
   })
 
@@ -310,6 +374,89 @@ describe('gamificacaoStore: progresso, ranking e adesão (FE-12)', () => {
       situacao: 'erro',
       erro: { codigo: 'campus_nao_encontrado' },
     })
+  })
+
+  it('campusId como texto (vindo da rota) usa a mesma entrada do número', async () => {
+    const gamificacao = useGamificacaoStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await gamificacao.carregarRanking('1')
+    await gamificacao.carregarRanking(1)
+
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(get).toHaveBeenCalledWith('/ranking/1/')
+    expect(gamificacao.rankingDe(1).situacao).toBe('carregado')
+    expect(gamificacao.rankingDe('1')).toBe(gamificacao.rankingDe(1))
+  })
+
+  it('ranking com 501: "indisponivel", sem erro', async () => {
+    simulacao.definirGamificacaoDisponivel(false)
+    const gamificacao = useGamificacaoStore()
+
+    await gamificacao.carregarRanking(1)
+
+    expect(gamificacao.rankingDe(1)).toEqual({ situacao: 'indisponivel', dados: null, erro: null })
+  })
+
+  it('ranking com forcar: a resposta antiga que chega depois não sobrescreve a nova', async () => {
+    const gamificacao = useGamificacaoStore()
+    const antigo = adiado()
+    const novo = adiado()
+    vi.spyOn(apiClient, 'get')
+      .mockReturnValueOnce(antigo.promessa)
+      .mockReturnValueOnce(novo.promessa)
+    const ranking = (apelido) => ({
+      campusId: 1,
+      semestre: '2026.2',
+      linhas: [{ posicao: 1, apelido, patente: 'VETERANO' }],
+    })
+
+    const pedidoAntigo = gamificacao.carregarRanking(1)
+    const pedidoNovo = gamificacao.carregarRanking(1, { forcar: true })
+    novo.resolver(ranking('novo'))
+    await pedidoNovo
+    antigo.resolver(ranking('antigo'))
+    await pedidoAntigo
+
+    expect(gamificacao.rankingDe(1).dados.linhas[0].apelido).toBe('novo')
+  })
+
+  it.each([
+    ['campusId diferente', { campusId: 2 }],
+    ['linhas que não são lista', { linhas: {} }],
+    ['posição 0', { linhas: [{ posicao: 0, apelido: 'a', patente: 'VETERANO' }] }],
+    ['posição quebrada', { linhas: [{ posicao: 1.5, apelido: 'a', patente: 'VETERANO' }] }],
+    ['patente desconhecida', { linhas: [{ posicao: 1, apelido: 'a', patente: 'GENERAL' }] }],
+    ['sem apelido', { linhas: [{ posicao: 1, patente: 'VETERANO' }] }],
+    ['semestre numérico', { semestre: 20262 }],
+  ])('ranking fora do contrato (%s): erro', async (_caso, troca) => {
+    vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
+      campusId: 1,
+      semestre: '2026.2',
+      linhas: [],
+      ...troca,
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const gamificacao = useGamificacaoStore()
+
+    await gamificacao.carregarRanking(1)
+
+    expect(gamificacao.rankingDe(1).situacao).toBe('erro')
+  })
+
+  it('logout limpa os rankings, e um pedido pendente não volta depois', async () => {
+    const gamificacao = useGamificacaoStore()
+    await gamificacao.carregarRanking(1)
+    const pendente = adiado()
+    vi.spyOn(apiClient, 'get').mockReturnValueOnce(pendente.promessa)
+
+    const pedido = gamificacao.carregarRanking(3)
+    gamificacao.limpar()
+    pendente.resolver({ campusId: 3, semestre: '2026.2', linhas: [] })
+    await pedido
+
+    expect(gamificacao.rankingDe(1)).toBeNull()
+    expect(gamificacao.rankingDe(3)).toBeNull()
   })
 
   it('entrar no ranking: POST, recarrega o progresso e os rankings já abertos e limpa os comentários', async () => {
@@ -375,13 +522,81 @@ describe('gamificacaoStore: progresso, ranking e adesão (FE-12)', () => {
   it('dois toques seguidos no interruptor: o segundo é ignorado enquanto o primeiro não acaba', async () => {
     await entrar()
     const gamificacao = useGamificacaoStore()
-    const post = vi.spyOn(apiClient, 'post')
+    const pendente = adiado()
+    const post = vi.spyOn(apiClient, 'post').mockReturnValueOnce(pendente.promessa)
 
     const primeiro = gamificacao.alterarAdesao(true)
     const segundo = await gamificacao.alterarAdesao(true)
-    await primeiro
 
     expect(segundo).toEqual({ desfecho: 'ignorado' })
+    expect(gamificacao.alterandoAdesao).toBe(true)
+    pendente.resolver(null)
+    expect(await primeiro).toEqual({ desfecho: 'ok' })
     expect(post).toHaveBeenCalledTimes(1)
+  })
+
+  it('adesão confirmada: participaRanking muda na hora, sem voltar a "carregando"', async () => {
+    await entrar()
+    const gamificacao = useGamificacaoStore()
+    await gamificacao.carregarProgresso()
+    const recarga = adiado()
+    vi.spyOn(apiClient, 'get').mockReturnValueOnce(recarga.promessa)
+
+    const mudanca = gamificacao.alterarAdesao(true)
+    await vi.waitFor(() => expect(gamificacao.progresso.dados.participaRanking).toBe(true))
+
+    expect(gamificacao.progresso.situacao).toBe('carregado')
+    recarga.resolver(progressoValido({ participaRanking: true }))
+    expect(await mudanca).toEqual({ desfecho: 'ok' })
+  })
+
+  it('adesão confirmada e o recarregamento falha: mantém o novo estado, sem erro, e marca como desatualizado', async () => {
+    await entrar()
+    const gamificacao = useGamificacaoStore()
+    await gamificacao.carregarProgresso()
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(500, { codigo: 'erro_interno', mensagem: 'Erro no servidor.' }),
+    )
+
+    const resultado = await gamificacao.alterarAdesao(true)
+
+    expect(resultado).toEqual({ desfecho: 'ok' })
+    expect(gamificacao.erroDaAdesao).toBeNull()
+    expect(gamificacao.progresso).toMatchObject({
+      situacao: 'carregado',
+      erro: null,
+      dados: { participaRanking: true },
+    })
+    expect(gamificacao.progressoDesatualizado).toBe(true)
+  })
+
+  it('401 na adesão: o erro não passa para quem entrar depois', async () => {
+    await entrar()
+    const gamificacao = useGamificacaoStore()
+    await gamificacao.carregarProgresso()
+    vi.spyOn(apiClient, 'post').mockImplementationOnce(() => Promise.reject(perderSessao()))
+
+    await gamificacao.alterarAdesao(true)
+    expect(gamificacao.erroDaAdesao).toBeNull()
+
+    await entrar()
+    expect(gamificacao.erroDaAdesao).toBeNull()
+  })
+
+  it('falha ao sair do ranking: continua dentro, com o erro; a próxima tentativa apaga o erro', async () => {
+    await entrar()
+    const gamificacao = useGamificacaoStore()
+    await gamificacao.alterarAdesao(true)
+    vi.spyOn(apiClient, 'delete').mockRejectedValueOnce(
+      new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }),
+    )
+
+    await gamificacao.alterarAdesao(false)
+    expect(gamificacao.erroDaAdesao).toBe('Sem internet.')
+    expect(gamificacao.progresso.dados.participaRanking).toBe(true)
+
+    await gamificacao.alterarAdesao(false)
+    expect(gamificacao.erroDaAdesao).toBeNull()
+    expect(gamificacao.progresso.dados.participaRanking).toBe(false)
   })
 })

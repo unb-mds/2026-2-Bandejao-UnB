@@ -46,6 +46,31 @@ function darCheckins(quantidade, campus = 1) {
 
 const interruptor = (wrapper) => wrapper.get('[data-teste="adesao-interruptor"]')
 
+function adiado() {
+  let resolver
+  const promessa = new Promise((resolve) => {
+    resolver = resolve
+  })
+  return { promessa, resolver }
+}
+
+function trocarGet(caminhoAlvo, resposta) {
+  const getOriginal = apiClient.get.bind(apiClient)
+  return vi
+    .spyOn(apiClient, 'get')
+    .mockImplementation((caminho, opcoes) =>
+      caminho === caminhoAlvo ? resposta() : getOriginal(caminho, opcoes),
+    )
+}
+
+async function montarComInterruptor() {
+  const montado = await montarEm()
+  await vi.waitFor(() =>
+    expect(montado.wrapper.find('[data-teste="adesao-interruptor"]').exists()).toBe(true),
+  )
+  return montado
+}
+
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(SEGUNDA)
@@ -110,8 +135,10 @@ describe('ProgressoView: usuário logado (FE-12, RF26.2)', () => {
     const aviso = wrapper.get('[data-teste="adesao-aviso"]').text()
     expect(aviso).toContain('apelido')
     expect(aviso).toContain('patente')
-    expect(aviso).toContain('comentários das avaliações')
+    expect(aviso).toContain('ranking do semestre')
+    expect(aviso).not.toContain('comentários')
     expect(aviso).not.toMatch(/bandeja/i)
+    expect(wrapper.get('#titulo-adesao').text()).toBe('Participar do ranking')
     expect(interruptor(wrapper).attributes('aria-checked')).toBe('false')
     expect(interruptor(wrapper).attributes('role')).toBe('switch')
   })
@@ -173,6 +200,122 @@ describe('ProgressoView: usuário logado (FE-12, RF26.2)', () => {
   })
 })
 
+describe('ProgressoView: barra até a próxima patente (FE-12)', () => {
+  it.each([
+    [
+      '0 pontos',
+      { pontosTotais: 0, faltaParaProxima: 150 },
+      '0',
+      'Faltam 150 pontos para Rato de RU',
+    ],
+    [
+      'exatamente 150 pontos',
+      { patente: 'RATO_DE_RU', pontosTotais: 150, faltaParaProxima: 300 },
+      '0',
+      'Faltam 300 pontos para Veterano',
+    ],
+    [
+      '149 pontos',
+      { pontosTotais: 149, faltaParaProxima: 1 },
+      '99',
+      'Faltam 1 ponto para Rato de RU',
+    ],
+    [
+      'falta maior que a faixa',
+      { pontosTotais: 0, faltaParaProxima: 400 },
+      '0',
+      'Faltam 400 pontos para Rato de RU',
+    ],
+  ])('%s', async (_caso, troca, valor, texto) => {
+    await entrar()
+    trocarGet('/gamificacao/progresso/', () =>
+      Promise.resolve({
+        patente: 'CALOURO_DE_BANDEJA',
+        sequencia: 0,
+        diasNaSemana: 0,
+        minimoDias: 3,
+        participaRanking: false,
+        ...troca,
+      }),
+    )
+
+    const { wrapper } = await montarComInterruptor()
+
+    expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe(valor)
+    expect(wrapper.get('[data-teste="progresso-falta"]').text()).toBe(texto)
+  })
+})
+
+describe('ProgressoView: sessão expirada (FE-12)', () => {
+  it('401 ao pedir o progresso: aparece o convite, sem o cartão de erro', async () => {
+    await entrar()
+    trocarGet('/gamificacao/progresso/', () => {
+      useAuthStore().limpar()
+      return Promise.reject(new ApiError(401, { codigo: 'nao_autenticado' }))
+    })
+
+    const { wrapper } = await montarEm()
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Entre para ver seu progresso'))
+    expect(wrapper.find('[data-teste="progresso-erro"]').exists()).toBe(false)
+  })
+
+  it('401 ao mudar a adesão: depois de entrar de novo, o erro antigo não aparece', async () => {
+    await entrar()
+    const { wrapper } = await montarComInterruptor()
+    vi.spyOn(apiClient, 'post').mockImplementationOnce(() => {
+      useAuthStore().limpar()
+      return Promise.reject(new ApiError(401, { codigo: 'nao_autenticado' }))
+    })
+
+    await interruptor(wrapper).trigger('click')
+    await flushPromises()
+    await entrar()
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-teste="adesao-interruptor"]').exists()).toBe(true),
+    )
+
+    expect(wrapper.find('[data-teste="adesao-erro"]').exists()).toBe(false)
+  })
+})
+
+describe('ProgressoView: sair da conta (FE-12, RF03.3)', () => {
+  it('o servidor não confirma: avisa, sem sair da tela', async () => {
+    await entrar()
+    const { wrapper, router } = await montarEm()
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-teste="botao-sair"]').exists()).toBe(true),
+    )
+    vi.spyOn(apiClient, 'delete').mockRejectedValueOnce(
+      new ApiError(500, { codigo: 'erro_interno', mensagem: 'Erro no servidor.' }),
+    )
+
+    await wrapper.get('[data-teste="botao-sair"]').trigger('click')
+    await flushPromises()
+
+    const aviso = wrapper.get('[data-teste="sair-aviso"]')
+    expect(aviso.attributes('role')).toBe('alert')
+    expect(aviso.text()).toContain('o servidor não confirmou')
+    expect(router.currentRoute.value.name).toBe('progresso')
+    expect(useAuthStore().estaAutenticado).toBe(false)
+  })
+
+  it('enquanto sai, o botão fica desativado e um segundo clique não pede de novo', async () => {
+    await entrar()
+    const { wrapper } = await montarEm()
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-teste="botao-sair"]').exists()).toBe(true),
+    )
+    const del = vi.spyOn(apiClient, 'delete').mockReturnValue(new Promise(() => {}))
+
+    await wrapper.get('[data-teste="botao-sair"]').trigger('click')
+    await wrapper.get('[data-teste="botao-sair"]').trigger('click')
+
+    expect(wrapper.get('[data-teste="botao-sair"]').attributes('disabled')).toBeDefined()
+    expect(del).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('ProgressoView: visitante (FE-12, RF05)', () => {
   it('mostra o ConviteLogin, sem pedir o progresso e sem o botão de sair', async () => {
     const get = vi.spyOn(apiClient, 'get')
@@ -205,9 +348,10 @@ describe('ProgressoView: mudança de adesão (FE-12, RF27.1)', () => {
     await flushPromises()
 
     expect(post).toHaveBeenCalledWith('/gamificacao/adesao/')
-    expect(get.mock.calls.map(([caminho]) => caminho)).toEqual(
-      expect.arrayContaining(['/gamificacao/progresso/', '/ranking/1/']),
-    )
+    expect(get.mock.calls.map(([caminho]) => caminho).sort()).toEqual([
+      '/gamificacao/progresso/',
+      '/ranking/1/',
+    ])
     expect(interruptor(wrapper).attributes('aria-checked')).toBe('true')
     expect(gamificacao.rankingDe(1).dados.linhas.map((l) => l.apelido)).toContain(
       CONTA_DEMO.apelido,
@@ -228,6 +372,56 @@ describe('ProgressoView: mudança de adesão (FE-12, RF27.1)', () => {
 
     expect(del).toHaveBeenCalledWith('/gamificacao/adesao/')
     expect(interruptor(wrapper).attributes('aria-checked')).toBe('false')
+  })
+
+  it('confirmada a adesão, o interruptor continua na tela enquanto o progresso recarrega', async () => {
+    await entrar()
+    const { wrapper } = await montarComInterruptor()
+    const recarga = adiado()
+    trocarGet('/gamificacao/progresso/', () => recarga.promessa)
+
+    await interruptor(wrapper).trigger('click')
+    await flushPromises()
+
+    expect(interruptor(wrapper).attributes('aria-checked')).toBe('true')
+    expect(interruptor(wrapper).attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).not.toContain('Carregando progresso…')
+  })
+
+  it('confirmada a adesão e o recarregamento falha: o interruptor fica ligado, sem erro', async () => {
+    await entrar()
+    const { wrapper } = await montarComInterruptor()
+    trocarGet('/gamificacao/progresso/', () =>
+      Promise.reject(
+        new ApiError(500, { codigo: 'erro_interno', mensagem: 'Erro no servidor.' }),
+      ),
+    )
+
+    await interruptor(wrapper).trigger('click')
+    await flushPromises()
+
+    expect(interruptor(wrapper).attributes('aria-checked')).toBe('true')
+    expect(wrapper.find('[data-teste="adesao-erro"]').exists()).toBe(false)
+    expect(wrapper.find('[data-teste="progresso-erro"]').exists()).toBe(false)
+  })
+
+  it('falha ao desligar: continua ligado com o erro, e a nova tentativa apaga o erro', async () => {
+    await entrar()
+    await useGamificacaoStore().alterarAdesao(true)
+    const { wrapper } = await montarComInterruptor()
+    vi.spyOn(apiClient, 'delete').mockRejectedValueOnce(
+      new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }),
+    )
+
+    await interruptor(wrapper).trigger('click')
+    await flushPromises()
+    expect(interruptor(wrapper).attributes('aria-checked')).toBe('true')
+    expect(wrapper.get('[data-teste="adesao-erro"]').text()).toBe('Sem internet.')
+
+    await interruptor(wrapper).trigger('click')
+    await flushPromises()
+    expect(interruptor(wrapper).attributes('aria-checked')).toBe('false')
+    expect(wrapper.find('[data-teste="adesao-erro"]').exists()).toBe(false)
   })
 
   it('enquanto salva, o interruptor fica desativado', async () => {

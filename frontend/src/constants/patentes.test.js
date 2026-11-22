@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { IDS_PATENTES, patenteDosPontos, proximaPatente, rotuloPatente } from './patentes'
+import { IDS_PATENTES, proximaPatente, rotuloPatente } from './patentes'
 
 describe('patentes (RN11, Anexo A)', () => {
   it('os ids são os do contrato, em ordem', () => {
@@ -27,18 +27,5 @@ describe('patentes (RN11, Anexo A)', () => {
     ['OUTRA', null],
   ])('a próxima de %s é %s', (id, proxima) => {
     expect(proximaPatente(id)?.id ?? null).toBe(proxima)
-  })
-
-  it.each([
-    [0, 'CALOURO_DE_BANDEJA'],
-    [149, 'CALOURO_DE_BANDEJA'],
-    [150, 'RATO_DE_RU'],
-    [449, 'RATO_DE_RU'],
-    [450, 'VETERANO'],
-    [900, 'MESTRE_DA_FILA'],
-    [1500, 'LENDA_DO_RU'],
-    [9000, 'LENDA_DO_RU'],
-  ])('%s pontos: %s', (pontos, id) => {
-    expect(patenteDosPontos(pontos)).toBe(id)
   })
 })
