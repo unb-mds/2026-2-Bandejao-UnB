@@ -448,3 +448,24 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação após o item 5: `pytest` com 1583 testes aprovados e 1 ignorado, cobertura de `apps` de 98,68%; `ruff check`, `ruff format --check`, `bandit -lll` e `spectacular --validate --fail-on-warn` aprovados. Sem conflito com a `develop` em `f6adc09`.
 - Recheck do item 5 (head `0c42103`): regra e testes aprovados; o texto do `semServico` no `help_text` do serializer, na descrição da `CardapioView` e no `openapi.yaml` dizia "nos dias seguintes da semana", mas o código usa os 7 dias seguintes, que passam do fim da semana (o sábado com a segunda seguinte servida mostra a segunda, com `semServico` false). Texto trocado pela redação sugerida na revisão, comentários do `CardapioFiltrado` e do serviço alinhados e `openapi.yaml` regerado; sem mudança de comportamento.
 - Situação: ajuste do texto aplicado; aguardando a aprovação de AlvaroBento12. O mock do front segue na #224.
+
+## FE-04 — AvisoLocalizacao no App raiz
+
+- Issue: [#102](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/102). PR: [#212 — FE-04: AvisoLocalizacao no App raiz](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/212).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `AvisoLocalizacao` no `App` raiz em duas etapas, num `<dialog>` modal, com o "Agora não" guardado na `preferenciasStore` (`avisoLocalizacaoAdiado`), o "Usar minha localização" no menu da `HomeView` e o passo a passo quando o navegador bloqueou; `services/permissaoLocalizacao.js` (consulta e pedido da permissão, com prazo próprio, casos de pedido dispensado, sem sinal e HTTP sem TLS, e as coordenadas descartadas na hora, RI09); `composables/avisoLocalizacao.js` (abre o aviso de qualquer tela e devolve o desfecho); visual adaptado dos protótipos mobile e desktop do Figma, seguindo a documentação onde eles divergem; correções das duas revisões do #212. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: testes no commit `d20b10b`, antes da implementação (`b6ac75d`); os três arquivos de teste novos falharam antes do código. Na primeira revisão, testes em `16de957` (54 falhando) antes da correção `2b9d143`. No recheck, testes em `HASH_TESTES` (2 falhando) antes da correção `HASH_CORRECAO`.
+- Validação: `npm run test:ci` com 284 testes passando e cobertura de 88,5% das linhas e 80,16% dos ramos; `npm run lint:ci` sem achados; `npm run build` sem erro. Conferência no Chromium (Playwright) em 375 px e 1440 px: o aviso abre como modal, o Tab não sai para a página, o Esc e o fechamento do `<dialog>` pelo navegador valem como "Agora não" e o foco volta ao botão do perfil.
+- Revisão humana: [primeira revisão](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/212#pullrequestreview-5999497191) e [recheck](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/212#pullrequestreview-5999769946) de AlvaroBento12, feitos com apoio do pr-review-toolkit. Todos os itens aplicados; no recheck, as duas sugestões também.
+- Situação: aprovado no recheck ("pode seguir"); as duas sugestões finais aplicadas.
+
+## FE-09 — AvaliacaoWidget ligado à API
+
+- Issue: [#145](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/145). PR: [#NUMERO — FE-09: AvaliacaoWidget ligado à API](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/NUMERO).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `AvaliacaoWidget` ligado ao contrato da BE-13 (`GET /api/refeicoes/{refeicaoId}/avaliacoes/` e `POST /api/avaliacoes/`, com o `refeicaoId` do resumo do dia), edição pelo mesmo envio (upsert), motivos de indisponível (`utils/avaliacao.js`), comentários com apelido e "usuário removido", `ConviteLogin` citando os pontos na avaliação e no check-in, `avaliacoesStore` com as funções novas e servidor simulado no contrato. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- Contrato: o backend ainda responde 501 nas três rotas de avaliação (BE-13, #140, aberta). A tela trata o 501 como "As avaliações ainda não estão disponíveis", e o simulado imita isso com `simulacao.definirAvaliacoesDisponiveis(false)`. O contrato não tem rota de "minha avaliação": ela vem da resposta do POST e, depois de recarregar a página, do comentário com o apelido da sessão.
+- TDD: `HASH_DO_TEST` (testes) → `HASH_DO_FEAT` (código).
+- Validação local: `npm run lint:ci`, `npx vitest run --coverage` (607 testes) e `npm run build`.
+- Revisão humana: pendente.
+- Situação: PR aberto.
