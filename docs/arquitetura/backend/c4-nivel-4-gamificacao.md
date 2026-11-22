@@ -98,11 +98,12 @@ classDiagram
     +marcarPontuada(tipo: TipoContribuicao, origemId: int, agora: datetime) void
     +temCheckinConfirmado(conta: Conta, refeicao: RefeicaoRef) bool
     +avaliacaoNaoPontuada(conta: Conta, refeicao: RefeicaoRef) Avaliacao
+    +avaliacaoOculta(origemId: int) bool
     +diasComCheckin(conta: Conta, segunda: date) int
   }
   class PontuacaoRepository {
     +travarPorConta(conta: Conta) PontuacaoUsuario
-    +somarPontosSemestre(conta: Conta, campus: Campus, semestre: str, pontos: int, agora: datetime) void
+    +somarPontosSemestre(conta: Conta, campus: Campus, semestre: str, pontos: int) void
     +salvar(pontuacao: PontuacaoUsuario) void
   }
   class SemestreResolver {
@@ -136,6 +137,7 @@ classDiagram
     +minDiasSemana: int = 3
     +bonusSemana: int = 20
     +limiaresPatente: tuple = 0, 150, 450, 900, 1500
+    +semestreInicial: str = "2026.2"
     +datasTerminoSemestre: dict
   }
   class Conta {
@@ -196,12 +198,14 @@ classDiagram
      padrão do Django no MySQL): depois de esperar a trava, a transação
      enxerga o check-in ou a avaliação que a outra acabou de gravar. Não
      mudar esse nível; o teste com duas requisições simultâneas cobre o
-     caso;
+     caso. A criação da linha faltando roda num savepoint, para o
+     `IntegrityError` não estragar a transação de quem chamou;
   2. se o registro de origem já tem o marcador, devolve 0 e para (uma vez
      só, ADR 0011);
   3. `PontuacaoPolicy` diz os pontos do tipo (10, 15 ou 5, Anexo A). Para
-     `AVALIACAO`, só pontua se `temCheckinConfirmado` na mesma refeição;
-     sem check-in, devolve 0 e não marca, para que os pontos venham depois;
+     `AVALIACAO`, só pontua se `temCheckinConfirmado` na mesma refeição e
+     se a avaliação não está oculta (`avaliacaoOculta`); senão, devolve 0 e
+     não marca, para que os pontos venham depois;
   4. soma aos pontos totais e aos pontos do semestre do **campus da
      refeição**, no semestre que o `SemestreResolver` dá para a data da
      refeição, e marca o registro de origem;
@@ -240,7 +244,17 @@ classDiagram
   semestre vai do dia seguinte ao término do anterior até o seu próprio
   término, então os pontos das férias contam para o semestre seguinte. Sem
   data de término configurada para o semestre corrente, ele continua aberto
-  (RN12).
+  (RN12): depois do último término configurado, a data é do semestre
+  seguinte a ele. Sem nenhuma data configurada, o semestre é o
+  `semestreInicial` ("2026.2", decisão do grupo em 22/11/2026).
+- **Avaliação ocultada pela moderação não pontua** (decisão do grupo em
+  22/11/2026): nem na hora, nem liberada pelo check-in, nem na edição
+  (que mantém `oculta`). Pontos concedidos antes da ocultação não são
+  retirados; retirar fica com o ajuste manual da equipe (ADR 0004).
+- **`TipoContribuicao`, `RefeicaoRef` e `ResultadoPontuacao` ficam em
+  `gamificacao/contribuicao.py`**, porque a política e o repositório de
+  origem também os usam e o serviço importa os dois. Fila e Avaliação
+  continuam importando de `pontuacao_service`.
 - **Nada é zerado na virada do semestre (decidido com o time de banco de dados).** Cada semestre tem a
   sua linha em `PontosSemestreCampus` (uma por conta, campus e semestre),
   criada na primeira contribuição daquele semestre naquele campus; o

@@ -1,10 +1,10 @@
-"""PontuacaoService (Gamificação N4).
+"""PontuacaoService (Gamificação N4 4a): a única porta de entrada para pontuar.
 
-Versão mínima: `inicializar_conta` (BE-05), chamada pelo cadastro na mesma
-transação, e `registrar_contribuicao` (BE-09), chamada pelo check-in na mesma
-transação, que ainda não concede pontos. A BE-14 acrescenta a regra dos
-pontos e os outros métodos (`apagar_contadores`...) sem mudar a assinatura
-destes dois.
+`inicializar_conta` (BE-05) é chamada pelo cadastro e `registrar_contribuicao`
+pelo check-in e pela avaliação, sempre na transação de quem chama. A regra dos
+pontos é a da BE-14: 10 por check-in, 5 por avaliação com check-in na mesma
+refeição (campus + tipo + data), uma vez só, no campus e no semestre da
+refeição (RN09, RN12, Anexo A, ADR 0011).
 """
 
 from django.utils import timezone
