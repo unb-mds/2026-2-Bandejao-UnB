@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import FilaPrevisao from './FilaPrevisao.vue'
 import { ApiError, apiClient } from '@/services/apiClient'
@@ -9,6 +9,8 @@ const SEGUNDA_MEIO_DIA = new Date(2026, 8, 28, 12, 0)
 const HOJE = '2026-09-28'
 
 let pinia
+
+enableAutoUnmount(afterEach)
 
 async function montar(props = {}) {
   const wrapper = mount(FilaPrevisao, {
@@ -94,13 +96,58 @@ describe('FilaPrevisao (FE-11, RF13, RN06)', () => {
     expect(wrapper.text()).toContain('Carregando previsão…')
   })
 
-  it('501 (antes da BE-15): "Previsão ainda não disponível", sem erro', async () => {
+  it('501 (backend sem a rota): "Previsão fora do ar no momento", sem erro', async () => {
     simulacao.definirPrevisaoDisponivel(false)
 
     const wrapper = await montar()
 
-    expect(wrapper.find('[data-teste="previsao-indisponivel"]').exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('Não foi possível')
+    const aviso = wrapper.get('[data-teste="previsao-indisponivel"]')
+    expect(aviso.text()).toContain('Previsão fora do ar no momento')
+    expect(wrapper.find('[data-teste="previsao-erro"]').exists()).toBe(false)
+  })
+
+  it('com a tela parada, revalida depois dos 5 minutos sem tirar as faixas da tela', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+    vi.setSystemTime(SEGUNDA_MEIO_DIA)
+    const getOriginal = apiClient.get.bind(apiClient)
+    const get = vi.spyOn(apiClient, 'get')
+    const wrapper = await montar()
+    expect(get).toHaveBeenCalledTimes(1)
+
+    vi.advanceTimersByTime(60 * 1000)
+    await flushPromises()
+    expect(get).toHaveBeenCalledTimes(1)
+
+    let liberar
+    get.mockImplementationOnce(
+      (caminho, opcoes) =>
+        new Promise((resolver) => {
+          liberar = () => resolver(getOriginal(caminho, opcoes))
+        }),
+    )
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+    vi.advanceTimersByTime(60 * 1000)
+    await flushPromises()
+
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(faixas(wrapper)).toHaveLength(14)
+    expect(wrapper.text()).not.toContain('Carregando previsão…')
+    liberar()
+    await flushPromises()
+    expect(faixas(wrapper)).toHaveLength(14)
+  })
+
+  it('desmontar para a revalidação', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+    vi.setSystemTime(SEGUNDA_MEIO_DIA)
+    const get = vi.spyOn(apiClient, 'get')
+    const wrapper = await montar()
+
+    wrapper.unmount()
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 10 * 60 * 1000))
+    vi.advanceTimersByTime(5 * 60 * 1000)
+
+    expect(get).toHaveBeenCalledTimes(1)
   })
 
   it('falha de conexão: mostra o erro e "Tentar novamente" carrega de novo', async () => {

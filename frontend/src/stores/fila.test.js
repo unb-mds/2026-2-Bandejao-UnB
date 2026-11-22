@@ -404,7 +404,7 @@ describe('filaStore: previsão da fila (FE-11, RF13)', () => {
     })
   })
 
-  it('501 (backend antes da BE-15): "indisponivel", sem erro e sem log', async () => {
+  it('501 (backend sem a rota): "indisponivel", sem erro e sem log', async () => {
     const fila = useFilaStore()
     simulacao.definirPrevisaoDisponivel(false)
     const log = vi.spyOn(console, 'error')

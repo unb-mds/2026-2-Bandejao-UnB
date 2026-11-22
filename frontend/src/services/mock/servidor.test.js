@@ -1129,7 +1129,7 @@ describe('GET /fila/previsao/ (contrato da BE-15, FE-11)', () => {
     expect(dados.codigo).toBe('campus_nao_encontrado')
   })
 
-  it('simulacao.definirPrevisaoDisponivel(false): 501, como o backend antes da BE-15', async () => {
+  it('simulacao.definirPrevisaoDisponivel(false): 501, para testar a defesa do front', async () => {
     simulacao.definirPrevisaoDisponivel(false)
 
     expect((await get('/fila/previsao/?campus=1&refeicao=almoco')).status).toBe(501)
