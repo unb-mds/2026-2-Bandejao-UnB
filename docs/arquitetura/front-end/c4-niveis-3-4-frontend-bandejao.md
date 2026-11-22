@@ -215,10 +215,12 @@ do apelido (RF33.2)."]
 Nível por faixa e pico (RF13)."]
     espera["🧩 EsperaEstimada
 Minutos em destaque, nível
-e texto de apoio (RF22)."]
+e texto de apoio (RF22,
+ainda não implementado)."]
     encerrada["🧩 RefeicaoEncerrada
-No lugar da previsão e do
-check-in (RN05)."]
+No lugar do check-in; a
+previsão dessa refeição
+some junto (RN05)."]
     checkin["🧩 CheckinBotao
 Check-in por GPS (RF11, RF12)."]
     avisoPrivacidade["🧩 AvisoPrivacidade
@@ -254,15 +256,17 @@ os pontos (RF05)."]
   (fluxo 4d). Se a detecção trocar o campus, `CampusDetectadoAviso` aparece
   com a opção de voltar ao anterior.
 - **Cada seção carrega por conta própria.** O backend não tem um endpoint
-  que junte tudo: a `CampusView` pede em paralelo o cardápio, o resumo de
-  notas do dia (`GET /api/avaliacoes/resumo/`, uma chamada para todas as
-  refeições) e a previsão. Uma parte que falhe (ex.: previsão com "dados
-  insuficientes") não derruba as outras.
+  que junte tudo: cada seção pede o seu, em paralelo — o cardápio e o resumo
+  de notas do dia (`GET /api/avaliacoes/resumo/`, uma chamada para todas as
+  refeições) pela `CardapioView`, e a previsão pela própria `FilaPrevisao`.
+  Uma parte que falhe (ex.: previsão com erro ou 501) não derruba as outras.
 - **"Refeição encerrada"** é calculado na própria `CampusView`
   (`refeicaoEncerrada`, RN05): compara a hora do aparelho, atualizada a cada
   30 s, com o fim da refeição do check-in em `constants/refeicoes.js`.
-  Quando verdadeiro, `RefeicaoEncerrada` ocupa o lugar de `FilaPrevisao` e
-  de `CheckinBotao`, e a avaliação continua aberta até 23h59 (RF15.1). O
+  Quando verdadeiro, `RefeicaoEncerrada` ocupa o lugar de `CheckinBotao`, e
+  a `FilaPrevisao` dessa refeição de hoje some (RN05, item 3); a de outra
+  refeição de hoje ou de um dia seguinte continua, e a de um dia que já
+  passou não aparece. A avaliação continua aberta até 23h59 (RF15.1). O
   `refeicaoEncerrada` que o `GET /api/cardapio/` devolve vale para o
   cardápio (FE-08); quem decide se o check-in vale é sempre o backend.
 - **Sem a lista de campi, a tela não trava**: se o `GET /api/campi/` falhar,
@@ -276,12 +280,16 @@ os pontos (RF05)."]
   nível de cada uma e destaca como pico todas as que vierem com
   `ehPico: true`, com o resumo "Pico previsto" ou, no empate, "Picos
   previstos". Com `status: "dados_insuficientes"`, mostra "Dados
-  insuficientes", sem faixas nem valor de reserva (RF13). O 501 (backend
-  antes da BE-15) vira "Previsão ainda não disponível", sem erro; os outros
-  erros mostram a mensagem, com "Tentar novamente" menos no 400 e no 404.
-  A `filaStore` guarda a previsão por campus, refeição e dia; o erro não
-  fica no cache. Quando a refeição do check-in encerrou, a previsão dela
-  sai junto (RN05), mas a de outro dia ou refeição continua.
+  insuficientes", sem faixas nem valor de reserva (RF13). Uma resposta
+  `disponivel` sem nenhum pico, ou `dados_insuficientes` com faixas, fica
+  fora do contrato e vira erro. O 501 (backend antes da BE-15) vira
+  "Previsão ainda não disponível", sem erro; os outros erros mostram a
+  mensagem, com "Tentar novamente" menos no status 400 e 404. Os estados
+  ficam numa região `aria-live`. A `filaStore` guarda a previsão por campus,
+  refeição e dia: a carregada e a "indisponível" valem 5 minutos, como no
+  cardápio, para a previsão aparecer sem recarregar quando a BE-15 entrar;
+  o erro não fica guardado. A regra da RN05 está na nota de "Refeição
+  encerrada".
 - **`EsperaEstimada` fica dentro de `FilaPrevisao`**: mostra os minutos em
   destaque só nas faixas com `esperaEstimadaMin` diferente de `null`; nas
   demais, só o nível. O texto de apoio (L12) explica que o nível é relativo
@@ -563,8 +571,9 @@ trata erros (RNF04, ADR 0007)."]
   não" do aviso de localização** (RF19), para o aviso não reaparecer a cada
   abertura. O campus detectado fica só em memória, junto com a hora da
   última detecção, porque vale até a próxima.
-- **`filaStore`** guarda a previsão (com `esperaEstimadaMin` por faixa,
-  RF22) e a **pergunta de saída pendente** (`perguntaId`, `tentativa`,
+- **`filaStore`** guarda a previsão por campus, refeição e dia (a
+  `esperaEstimadaMin` por faixa entra com o RF22) e a **pergunta de saída
+  pendente** (`perguntaId`, `tentativa`,
   `expiraEm`) e o próximo `perguntaDevidaEm`. Seguindo a decisão 7 da #66,
   a raiz consulta `GET /api/fila/pergunta-pendente/` **ao abrir o app, ao
   voltar ao primeiro plano, no horário de `perguntaDevidaEm`** e, enquanto
@@ -1169,8 +1178,8 @@ sequenceDiagram
 |---|---|---|
 | `CampusView` | RF20, RF03.4, RN04, RN05 | ✅ 4d |
 | `CardapioView` (seção cardápio da `CampusView`) | RF05, RF06, RF07 | — |
-| `FilaView` (seção fila da `CampusView`) / `FilaPrevisao` | RF13, RF21, RF22, L08 | — |
-| `EsperaEstimada` | RF22 | — |
+| `FilaView` (seção fila da `CampusView`) / `FilaPrevisao` | RF13, RN05, RN06, RF21, RF22, L08 | — |
+| `EsperaEstimada` | RF22 (ainda não implementado) | — |
 | `RefeicaoEncerrada` | RN05, RF20.3 | — |
 | `SeletorCampus` / `CampusDetectadoAviso` | RF07.2, RF20.2, RN04 | ✅ 4d |
 | `AvisoExecutivo` | RF20.4, RI08, L11 | — |
