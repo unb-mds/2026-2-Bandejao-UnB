@@ -273,6 +273,14 @@ describe('sessão ao abrir o app (FE-03, ADR 0007)', () => {
     expect(wrapper.find('[aria-label="Perfil de Visitante"]').exists()).toBe(true)
   })
 
+  it('o "Fale com a equipe" da /inicio é o e-mail da equipe, sem abrir nova aba (RNF08)', async () => {
+    const { wrapper } = await montarEm('/inicio', { campus: 1 })
+
+    const contato = wrapper.findAll('a').find((a) => a.text() === 'Fale com a equipe')
+    expect(contato.attributes('href')).toBe('mailto:equipe@bandejaounb.com.br')
+    expect(contato.attributes('target')).toBeUndefined()
+  })
+
   it('busca a sessão uma vez só, não a cada navegação', async () => {
     const espiao = vi.spyOn(apiClient, 'get')
     const { router } = await montarEm('/login')

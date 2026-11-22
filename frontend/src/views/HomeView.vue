@@ -294,7 +294,7 @@ async function sair() {
 
       <p class="contato">
         Dúvidas ou reclamações?
-        <a :href="CANAL_CONTATO" target="_blank" rel="noopener">Fale com a equipe</a>
+        <a :href="CANAL_CONTATO">Fale com a equipe</a>
       </p>
     </main>
   </div>

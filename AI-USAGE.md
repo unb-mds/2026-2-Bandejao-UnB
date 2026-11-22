@@ -470,6 +470,16 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Revisão humana: pendente.
 - Situação: PR aberto.
 
+## FE-15 — Canal de contato para reclamações
+
+- Issue: [#170](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/170). PR: [#228 — FE-15: canal de contato visível na tela do campus](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/228).
+- Ferramenta: Claude (Anthropic).
+- Apoio: troca do canal de contato das issues do GitHub pelo e-mail `equipe@bandejaounb.com.br` (RNF08, ADR 0012, Visão 9.1 e aviso de privacidade), componente `ContatoEquipe` no rodapé da `CampusView` (visível em qualquer largura e sem login, porque a barra do topo some no celular), "Contato" da `NavegacaoTopo` com `mailto` e o endereço para leitor de tela, e os links da `HomeView` e do cadastro sem abrir nova aba. Também tirou as capturas em 360 px e 1366 px. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `94cfd3a` (testes) → `26f7629` (código).
+- Validação local: `npm run lint:ci`, `npx vitest run --coverage` (651 testes) e `npm run build`. Sem rolagem horizontal em 360 px e 1366 px (largura da página igual à da janela).
+- Revisão humana: pendente.
+- Situação: PR aberto.
+
 ## BE-13 — Avaliação
 
 - Issue: [#140](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/140). PR: [#230 — BE-13: avaliação (POST, comentários e resumo do dia)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/230).
