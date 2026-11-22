@@ -1057,3 +1057,84 @@ describe('POST /checkins/ (RF11, RF12, contrato da BE-09)', () => {
     expect((await post('/checkins/', CHECKIN)).status).toBe(201)
   })
 })
+
+describe('GET /fila/previsao/ (contrato da BE-15, FE-11)', () => {
+  it('sem login: 200 com as faixas de 15 minutos do almoço e os picos empatados', async () => {
+    const { status, dados } = await get('/fila/previsao/?campus=1&refeicao=almoco&data=2026-09-28')
+
+    expect(status).toBe(200)
+    expect(dados).toMatchObject({
+      campus: 1,
+      tipoRefeicao: 'almoco',
+      data: '2026-09-28',
+      status: 'disponivel',
+    })
+    expect(dados.faixas).toHaveLength(14)
+    expect(dados.faixas[0]).toEqual({
+      inicio: '11:00:00',
+      fim: '11:15:00',
+      nivel: 'vazia',
+      ehPico: false,
+    })
+    expect(dados.faixas.at(-1).fim).toBe('14:30:00')
+    expect(dados.faixas.filter((f) => f.ehPico).map((f) => f.inicio)).toEqual([
+      '12:00:00',
+      '12:15:00',
+      '12:45:00',
+    ])
+    expect(dados.faixas.filter((f) => f.ehPico).every((f) => f.nivel === 'longa')).toBe(true)
+  })
+
+  it('café: um pico só', async () => {
+    const { dados } = await get('/fila/previsao/?campus=1&refeicao=cafe&data=2026-09-28')
+
+    expect(dados.faixas.filter((f) => f.ehPico)).toEqual([
+      { inicio: '07:45:00', fim: '08:00:00', nivel: 'longa', ehPico: true },
+    ])
+  })
+
+  it('campus sem check-ins suficientes: 200 com dados_insuficientes e nenhuma faixa', async () => {
+    const { status, dados } = await get('/fila/previsao/?campus=5&refeicao=almoco')
+
+    expect(status).toBe(200)
+    expect(dados).toMatchObject({ status: 'dados_insuficientes', faixas: [] })
+  })
+
+  it('sem data: usa o dia corrente', async () => {
+    const { dados } = await get('/fila/previsao/?campus=1&refeicao=almoco')
+
+    expect(dados.data).toBe('2026-09-28')
+  })
+
+  it.each([
+    ['sem campus', '/fila/previsao/?refeicao=almoco'],
+    ['campus com espaço', '/fila/previsao/?campus=%201&refeicao=almoco'],
+    ['campus 01', '/fila/previsao/?campus=01&refeicao=almoco'],
+    ['sem refeição', '/fila/previsao/?campus=1'],
+    ['refeição desconhecida', '/fila/previsao/?campus=1&refeicao=lanche'],
+    ['refeição toString', '/fila/previsao/?campus=1&refeicao=toString'],
+    ['data inválida', '/fila/previsao/?campus=1&refeicao=almoco&data=2026-02-30'],
+    ['parâmetro a mais', '/fila/previsao/?campus=1&refeicao=almoco&semana=1'],
+  ])('%s: 400 parametros_invalidos', async (_caso, caminho) => {
+    const { status, dados } = await get(caminho)
+
+    expect(status).toBe(400)
+    expect(dados.codigo).toBe('parametros_invalidos')
+  })
+
+  it('campus inexistente: 404 campus_nao_encontrado', async () => {
+    const { status, dados } = await get('/fila/previsao/?campus=99&refeicao=almoco')
+
+    expect(status).toBe(404)
+    expect(dados.codigo).toBe('campus_nao_encontrado')
+  })
+
+  it('simulacao.definirPrevisaoDisponivel(false): 501, para testar a defesa do front', async () => {
+    simulacao.definirPrevisaoDisponivel(false)
+
+    expect((await get('/fila/previsao/?campus=1&refeicao=almoco')).status).toBe(501)
+
+    reiniciarSimulacao()
+    expect((await get('/fila/previsao/?campus=1&refeicao=almoco')).status).toBe(200)
+  })
+})

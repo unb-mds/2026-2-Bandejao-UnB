@@ -575,6 +575,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação após a revisão: testes da fila e do contrato (275) aprovados localmente (SQLite, Python 3.14); `ruff check`, `ruff format --check` e `spectacular --validate --fail-on-warn` aprovados. A suíte completa e o `testes-mysql` ficam com o CI.
 - Situação: ajustes da revisão aplicados; aguardando a nova revisão.
 
+<<<<<<< HEAD
 ## BE-16 — Progresso e adesão
 
 - Issue: [#168](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/168). PR: a preencher ao abrir.
@@ -586,3 +587,42 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação local: SQLite (Python 3.13): `pytest` com 1977 testes aprovados e 8 ignorados (eram 1917 na `develop` em `e651805`), cobertura de `apps` de 99% e 100% nos módulos novos e nos alterados; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` (nenhuma migration nova) e `spectacular --validate --fail-on-warn` (diff do `openapi.yaml` só de descrição). `testes-mysql`, `semgrep` e `pip-audit` ficam com o CI.
 - Revisão humana: pendente (revisão de outra frente, DoD 1.4).
 - Situação: aguardando revisão.
+=======
+## FE-11 — FilaPrevisao na tela do campus
+
+- Issue: [#172](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/172). PR: [#234 — FE-11: FilaPrevisao na tela do campus](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/234).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `FilaPrevisao` nova na seção da fila: chama `GET /api/fila/previsao/` com o campus, a refeição e o dia escolhidos no cardápio, sem login, e mostra as faixas de 15 minutos com o nível de cada uma;
+  - pico em destaque em todas as faixas com `ehPico`, com o resumo "Pico previsto" ou "Picos previstos" no empate, e "Dados insuficientes" sem faixas nem valor de reserva (RF13, RN06);
+  - estados de carregando, erro com "Tentar novamente" (menos no 400 e no 404) e um 501, como defesa contra um backend sem a rota, como "Previsão fora do ar no momento";
+  - a previsão da refeição encerrada sai junto com o check-in (RN05);
+  - `carregarPrevisao` na `filaStore`, com cache por campus, refeição e dia, o mesmo pedido saindo uma vez só e a resposta validada;
+  - o cartão "Em breve" e a legenda repetida saíram da `FilaView`, e o "Como vai funcionar?" virou "Como funciona?", com o texto no presente;
+  - previsão de exemplo no simulado (almoço com 3 picos empatados, café com 1, Fazenda Água Limpa com dados insuficientes), com as validações do contrato e o 501 simulável;
+  - nota no C4.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `16654a4` (testes) → `d93139b` (código).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 778 testes passando (95,38% de linhas / 91,11% de ramos) e `npm run build` sem erro; layout conferido em 360 px e 1366 px no DevTools, com as capturas no PR.
+- Revisão humana: Álvaro Bento revisou o PR #234. Ajustes aplicados, com os testes antes do código:
+  - uma resposta `disponivel` sem pico, ou `dados_insuficientes` com faixas, vira erro;
+  - a lista de faixas virou um grid único, que encolhe em 360 px;
+  - os três trechos contraditórios do C4 foram corrigidos;
+  - a previsão carregada e a "indisponível" valem 5 minutos, como o cardápio;
+  - testes de corrida com `forcar`, "Tentar novamente" por status, RN05 às 16h, no limite de 19h30/19h31 e com o relógio virando, e dia passado sem previsão;
+  - os estados ficam numa região `aria-live`, com a lista fora dela;
+  - o erro de resposta inválida leva a chave e o corpo;
+  - os cabeçalhos da `filaStore` e do simulado foram atualizados, e as props novas da `FilaView` passaram a ser obrigatórias;
+  - a RN06 entrou na rastreabilidade.
+
+  Os comentários novos sugeridos no código ficaram de fora por serem sugestão.
+
+  Na segunda revisão, depois da BE-15 (#236) entrar na develop, os ajustes foram:
+  - os textos que tratavam a BE-15 como futura (cabeçalhos da `filaStore` e do simulado, C4) foram atualizados, e o 501 ficou só como defesa;
+  - com a tela parada, a `FilaPrevisao` confere a validade a cada minuto e, enquanto revalida, mantém as faixas antigas;
+  - um `@supports` cobre os navegadores sem `subgrid`.
+
+  Na terceira conferência, a revalidação passou a rodar em segundo plano: não passa pelo "Carregando…", não insiste num erro (para isso há o "Tentar novamente") e, se falhar, mantém a previsão antiga e tenta de novo no minuto seguinte. Há testes de rede fora e de falha da revalidação.
+- Situação: aguardando nova revisão.
+>>>>>>> origin/develop
