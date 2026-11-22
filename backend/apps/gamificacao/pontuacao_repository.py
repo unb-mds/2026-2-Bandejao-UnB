@@ -54,6 +54,25 @@ class PontuacaoRepository:
         """Grava os pontos totais (e o `atualizado_em`, pelo `auto_now`)."""
         pontuacao.save(update_fields=["pontos_totais", "atualizado_em"])
 
+    def alterar_adesao(self, conta, participa: bool) -> None:
+        """Liga ou desliga a adesão ao ranking (RF27.1, Gamificação N4 4c).
+
+        Abre a própria transação: o projeto não usa `ATOMIC_REQUESTS`, e o
+        `select_for_update` de `travar_por_conta` precisa de uma. Reaproveitar
+        a trava cria a linha que falta e mantém a ordem de travas da BE-14
+        (conta primeiro).
+
+        Grava só `participa_ranking` (e o `atualizado_em` da `PontuacaoUsuario`,
+        que o ranking não usa), assim como `salvar` grava só os pontos: um
+        não apaga o que o outro gravou. Não toca na `PontosSemestreCampus`,
+        cujo `atualizado_em` é o desempate do ranking. Idempotente, e os
+        pontos continuam somando com a adesão desligada.
+        """
+        with transaction.atomic():
+            pontuacao = self.travar_por_conta(conta)
+            pontuacao.participa_ranking = participa
+            pontuacao.save(update_fields=["participa_ranking", "atualizado_em"])
+
     @staticmethod
     def _ler_com_trava(conta) -> PontuacaoUsuario | None:
         return (
