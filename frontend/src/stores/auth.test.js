@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore } from './auth'
+import { useGamificacaoStore } from './gamificacao'
 import { ApiError, apiClient } from '@/services/apiClient'
 import { CONTA_DEMO } from '@/services/mock/banco'
 import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
@@ -53,6 +54,32 @@ describe('authStore com o servidor simulado', () => {
       avisoPrivacidadePendente: true,
     })
     expect(auth).not.toHaveProperty('token')
+  })
+
+  it('sair limpa também os pontos e o aviso da gamificacaoStore', async () => {
+    const auth = useAuthStore()
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+    const gamificacao = useGamificacaoStore()
+    gamificacao.registrarPontos({ total: 10, contribuicao: 10, avaliacaoLiberada: 0 })
+
+    await auth.sair()
+
+    expect(gamificacao.ultimosPontos).toBeNull()
+    expect(gamificacao.aviso).toBeNull()
+    expect(gamificacao.progressoDesatualizado).toBe(false)
+  })
+
+  it('401 numa rota logada limpa também a gamificacaoStore', async () => {
+    const auth = useAuthStore()
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+    const gamificacao = useGamificacaoStore()
+    gamificacao.registrarPontos({ total: 10, contribuicao: 10, avaliacaoLiberada: 0 })
+
+    simulacao.expirarSessao()
+    await apiClient.post('/privacidade/aceite/').catch(() => {})
+
+    expect(gamificacao.ultimosPontos).toBeNull()
+    expect(gamificacao.aviso).toBeNull()
   })
 
   it('401 numa rota logada limpa o authStore (sessão expirada no servidor)', async () => {

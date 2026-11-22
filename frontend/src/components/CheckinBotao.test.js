@@ -464,7 +464,7 @@ describe('CheckinBotao — respostas do POST /api/checkins/', () => {
           liberar = () =>
             resolver({
               checkin: { id: 9, campus: 1, tipoRefeicao: 'almoco', data: '2026-11-09' },
-              pontos: { total: 5 },
+              pontos: { total: 5, contribuicao: 5, avaliacaoLiberada: 0 },
             })
         }),
     )

@@ -12,6 +12,8 @@ function montar() {
 
 const aviso = (wrapper) => wrapper.find('[data-teste="pontos-aviso"]')
 
+const bloco = (total) => ({ total, contribuicao: total, avaliacaoLiberada: 0 })
+
 beforeEach(() => {
   vi.useFakeTimers()
   pinia = createPinia()
@@ -35,7 +37,7 @@ describe('PontosAviso (FE-10, RF24.2)', () => {
   it('total 0: o aviso não aparece', async () => {
     const wrapper = montar()
 
-    useGamificacaoStore().registrarPontos({ total: 0, contribuicao: 0, avaliacaoLiberada: 0 })
+    useGamificacaoStore().registrarPontos(bloco(0))
     await wrapper.vm.$nextTick()
 
     expect(aviso(wrapper).exists()).toBe(false)
@@ -44,7 +46,7 @@ describe('PontosAviso (FE-10, RF24.2)', () => {
   it('total maior que 0: mostra "+N pontos"', async () => {
     const wrapper = montar()
 
-    useGamificacaoStore().registrarPontos({ total: 10, contribuicao: 10, avaliacaoLiberada: 0 })
+    useGamificacaoStore().registrarPontos(bloco(10))
     await wrapper.vm.$nextTick()
 
     expect(aviso(wrapper).text()).toContain('+10 pontos')
@@ -53,7 +55,7 @@ describe('PontosAviso (FE-10, RF24.2)', () => {
   it('1 ponto fica no singular', async () => {
     const wrapper = montar()
 
-    useGamificacaoStore().registrarPontos({ total: 1 })
+    useGamificacaoStore().registrarPontos(bloco(1))
     await wrapper.vm.$nextTick()
 
     expect(aviso(wrapper).text()).toContain('+1 ponto')
@@ -62,7 +64,7 @@ describe('PontosAviso (FE-10, RF24.2)', () => {
 
   it('some sozinho depois de 4 segundos', async () => {
     const wrapper = montar()
-    useGamificacaoStore().registrarPontos({ total: 15 })
+    useGamificacaoStore().registrarPontos(bloco(15))
     await wrapper.vm.$nextTick()
 
     vi.advanceTimersByTime(3999)
@@ -77,11 +79,11 @@ describe('PontosAviso (FE-10, RF24.2)', () => {
   it('um aviso novo recomeça a contagem e mostra o total novo', async () => {
     const wrapper = montar()
     const gamificacao = useGamificacaoStore()
-    gamificacao.registrarPontos({ total: 10 })
+    gamificacao.registrarPontos(bloco(10))
     await wrapper.vm.$nextTick()
     vi.advanceTimersByTime(3000)
 
-    gamificacao.registrarPontos({ total: 5 })
+    gamificacao.registrarPontos(bloco(5))
     await wrapper.vm.$nextTick()
     vi.advanceTimersByTime(3000)
     await wrapper.vm.$nextTick()
@@ -94,7 +96,7 @@ describe('PontosAviso (FE-10, RF24.2)', () => {
 
   it('o botão de fechar tira o aviso na hora', async () => {
     const wrapper = montar()
-    useGamificacaoStore().registrarPontos({ total: 10 })
+    useGamificacaoStore().registrarPontos(bloco(10))
     await wrapper.vm.$nextTick()
 
     await wrapper.get('[data-teste="pontos-aviso-fechar"]').trigger('click')
@@ -105,11 +107,51 @@ describe('PontosAviso (FE-10, RF24.2)', () => {
 
   it('desmontar com um aviso aberto não deixa temporizador pendente', async () => {
     const wrapper = montar()
-    useGamificacaoStore().registrarPontos({ total: 10 })
+    useGamificacaoStore().registrarPontos(bloco(10))
     await wrapper.vm.$nextTick()
 
     wrapper.unmount()
 
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('dois avisos seguidos com o mesmo total: a contagem recomeça no segundo', async () => {
+    const wrapper = montar()
+    const gamificacao = useGamificacaoStore()
+    gamificacao.registrarPontos(bloco(10))
+    await wrapper.vm.$nextTick()
+    vi.advanceTimersByTime(3000)
+
+    gamificacao.registrarPontos(bloco(10))
+    await wrapper.vm.$nextTick()
+    vi.advanceTimersByTime(3000)
+    await wrapper.vm.$nextTick()
+
+    expect(aviso(wrapper).exists()).toBe(true)
+    vi.advanceTimersByTime(1000)
+    await wrapper.vm.$nextTick()
+    expect(aviso(wrapper).exists()).toBe(false)
+  })
+
+  it('aviso aberto antes de o componente montar também some em 4 segundos', async () => {
+    useGamificacaoStore().registrarPontos(bloco(10))
+
+    const wrapper = montar()
+    expect(aviso(wrapper).text()).toContain('+10 pontos')
+
+    vi.advanceTimersByTime(4000)
+    await wrapper.vm.$nextTick()
+    expect(aviso(wrapper).exists()).toBe(false)
+  })
+
+  it('a região viva tem só o texto: o botão de fechar fica fora dela', async () => {
+    const wrapper = montar()
+    useGamificacaoStore().registrarPontos(bloco(10))
+    await wrapper.vm.$nextTick()
+
+    const regiao = wrapper.get('[role="status"]')
+    expect(regiao.text()).toContain('+10 pontos')
+    expect(regiao.find('button').exists()).toBe(false)
+    expect(wrapper.find('[data-teste="pontos-aviso-fechar"]').exists()).toBe(true)
   })
 })

@@ -435,8 +435,39 @@ describe('avaliacoesStore: respostas inesperadas e rascunho', () => {
       })
       expect(log).toHaveBeenCalledTimes(1)
       expect(avaliacoes.minhaAvaliacao(refeicaoId, null)).toBeNull()
+      expect(useGamificacaoStore().ultimosPontos).toBeNull()
     },
   )
+
+  it.each([
+    ['sem o bloco pontos', undefined],
+    ['com o bloco pontos malformado', { total: 'cinco' }],
+  ])('2xx %s: continua "criada", sem aviso e com registro no console', async (_caso, pontos) => {
+    const { avaliacoes, refeicaoId, alvo } = await preparar()
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      avaliacao: { id: 9, refeicaoId, nota: 4, comentario: '', criadaEm: HOJE, editadaEm: null },
+      pontos,
+    })
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const resultado = await avaliacoes.avaliar(alvo)
+
+    expect(resultado.desfecho).toBe('criada')
+    expect(useGamificacaoStore().aviso).toBeNull()
+    expect(log).toHaveBeenCalledWith('Bloco pontos fora do contrato.', pontos)
+  })
+
+  it('2xx com a gamificacaoStore lançando ao registrar: a avaliação continua "criada"', async () => {
+    const { avaliacoes, alvo } = await preparar()
+    vi.spyOn(useGamificacaoStore(), 'registrarPontos').mockImplementation(() => {
+      throw new Error('quebrou')
+    })
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(avaliacoes.avaliar(alvo)).resolves.toMatchObject({ desfecho: 'criada' })
+
+    expect(log).toHaveBeenCalledWith('Falha ao registrar os pontos da avaliação.', expect.any(Error))
+  })
 
   it('2xx com a recarga falhando: "criada" com atualizada=false e os dados anteriores mantidos', async () => {
     const { avaliacoes, refeicaoId, alvo } = await preparar()
