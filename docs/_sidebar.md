@@ -48,6 +48,10 @@
 - **Deploy**
   - [Deploy de produção](deploy/deploy-producao.md)
 
+- **Operação**
+  - [Monitor de disponibilidade](operacao/monitor-disponibilidade.md)
+  - [Relatório parcial de disponibilidade](operacao/relatorio-disponibilidade-parcial.md)
+
 - **Gestão do projeto**
   - [Atas de reunião](atas-reunioes/README.md)
   - [Reviews de sprint](reviews-sprints/README.md)

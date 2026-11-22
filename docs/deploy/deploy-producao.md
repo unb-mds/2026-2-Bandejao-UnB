@@ -566,6 +566,10 @@ As tarefas do cron têm o próprio log, um arquivo por comando, em
 
 ## Cuidados
 
+- **Monitor de disponibilidade.** Dois monitores externos (site e
+  `/api/campi/`) avisam por e-mail quando o serviço cai. O que fazer ao
+  receber o alerta está em
+  [Monitor de disponibilidade](../operacao/monitor-disponibilidade.md).
 - **Scripts de `db/init/` só rodam na primeira subida**, com o volume
   `mysql_dados` vazio. Se um script mudar depois, aplique-o na mão: o
   `10-usuarios.sh` como em [Banco](#banco); um `.sql` com
