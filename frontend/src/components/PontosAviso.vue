@@ -49,6 +49,7 @@ onBeforeUnmount(() => clearTimeout(temporizador))
 .pontos-aviso {
   position: fixed;
   left: 50%;
+  /* 76px: acima da NavegacaoInferior; se a altura da barra mudar, muda aqui. */
   bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   z-index: 40;
   display: flex;

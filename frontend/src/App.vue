@@ -25,6 +25,7 @@ const mostrarNavegacaoTopo = computed(
       .area-tela porque o <dialog> não participa do layout das telas.
     -->
     <AvisoLocalizacao />
+    <!-- Global (RF24.2): o aviso "+N pontos" de qualquer contribuição, em qualquer tela. -->
     <PontosAviso />
   </div>
 </template>
