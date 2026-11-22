@@ -9,6 +9,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.cardapio.models import TipoRefeicao
+from apps.cardapio.parametros_consulta import (
+    ParametrosInvalidos,
+    buscar_campus,
+    ler_data,
+    ler_id_do_campus,
+)
 from apps.fila.checkin_service import CheckinService
 from apps.fila.distancia_geografica import Coordenadas
 from apps.fila.erros import (
@@ -16,6 +22,7 @@ from apps.fila.erros import (
     CheckinForaDoHorarioError,
     CheckinRecusadoError,
 )
+from apps.fila.previsao_service import PrevisaoService
 from apps.fila.serializers import (
     CheckinEntradaSerializer,
     CheckinRegistradoSerializer,
@@ -30,6 +37,12 @@ MENSAGENS_RECUSA = {
         "Chegue mais perto e tente de novo."
     ),
 }
+
+
+# Os únicos parâmetros da previsão, como no cardápio e no resumo das
+# avaliações: um nome errado (`dia` no lugar de `data`) daria 200 com o dia
+# de hoje, como se fosse o pedido.
+PARAMETROS_DA_PREVISAO = ("campus", "refeicao", "data")
 
 
 def erro(codigo, mensagem, situacao):
@@ -153,6 +166,35 @@ class CheckinView(APIView):
         return Response(saida.data, status=status.HTTP_201_CREATED)
 
 
+def ler_parametros_da_previsao(query):
+    """`(campus, refeicao, data)` da query string, ou 400/404.
+
+    Todos os 400 vêm antes do 404 do campus, como no cardápio (#217). Sem
+    `data`, vale o dia de hoje no horário de Brasília.
+    """
+    desconhecidos = [nome for nome in query if nome not in PARAMETROS_DA_PREVISAO]
+    if desconhecidos:
+        raise ParametrosInvalidos(
+            f"Parâmetro desconhecido: {', '.join(desconhecidos)}."
+        )
+    repetidos = [
+        nome for nome in PARAMETROS_DA_PREVISAO if len(query.getlist(nome)) > 1
+    ]
+    if repetidos:
+        raise ParametrosInvalidos(
+            f"Parâmetro enviado mais de uma vez: {', '.join(repetidos)}."
+        )
+    campus_id = ler_id_do_campus(query.get("campus"))
+    refeicao = query.get("refeicao")
+    if refeicao is None:
+        raise ParametrosInvalidos("Informe a refeição.")
+    if refeicao not in TipoRefeicao.values:
+        raise ParametrosInvalidos("A refeição deve ser cafe, almoco ou jantar.")
+    data = ler_data(query.get("data"), "data") or timezone.localdate()
+    # Por último: depois de todos os 400.
+    return buscar_campus(campus_id), refeicao, data
+
+
 class PrevisaoView(APIView):
     """GET /api/fila/previsao/ (RF13, Fila N4 4c)."""
 
@@ -162,9 +204,15 @@ class PrevisaoView(APIView):
     @extend_schema(
         summary="Previsão de pico por faixa de horário",
         description=(
-            "Calculada sob demanda a partir dos check-ins das últimas 4 "
-            "semanas, no mesmo dia da semana (RF13). Com poucos dados volta "
-            "200 com `status` igual a `dados_insuficientes`, e não erro."
+            "Calculada sob demanda a partir dos check-ins confirmados das 4 "
+            "semanas anteriores, no mesmo dia da semana (o próprio dia não "
+            "entra), e só deles: as respostas à pergunta de saída não mudam "
+            "o nível (RF13, ADR 0010). As faixas de 15 minutos cobrem o "
+            "horário da refeição, em horário de Brasília. A média de cada "
+            "faixa considera só os dias com check-in, e neles a faixa vazia "
+            "conta como zero. Em empate na maior média, todas essas faixas "
+            "têm `ehPico` (RN06). Com poucos dados volta 200 com `status` "
+            "igual a `dados_insuficientes` e `faixas` vazia, e não erro."
         ),
         tags=["fila"],
         parameters=[
@@ -201,8 +249,7 @@ class PrevisaoView(APIView):
                     "`codigo`: `parametros_invalidos`."
                 ),
             ),
-            # Mesmo critério do GET /api/cardapio/ (#217). Só contrato por
-            # enquanto: a view devolve 501.
+            # Mesmo critério do GET /api/cardapio/ (#217).
             404: OpenApiResponse(
                 ErroSerializer,
                 description="Campus inexistente. `codigo`: `campus_nao_encontrado`.",
@@ -210,5 +257,23 @@ class PrevisaoView(APIView):
         },
     )
     def get(self, request):
-        # Só contrato: a lógica (PrevisaoService) vem em outra BE.
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        campus, refeicao, data = ler_parametros_da_previsao(request.query_params)
+        previsao = PrevisaoService().calcular(campus, refeicao, data)
+        saida = PrevisaoPicoSerializer(
+            {
+                "campus": previsao.campus.id,
+                "tipoRefeicao": previsao.tipo_refeicao,
+                "data": previsao.data,
+                "status": previsao.status,
+                "faixas": [
+                    {
+                        "inicio": faixa.inicio,
+                        "fim": faixa.fim,
+                        "nivel": faixa.nivel,
+                        "ehPico": faixa.eh_pico,
+                    }
+                    for faixa in previsao.faixas
+                ],
+            }
+        )
+        return Response(saida.data)
