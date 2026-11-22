@@ -426,3 +426,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - Ficam com o backend o `semServico` e o código `campus_nao_encontrado` no `GET /api/cardapio/`.
 - Validação: `npm run test:ci` com 557 testes passando (cobertura de 91,84% de linhas / 85,22% de ramos), `npm run lint:ci` sem achados e `npm run build` sem erro, no PC da autora.
 - Situação: aguardando nova revisão.
+
+## BD-09 — Monitor de disponibilidade
+
+- Issue: [#ISSUE](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/ISSUE). PR: #NUMERO.
+- Ferramenta: Claude (Anthropic).
+- Apoio: texto do guia `docs/operacao/monitor-disponibilidade.md` (monitores, alertas, o que fazer ao receber um alerta, método de cálculo da disponibilidade na janela de 7h às 19h30), modelo do relatório parcial e links no menu lateral e no guia de deploy. O texto foi gerado pela IA e revisado, commitado e aplicado pelo autor.
+- Feito pelo autor, sem a IA: criação da conta e dos dois monitores no UptimeRobot (site e `/api/campi/` com a palavra `Darcy Ribeiro`, a cada 5 minutos, com alerta por e-mail) e conferência de que os dois ficaram `Up`.
+- Validação: monitores ativos e em `Up` no painel; a página `/api/campi/` foi aberta no navegador para escolher a palavra. Não há código nem testes nesta entrega.
+- Fora deste PR: o relatório parcial segue com os campos em branco até haver dias de refeição completos.
+- Situação: aguardando revisão.
