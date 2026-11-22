@@ -1,0 +1,15 @@
+# Backup diário do banco do Bandejão (BD-15, #183). Instalar (ver
+# docs/deploy/backup-banco.md):
+#   sudo install -m 644 -o root -g root deploy/backup/bandejao-backup /etc/cron.d/bandejao-backup
+#
+# Formato do /etc/cron.d: minuto, hora, dia, mês, dia da semana, usuário e
+# comando. O horário está em UTC, o fuso da VM; Brasília é UTC-3. O backup
+# roda às 03h45 de Brasília, depois da retenção da fila (03h30, BD-07), para
+# a cópia já sair sem os vínculos de mais de 4 semanas. O log fica junto dos
+# do cron e é girado pelo mesmo logrotate. O cron descarta o stderr; as
+# falhas vão para o syslog (journalctl -t bandejao-backup).
+
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+45 6 * * * azureuser sh /home/azureuser/2026-2-Bandejao-UnB/deploy/backup/backup-banco.sh >> /var/log/bandejao/backup-banco.log 2>&1
