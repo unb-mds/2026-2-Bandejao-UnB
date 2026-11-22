@@ -80,12 +80,17 @@ class CardapioQueryService:
             padrao = self._refeicao_padrao(campus, inicio, agora)
 
         if padrao is None:
-            # Nenhum dia com serviço de `inicio` em diante: nada publicado a
-            # mostrar. A refeição vem só dos horários do Anexo A.
+            # Nenhum dia com serviço de `inicio` até 7 dias depois (a janela
+            # do `proximo_dia_com_servico`). A refeição vem só
+            # dos horários do Anexo A, e o dia exibido é o pedido. Com a semana
+            # dele publicada, o PDF diz que o RU não abre (ex.: sábado nos
+            # campi que só servem de segunda a sexta): "sem serviço" (#217).
+            # Sem ela, o RU pode só não ter publicado ainda.
             sem_pdf = [Refeicao(data=inicio, tipo=tipo) for tipo in ORDEM_DO_DIA]
-            return self._nao_publicado(
-                campus, self.horarios.refeicao_padrao(agora, sem_pdf)
-            )
+            padrao = self.horarios.refeicao_padrao(agora, sem_pdf)
+            if self._publicado(campus, inicio):
+                return self._sem_servico(campus, padrao)
+            return self._nao_publicado(campus, padrao)
         if not self._publicado(campus, padrao.dia):
             if self.repositorio.refeicoes_do_dia(campus, padrao.dia):
                 # Há refeição no banco, mas a semana não tem a linha da
@@ -157,6 +162,22 @@ class CardapioQueryService:
         )
         return vigente is not None and self.repositorio.existe_cardapio_publicado(
             campus, vigente
+        )
+
+    @staticmethod
+    def _sem_servico(campus: Campus, padrao: RefeicaoPadrao) -> CardapioFiltrado:
+        # Publicado, sem categorias e com `sem_servico`: a tela mostra "Sem
+        # refeições neste dia" no lugar do aviso de não publicado (FE-08).
+        return CardapioFiltrado(
+            campus=campus,
+            refeicao=padrao.refeicao,
+            data=padrao.dia,
+            refeicao_encerrada=padrao.encerrada,
+            status=StatusCardapio.PUBLICADO,
+            alergenos_indisponivel=False,
+            filtro_marcador_desativado=False,
+            categorias=[],
+            sem_servico=True,
         )
 
     @staticmethod

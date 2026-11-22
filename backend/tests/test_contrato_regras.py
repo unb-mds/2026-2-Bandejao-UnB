@@ -54,6 +54,8 @@ CAMPOS_PUBLICOS_PERMITIDOS = {
         "refeicao",
         "refeicaoencerrada",
         "semopcaocompativel",
+        # Dia sem serviço numa semana publicada (#217): só um booleano.
+        "semservico",
         "status",
     },
     ("/api/refeicoes/{refeicaoId}/avaliacoes/", "get"): _ERRO
