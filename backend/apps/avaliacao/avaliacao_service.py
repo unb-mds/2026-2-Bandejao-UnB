@@ -82,6 +82,7 @@ class AvaliacaoService:
         existente = self.repositorio.buscar_por_conta_e_refeicao(
             conta, refeicao, travar=True
         )
+        editada = True
         if existente is None:
             try:
                 return self.repositorio.inserir(
@@ -93,11 +94,14 @@ class AvaliacaoService:
                     )
                 )
             except AvaliacaoJaExisteError:
-                # Duplo toque: a outra requisição inseriu primeiro.
+                # Duplo toque: a outra requisição inseriu primeiro. A pessoa
+                # avaliou uma vez só, então a avaliação não vira "editada".
                 existente = self.repositorio.buscar_por_conta_e_refeicao(
                     conta, refeicao, travar=True
                 )
+                editada = False
         existente.nota = nota
         existente.comentario = comentario
-        existente.editada_em = agora
+        if editada:
+            existente.editada_em = agora
         return self.repositorio.salvar_edicao(existente)

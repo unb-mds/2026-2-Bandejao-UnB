@@ -844,7 +844,8 @@ components:
           description: Obrigatória, de 1 a 5.
         comentario:
           type: string
-          description: Opcional, até 500 caracteres.
+          nullable: true
+          description: 'Opcional, até 500 caracteres. Vazio ou null: sem comentário.'
           maxLength: 500
       required:
       - nota
