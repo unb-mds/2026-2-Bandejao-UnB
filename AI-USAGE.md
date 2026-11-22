@@ -315,6 +315,43 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - parâmetro `limite` no repositório, docstrings sem descrever como existente o que ainda não existe, `int` no diagrama e a explicação do UNIQUE com a conta nula.
 - Sugestão não aplicada: as contagens separadas por tabela no log. O contrato continua `int`, como no C4, e os testes conferem cada tabela.
 - Validação local depois da revisão (SQLite): `pytest` com 1356 testes aprovados e 1 ignorado, cobertura de 98%; `ruff check` e `ruff format --check` sem achados.
+- Situação: mesclado em 21/11 (#220); a #163 foi fechada.
+
+## BD-07 — Cron do sistema operacional
+
+- Issue: [#147](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/147). PR: [#221 — feat(banco): cron da VM com os comandos do Django (BD-07)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/221).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `deploy/cron/bandejao`, para o `/etc/cron.d/`, com o `excluir_cadastros_pendentes` de hora em hora, o `ler_cardapio` de 3 em 3 horas, e o `clearsessions` e o `desvincular_registros_fila` uma vez por dia;
+  - `deploy/cron/rodar-comando.sh`, que roda o comando no container do backend com `timeout`, grava o log por comando, avisa as falhas no syslog (`bandejao-cron`) e tem trava `flock`;
+  - `deploy/cron/logrotate`;
+  - a regra `deploy/** text eol=lf` no `.gitattributes`;
+  - a seção "Tarefas periódicas (cron)" no guia de deploy;
+  - os testes em `backend/tests/test_cron_producao.py`.
+- TDD: testes no commit `225bead`, antes dos arquivos (`49cc5fa`).
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/221#issuecomment-7069188743), pedindo alterações, com dois itens bloqueantes, seis importantes e sugestões.
+- Ajustes da revisão (TDD: testes em `77f0b22`, antes do código):
+  - a `develop` com o #220 foi trazida para a branch; o `desvincular_registros_fila` saiu dos pendentes;
+  - log ou trava sem escrita (o script rodou com `sudo`) sai com 73, sem chamar o `docker` e com aviso no syslog; o `status` começa em 1, e o guia diz para rodar à mão como `azureuser`, sem `sudo`, e como devolver os arquivos;
+  - erros antes do log (uso, nome inválido, `mkdir`, `cd`) e status diferente de 0 vão para o syslog com `logger -t bandejao-cron`; o 75 vai como aviso;
+  - `timeout --kill-after=60 2h` dentro do container (o processo do Django morre junto), com o 124 registrado como tempo esgotado;
+  - a trava ficou no descritor 9, testada antes do comando: o 75 do comando não vira mais "pulado";
+  - a linha do `ler_cardapio` fica comentada até o #218, e o teste exige que a tarefa esteja ativa se e só se o comando existir (no lugar do skip);
+  - o texto sobre dados nos logs fala em resumo e traceback, sem e-mail, matrícula nem nome; o guia diz que a conferência é manual (`journalctl -t bandejao-cron`, uma vez por semana ou depois de cada deploy);
+  - sugestões: argumento com espaço, falha do `mkdir`, aviso quando roda sem `flock`, trava liberada, teste de concorrência esperando o `docker` (com `kill` e uma chamada só), CRLF no script e no `logrotate`, `git check-attr eol`, conferência do grupo `docker` e `journalctl -u cron` no guia, e os textos corrigidos.
+- Achado ao corrigir: a escrita era testada com `: >>arquivo`; quando a redireção falha, o `:`, por ser um builtin especial, encerra o `sh` sem mensagem. O teste do log sem escrita pegou isso, e a checagem passou para um subshell.
+- Decisão em aberto: alerta ativo quando uma tarefa falha (ping de healthcheck ou e-mail pelo `msmtp`). O monitor da BD-09 (#149) é de disponibilidade (RNF02) e não pega uma falha do `ler_cardapio` com o site no ar; até a equipe decidir, a conferência é manual, como o guia descreve.
+- Segunda revisão: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/221#issuecomment-7069612808), sem bloqueante, com um ajuste antes do merge e sugestões.
+- Ajustes da segunda revisão (TDD: testes em `cb1c47d`, antes do código):
+  - A1: o pulo é guardado numa variável, e um 75 do próprio comando vai ao syslog como erro, e não como "pulado";
+  - S1: o 137 (KILL depois do `--kill-after`) aparece no log como "encerrado à força";
+  - S2: o cliente do `docker` tem o próprio `timeout` no host (130 min, um pouco maior que o do container);
+  - S3: o `docker` herda o descritor da trava, que continua presa se o shell morrer no meio;
+  - S4: 73 testado no log e na trava, `mkdir` com status 1 e mensagem, o ramo sem `flock` também no Linux (PATH mínimo), CRLF e `eol` em todos os arquivos de `deploy/`, e sem o `assert` vazio do `.lock`;
+  - C1 a C4: motivo do `su` no `logrotate`, lista dos status próprios do script, tabela de status do guia com o 1, o 2 e o 137, e o aviso por e-mail do Leitor condicionado ao #218 e ao `EMAIL_EQUIPE`.
+- Validação local (Windows, `sh` do Git, sem `flock`): `pytest` com 1595 testes aprovados e 3 pulados depois do merge do #218 (o do MySQL e os dois da trava, que rodam no CI com `flock`), cobertura de 99%; `ruff check`, `ruff format --check` e `sh -n` sem achados. No CI do primeiro ajuste (`1849e15`), o `testes-mysql` teve 1399 aprovados e só o teste sem `flock` pulado.
+- Depois do merge do #218 (BE-12) na `develop`: o CI da segunda rodada falhou no `test_tarefa_ativa_se_e_so_se_o_comando_existe[ler_cardapio]`, como previsto, porque o comando passou a existir. A `develop` foi trazida para a branch, a linha do `ler_cardapio` foi descomentada, a lista `PENDENTES` ficou vazia e o guia passou a descrever o alerta por e-mail do Leitor (`EMAIL_EQUIPE`, com padrão).
+- Fora deste PR: instalar o cron na VM e conferir os logs, que fica com quem tem acesso SSH, pelo roteiro do guia. O fechamento do semestre da Gamificação, citado no Nível 3, não é da BD-07 e ainda não tem comando.
 - Situação: ajustes da revisão aplicados, aguardando o recheck.
 
 ## BE-12 — Leitor do PDF
