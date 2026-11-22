@@ -47,6 +47,7 @@
 
 - **Deploy**
   - [Deploy de produção](deploy/deploy-producao.md)
+  - [Backup do banco](deploy/backup-banco.md)
 
 - **Gestão do projeto**
   - [Atas de reunião](atas-reunioes/README.md)

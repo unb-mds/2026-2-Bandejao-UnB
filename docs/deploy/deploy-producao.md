@@ -576,7 +576,8 @@ As tarefas do cron têm o próprio log, um arquivo por comando, em
 
   A outra saída é recriar o volume com `docker compose down -v`, que **apaga
   todos os dados do banco** e só deve ser usada antes de haver dados reais (e
-  depois de um backup). O backup diário do banco é a BD-15.
+  depois de um backup). O backup diário do banco está em
+  [Backup do banco](backup-banco.md) (BD-15).
 - **Não apague o volume `caddy_dados`.** Ele guarda os certificados, e o
   Let's Encrypt limita quantos certificados o mesmo domínio pode pedir por
   semana.
