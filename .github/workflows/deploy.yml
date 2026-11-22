@@ -23,13 +23,16 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # A soma dos limites dos steps, com folga. Cada step tem o próprio limite:
+    # uma espera longa pelo CI não come o tempo do deploy.
+    timeout-minutes: 100
     # Os secrets ficam no environment, que só aceita a `main`.
     environment:
       name: producao
       url: https://bandejaounb.com.br
     steps:
       - name: Esperar o CI do commit
+        timeout-minutes: 41
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -37,11 +40,15 @@ jobs:
           while :; do
             pendente=0
             for wf in "Backend CI" "Frontend CI"; do
-              # O run mais recente do workflow nesse commit (um "Re-run" conta).
-              # Sem run ainda, o resultado é "null null": pendente.
-              r=$(gh run list -R "$GITHUB_REPOSITORY" --workflow "$wf" \
-                --commit "$GITHUB_SHA" --event push --limit 1 \
-                --json status,conclusion --jq '.[0] | "\(.status) \(.conclusion)"')
+              # O run mais recente do workflow nesse commit, num push na main
+              # (um "Re-run" conta). Sem run ainda, o resultado é "null null":
+              # pendente. Um erro da API (5xx) não derruba a espera.
+              if ! r=$(gh run list -R "$GITHUB_REPOSITORY" --workflow "$wf" \
+                --branch main --commit "$GITHUB_SHA" --event push --limit 1 \
+                --json status,conclusion --jq '.[0] | "\(.status) \(.conclusion)"'); then
+                echo "::warning::gh run list falhou para $wf; tentando de novo."
+                r=pendente
+              fi
               case "$r" in
                 "completed success") ;;
                 completed*)
@@ -60,6 +67,10 @@ jobs:
           echo "Backend CI e Frontend CI verdes em $GITHUB_SHA."
 
       - name: Deploy na VM
+        # A soma dos limites do deploy.sh (fetch 2, backup 15, Compose 30,
+        # reload 1, prune 5 e as conferências), com folga. Se o step morrer
+        # antes, o deploy continua na VM e termina no deploy.log.
+        timeout-minutes: 58
         env:
           CHAVE: ${{ secrets.DEPLOY_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
@@ -74,7 +85,8 @@ jobs:
           # O authorized_keys da VM ignora o comando pedido e roda o
           # bandejao-deploy; o commit chega nele pelo SSH_ORIGINAL_COMMAND.
           ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o BatchMode=yes \
-            -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=30 \
+            -o ServerAliveInterval=30 \
             "$DESTINO" "$GITHUB_SHA"
 
       - name: Apagar a chave
