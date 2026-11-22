@@ -109,10 +109,13 @@ if ! cd "$pasta"; then
 fi
 
 # A senha vem do ambiente do container; o nome do banco entra como argumento.
+# A entrada é fechada (</dev/null): num terminal, o `docker compose exec -T`
+# dentro do `timeout` ficava esperando o teclado e o backup travava em
+# silêncio. No cron não há terminal, mas o comportamento tem que ser o mesmo.
 timeout --kill-after=60 "$limite" \
     docker compose exec -T db sh -c \
     'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers --default-character-set=utf8mb4 --no-tablespaces "$1"' \
-    sh "$banco" >"$bruto" 2>"$erros"
+    sh "$banco" </dev/null >"$bruto" 2>"$erros"
 status=$?
 if [ "$status" -ne 0 ]; then
     # Só as primeiras linhas do erro do mysqldump, sem o aviso da senha na
