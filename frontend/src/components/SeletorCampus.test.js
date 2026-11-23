@@ -7,6 +7,7 @@ import { usePreferenciasStore } from '@/stores/preferencias'
 import { ApiError, apiClient } from '@/services/apiClient'
 import { reiniciarSimulacao } from '@/services/mock/servidor'
 import App from '@/App.vue'
+import SeletorCampus from './SeletorCampus.vue'
 
 const AGORA = new Date(2026, 8, 28, 12, 0)
 
@@ -119,9 +120,7 @@ describe('SeletorCampus (FE-07)', () => {
 
     const { wrapper } = await montar()
 
-    await vi.waitFor(() =>
-      expect(wrapper.text()).toContain('Nenhum campus disponível no momento.'),
-    )
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Nenhum campus disponível no momento.'))
   })
 
   it('destaca o campus lembrado', async () => {
@@ -148,5 +147,114 @@ describe('SeletorCampus (FE-07)', () => {
       name: 'campus-tela',
       params: { campusId: '3' },
     })
+  })
+})
+
+/** Variante compacta, dentro de outra tela (RankingView, FE-13). */
+describe('SeletorCampus compacto', () => {
+  async function montarCompacto(selecionado = 1) {
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push('/campus')
+    const wrapper = mount(SeletorCampus, {
+      props: { compacto: true, selecionado },
+      global: { plugins: [pinia, router] },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await vi.waitFor(() =>
+      expect(wrapper.findAll('[data-teste="seletor-campus-opcao"]')).toHaveLength(5),
+    )
+    return { wrapper, router }
+  }
+
+  it('lista os campi como opções, sem o cabeçalho da tela de escolha', async () => {
+    const { wrapper } = await montarCompacto()
+
+    expect(wrapper.find('h1').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Darcy Ribeiro')
+    expect(wrapper.text()).toContain('Planaltina')
+  })
+
+  it('marca o campus selecionado com aria-pressed', async () => {
+    const { wrapper } = await montarCompacto(3)
+
+    const marcadas = wrapper
+      .findAll('[data-teste="seletor-campus-opcao"]')
+      .filter((b) => b.attributes('aria-pressed') === 'true')
+    expect(marcadas.map((b) => b.text())).toEqual(['Gama'])
+    const desmarcadas = wrapper
+      .findAll('[data-teste="seletor-campus-opcao"]')
+      .filter((b) => b.text() !== 'Gama')
+    expect(desmarcadas.map((b) => b.attributes('aria-pressed'))).toEqual([
+      'false',
+      'false',
+      'false',
+      'false',
+    ])
+  })
+
+  it('sem campus selecionado, nenhum botão fica marcado', async () => {
+    const { wrapper } = await montarCompacto(null)
+
+    const estados = wrapper
+      .findAll('[data-teste="seletor-campus-opcao"]')
+      .map((b) => b.attributes('aria-pressed'))
+    expect(estados).toEqual(['false', 'false', 'false', 'false', 'false'])
+  })
+
+  it('escolher avisa a tela (evento "escolher"), sem navegar nem trocar o campus lembrado', async () => {
+    const { wrapper, router } = await montarCompacto(1)
+    usePreferenciasStore().escolherCampus(1)
+
+    const gama = wrapper
+      .findAll('[data-teste="seletor-campus-opcao"]')
+      .find((b) => b.text() === 'Gama')
+    await gama.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.emitted('escolher')).toEqual([[3]])
+    expect(router.currentRoute.value.name).toBe('campus')
+    expect(usePreferenciasStore().campusId).toBe(1)
+  })
+})
+
+/** Casos da segunda revisão do PR #242. */
+describe('SeletorCampus compacto: lista vazia e erro', () => {
+  async function montarCompactoSemEsperar() {
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push('/campus')
+    const wrapper = mount(SeletorCampus, {
+      props: { compacto: true, selecionado: null },
+      global: { plugins: [pinia, router] },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    return wrapper
+  }
+
+  it('lista vazia: "Nenhum campus disponível no momento.", não "Carregando campi…"', async () => {
+    campiComo(() => Promise.resolve([]))
+
+    const wrapper = await montarCompactoSemEsperar()
+
+    expect(wrapper.text()).toContain('Nenhum campus disponível no momento.')
+    expect(wrapper.text()).not.toContain('Carregando campi…')
+  })
+
+  it('erro: mostra a mensagem da API, e "Tentar novamente" busca de novo', async () => {
+    const get = campiComo(semConexao)
+
+    const wrapper = await montarCompactoSemEsperar()
+
+    expect(wrapper.text()).toContain('Não foi possível carregar os campi.')
+    expect(wrapper.text()).toContain('Sem internet.')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === 'Tentar novamente')
+      .trigger('click')
+    await flushPromises()
+
+    expect(pedidosDeCampi(get)).toHaveLength(2)
+    expect(wrapper.findAll('[data-teste="seletor-campus-opcao"]')).toHaveLength(5)
   })
 })
