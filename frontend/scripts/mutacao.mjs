@@ -38,6 +38,7 @@ export const MODULOS = {
     'src/services/leituraPosicao.js',
     'src/components/CheckinBotao.vue',
     'src/components/FilaPrevisao.vue',
+    'src/utils/provaMutacao.js',
   ],
   gamificacao: ['src/stores/gamificacao.js', 'src/components/PontosAviso.vue'],
   api: ['src/services/apiClient.js'],
