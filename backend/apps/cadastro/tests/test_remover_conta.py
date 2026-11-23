@@ -9,14 +9,17 @@ encerradas e os tokens vão junto (CASCADE). As avaliações ficam, sem
 mesmo e-mail e o mesmo apelido podem se cadastrar de novo.
 """
 
+import logging
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from unittest import mock
 
 import pytest
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.models import Session
-from django.db import DatabaseError
+from django.db import DatabaseError, transaction
 from django.test import Client
 from django.utils import timezone
 
@@ -26,7 +29,14 @@ from apps.cadastro.models import StatusUsuario, TipoToken, Token
 from apps.cadastro.remover_conta_command import RemoverContaCommand
 from apps.cadastro.sessoes_da_conta import SessoesDaConta
 from apps.cardapio.models import Campus, Refeicao, TipoRefeicao
-from apps.fila.models import Checkin, ResultadoTentativa, TentativaCheckin
+from apps.fila.models import (
+    Checkin,
+    PerguntaSaida,
+    RespostaSaida,
+    ResultadoTentativa,
+    TentativaCheckin,
+)
+from apps.fila.retencao_fila_service import RetencaoFilaService
 from apps.gamificacao.models import PontosSemestreCampus, PontuacaoUsuario
 from apps.gamificacao.pontuacao_service import PontuacaoService
 
@@ -289,6 +299,160 @@ def test_conta_ja_apagada_devolve_false_sem_erro(conta):
     assert RemoverContaCommand().executar(conta) is False
 
 
+def test_conta_sem_pk_e_erro_de_quem_chama_e_nao_um_false(conta, outra):
+    """Um `AnonymousUser` ou uma conta nunca salva não é "conta já excluída":
+    quem esquecer o `IsAuthenticated` na view recebe o erro, e não um False
+    que pareça sucesso."""
+    with pytest.raises(ValueError, match="sem pk"):
+        RemoverContaCommand().executar(Usuario())
+
+    assert existe(conta) and existe(outra)
+
+
+def test_pk_que_nunca_existiu_devolve_false_sem_mexer_nas_outras_contas(
+    conta, outra, campus
+):
+    criar_checkin(conta, campus)
+
+    assert RemoverContaCommand().executar(Usuario(pk=999999)) is False
+
+    assert existe(conta) and existe(outra)
+    assert PontuacaoUsuario.objects.filter(usuario=conta).exists()
+    assert Checkin.objects.filter(usuario=conta).count() == 1
+
+
+@pytest.mark.parametrize(
+    "colaborador, metodo",
+    [
+        (PontuacaoService, "apagar_contadores"),
+        (RetencaoFilaService, "desvincular_conta"),
+        (SessoesDaConta, "encerrar_todas"),
+        (ContaRepository, "excluir"),
+    ],
+)
+def test_conta_que_nao_existe_nao_chama_nenhum_passo(conta, colaborador, metodo):
+    RemoverContaCommand().executar(conta)
+
+    with mock.patch.object(
+        colaborador, metodo, wraps=getattr(colaborador(), metodo)
+    ) as passo:
+        assert RemoverContaCommand().executar(conta) is False
+
+    passo.assert_not_called()
+
+
+def test_nenhum_registro_de_fila_fica_sem_conta_e_com_hora(conta, outra, campus):
+    """Garantia barata do passo 2 (o `select_for_update` só age no MySQL): depois
+    da exclusão, nenhum check-in da conta fica com a hora exata."""
+    for dia in (DIA, DIA - timedelta(days=40)):
+        criar_checkin(conta, campus, dia)
+    criar_checkin(outra, campus)
+
+    RemoverContaCommand().executar(conta)
+
+    assert not Checkin.objects.filter(
+        usuario__isnull=True, registrado_em__isnull=False
+    ).exists()
+    assert Checkin.objects.filter(usuario=outra).count() == 1
+
+
+def test_pergunta_e_resposta_de_saida_ficam_sem_a_conta(conta, campus):
+    """Decisão de projeto: a pergunta e a resposta de saída sobrevivem, ligadas
+    ao check-in, que perde a conta. Se isso mudar, este teste avisa."""
+    checkin = criar_checkin(conta, campus)
+    pergunta = PerguntaSaida.objects.create(
+        checkin=checkin,
+        devida_em=checkin.registrado_em + timedelta(minutes=15),
+        expira_em=checkin.registrado_em + timedelta(minutes=60),
+    )
+    RespostaSaida.objects.create(
+        pergunta=pergunta,
+        tentativa=1,
+        resposta="sai_ate_5_min",
+        respondida_em=checkin.registrado_em + timedelta(minutes=16),
+    )
+
+    RemoverContaCommand().executar(conta)
+
+    checkin.refresh_from_db()
+    assert checkin.usuario_id is None
+    assert PerguntaSaida.objects.filter(pk=pergunta.pk).exists()
+    assert RespostaSaida.objects.filter(pergunta=pergunta).count() == 1
+
+
+# --- o log ------------------------------------------------------------------
+
+LOGGER = "apps.cadastro.remover_conta_command"
+
+
+def mensagens(caplog):
+    return [r.getMessage() for r in caplog.records if r.name == LOGGER]
+
+
+def test_log_leva_so_o_id_e_as_contagens_sem_dado_pessoal(
+    conta, campus, caplog, django_capture_on_commit_callbacks
+):
+    pessoais = (conta.matricula_siape, conta.email_institucional, conta.apelido)
+    criar_checkin(conta, campus)
+    logar(conta)
+
+    with (
+        caplog.at_level(logging.INFO, logger=LOGGER),
+        django_capture_on_commit_callbacks(execute=True),
+    ):
+        RemoverContaCommand().executar(conta)
+
+    assert mensagens(caplog) == [
+        f"Conta {conta.pk} excluída: 1 sessões, 1 registros de fila desvinculados"
+    ]
+    for dado in pessoais:
+        assert not any(dado in texto for texto in mensagens(caplog))
+
+
+def test_log_nao_sai_se_a_transacao_de_fora_desfaz(
+    conta, caplog, django_capture_on_commit_callbacks
+):
+    """Dentro de outro `atomic` (decorador, `ATOMIC_REQUESTS`) que desfaz, o
+    log não pode dizer que a conta foi excluída."""
+    with (
+        caplog.at_level(logging.INFO, logger=LOGGER),
+        django_capture_on_commit_callbacks(execute=True) as callbacks,
+        transaction.atomic(),
+    ):
+        RemoverContaCommand().executar(conta)
+        transaction.set_rollback(True)
+
+    assert callbacks == []
+    assert mensagens(caplog) == []
+    assert existe(conta)
+
+
+def test_conta_ja_apagada_registra_que_ignorou_e_nao_diz_que_excluiu(
+    conta, caplog, django_capture_on_commit_callbacks
+):
+    RemoverContaCommand().executar(conta)
+    caplog.clear()
+
+    with (
+        caplog.at_level(logging.INFO, logger=LOGGER),
+        django_capture_on_commit_callbacks(execute=True),
+    ):
+        RemoverContaCommand().executar(conta)
+
+    assert mensagens(caplog) == [
+        f"Exclusão da conta {conta.pk} ignorada: já não existe"
+    ]
+
+
+# --- a premissa das sessões ---------------------------------------------------
+
+
+def test_as_sessoes_ficam_no_banco():
+    """O `encerrar_todas` lê a tabela `django_session`, e o rollback só desfaz
+    o fim das sessões se elas estiverem no mesmo banco (BD-12, RF04)."""
+    assert settings.SESSION_ENGINE == "django.contrib.sessions.backends.db"
+
+
 # --- tudo ou nada ----------------------------------------------------------
 
 
@@ -370,17 +534,23 @@ def test_encerrar_todas_apaga_tambem_a_sessao_expirada(conta, outra):
 
 
 def test_encerrar_todas_ignora_sessao_de_visitante(conta):
-    Client().get("/api/csrf/")  # sessão sem login, se o app criar alguma
+    """Uma sessão válida, que decodifica, mas sem `_auth_user_id`, e outra de
+    dado ilegível: nenhuma é da conta, e as duas ficam."""
+    visitante = SessionStore()
+    visitante["carrinho"] = "x"
+    visitante.save()
     Session.objects.create(
-        session_key="visitante",
-        session_data="e30:1x:x",  # sessão com dados inválidos para decodificar
+        session_key="ilegivel",
+        session_data="e30:1x:x",  # dados inválidos para decodificar
         expire_date=timezone.now() + timedelta(days=1),
     )
     logar(conta)
 
-    SessoesDaConta().encerrar_todas(conta)
+    encerradas = SessoesDaConta().encerrar_todas(conta)
 
-    assert Session.objects.filter(session_key="visitante").exists()
+    assert encerradas == 1
+    assert Session.objects.filter(session_key=visitante.session_key).exists()
+    assert Session.objects.filter(session_key="ilegivel").exists()
     assert str(conta.pk) not in donos_das_sessoes()
 
 

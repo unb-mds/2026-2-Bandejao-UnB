@@ -11,6 +11,10 @@ RNF07.4, RNF08 e ADR 0004 revisada: excluir a conta **apaga a linha** de
 
 Matrícula/SIAPE, e-mail e apelido ficam livres para um novo cadastro. Os
 backups guardam a conta por até 7 dias (BD-15).
+
+Premissa: as sessões ficam no mesmo banco da conta (`SESSION_ENGINE` fixado em
+`db` no `settings.py`). É por isso que o rollback desfaz também o fim das
+sessões; com cache ou cookie assinado, nada as encerraria nem as restauraria.
 """
 
 import logging
@@ -35,23 +39,44 @@ class RemoverContaCommand:
 
     def executar(self, conta) -> bool:
         """Exclui a conta e devolve True. Se ela já não existe (um segundo
-        pedido, por exemplo), devolve False sem erro.
+        pedido, por exemplo), registra no log e devolve False sem erro.
+
+        Conta sem `pk` (um `AnonymousUser` ou uma conta nunca salva) é erro de
+        quem chama, não "conta já excluída": levanta `ValueError`.
 
         Se qualquer passo falhar, nenhum vale: a transação desfaz tudo, inclusive
-        as sessões, que ficam no mesmo banco.
+        as sessões, que ficam no mesmo banco (ver a premissa no topo).
         """
+        if conta.pk is None:
+            raise ValueError("RemoverContaCommand recebeu conta sem pk")
+        conta_id = conta.pk
         with transaction.atomic():
-            # Trava a linha: um check-in ou um login no meio da exclusão espera
-            # e depois vê a conta já apagada.
+            # Trava a linha de USUARIO (no MySQL; o SQLite ignora o
+            # `select_for_update`, e os testes não cobrem a espera entre duas
+            # conexões): um login concorrente espera e depois não acha a conta, e
+            # um segundo pedido de exclusão devolve False. O check-in não trava
+            # a linha: ele só espera, por efeito da checagem de FK do InnoDB, e
+            # depois recebe um erro de integridade, em vez de ver a conta apagada.
             existente = (
-                get_user_model().objects.select_for_update().filter(pk=conta.pk).first()
+                get_user_model().objects.select_for_update().filter(pk=conta_id).first()
             )
             if existente is None:
+                logger.info("Exclusão da conta %s ignorada: já não existe", conta_id)
                 return False
             self.pontuacao_service.apagar_contadores(existente)
-            self.retencao_fila_service.desvincular_conta(existente)
-            self.sessoes_da_conta.encerrar_todas(existente)
+            registros = self.retencao_fila_service.desvincular_conta(existente)
+            sessoes = self.sessoes_da_conta.encerrar_todas(existente)
             self.conta_repository.excluir(existente)
-        # Só o id: o log não leva matrícula, e-mail nem apelido (RNF07).
-        logger.info("Conta %s excluída", conta.pk)
+            # Só depois do commit de verdade: se este `atomic` for um savepoint
+            # dentro de outra transação (um decorador, `ATOMIC_REQUESTS`) que
+            # desfizer, o log não diz que excluiu o que continua no banco. Só o
+            # id e as contagens: nada de matrícula, e-mail nem apelido (RNF07).
+            transaction.on_commit(
+                lambda: logger.info(
+                    "Conta %s excluída: %s sessões, %s registros de fila desvinculados",
+                    conta_id,
+                    sessoes,
+                    registros,
+                )
+            )
         return True
