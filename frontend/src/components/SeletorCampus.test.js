@@ -120,9 +120,7 @@ describe('SeletorCampus (FE-07)', () => {
 
     const { wrapper } = await montar()
 
-    await vi.waitFor(() =>
-      expect(wrapper.text()).toContain('Nenhum campus disponível no momento.'),
-    )
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Nenhum campus disponível no momento.'))
   })
 
   it('destaca o campus lembrado', async () => {
@@ -184,6 +182,24 @@ describe('SeletorCampus compacto', () => {
       .findAll('[data-teste="seletor-campus-opcao"]')
       .filter((b) => b.attributes('aria-pressed') === 'true')
     expect(marcadas.map((b) => b.text())).toEqual(['Gama'])
+    const desmarcadas = wrapper
+      .findAll('[data-teste="seletor-campus-opcao"]')
+      .filter((b) => b.text() !== 'Gama')
+    expect(desmarcadas.map((b) => b.attributes('aria-pressed'))).toEqual([
+      'false',
+      'false',
+      'false',
+      'false',
+    ])
+  })
+
+  it('sem campus selecionado, nenhum botão fica marcado', async () => {
+    const { wrapper } = await montarCompacto(null)
+
+    const estados = wrapper
+      .findAll('[data-teste="seletor-campus-opcao"]')
+      .map((b) => b.attributes('aria-pressed'))
+    expect(estados).toEqual(['false', 'false', 'false', 'false', 'false'])
   })
 
   it('escolher avisa a tela (evento "escolher"), sem navegar nem trocar o campus lembrado', async () => {

@@ -32,6 +32,12 @@ async function montarEm(caminho, { campusLembrado = null } = {}) {
   return { wrapper, router }
 }
 
+function adiada() {
+  let resolver
+  const promessa = new Promise((ok) => (resolver = ok))
+  return { promessa, resolver }
+}
+
 const linhas = (wrapper) => wrapper.findAll('[data-teste="linha-ranking"]')
 const vazio = (wrapper) => wrapper.find('[data-teste="ranking-vazio"]')
 
@@ -70,9 +76,25 @@ describe('RankingView — lista (RF27.2)', () => {
     expect(primeira.get('[data-teste="linha-patente"]').text()).not.toMatch(/_/)
   })
 
-  it('nunca mostra pontos (RI12)', async () => {
+  it('nunca mostra pontos (RI12), mesmo que a resposta traga o campo', async () => {
+    const getOriginal = apiClient.get.bind(apiClient)
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
+      caminho === '/ranking/1/'
+        ? Promise.resolve({
+            campusId: 1,
+            semestre: '2026.2',
+            linhas: [
+              { posicao: 1, apelido: 'ana', patente: 'VETERANO', pontos: 480 },
+              { posicao: 2, apelido: 'bia', patente: 'RATO_DE_RU', pontos: 175 },
+            ],
+          })
+        : getOriginal(caminho, opcoes),
+    )
     const { wrapper } = await montarEm('/ranking/1')
 
+    expect(linhas(wrapper)).toHaveLength(2)
+    expect(wrapper.text()).not.toContain('480')
+    expect(wrapper.text()).not.toContain('175')
     expect(wrapper.get('[data-teste="ranking-lista"]').text()).not.toMatch(/pontos|pts/i)
   })
 
@@ -186,5 +208,108 @@ describe('RankingView — rotas e falhas', () => {
     await flushPromises()
 
     expect(linhas(wrapper).length).toBeGreaterThan(0)
+  })
+})
+
+/** Casos da revisão do PR #242. */
+describe('RankingView — id de campus mal formado', () => {
+  it.each(['abc', '0', '01', '-1', '1.5'])(
+    '/ranking/%s: "Campus não encontrado" sem chamar a API do ranking',
+    async (id) => {
+      const get = vi.spyOn(apiClient, 'get')
+      const { wrapper } = await montarEm(`/ranking/${id}`)
+
+      expect(wrapper.get('[data-teste="ranking-estado"]').text()).toContain('Campus não encontrado')
+      expect(get.mock.calls.filter(([caminho]) => caminho.startsWith('/ranking/'))).toEqual([])
+    },
+  )
+
+  it('o cartão de "Campus não encontrado" é anunciado (role="status")', async () => {
+    const { wrapper } = await montarEm('/ranking/999')
+
+    expect(wrapper.get('[data-teste="ranking-estado"]').attributes('role')).toBe('status')
+  })
+})
+
+describe('RankingView — 404 fora do contrato', () => {
+  it('um 404 sem `campus_nao_encontrado` (proxy, URL errada) vira erro, não "Campus não encontrado"', async () => {
+    const getOriginal = apiClient.get.bind(apiClient)
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
+      caminho === '/ranking/1/'
+        ? Promise.reject(new ApiError(404, {}))
+        : getOriginal(caminho, opcoes),
+    )
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { wrapper } = await montarEm('/ranking/1')
+
+    const estado = wrapper.get('[data-teste="ranking-estado"]')
+    expect(estado.text()).not.toContain('Campus não encontrado')
+    expect(estado.find('[data-teste="ranking-tentar-de-novo"]').exists()).toBe(true)
+  })
+})
+
+describe('RankingView — mensagens de erro', () => {
+  it('resposta sem a lista: a mensagem não se repete', async () => {
+    const getOriginal = apiClient.get.bind(apiClient)
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
+      caminho === '/ranking/1/'
+        ? Promise.resolve({ campusId: 1, semestre: '2026.2' })
+        : getOriginal(caminho, opcoes),
+    )
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { wrapper } = await montarEm('/ranking/1')
+
+    const texto = wrapper.get('[data-teste="ranking-estado"]').text()
+    expect(texto.match(/Não foi possível carregar o ranking/g)).toHaveLength(1)
+  })
+})
+
+describe('RankingView — troca rápida de campus', () => {
+  it('respostas fora de ordem: a tela fica com o último campus escolhido', async () => {
+    const getOriginal = apiClient.get.bind(apiClient)
+    const doDarcy = adiada()
+    const daFazenda = adiada()
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) => {
+      if (caminho === '/ranking/1/') return doDarcy.promessa.then(() => getOriginal(caminho))
+      if (caminho === '/ranking/5/') return daFazenda.promessa.then(() => getOriginal(caminho))
+      return getOriginal(caminho, opcoes)
+    })
+    const { wrapper, router } = await montarEm('/ranking/1')
+    await vi.waitFor(() =>
+      expect(wrapper.findAll('[data-teste="seletor-campus-opcao"]')).toHaveLength(5),
+    )
+
+    await wrapper
+      .findAll('[data-teste="seletor-campus-opcao"]')
+      .find((b) => b.text() === 'Fazenda Água Limpa')
+      .trigger('click')
+    daFazenda.resolver()
+    await flushPromises()
+    doDarcy.resolver()
+    await flushPromises()
+
+    expect(router.currentRoute.value.fullPath).toBe('/ranking/5')
+    expect(vazio(wrapper).exists()).toBe(true)
+    expect(linhas(wrapper)).toHaveLength(0)
+  })
+})
+
+describe('RankingView — falha com o ranking já na tela', () => {
+  it('a lista continua, com um aviso e "Tentar de novo"', async () => {
+    const { wrapper } = await montarEm('/ranking/1')
+    const quantas = linhas(wrapper).length
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }),
+    )
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { useGamificacaoStore } = await import('@/stores/gamificacao')
+
+    await useGamificacaoStore().carregarRanking(1, { forcar: true })
+    await flushPromises()
+
+    expect(linhas(wrapper)).toHaveLength(quantas)
+    const aviso = wrapper.get('[data-teste="ranking-aviso"]')
+    expect(aviso.text()).toContain('Não foi possível atualizar o ranking.')
+    expect(aviso.find('[data-teste="ranking-tentar-de-novo"]').exists()).toBe(true)
   })
 })
