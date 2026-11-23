@@ -149,7 +149,7 @@ toca na produção.
   um `docker compose down -v`, mas **não** de perder a VM ou o disco. O
   [ADR 0012](arquitetura/adr/0012-hospedagem-e-servico-de-email.md) prevê
   o backup diário guardado **fora da VM**; por ora ele não existe, e a cópia
-  externa tem issue própria (ver a descrição do PR). Quando vier, tem que
+  externa fica como evolução, fora do escopo do BD-15. Quando vier, tem que
   respeitar os mesmos 7 dias.
 - O backup lê o banco no instante do dump. Um registro apagado depois (exclusão
   de conta, BD-12) continua nas cópias já feitas por até 7 dias, e é isso que
