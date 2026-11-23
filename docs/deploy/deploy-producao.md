@@ -88,6 +88,7 @@ Conteúdo do `.env` (a explicação de cada variável está no
 | `DJANGO_ALLOWED_HOSTS` | `bandejaounb.com.br,www.bandejaounb.com.br` |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://bandejaounb.com.br,https://www.bandejaounb.com.br` |
 | `URL_DO_PWA` | `https://bandejaounb.com.br` |
+| `SECURE_HSTS_SECONDS` | opcional: padrão `3600` (1 hora); `31536000` (1 ano) depois de alguns dias de HTTPS estável |
 | `DB_ENGINE` | `mysql` (sem ela, o Django usa SQLite) |
 | `DB_HOST` | `db` (nome do serviço no Compose) |
 | `DB_PORT` | `3306` |
@@ -202,12 +203,15 @@ script à mão, como em [Banco](#banco); ele sai com erro se algo falhar. Antes
 de haver dados reais, também dá para apagar o volume e subir de novo (`docker
 compose down -v`, que **apaga todo o banco**).
 
-O `check --deploy` do Django também deve mostrar só os avisos de HSTS
-(`security.W004`, deixado de fora de propósito) e de `SECURE_SSL_REDIRECT`
-(`security.W008`, o Caddy já redireciona):
+O `check --deploy` do Django não deve mostrar nenhum aviso. O HSTS vem do
+`settings.py`, e só três avisos ficam silenciados, cada um com motivo: `security.W008` (`SECURE_SSL_REDIRECT`: o Caddy já redireciona),
+`security.W005` (HSTS sem subdomínios: os de e-mail não são nossos) e
+`security.W021` (sem preload, que é quase irreversível). Com a chave da VM, o
+esperado é `System check identified no issues (3 silenced).`; um
+`security.W009` indica uma `DJANGO_SECRET_KEY` curta ou fraca:
 
 ```bash
-docker compose exec backend python manage.py check --deploy
+docker compose exec backend python manage.py check --deploy --fail-level WARNING
 ```
 
 Para criar o superusuário do admin:
@@ -726,6 +730,12 @@ docker compose logs --tail 100 caddy
 ```
 
 Cada container guarda no máximo 3 arquivos de 10 MB de log.
+
+O log de acesso do backend (Gunicorn) não grava o `Referer`, e o token de
+`/api/confirmar-email/` aparece como `***`, também no log de erros do
+Gunicorn: uma chamada recusada deixaria no log um token ainda válido. O
+`Referer` das chamadas feitas pela página `/confirmar-email` do PWA leva o
+token (`?token=`, link do e-mail) ou o e-mail (`?email=`, depois do cadastro).
 
 As tarefas do cron têm o próprio log, um arquivo por comando, em
 `/var/log/bandejao/` (ver [Tarefas periódicas](#tarefas-periódicas-cron)). O

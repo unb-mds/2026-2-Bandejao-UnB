@@ -4,7 +4,9 @@ import logging
 import re
 
 # O token do link de confirmação vai no path (`/api/confirmar-email/{token}/`).
-TOKEN_NO_PATH = re.compile(r"(/api/confirmar-email/)[^/\s]+")
+# Barras repetidas e maiúsculas também contam: o Django responde 404, mas a
+# linha do log é gravada do mesmo jeito.
+TOKEN_NO_PATH = re.compile(r"(/+api/+confirmar-email/+)[^/\s]+", re.IGNORECASE)
 
 
 class MascaraTokenDoPath(logging.Filter):
@@ -12,7 +14,8 @@ class MascaraTokenDoPath(logging.Filter):
 
     Quem lê o log do servidor não pode confirmar a conta de outra pessoa
     enquanto o link vale (24 h). Fica no logger `django.request`, que grava
-    o path de todo 5xx.
+    o path de todo 5xx, e nos loggers do Gunicorn em produção
+    (`config/log_gunicorn.py`): o de acesso e o de erros.
     """
 
     def filter(self, record):
