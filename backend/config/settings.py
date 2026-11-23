@@ -342,6 +342,13 @@ CACHES = {
 # desenvolvimento, com o runserver em HTTP, desliga sozinho. O .env pode
 # forçar qualquer um dos dois valores.
 
+# O motor da sessão é fixado em `db` de propósito (BD-12, RF04): a exclusão de
+# conta e a redefinição de senha encerram as sessões da conta lendo a tabela
+# `django_session` (`SessoesDaConta.encerrar_todas`) e contam com o rollback
+# da transação para desfazê-las. Com `cache` ou `signed_cookies`, esse passo
+# acharia 0 sessão e a sessão aberta continuaria valendo, sem erro nenhum. Um
+# teste confere o valor.
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=not DEBUG, cast=bool)
 SESSION_COOKIE_SAMESITE = "Lax"

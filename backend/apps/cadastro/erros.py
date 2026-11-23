@@ -67,7 +67,7 @@ class IdentificadorInvalidoError(Exception):
 
 
 class CredenciaisInvalidasError(Exception):
-    """Senha errada, conta inexistente, suspensa ou removida (RF03.1).
+    """Senha errada, conta inexistente ou suspensa (RF03.1).
 
     Todos os casos dão o mesmo erro de propósito: a resposta não revela se a
     matrícula/SIAPE existe.

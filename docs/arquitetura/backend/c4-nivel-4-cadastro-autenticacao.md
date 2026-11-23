@@ -531,8 +531,8 @@ classDiagram
   `@unb.br`, pelo `EmailInstitucionalValidator`, ADR 0002, sem consultar o
   banco: 422 `dados_invalidos`, não conta como tentativa; o formato da
   matrícula não é conferido no login, só no cadastro), conta inexistente, bloqueio,
-  senha e conta suspensa ou removida, e por fim conta pendente. Conta
-  inexistente, senha errada e conta suspensa ou removida dão o mesmo 401
+  senha e conta suspensa, e por fim conta pendente. Conta
+  inexistente, senha errada e conta suspensa dão o mesmo 401
   `credenciais_invalidas`; para a conta inexistente, o service calcula um hash
   à toa, para o tempo de resposta não revelar que ela não existe. A conta
   pendente só recebe o 403 `conta_nao_confirmada` com a senha certa. O
@@ -716,7 +716,9 @@ classDiagram
   autentica e fica fora do ranking; os outros componentes leem
   `Conta.status`.
 - **Exclusão de conta (RNF07.4): `RemoverContaCommand`.** A equipe roda o
-  comando com o id da conta, e ele faz tudo numa transação:
+  comando com o id da conta (`python manage.py remover_conta <id>`, que
+  avisa se a conta não existe e imprime só o id), e ele faz tudo numa
+  transação:
   1. pede à Gamificação que apague os contadores
      (`PontuacaoService.apagarContadores`): pontos totais, pontos do
      semestre e sequência;
