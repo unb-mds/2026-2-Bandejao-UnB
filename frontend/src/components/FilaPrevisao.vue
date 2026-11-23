@@ -4,8 +4,10 @@ import { REFEICOES } from '@/constants/refeicoes'
 import { useFilaStore } from '@/stores/fila'
 import { diaCurto, diaMes, hojeISO } from '@/utils/datas'
 
-// O Stryker não pode mutar o argumento do defineProps: o compilador do Vue
-// recusa a macro com código em volta (FE-17).
+// Sem mutação no argumento do defineProps (FE-17): o Stryker envolve os
+// valores em chamadas stryMutAct_*/stryCov_*, declaradas no próprio script, e
+// o defineProps é içado para fora do setup(), onde não pode usar variáveis
+// locais.
 // Stryker disable all
 const props = defineProps({
   campusId: { type: Number, required: true },
