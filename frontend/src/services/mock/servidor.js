@@ -82,6 +82,8 @@ let resumoDoDiaDisponivel = true
 let previsaoDisponivel = true
 /** `false`: comentários e envio de avaliação respondem 501, como o backend sem a BE-13. */
 let avaliacoesDisponiveis = true
+/** `false`: o ranking responde 501, como o backend sem a BE-17. */
+let rankingDisponivel = true
 
 /** "Cookie HttpOnly" sessionid deste navegador: o JavaScript da página não o lê. */
 let cookieSessao = null
@@ -891,6 +893,55 @@ function previsaoDaFila(parametros, agora) {
 }
 
 // Terceiro item: nome do limite por IP da rota (LIMITES_POR_IP), se houver.
+// ─── Ranking (BE-17) ──────────────────────────────────────────────────────
+
+/**
+ * Quem aderiu ao ranking em cada campus, já na ordem dos pontos do semestre.
+ * Planaltina e a Fazenda Água Limpa ficam vazias, para a tela de "ninguém no
+ * ranking ainda". Os pontos não saem daqui (RI12).
+ */
+const RANKING_SEMENTE = {
+  1: [
+    ['lucas_unb', 'LENDA_DO_RU'],
+    ['maria_s', 'MESTRE_DA_FILA'],
+    ['carol_unb', 'MESTRE_DA_FILA'],
+    ['joao_fga', 'VETERANO'],
+    ['ana_bio', 'VETERANO'],
+    ['bia_l', 'VETERANO'],
+    ['thiago_m', 'RATO_DE_RU'],
+    ['cristina_m', 'RATO_DE_RU'],
+    ['pedro_eng', 'RATO_DE_RU'],
+    ['lari_s', 'CALOURO_DE_BANDEJA'],
+  ],
+  2: [
+    ['rafa_fce', 'VETERANO'],
+    ['ana_bio', 'RATO_DE_RU'],
+    ['lari_s', 'CALOURO_DE_BANDEJA'],
+  ],
+  3: [
+    ['joao_fga', 'LENDA_DO_RU'],
+    ['pedro_eng', 'VETERANO'],
+    ['thiago_m', 'RATO_DE_RU'],
+    ['gui_fup', 'CALOURO_DE_BANDEJA'],
+  ],
+  4: [],
+  5: [],
+}
+
+/** "2026.2" de agosto a dezembro, "2026.1" de janeiro a julho. */
+const semestreLetivo = (agora) => `${agora.getFullYear()}.${agora.getMonth() >= 7 ? 2 : 1}`
+
+/** GET /ranking/{campusId}/ (schema RankingPublico), público. */
+function rankingDoCampus(campusId, agora) {
+  if (!rankingDisponivel) return { status: 501, dados: null }
+  const campus = idDoCampus(campusId)
+  if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
+  const linhas = (RANKING_SEMENTE[campus] ?? [])
+    .slice(0, 10)
+    .map(([apelido, patente], i) => ({ posicao: i + 1, apelido, patente }))
+  return ok({ campusId: campus, semestre: semestreLetivo(agora), linhas })
+}
+
 const ROTAS = [
   ['GET', /^\/csrf\/$/, () => gravarCsrfSeFaltar()],
   ['POST', /^\/cadastro\/$/, ({ corpo, agora }) => cadastrar(corpo, agora), 'cadastro'],
@@ -923,6 +974,7 @@ const ROTAS = [
   ],
   ['POST', /^\/privacidade\/aceite\/$/, ({ agora }) => registrarAceitePrivacidade(agora)],
   ['POST', /^\/checkins\/$/, ({ corpo, agora }) => registrarCheckin(corpo, agora)],
+  ['GET', /^\/ranking\/([^/]+)\/$/, ({ agora }, [campus]) => rankingDoCampus(campus, agora)],
   ['GET', /^\/fila\/previsao\/$/, ({ parametros, agora }) => previsaoDaFila(parametros, agora)],
 ]
 
@@ -972,6 +1024,10 @@ export const simulacao = {
   definirLocalizacaoConfirmada(confirmada) {
     localizacaoConfirmada = confirmada
   },
+  /** `false`: GET /ranking/ responde 501, como o backend sem a BE-17. */
+  definirRankingDisponivel(disponivel) {
+    rankingDisponivel = disponivel
+  },
   definirAvaliacoesDisponiveis(disponiveis) {
     avaliacoesDisponiveis = disponiveis
   },
@@ -996,6 +1052,7 @@ export function reiniciarSimulacao() {
   resumoDoDiaDisponivel = true
   previsaoDisponivel = true
   avaliacoesDisponiveis = true
+  rankingDisponivel = true
   cookieSessao = null
   if (typeof document !== 'undefined') {
     document.cookie = 'csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'

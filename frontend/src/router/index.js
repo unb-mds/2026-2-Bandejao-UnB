@@ -84,6 +84,24 @@ export const routes = [
     redirect: () => telaDoCampusLembrado('campus', '#fila'),
   },
   {
+    // Sem campus na rota: o ranking do campus lembrado, ou a escolha na própria tela.
+    path: '/ranking',
+    name: 'ranking',
+    component: () => import('@/views/RankingView.vue'),
+    beforeEnter: () => {
+      const campusId = usePreferenciasStore().campusId
+      if (campusId) return { name: 'ranking-campus', params: { campusId: String(campusId) } }
+    },
+    meta: { title: 'Ranking' },
+  },
+  {
+    path: '/ranking/:campusId',
+    name: 'ranking-campus',
+    component: () => import('@/views/RankingView.vue'),
+    props: true,
+    meta: { title: 'Ranking' },
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('@/views/LoginView.vue'),
