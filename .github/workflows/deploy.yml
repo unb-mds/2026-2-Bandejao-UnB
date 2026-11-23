@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     # A soma dos limites dos steps, com folga. Cada step tem o próprio limite:
     # uma espera longa pelo CI não come o tempo do deploy.
-    timeout-minutes: 100
+    timeout-minutes: 115
     # Os secrets ficam no environment, que só aceita a `main`.
     environment:
       name: producao
@@ -37,15 +37,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           limite=$((SECONDS + 2400))
+          erros_gh=0
           while :; do
             pendente=0
             for wf in "Backend CI" "Frontend CI"; do
               # O run mais recente do workflow nesse commit, num push na main
               # (um "Re-run" conta). Sem run ainda, o resultado é "null null":
-              # pendente. Um erro da API (5xx) não derruba a espera.
-              if ! r=$(gh run list -R "$GITHUB_REPOSITORY" --workflow "$wf" \
+              # pendente. Um erro da API (5xx) não derruba a espera; 5 erros
+              # seguidos (nome de workflow errado, sem permissão) derrubam.
+              if r=$(gh run list -R "$GITHUB_REPOSITORY" --workflow "$wf" \
                 --branch main --commit "$GITHUB_SHA" --event push --limit 1 \
                 --json status,conclusion --jq '.[0] | "\(.status) \(.conclusion)"'); then
+                erros_gh=0
+              else
+                erros_gh=$((erros_gh + 1))
+                if [ "$erros_gh" -ge 5 ]; then
+                  echo "::error::gh run list falhou 5 vezes seguidas (último: $wf): sem deploy."
+                  exit 1
+                fi
                 echo "::warning::gh run list falhou para $wf; tentando de novo."
                 r=pendente
               fi
@@ -68,9 +77,10 @@ jobs:
 
       - name: Deploy na VM
         # A soma dos limites do deploy.sh (fetch 2, backup 15, Compose 30,
-        # reload 1, prune 5 e as conferências), com folga. Se o step morrer
-        # antes, o deploy continua na VM e termina no deploy.log.
-        timeout-minutes: 58
+        # Caddy 3, prune 2), mais as conferências (até ~4 min) e os KILL de
+        # 30 s: perto de 55 min. Se o step morrer antes, o deploy continua na
+        # VM e termina no deploy.log.
+        timeout-minutes: 70
         env:
           CHAVE: ${{ secrets.DEPLOY_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
