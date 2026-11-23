@@ -2,9 +2,10 @@
  * Cardápios de exemplo do backend simulado, guardados por semana e campus
  * como se tivessem vindo da leitura do PDF semanal (RF06). O
  * `GET /cardapio/` do simulado monta a partir daqui a resposta no contrato da
- * BE-11; a rota `/cardapio/<campus>/` ainda devolve a semana no formato do
- * MVP. As datas são calculadas a partir da semana atual, para o app sempre
- * ter um cardápio "vigente".
+ * BE-11, e os resumos de avaliação também partem desta semana. A rota da
+ * semana do MVP (`/cardapio/<campus>/`) saiu e responde 404. As datas são
+ * calculadas a partir da semana atual, para o app sempre ter um cardápio
+ * "vigente".
  *
  * Casos cobertos para demonstração:
  * - Darcy Ribeiro serve almoço no sábado (dias vêm do PDF, RF06/RF07).

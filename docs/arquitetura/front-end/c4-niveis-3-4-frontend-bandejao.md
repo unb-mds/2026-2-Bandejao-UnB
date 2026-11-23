@@ -441,8 +441,8 @@ Convite ao cadastro (RF05)."]
   sai deste aparelho, mas a tela fica e avisa que o servidor não confirmou,
   porque o cookie de sessão pode continuar valendo. Essa lógica fica no
   composable `useSair`, que o item "Sair da conta" do menu da Início também
-  usa: lá a tela continua na Início, recarrega as avaliações de hoje e mostra
-  o mesmo aviso quando o servidor não confirma.
+  usa: lá a tela continua na Início (a nota do cartão, do resumo do dia, não
+  depende da sessão) e mostra o mesmo aviso quando o servidor não confirma.
 
 ---
 
@@ -772,9 +772,11 @@ dia não serve aparece como "Esta refeição não é servida neste dia". O dia
 sem serviço vem pelo campo `semServico` (proposto ao backend na revisão do
 PR #219; o simulado já o manda) ou por uma `data` diferente do dia pedido. Um
 400 com filtros salvos oferece "Limpar filtros" em vez de "Tentar
-novamente". A `HomeView` e a
-`AvaliacoesView` ainda leem a semana inteira do cardápio no formato do MVP
-(só no servidor simulado) até a FE-09 e a FE-E5.
+novamente". O cartão "Cardápio de hoje" da `HomeView` usa o mesmo
+`GET /api/cardapio/`, com o campus e o dia de hoje, e deixa o backend
+resolver a refeição pelo relógio; a nota do cartão vem do resumo do dia. A
+semana inteira por campus (`/cardapio/<campus>/`), do MVP, saiu da store e
+do simulado (#251), porque só o simulado a respondia.
 
 O `apiClient` é o único ponto que conhece a URL base da API, envia o
 cookie de sessão e o cabeçalho CSRF nas escritas, e trata erros de forma
