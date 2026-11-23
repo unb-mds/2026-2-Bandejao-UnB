@@ -287,7 +287,6 @@ Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR par
 
 - **Toda semana** (e antes de 22/11): mutação na base inteira, back e front, para pegar o escore de quem não mexeu em módulo crítico recentemente.
   - **Back:** `.github/workflows/backend-mutacao-semanal.yml`, aos domingos às 06:00 UTC (03:00 em Brasília), na `develop`; à mão, pelo `workflow_dispatch`, na branch escolhida. Um job por módulo crítico (`cadastro`, `cardapio/leitor`, `cardapio` sem o leitor, `avaliacao`, `fila`, `gamificacao`), com até 5 horas cada, para a base inteira (cerca de 5.240 mutantes, quase metade no leitor) não passar do limite de 6 horas de um job do GitHub. Um último job junta os seis resultados e falha se **algum** módulo ficar abaixo de 50%, se faltar o resultado de algum ou se algum job de módulo não terminou bem (quebrou, passou do tempo ou foi cancelado), porque um resultado parcial não vale. Mesma fórmula do escore do job `mutacao`.
-  - O `schedule` e o `workflow_dispatch` só valem para o workflow que está na branch padrão (a `main`). Até a release levar o workflow para a `main`, a rodada é disparada com um push para a branch `mutacao/base-inteira`, criada a partir da `develop`.
 - **Antes da entrega:** o commit da entrega precisa ter todos os workflows verdes (porta da Release 2).
 
 ---
