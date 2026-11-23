@@ -17,6 +17,7 @@ import configparser
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -131,8 +132,22 @@ def test_teste_sem_modulo_de_mesmo_nome_aponta_para_o_app_inteiro(mi, backend):
 
 
 def test_apoio_dos_testes_aponta_para_o_app_inteiro(mi, backend):
+    criar(backend, "apps/fila/tests/apoio.py")
+    assert mi.curingas(["apps/fila/tests/apoio.py"], backend) == ["apps.fila.*"]
+
+
+def test_apoio_do_leitor_aponta_para_o_leitor(mi, backend):
     assert mi.curingas(["apps/cardapio/tests/apoio_leitor.py"], backend) == [
-        "apps.cardapio.*"
+        "apps.cardapio.leitor.*"
+    ]
+
+
+def test_teste_generico_do_cardapio_nao_muta_o_leitor(mi, backend):
+    # O leitor tem quase metade dos mutantes da base: um PR de endpoint do
+    # cardápio não pode estourar o tempo do job por causa dele.
+    criar(backend, "apps/cardapio/tests/test_cardapio_endpoint.py")
+    assert mi.curingas(["apps/cardapio/tests/test_cardapio_endpoint.py"], backend) == [
+        "apps.cardapio.filtro_dieta_service.*"
     ]
 
 
@@ -153,7 +168,6 @@ def test_teste_apagado_ainda_roda_a_mutacao_do_modulo(mi, backend):
         "apps/fila/urls.py",
         "apps/fila/__init__.py",
         "apps/fila/tests/__init__.py",
-        "config/settings.py",
         "tests/test_estrutura.py",
         "apps/__init__.py",
         "apps/fila/README.md",
@@ -187,16 +201,79 @@ def test_curingas_sem_repeticao_e_em_ordem(mi, backend):
 
 
 def test_curinga_do_app_inteiro_engole_os_do_mesmo_app(mi, backend):
+    criar(backend, "apps/fila/tests/apoio.py")
     alterados = [
         "apps/cardapio/leitor/cardapio_pdf_parser.py",
-        "apps/cardapio/filtro_dieta_service.py",
         "apps/cardapio/tests/apoio_leitor.py",
         "apps/fila/checkin_service.py",
+        "apps/fila/tests/apoio.py",
     ]
     assert mi.curingas(alterados, backend) == [
-        "apps.cardapio.*",
-        "apps.fila.checkin_service.*",
+        "apps.cardapio.leitor.*",
+        "apps.fila.*",
     ]
+
+
+# --- Mudança na configuração da mutação --------------------------------------
+
+
+@pytest.mark.parametrize(
+    "caminho",
+    [
+        "backend/setup.cfg",
+        "backend/conftest.py",
+        "backend/pytest.ini",
+        "backend/requirements-dev.txt",
+        "backend/scripts/mutacao_incremental.py",
+        "backend/config/settings.py",
+        ".github/workflows/backend-ci.yml",
+    ],
+)
+def test_mudanca_na_configuracao_roda_o_alvo_fixo(mi, backend, caminho):
+    # Sem isso, um PR que quebra a configuração do mutmut passaria verde sem
+    # rodar nada (o próprio PR da BE-19 passou em 7 s).
+    assert mi.curingas([caminho], backend) == [mi.ALVO_DA_CONFIGURACAO]
+
+
+def test_alvo_fixo_junta_com_os_outros_alvos(mi, backend):
+    alterados = ["backend/setup.cfg", "backend/apps/fila/checkin_service.py"]
+    assert mi.curingas(alterados, backend) == sorted(
+        ["apps.fila.checkin_service.*", mi.ALVO_DA_CONFIGURACAO]
+    )
+
+
+@pytest.mark.parametrize(
+    "caminho",
+    [
+        "README.md",
+        "docs/qualidade/plano-de-testes.md",
+        ".github/workflows/frontend-ci.yml",
+        ".github/workflows/backend-mutacao-semanal.yml",
+        "frontend/package.json",
+        "backend/Dockerfile",
+    ],
+)
+def test_mudanca_fora_da_configuracao_nao_roda_nada(mi, backend, caminho):
+    assert mi.curingas([caminho], backend) == []
+
+
+def test_alvo_fixo_existe_no_backend_de_verdade(mi):
+    modulo = mi.ALVO_DA_CONFIGURACAO.removesuffix(".*").replace(".", "/") + ".py"
+    assert (RAIZ_BACKEND / modulo).is_file()
+
+
+def test_init_dos_apps_criticos_nao_tem_codigo(mi):
+    # O script não gera curinga para os `__init__.py` (o nome dos mutantes de
+    # um `__init__.py` é o do pacote inteiro). Se um deles ganhar código, a
+    # regra precisa mudar.
+    for init in (RAIZ_BACKEND / "apps").glob("*/**/__init__.py"):
+        caminho = init.relative_to(RAIZ_BACKEND)
+        if caminho.parts[1] not in mi.APPS_CRITICOS or {"tests", "migrations"} & set(
+            caminho.parts
+        ):
+            continue
+        texto = init.read_text(encoding="utf-8")
+        assert "def " not in texto and "class " not in texto, caminho
 
 
 def test_sem_arquivo_critico_a_lista_fica_vazia(mi, backend):
@@ -245,9 +322,14 @@ def repositorio(tmp_path):
     return tmp_path
 
 
-def test_alterados_lista_so_o_apps_do_backend_relativo_ao_backend(mi, repositorio):
+def test_alterados_lista_tudo_relativo_a_raiz_do_repositorio(mi, repositorio):
+    # Inclusive o que está fora de `backend/`: o workflow também é gatilho.
     alterados = mi.arquivos_alterados("develop", repositorio / "backend")
-    assert sorted(alterados) == ["apps/fila/checkin_service.py", "apps/fila/velho.py"]
+    assert sorted(alterados) == [
+        "README.md",
+        "backend/apps/fila/checkin_service.py",
+        "backend/apps/fila/velho.py",
+    ]
 
 
 def test_alterados_ignora_o_que_mudou_so_na_base(mi, repositorio):
@@ -259,7 +341,7 @@ def test_alterados_ignora_o_que_mudou_so_na_base(mi, repositorio):
     git(repositorio, "commit", "-q", "-m", "base andou")
     git(repositorio, "checkout", "-q", "pr")
     alterados = mi.arquivos_alterados("develop", repositorio / "backend")
-    assert "apps/fila/da_base.py" not in alterados
+    assert "backend/apps/fila/da_base.py" not in alterados
 
 
 def test_comando_alvos_imprime_um_curinga_por_linha(repositorio):
@@ -271,6 +353,21 @@ def test_comando_alvos_imprime_um_curinga_por_linha(repositorio):
         check=True,
     )
     assert resultado.stdout == "apps.fila.checkin_service.*\n"
+
+
+def test_comando_alvos_sem_mudanca_no_backend_imprime_nada(repositorio):
+    git(repositorio, "checkout", "-q", "-b", "so-readme", "develop")
+    (repositorio / "README.md").write_text("outro\n", encoding="utf-8")
+    git(repositorio, "commit", "-q", "-am", "readme")
+    resultado = subprocess.run(
+        [sys.executable, str(SCRIPT), "alvos", "develop"],
+        cwd=repositorio / "backend",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert resultado.returncode == 0
+    assert resultado.stdout == ""
 
 
 def test_comando_alvos_falha_com_base_inexistente(repositorio):
@@ -400,21 +497,88 @@ def test_comando_escore_falha_abaixo_do_minimo(tmp_path):
     gravar(tmp_path, "mutants/mutmut-cicd-stats.json", stats(killed=4, survived=6))
     resultado = rodar_escore(tmp_path, "--minimo", "50")
     assert resultado.returncode == 1
-    assert "40,0%" in resultado.stdout
+    assert "40,00%" in resultado.stdout
 
 
 def test_comando_escore_passa_no_minimo(tmp_path):
     gravar(tmp_path, "mutants/mutmut-cicd-stats.json", stats(killed=5, survived=5))
     resultado = rodar_escore(tmp_path, "--minimo", "50")
     assert resultado.returncode == 0
-    assert "50,0%" in resultado.stdout
+    assert "50,00%" in resultado.stdout
 
 
-def test_comando_escore_sem_avaliados_passa_com_nada_a_testar(tmp_path):
+def test_comando_escore_sem_avaliados_e_erro(tmp_path):
+    # O passo de escore só roda depois que o mutmut testou mutantes: o "nada a
+    # testar" é decidido antes, no job. Zero avaliados aqui é defeito.
     gravar(tmp_path, "mutants/mutmut-cicd-stats.json", stats())
     resultado = rodar_escore(tmp_path, "--minimo", "50")
-    assert resultado.returncode == 0
-    assert "nada a testar" in resultado.stdout
+    assert resultado.returncode == 2
+    assert "nenhum mutante avaliado" in resultado.stderr
+
+
+@pytest.mark.parametrize(
+    "conteudo",
+    [
+        "{}",
+        '{"total": 10}',
+        '{"killed": 3}',
+        "[]",
+        "null",
+        '{"killed": "abc", "survived": 1}',
+        '{"killed": true, "survived": 1}',
+        '{"killed": -1, "survived": 1}',
+        '{"killed": 3, "survived": 1',
+    ],
+    ids=[
+        "vazio",
+        "sem-killed-e-survived",
+        "sem-survived",
+        "lista",
+        "null",
+        "texto",
+        "booleano",
+        "negativo",
+        "truncado",
+    ],
+)
+def test_comando_escore_json_invalido_e_erro(tmp_path, conteudo):
+    # Um upgrade do mutmut que renomeie os campos não pode virar verde, nem
+    # se confundir com "abaixo do mínimo" (saída 1).
+    arquivo = tmp_path / "mutants" / "mutmut-cicd-stats.json"
+    arquivo.parent.mkdir()
+    arquivo.write_text(conteudo, encoding="utf-8")
+    resultado = rodar_escore(tmp_path, "--minimo", "50")
+    assert resultado.returncode == 2
+    assert "Traceback" not in resultado.stderr
+
+
+def test_comando_escore_rodada_interrompida_e_erro(tmp_path):
+    # Interrompido no meio, o JSON é de uma amostra, e não da rodada inteira.
+    gravar(
+        tmp_path,
+        "mutants/mutmut-cicd-stats.json",
+        stats(killed=9, survived=1, check_was_interrupted_by_user=3),
+    )
+    resultado = rodar_escore(tmp_path, "--minimo", "50")
+    assert resultado.returncode == 2
+    assert "interrompid" in resultado.stderr
+
+
+@pytest.mark.parametrize(("minimo", "saida"), [("50", 0), ("60", 0), ("70", 1)])
+def test_comando_escore_respeita_o_minimo_pedido(tmp_path, minimo, saida):
+    gravar(tmp_path, "mutants/mutmut-cicd-stats.json", stats(killed=6, survived=4))
+    assert rodar_escore(tmp_path, "--minimo", minimo).returncode == saida
+
+
+def test_comando_escore_logo_abaixo_do_minimo_nao_aparece_arredondado(tmp_path):
+    gravar(
+        tmp_path,
+        "mutants/mutmut-cicd-stats.json",
+        stats(killed=49999, survived=50001),
+    )
+    resultado = rodar_escore(tmp_path, "--minimo", "50")
+    assert resultado.returncode == 1
+    assert "49,99% ABAIXO DE 50%" in resultado.stdout
 
 
 def test_comando_escore_sem_o_json_e_erro_e_nao_verde(tmp_path):
@@ -429,7 +593,7 @@ def test_comando_escore_grava_o_resumo_do_github(tmp_path):
     resumo = tmp_path / "resumo.md"
     rodar_escore(tmp_path, env_extra={"GITHUB_STEP_SUMMARY": str(resumo)})
     texto = resumo.read_text(encoding="utf-8")
-    assert "| 30 | 0 | 9 | 0 | 0 | 0 | 39 | 76,9% |" in texto
+    assert "| 30 | 0 | 9 | 0 | 0 | 0 | 39 | 76,92% |" in texto
 
 
 def test_comando_escore_varios_modulos_falha_se_um_ficar_abaixo(tmp_path):
@@ -438,9 +602,15 @@ def test_comando_escore_varios_modulos_falha_se_um_ficar_abaixo(tmp_path):
     b = gravar(tmp_path, "b/stats.json", stats(killed=4, survived=6))
     resultado = rodar_escore(tmp_path, "--minimo", "50", f"fila={a}", f"cadastro={b}")
     assert resultado.returncode == 1
-    assert "fila" in resultado.stdout and "cadastro" in resultado.stdout
+    linhas = resultado.stdout.splitlines()
+    linha_fila = next(linha for linha in linhas if linha.startswith("Mutação fila:"))
+    linha_cadastro = next(
+        linha for linha in linhas if linha.startswith("Mutação cadastro:")
+    )
+    assert "ABAIXO" not in linha_fila
+    assert linha_cadastro.endswith("40,00% ABAIXO DE 50%")
     # Geral: 94 de 110.
-    assert "85,5%" in resultado.stdout
+    assert "Mutação geral: 94 de 110: 85,45%" in resultado.stdout
 
 
 def test_comando_escore_varios_modulos_passa_com_todos_na_meta(tmp_path):
@@ -448,3 +618,104 @@ def test_comando_escore_varios_modulos_passa_com_todos_na_meta(tmp_path):
     b = gravar(tmp_path, "b/stats.json", stats(killed=6, survived=4))
     resultado = rodar_escore(tmp_path, "--minimo", "50", f"fila={a}", f"cadastro={b}")
     assert resultado.returncode == 0
+
+
+def test_comando_escore_varios_modulos_com_um_json_faltando_e_erro(tmp_path):
+    # É o caso da rodada semanal em que o job de um módulo quebrou.
+    a = gravar(tmp_path, "a/stats.json", stats(killed=90, survived=10))
+    resultado = rodar_escore(
+        tmp_path, "--minimo", "50", f"fila={a}", "cadastro=b/nao-existe.json"
+    )
+    assert resultado.returncode == 2
+    assert "nao-existe.json" in resultado.stderr
+
+
+def test_resumo_do_pr_fala_em_minimo_do_agregado(tmp_path):
+    gravar(tmp_path, "mutants/mutmut-cicd-stats.json", stats(killed=30, survived=9))
+    resumo = tmp_path / "resumo.md"
+    rodar_escore(tmp_path, env_extra={"GITHUB_STEP_SUMMARY": str(resumo)})
+    texto = resumo.read_text(encoding="utf-8")
+    assert "em cada módulo" not in texto
+
+
+# --- Conferência dos curingas -------------------------------------------------
+
+RESULTADOS = """\
+    apps.gamificacao.patente_resolver.xǁPatenteResolverǁ__init____mutmut_1: killed
+    apps.gamificacao.patente_resolver.x_patente__mutmut_2: survived
+    apps.fila.checkin_service.x_registrar__mutmut_1: not checked
+"""
+
+
+def rodar_conferir(tmp_path, alvos, resultados=RESULTADOS):
+    (tmp_path / "alvos.txt").write_text(
+        "".join(f"{a}\n" for a in alvos), encoding="utf-8"
+    )
+    (tmp_path / "resultados.txt").write_text(resultados, encoding="utf-8")
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), "conferir", "alvos.txt", "resultados.txt"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_conferir_todos_os_curingas_casam(tmp_path):
+    resultado = rodar_conferir(
+        tmp_path,
+        ["apps.gamificacao.patente_resolver.*", "apps.fila.checkin_service.*"],
+    )
+    assert resultado.returncode == 0
+    assert "::warning::" not in resultado.stdout
+
+
+def test_conferir_avisa_o_curinga_que_nao_casou(tmp_path):
+    # Arquivo sem nada a mutar ou curinga com nome errado: não barra, mas
+    # aparece como aviso na página do run.
+    resultado = rodar_conferir(
+        tmp_path,
+        ["apps.gamificacao.patente_resolver.*", "apps.gamificacao.pontuacao_policy.*"],
+    )
+    assert resultado.returncode == 0
+    assert "::warning::" in resultado.stdout
+    assert "apps.gamificacao.pontuacao_policy.*" in resultado.stdout
+
+
+def test_conferir_falha_se_o_formato_dos_nomes_mudou(tmp_path):
+    # Se nenhum mutante começa com "apps.", o formato dos nomes mudou (upgrade
+    # do mutmut ou source_paths): todo PR ficaria verde sem testar nada.
+    resultados = "    gamificacao.patente_resolver.x_patente__mutmut_2: survived\n"
+    resultado = rodar_conferir(
+        tmp_path, ["apps.gamificacao.patente_resolver.*"], resultados
+    )
+    assert resultado.returncode == 2
+    assert "::error::" in resultado.stdout
+
+
+def test_conferir_falha_sem_nenhum_mutante_gerado(tmp_path):
+    resultado = rodar_conferir(tmp_path, ["apps.gamificacao.patente_resolver.*"], "")
+    assert resultado.returncode == 2
+
+
+# --- O YAML e o script não podem divergir -------------------------------------
+
+
+def carregar_yaml(nome):
+    yaml = pytest.importorskip("yaml")
+    caminho = RAIZ_BACKEND.parent / ".github" / "workflows" / nome
+    return yaml.safe_load(caminho.read_text(encoding="utf-8"))
+
+
+def test_matriz_da_rodada_semanal_tem_os_modulos_do_script(mi):
+    workflow = carregar_yaml("backend-mutacao-semanal.yml")
+    matriz = workflow["jobs"]["mutacao"]["strategy"]["matrix"]["include"]
+    assert sorted(item["modulo"] for item in matriz) == sorted(mi.MODULOS)
+
+
+def test_escore_semanal_le_os_seis_modulos(mi):
+    workflow = carregar_yaml("backend-mutacao-semanal.yml")
+    passos = workflow["jobs"]["escore"]["steps"]
+    comando = next(p["run"] for p in passos if "escore --minimo" in p.get("run", ""))
+    rotulos = re.findall(r"(\S+)=relatorios/", comando)
+    assert sorted(rotulos) == sorted(mi.MODULOS)
