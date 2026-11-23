@@ -419,9 +419,13 @@ O `bandejao-deploy` (cópia instalada do `deploy/cd/deploy.sh`):
 4. avança a `main` até o commit;
 5. roda `docker compose up -d --build --wait`: as migrations novas rodam na
    subida do backend;
-6. recria o Caddy se o `Caddyfile` mudou e confere se o container vê o
-   arquivo novo (ver [Atualizar](#atualizar): um `caddy reload` leria o
-   antigo);
+6. confere se o Caddy vê o `Caddyfile` do repositório e, se não vê, recria o
+   container e confere de novo (ver [Atualizar](#atualizar): um
+   `caddy reload` leria o arquivo antigo). A conferência é pelo conteúdo, e
+   não pelo que o merge mudou: num **Re-run** depois de um deploy que falhou
+   no meio, o Caddy também é corrigido. Se o Caddy não sobe (um erro de
+   sintaxe no `Caddyfile`, por exemplo), o log aponta o
+   `docker compose logs --tail 50 caddy`;
 7. confere se `https://bandejaounb.com.br/` (o PWA) e
    `https://bandejaounb.com.br/api/campi/` respondem 200;
 8. só então roda a rotação dos backups: ficam os 10 mais recentes, e o backup
