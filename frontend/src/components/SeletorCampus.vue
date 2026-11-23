@@ -38,14 +38,25 @@ function escolher(id) {
 
 <template>
   <div v-if="compacto" class="seletor-compacto" role="group" aria-label="Campus">
-    <p v-if="cardapio.erroCampi && !cardapio.campi.length" class="estado-compacto" role="alert">
-      Não foi possível carregar os campi.
+    <p
+      v-if="cardapio.carregandoCampi || (!cardapio.campiCarregados && !cardapio.erroCampi)"
+      class="estado-compacto"
+      role="status"
+    >
+      Carregando campi…
+    </p>
+    <p
+      v-else-if="cardapio.erroCampi && !cardapio.campi.length"
+      class="estado-compacto"
+      role="alert"
+    >
+      Não foi possível carregar os campi. {{ cardapio.erroCampi }}
       <button type="button" class="botao-pequeno" @click="cardapio.carregarCampi({ forcar: true })">
         Tentar novamente
       </button>
     </p>
-    <p v-else-if="!cardapio.campi.length" class="estado-compacto" role="status">
-      Carregando campi…
+    <p v-else-if="!cardapio.campi.length" class="estado-compacto">
+      Nenhum campus disponível no momento.
     </p>
     <template v-else>
       <button

@@ -40,10 +40,15 @@ const subtitulo = computed(() =>
     .join(' · '),
 )
 
+// Busca quando o campus muda e também quando o ranking some ou fica
+// desatualizado com a tela aberta: o `limpar()` do logout ou de um 401 apaga
+// os rankings, e o `invalidarRanking` os marca para buscar de novo.
 watch(
-  id,
-  (valor) => {
-    if (valor) gamificacao.carregarRanking(valor)
+  [id, situacao],
+  ([valor, atual]) => {
+    if (valor && (atual === null || atual === 'desatualizado')) {
+      gamificacao.carregarRanking(valor)
+    }
   },
   { immediate: true },
 )

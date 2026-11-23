@@ -733,7 +733,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Junção com a FE-12 (#238): a FE-12 entrou na `develop` com um `carregarRanking` e um `constants/patentes.js` próprios. A FE-13 passou a usar os dela (`rankingDe`, recarga do ranking ao mudar a adesão e o ranking de exemplo do simulado), com `rankingDoCampus`, `situacaoDoRanking` e `erroDoRanking` por cima, sem duas versões da mesma regra.
 - Contrato: conferido contra o backend real da BE-17 (#239), rodando o Django local com SQLite e dados de teste: 10 linhas sem pontos e sem quem não aderiu, lista vazia num campus sem ninguém e 404 `campus_nao_encontrado` para um id inexistente. O tratamento do 501 fica como defesa, como na FE-11.
 - TDD: `b3e4935` (testes) → `e721ab4` (código); na revisão, testes → correções.
-- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 921 testes passando e `npm run build` sem erro. Sem rolagem horizontal em 360 px e 1366 px, com as capturas no PR.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 929 testes passando e `npm run build` sem erro. Sem rolagem horizontal em 360 px e 1366 px, com as capturas no PR.
 - Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/242#issuecomment-7088818035). Ajustes aplicados:
   - só o 404 com `campus_nao_encontrado` vira "Campus não encontrado"; os outros 4xx vão para o erro, com registro no console;
   - a mensagem de erro não se repete na tela;
@@ -742,4 +742,9 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - testes de pontos na resposta (RI12), id mal formado sem chamar a API, troca rápida de campus com respostas fora de ordem e `aria-pressed` do seletor compacto;
   - a validação da resposta e a corrida entre pedidos já vieram com a FE-12;
   - branch atualizada com a `develop` e a tela conferida contra o backend real da BE-17.
+- Segunda revisão (AlvaroBento12): ajustes aplicados:
+  - o merge da `develop` tinha apagado o deploy automático da #240 (`deploy.yml`, `deploy.sh`, os testes do CD, a seção do guia de deploy, o PyYAML e a entrada da #240 neste arquivo). O erro foi da IA: o patch do merge foi gerado com uma `develop` mais antiga que a usada no `git merge`. A branch foi atualizada de novo, agora com o commit da `develop` fixado nos comandos, e o PR só acrescenta arquivos do `frontend/` e esta entrada;
+  - a tela não fica mais presa em "Carregando ranking…" depois do `limpar()` (logout ou 401): a `RankingView` busca de novo quando o ranking some ou fica `'desatualizado'`, o que também dá uso ao `invalidarRanking`;
+  - o `SeletorCampus` compacto separa "carregando" de "lista vazia" e mostra a mensagem do erro;
+  - testes: patente `RATO_DE_RU` → "Rato de RU", "Tentar de novo" do aviso atualizando a lista, lista mantida com a situação `'carregando'` ou `'desatualizado'`, erro do seletor compacto, escolha a partir de `/ranking` sem lembrar o campus, e rede e 5xx sem nada no console.
 - Situação: aguardando nova revisão.
