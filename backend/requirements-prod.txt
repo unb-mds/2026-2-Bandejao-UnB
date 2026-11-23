@@ -1,6 +1,7 @@
 # Dependências da imagem de produção (backend/Dockerfile, BD-05).
 -r requirements.txt
-# O job testes-mysql do CI instala este arquivo (requirements-ci-mysql.txt).
+# O job testes-mysql do CI também instala e audita este arquivo inteiro (pelo
+# requirements-ci-mysql.txt), com estas mesmas versões.
 mysqlclient==2.3.1
 gunicorn==27.0.1
 # Banco de fusos do zoneinfo (TIME_ZONE e janela do check-in), sem depender da
