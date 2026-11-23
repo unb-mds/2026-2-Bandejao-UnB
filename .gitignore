@@ -21,3 +21,6 @@ staticfiles/
 # Caches do ruff e do pytest
 .ruff_cache/
 .pytest_cache/
+
+# Saída do mutmut (BE-19)
+backend/mutants/
