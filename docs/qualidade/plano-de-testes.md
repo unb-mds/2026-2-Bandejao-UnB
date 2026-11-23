@@ -277,6 +277,16 @@ Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR par
 | `seguranca` | Semgrep e `npm audit --audit-level=high` | Sim |
 | `mutacao` | StrykerJS incremental nos arquivos críticos alterados; falha abaixo de 50% | Sim, quando roda |
 
+**Como o job `mutacao (front)` funciona (FE-17):**
+
+- **Configuração:** `frontend/stryker.config.mjs` (StrykerJS 10.1.1 com `@stryker-mutator/vitest-runner`, cobertura por teste). Os arquivos mutados são os módulos críticos da seção 2, listados no `MODULOS` do `frontend/scripts/mutacao.mjs`: `auth` (`stores/auth.js`, guardas do `router`), `cardapio` (`stores/cardapio.js`, `utils/cardapio.js`), `avaliacao` (`stores/avaliacoes.js`), `fila` (`stores/fila.js`, `services/leituraPosicao.js`, `CheckinBotao`, `FilaPrevisao`), `gamificacao` (`stores/gamificacao.js`, `PontosAviso`) e `api` (`services/apiClient.js`). Há teste que confere que todo arquivo com meta de cobertura no `vitest.config.js` também está nessa lista. As validações do cadastro ficam na `CadastroView` e são cobertas pelos testes do fluxo da conta, não pela mutação da view inteira.
+- **Arquivos escolhidos:** `node scripts/mutacao.mjs alvos origin/<base>` lista os arquivos do `git diff --name-only origin/<base>...HEAD` e devolve os críticos alterados, que vão para o `--mutate` do Stryker. Um **teste alterado** conta para o arquivo que ele testa (`x.test.js` aponta para `x.js` ou `x.vue`). Uma **mudança na configuração da mutação** (`stryker.config.mjs`, `vitest.config.js`, `vite.config.js`, `package.json`, `package-lock.json`, o script ou o `frontend-ci.yml`) sem nenhum arquivo crítico alterado muta um alvo fixo, o `utils/cardapio.js`; com outro alvo no PR, o alvo fixo não entra, para não diluir o escore do que mudou. Arquivo crítico apagado no PR não vira alvo.
+- **Nada a testar:** sem nenhum desses arquivos alterado, o job termina verde sem rodar o Stryker (sem filtro `paths:`, para o check obrigatório não ficar pendente). O PR de release (`develop` → `main`) pula o job, como no backend.
+- **Escore:** `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`, como o Stryker calcula, com duas casas truncadas. `CompileError`, `RuntimeError` e `Ignored` ficam fora da conta. No PR, a meta vale para o conjunto dos mutantes rodados (`thresholds.break: 50` no `stryker.config.mjs`); o `scripts/mutacao.mjs escore` repete a conta no resumo do run.
+- **Componentes `.vue`:** o Stryker não pode mutar o argumento do `defineProps` (o compilador do Vue recusa a macro com código em volta). Esse trecho fica entre `// Stryker disable all` e `// Stryker restore all`.
+- **Relatório:** o resumo sai na página do run, e o HTML e o JSON do Stryker ficam no artefato `mutacao-front`.
+- **Na máquina:** `cd frontend`, `npm run mutacao -- --mutate src/stores/fila.js` (um arquivo) ou `npm run mutacao` (a base inteira, uns 25 minutos), e o relatório em `reports/mutation/mutation.html`.
+
 ### 5.3 `e2e.yml` (FE-18)
 
 | Job | Comandos | Bloqueia o merge |
@@ -287,6 +297,7 @@ Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR par
 
 - **Toda semana** (e antes de 22/11): mutação na base inteira, back e front, para pegar o escore de quem não mexeu em módulo crítico recentemente.
   - **Back:** `.github/workflows/backend-mutacao-semanal.yml`, aos domingos às 06:00 UTC (03:00 em Brasília), na `develop`; à mão, pelo `workflow_dispatch`, na branch escolhida. Um job por módulo crítico (`cadastro`, `cardapio/leitor`, `cardapio` sem o leitor, `avaliacao`, `fila`, `gamificacao`), com até 5 horas cada, para a base inteira (cerca de 5.240 mutantes, quase metade no leitor) não passar do limite de 6 horas de um job do GitHub. Um último job junta os seis resultados e falha se **algum** módulo ficar abaixo de 50%, se faltar o resultado de algum ou se algum job de módulo não terminou bem (quebrou, passou do tempo ou foi cancelado), porque um resultado parcial não vale. Mesma fórmula do escore do job `mutacao`.
+  - **Front:** `.github/workflows/frontend-mutacao-semanal.yml`, aos domingos às 07:00 UTC (04:00 em Brasília), na `develop`; à mão, pelo `workflow_dispatch`, na branch escolhida. Um job só com todos os arquivos críticos (cerca de 1.700 mutantes, uns 25 minutos), e o `scripts/mutacao.mjs escore --por-modulo` reprova a rodada se **algum** módulo crítico ficar abaixo de 50%, mesmo com o geral acima.
 - **Antes da entrega:** o commit da entrega precisa ter todos os workflows verdes (porta da Release 2).
 
 ---
