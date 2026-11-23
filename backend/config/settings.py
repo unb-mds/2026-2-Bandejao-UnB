@@ -371,6 +371,35 @@ if ATRAS_DE_PROXY:
 else:
     SECURE_PROXY_SSL_HEADER = None
 
+# HTTPS em produção (BE-10, ADR 0012)
+# O HSTS começa em 1 hora: se o certificado falhar, o navegador de quem já
+# abriu o site só fica preso ao HTTPS por uma hora. Depois de alguns dias de
+# HTTPS estável, o .env da VM sobe para um ano (31536000).
+SECURE_HSTS_SECONDS = config(
+    "SECURE_HSTS_SECONDS", default=0 if DEBUG else 60 * 60, cast=int
+)
+if SECURE_HSTS_SECONDS < 0:
+    # Um max-age negativo desligaria o HSTS sem o aviso W004 do check --deploy.
+    raise ImproperlyConfigured(
+        f"SECURE_HSTS_SECONDS não pode ser negativo (veio {SECURE_HSTS_SECONDS})."
+    )
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+# Só estes três avisos do check --deploy ficam calados, e o
+# tests/test_deploy_be10.py confere a lista. Não acrescente outro para o CI
+# passar.
+SILENCED_SYSTEM_CHECKS = [
+    # HSTS sem subdomínios: os subdomínios de e-mail do DNS apontam para o
+    # Brevo e o ImprovMX, que não são servidos por nós.
+    "security.W005",
+    # SECURE_SSL_REDIRECT desligado: o Caddy já redireciona HTTP para HTTPS
+    # (308) antes de a requisição chegar ao Gunicorn.
+    "security.W008",
+    # Sem preload: sair da lista dos navegadores é quase irreversível, e o
+    # domínio pode mudar depois da disciplina (ADR 0012).
+    "security.W021",
+]
+
 CSRF_TRUSTED_ORIGINS = config("DJANGO_CSRF_TRUSTED_ORIGINS", default="", cast=lista)
 
 
