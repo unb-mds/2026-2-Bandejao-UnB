@@ -26,7 +26,7 @@ nem comparar dois monitores.
 O monitor da API existe por causa do que já aconteceu: o banco de produção
 chegou a ficar sem campi, e a API respondia 200 com `[]`. Um monitor que só
 olha o código HTTP não pegaria isso. O caso está no passo
-[3. Subir](../deploy/deploy-producao.md?id=_3-subir) do guia de deploy; a
+[3. Subir](deploy/deploy-producao.md?id=_3-subir) do guia de deploy; a
 seção "Validação em produção" do mesmo guia registra a resposta com os 5 campi
 depois do `loaddata`.
 
@@ -44,27 +44,27 @@ depois do `loaddata`.
 Quem recebe o e-mail (o dono da conta) **avisa no grupo da equipe** assim que
 o alerta chega, com o monitor, o horário e o motivo que o painel mostra. Se
 outra pessoa precisar agir, ela usa o próprio acesso à VM (ver
-[Infraestrutura](../deploy/deploy-producao.md?id=infraestrutura)) e não
+[Infraestrutura](deploy/deploy-producao.md?id=infraestrutura)) e não
 precisa do painel.
 
 1. Abra o monitor no painel e leia o motivo do incidente (código HTTP, tempo
    esgotado ou "keyword not found").
 2. Entre na VM por SSH (ver
-   [Infraestrutura](../deploy/deploy-producao.md?id=infraestrutura)) e veja
+   [Infraestrutura](deploy/deploy-producao.md?id=infraestrutura)) e veja
    os serviços:
    ```bash
    cd ~/2026-2-Bandejao-UnB
    docker compose ps
    docker compose logs --tail 100 backend caddy db
    ```
-   (mais comandos em [Ver logs](../deploy/deploy-producao.md?id=ver-logs)). O
+   (mais comandos em [Ver logs](deploy/deploy-producao.md?id=ver-logs)). O
    `db` entra porque, se o banco cai, o backend fica `unhealthy` e a causa só
    aparece no log do `db`.
 3. Se um serviço caiu, o `restart: unless-stopped` costuma subir de volta
    sozinho. Se não subiu, rode `docker compose up -d` (sem `git pull`) e veja
    `docker compose logs --tail 100 <serviço>`. Se o erro for de configuração
    (`.env`), veja os casos de `--force-recreate` em
-   [Atualizar](../deploy/deploy-producao.md?id=atualizar). Não siga o resto de
+   [Atualizar](deploy/deploy-producao.md?id=atualizar). Não siga o resto de
    "Atualizar" no meio de um incidente: ele faz `git pull` e coloca código novo
    em produção.
 4. Se a API responde `[]`, confirme que a tabela de campi está vazia (o log do
@@ -72,9 +72,9 @@ precisa do painel.
    shell). Só então rode o `loaddata`, sabendo que ele regrava campi **e
    marcadores** com os valores da fixture e desfaz ajustes feitos no banco,
    como as coordenadas medidas em campo na BD-06 (ver o aviso no passo
-   [3. Subir](../deploy/deploy-producao.md?id=_3-subir) do guia de deploy).
+   [3. Subir](deploy/deploy-producao.md?id=_3-subir) do guia de deploy).
 5. Anote o incidente na tabela de incidentes do
-   [relatório](relatorio-disponibilidade-parcial.md), mesmo que caia fora do
+   [relatório](operacao/relatorio-disponibilidade-parcial.md), mesmo que caia fora do
    período dele (a coluna "No período?" separa).
 
 ## Como o relatório é calculado
@@ -108,7 +108,7 @@ tempo fora do ar é medido nesse passo, e uma queda curta entre duas checagens
 pode passar despercebida.
 
 O critério dos dias de refeição, o que não conta e onde fica a evidência estão
-no [relatório parcial de disponibilidade](relatorio-disponibilidade-parcial.md).
+no [relatório parcial de disponibilidade](operacao/relatorio-disponibilidade-parcial.md).
 
 ## Limites conhecidos
 

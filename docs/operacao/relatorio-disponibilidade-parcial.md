@@ -3,7 +3,7 @@
 Meta (RNF02): **95%** das 7h às 19h30, nos dias com refeição servida. A meta é
 avaliada no **período**: equivale, em média, a 37,5 minutos de queda por dia de
 refeição (de 750 minutos). Método de cálculo em
-[monitor de disponibilidade](monitor-disponibilidade.md). A medida oficial é o
+[monitor de disponibilidade](operacao/monitor-disponibilidade.md). A medida oficial é o
 monitor da API; o do site é diagnóstico.
 
 **Situação:** modelo pronto, aguardando os dias de refeição. Os campos
