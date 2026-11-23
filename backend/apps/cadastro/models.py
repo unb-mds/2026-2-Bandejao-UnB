@@ -71,7 +71,6 @@ class StatusUsuario(models.TextChoices):
     PENDENTE = "pendente", "Pendente"
     ATIVO = "ativo", "Ativo"
     SUSPENSO = "suspenso", "Suspenso"
-    REMOVIDO = "removido", "Removido"
 
 
 class TipoToken(models.TextChoices):
@@ -146,7 +145,6 @@ class Usuario(AbstractBaseUser):
     tentativas_login_falhas = models.IntegerField(default=0)
     primeira_falha_login_em = models.DateTimeField(null=True, blank=True)
     bloqueado_ate = models.DateTimeField(null=True, blank=True)
-    removido_em = models.DateTimeField(null=True, blank=True)
 
     objects = UsuarioManager()
 
@@ -155,12 +153,14 @@ class Usuario(AbstractBaseUser):
 
     @property
     def is_active(self):
-        """Conta suspensa ou removida não autentica (ADR 0007, ADR 0004).
+        """Conta suspensa não autentica (ADR 0007, ADR 0004).
+
+        Conta excluída não existe mais: a exclusão apaga a linha (BD-12).
 
         A conta `pendente` continua "ativa" para o Django de propósito: quem
         barra o login dela é o LoginService (conta não confirmada, RF02/RF03).
         """
-        return self.status not in (StatusUsuario.SUSPENSO, StatusUsuario.REMOVIDO)
+        return self.status != StatusUsuario.SUSPENSO
 
     def aviso_privacidade_pendente(self) -> bool:
         """Falta a ciência da versão atual do aviso (RF11, RNF07.1, Cadastro N4 4d).

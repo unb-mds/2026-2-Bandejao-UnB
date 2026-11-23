@@ -15,8 +15,9 @@ from apps.cardapio.models import Refeicao
 class Avaliacao(models.Model):
     """Nota e comentário de uma conta sobre uma refeição inteira (RF15)."""
 
-    # Nulo só se a linha de USUARIO for apagada fisicamente; na exclusão de
-    # conta o RemoverContaCommand marca `status = removido` e o vínculo fica.
+    # Nulo quando a conta é excluída: o RemoverContaCommand apaga a linha de
+    # USUARIO e o SET_NULL deixa a avaliação, que aparece como "usuário
+    # removido" (BD-12, RNF07.4).
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

@@ -47,9 +47,7 @@ def test_quem_nao_aderiu_nao_aparece(campus):
     assert ids_do_top(campus) == [aderiu.pk]
 
 
-@pytest.mark.parametrize(
-    "status", [StatusUsuario.SUSPENSO, StatusUsuario.REMOVIDO, StatusUsuario.PENDENTE]
-)
+@pytest.mark.parametrize("status", [StatusUsuario.SUSPENSO, StatusUsuario.PENDENTE])
 def test_conta_que_nao_esta_ativa_nao_aparece(campus, status):
     ativa = criar_conta(1)
     inativa = criar_conta(2, status=status)

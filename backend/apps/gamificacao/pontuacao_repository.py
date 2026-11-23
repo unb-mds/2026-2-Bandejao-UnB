@@ -56,6 +56,13 @@ class PontuacaoRepository:
         """Grava os pontos totais (e o `atualizado_em`, pelo `auto_now`)."""
         pontuacao.save(update_fields=["pontos_totais", "atualizado_em"])
 
+    def apagar_da_conta(self, conta) -> None:
+        """Apaga os pontos de cada semestre e campus e a pontuação total da
+        conta (BD-12). Os pontos por semestre saem primeiro; as duas tabelas
+        apontam para a conta, e nenhuma aponta para a outra."""
+        PontosSemestreCampus.objects.filter(usuario=conta).delete()
+        PontuacaoUsuario.objects.filter(usuario=conta).delete()
+
     def alterar_adesao(self, conta, participa: bool) -> None:
         """Liga ou desliga a adesão ao ranking (RF27.1, Gamificação N4 4c).
 
