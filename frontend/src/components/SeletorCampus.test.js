@@ -7,6 +7,7 @@ import { usePreferenciasStore } from '@/stores/preferencias'
 import { ApiError, apiClient } from '@/services/apiClient'
 import { reiniciarSimulacao } from '@/services/mock/servidor'
 import App from '@/App.vue'
+import SeletorCampus from './SeletorCampus.vue'
 
 const AGORA = new Date(2026, 8, 28, 12, 0)
 
@@ -148,5 +149,55 @@ describe('SeletorCampus (FE-07)', () => {
       name: 'campus-tela',
       params: { campusId: '3' },
     })
+  })
+})
+
+/** Variante compacta, dentro de outra tela (RankingView, FE-13). */
+describe('SeletorCampus compacto', () => {
+  async function montarCompacto(selecionado = 1) {
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push('/campus')
+    const wrapper = mount(SeletorCampus, {
+      props: { compacto: true, selecionado },
+      global: { plugins: [pinia, router] },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await vi.waitFor(() =>
+      expect(wrapper.findAll('[data-teste="seletor-campus-opcao"]')).toHaveLength(5),
+    )
+    return { wrapper, router }
+  }
+
+  it('lista os campi como opções, sem o cabeçalho da tela de escolha', async () => {
+    const { wrapper } = await montarCompacto()
+
+    expect(wrapper.find('h1').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Darcy Ribeiro')
+    expect(wrapper.text()).toContain('Planaltina')
+  })
+
+  it('marca o campus selecionado com aria-pressed', async () => {
+    const { wrapper } = await montarCompacto(3)
+
+    const marcadas = wrapper
+      .findAll('[data-teste="seletor-campus-opcao"]')
+      .filter((b) => b.attributes('aria-pressed') === 'true')
+    expect(marcadas.map((b) => b.text())).toEqual(['Gama'])
+  })
+
+  it('escolher avisa a tela (evento "escolher"), sem navegar nem trocar o campus lembrado', async () => {
+    const { wrapper, router } = await montarCompacto(1)
+    usePreferenciasStore().escolherCampus(1)
+
+    const gama = wrapper
+      .findAll('[data-teste="seletor-campus-opcao"]')
+      .find((b) => b.text() === 'Gama')
+    await gama.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.emitted('escolher')).toEqual([[3]])
+    expect(router.currentRoute.value.name).toBe('campus')
+    expect(usePreferenciasStore().campusId).toBe(1)
   })
 })

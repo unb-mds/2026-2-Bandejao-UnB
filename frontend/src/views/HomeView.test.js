@@ -55,3 +55,14 @@ describe('HomeView: cartão "Cardápio de hoje" no domingo (#229)', () => {
     expect(cartao.find('.hoje-linhas').exists()).toBe(false)
   })
 })
+
+describe('HomeView: atalho para o ranking (FE-13)', () => {
+  it('o menu do perfil tem "Ranking do campus", levando ao ranking do campus lembrado', async () => {
+    const wrapper = await montarHome(3)
+
+    await wrapper.get('.avatar').trigger('click')
+    const link = wrapper.findAll('.menu-item').find((i) => i.text().includes('Ranking do campus'))
+
+    expect(link.attributes('href')).toBe('/ranking/3')
+  })
+})
