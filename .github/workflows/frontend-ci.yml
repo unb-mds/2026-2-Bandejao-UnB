@@ -102,7 +102,9 @@ jobs:
     defaults:
       run:
         working-directory: frontend
-        # Com `shell: bash` explícito, o GitHub roda com `-eo pipefail`.
+        # Com `shell: bash` explícito, o GitHub roda com `-eo pipefail`: é o
+        # pipefail que faz a saída 1 (ou 2) do `escore | tee` reprovar o step,
+        # em vez de valer a saída 0 do `tee`.
         shell: bash
     steps:
       - uses: actions/checkout@v5
@@ -139,14 +141,18 @@ jobs:
 
       # Sem o reporter `progress`: no log do CI ele só repete a barra.
       - name: Rodar o Stryker nos arquivos alterados
+        id: stryker
         if: steps.alvo.outputs.rodar == 'true'
         env:
           MUTATE: ${{ steps.alvo.outputs.mutate }}
         run: npx stryker run --mutate "$MUTATE" --reporters clear-text,html,json
 
       # Escore do conjunto no resumo do run, mesmo quando o Stryker reprovou.
+      # Roda sempre que o Stryker rodou, sem olhar se o relatório existe: sem
+      # o mutation.json, o script sai com 2 ("Não dá para medir") e o job
+      # reprova, em vez de ficar verde sem ter medido.
       - name: Escore de mutação (mínimo 50%)
-        if: ${{ !cancelled() && steps.alvo.outputs.rodar == 'true' && hashFiles('frontend/reports/mutation/mutation.json') != '' }}
+        if: ${{ !cancelled() && steps.alvo.outputs.rodar == 'true' && steps.stryker.outcome != 'skipped' }}
         run: |
           echo "### Mutação (front)" >> "$GITHUB_STEP_SUMMARY"
           node scripts/mutacao.mjs escore reports/mutation/mutation.json --minimo 50 | tee -a "$GITHUB_STEP_SUMMARY"

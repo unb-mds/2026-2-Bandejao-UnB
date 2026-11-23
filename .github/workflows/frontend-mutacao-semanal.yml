@@ -20,7 +20,9 @@ on:
 permissions:
   contents: read
 
-# Uma rodada de cada vez; a que está rodando não é cancelada.
+# Uma rodada de cada vez por branch (o grupo usa o `github.ref`): a agendada
+# roda a partir da `main` e um workflow_dispatch na `develop` pode rodar ao
+# mesmo tempo. A que está rodando não é cancelada.
 concurrency:
   group: frontend-mutacao-semanal-${{ github.ref }}
   cancel-in-progress: false
@@ -28,11 +30,13 @@ concurrency:
 defaults:
   run:
     working-directory: frontend
+    # Com `shell: bash` explícito, o GitHub roda com `-eo pipefail`: é o
+    # pipefail que faz a saída do `escore | tee` reprovar o step.
     shell: bash
 
 jobs:
-  # Um job só: a base inteira do front (cerca de 1.700 mutantes) leva uns 25
-  # minutos em 4 núcleos.
+  # Um job só: a base inteira do front tem perto de 2 mil mutantes e leva
+  # dezenas de minutos, longe do limite de 6 horas de um job.
   mutacao:
     name: mutacao (front, base inteira)
     runs-on: ubuntu-latest
@@ -57,8 +61,10 @@ jobs:
 
       # A meta vale para cada módulo crítico, não só para o total: um módulo
       # abaixo de 50% reprova a rodada mesmo com o geral acima.
+      # Sem olhar se o relatório existe: sem o mutation.json, o script sai com
+      # 2 ("Não dá para medir") e a rodada reprova.
       - name: Escore de mutação por módulo (mínimo 50%)
-        if: ${{ !cancelled() && hashFiles('frontend/reports/mutation/mutation.json') != '' }}
+        if: ${{ !cancelled() }}
         run: |
           echo "### Mutação semanal (front)" >> "$GITHUB_STEP_SUMMARY"
           node scripts/mutacao.mjs escore reports/mutation/mutation.json --minimo 50 --por-modulo | tee -a "$GITHUB_STEP_SUMMARY"
