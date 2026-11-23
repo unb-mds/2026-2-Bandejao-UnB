@@ -11,3 +11,7 @@ tests/
 .coverage
 .coverage.*
 htmlcov/
+
+# Teste de carga (BD-14): ferramenta de CI, não vai para a produção.
+carga/
+requirements-carga.txt

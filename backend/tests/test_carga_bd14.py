@@ -156,6 +156,7 @@ def test_popular_recusa_banco_com_cardapio_mesmo_sem_checkins(campi, modelo):
             url="https://ru.unb.br/real.pdf",
             sha256="1" * 64,
             verificado_em=timezone.now(),
+            processado_em=timezone.now(),
         )
     antes = contagens()
 

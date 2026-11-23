@@ -7,8 +7,12 @@ rápidas e mascarariam um p95 ruim). Imprime um resumo em Markdown e sai com
 
     python -m carga.avaliar resultado/carga_stats.csv [--informativo]
 
-Com `--informativo`, sai sempre com 0: é o caso das rodadas da varredura
-abaixo de 2.000 usuários, que medem a capacidade e não decidem o veredito.
+Com `--informativo`, que o workflow carga.yml usa em todas as rodadas, o
+desempenho não derruba o job: o veredito do RNF01 fica no resumo e no
+documento. Mas uma carga que não mediu (um endpoint sem requisição, ou mais
+da metade com falha, como numa task quebrada no locustfile) sai com 1 mesmo
+assim: isso não é desempenho ruim, é teste quebrado.
+
 A variável USUARIOS, se existir, entra no título do resumo.
 """
 
@@ -22,6 +26,8 @@ from carga.cenario import NOME_CARDAPIO, NOME_PREVISAO
 
 META_P95_MS = 3000
 LIMITE_FALHAS = 0.01
+# Acima disso, a carga não mediu o servidor: o teste está quebrado.
+LIMITE_FALHAS_EXECUCAO = 0.5
 ENDPOINTS = (NOME_CARDAPIO, NOME_PREVISAO)
 AGREGADO = "Aggregated"
 
@@ -43,6 +49,8 @@ class Linha:
 class Resultado:
     linhas: dict[str, Linha]
     motivos: list[str] = field(default_factory=list)
+    # Motivos que mostram que a carga não mediu (e não que o servidor é lento).
+    problemas_de_execucao: list[str] = field(default_factory=list)
 
     @property
     def aprovado(self) -> bool:
@@ -76,17 +84,24 @@ def avaliar(linhas: dict[str, Linha]) -> Resultado:
     for nome in ENDPOINTS:
         linha = linhas.get(nome)
         if linha is None or not linha.requisicoes:
-            resultado.motivos.append(f"{nome}: nenhuma requisição medida")
+            motivo = f"{nome}: nenhuma requisição medida"
+            resultado.motivos.append(motivo)
+            resultado.problemas_de_execucao.append(motivo)
             continue
-        if linha.p95_ms is None or linha.p95_ms > META_P95_MS:
+        if linha.p95_ms is None:
+            resultado.motivos.append(f"{nome}: p95 sem medida")
+        elif linha.p95_ms > META_P95_MS:
             resultado.motivos.append(
-                f"{nome}: p95 de {linha.p95_ms} ms, acima de {META_P95_MS} ms"
+                f"{nome}: p95 de {linha.p95_ms:.0f} ms, acima de {META_P95_MS} ms"
             )
         if linha.taxa_de_falhas > LIMITE_FALHAS:
-            resultado.motivos.append(
+            motivo = (
                 f"{nome}: {linha.taxa_de_falhas:.1%} de falha "
                 f"({linha.falhas} de {linha.requisicoes})"
             )
+            resultado.motivos.append(motivo)
+            if linha.taxa_de_falhas > LIMITE_FALHAS_EXECUCAO:
+                resultado.problemas_de_execucao.append(motivo)
     return resultado
 
 
@@ -109,7 +124,7 @@ def markdown(resultado: Resultado) -> str:
             f"{linha.rps:.1f} | {_formatar(linha.p95_ms)} | {META_P95_MS} |"
         )
     veredito = (
-        "**Aprovado:** p95 dentro da meta do RNF01 nos dois endpoints."
+        "**Aprovado:** p95 e falhas dentro da meta do RNF01 nos dois endpoints."
         if resultado.aprovado
         else "**Reprovado:**\n" + "\n".join(f"- {m}" for m in resultado.motivos)
     )
@@ -125,8 +140,17 @@ def main(argv=None) -> int:
     if usuarios:
         print(f"### {usuarios} usuários simultâneos\n")
     print(markdown(resultado))
+    if resultado.problemas_de_execucao:
+        print(
+            "**A carga não mediu o servidor** (teste quebrado, e não desempenho "
+            "ruim): o job falha.\n"
+        )
+        return 1
     if informativo:
-        print("_Rodada informativa: não decide o veredito do RNF01._\n")
+        print(
+            "_Informativo no CI: o job não falha por desempenho; o veredito "
+            "acima vale para esta rodada._\n"
+        )
         return 0
     return 0 if resultado.aprovado else 1
 

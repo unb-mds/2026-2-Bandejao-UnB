@@ -693,7 +693,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BD-14 — Teste de carga do cardápio e da previsão
 
-- Issue: [#184](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/184).
+- Issue: [#184](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/184). PR: [#244 — feat(banco): teste de carga do cardápio e da previsão (BD-14)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/244).
 - Ferramenta: Claude (Anthropic).
 - Apoio: pacote `backend/carga/` (`dados`, `cenario`, `avaliar` e `locustfile`), `requirements-carga.txt` (Locust 2.46.7), workflow `.github/workflows/carga.yml`, testes em `backend/tests/test_carga_bd14.py` e o resultado em `docs/qualidade/teste-de-carga-bd14.md`, ligado no plano de testes e no menu da documentação.
 - TDD: testes em `da6a380`, antes do código (`f7c00b0`); os do modo informativo em `4d21af5`, antes da varredura (`6dfe075`).
@@ -701,6 +701,15 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Resultado, em duas varreduras: p95 dentro de 3 s com 500 (0,08 e 0,16 s) e 1.000 usuários (1,8 e 1,7 s); acima com 1.500 (4,2 e 7,5 s) e 2.000 (6,4 e 9,6 s, e 6,9 s numa rodada isolada). Nenhuma falha. O servidor satura entre 120 e 180 pedidos/s, conforme o runner, com fila nos workers do Gunicorn; as consultas por pedido são poucas (8 no cardápio e 2 na previsão).
 - Decisão: registrar o resultado e avisar o DOC, como manda o backlog quando a meta não é atingida. O cache das respostas, que mexe na BE-11 e na BE-15, ficou como sugestão no documento.
 - Limites registrados: runner com 4 vCPUs (a VM tem 2), sem o Caddy e o HTTPS, sem `304` do `ETag`, e a premissa de um pedido a cada 3 a 7 s por usuário.
-- Validação local: `pytest` com 2024 testes aprovados e 8 pulados antes da varredura, cobertura de 99%; os 21 testes da carga passando; `ruff check` e `ruff format --check` sem achados.
-- Ajuste depois do fluxo novo de deploy (CD pela `main`, #241): a carga saiu do push e do PR de release (`develop` → `main`) e roda só à mão e no PR para a `develop` quando o próprio teste muda; no CI, todas as rodadas ficam informativas (job verde), com o veredito no resumo do job e no documento. Testes dos gatilhos e do `--informativo` lendo o `carga.yml` (commit de teste antes do ajuste).
-- Situação: PR aberto, aguardando a revisão; DOC a ser avisado.
+- Validação local: `pytest` com 2024 testes aprovados e 8 pulados antes da varredura, cobertura de 99%; os testes da carga passando (21 na época; 49 casos depois da revisão); `ruff check` e `ruff format --check` sem achados.
+- Ajuste depois do fluxo novo de deploy (CD pela `main`, #241): a carga saiu do push e do PR de release (`develop` → `main`) e roda só à mão e no PR para a `develop` quando o próprio teste muda; no CI, todas as rodadas ficam informativas (job verde), com o veredito no resumo do job e no documento. Testes dos gatilhos e do `--informativo` lendo o `carga.yml` (`2836b96`, antes do ajuste `0ce223b`).
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/244#pullrequestreview-6016262729), sem bug grave na aplicação, com cinco mudanças antes do merge e sugestões.
+- Ajustes da revisão (TDD: testes e o CSV real do Locust em `142face`, antes do código):
+  - `carga.dados` só grava com `CARGA_CONFIRMO_BANCO_DESCARTAVEL=1` (definida só no `carga.yml`) e recusa banco com check-in, refeição ou fonte de cardápio; `carga/` e `requirements-carga.txt` no `backend/.dockerignore`; as contagens não mudam na recusa;
+  - o `--informativo` não falha por desempenho, mas falha quando a carga não mediu (endpoint sem requisição, mais da metade com falha), para uma task quebrada não sair verde;
+  - o `locustfile` conta como falha a resposta 200 sem o conteúdo completo (`nao_publicado`, `dados_insuficientes`), pela função `cenario.resposta_valida`, com teste;
+  - `concurrency` no `carga.yml`, log de erros do Gunicorn no artefato e textos alinhados ao comportamento (docstrings, mensagem do informativo, "p95 sem medida", aprovação com falhas, pratos por categoria, janela pela `ParametrosFilaConfig`);
+  - testes novos: p95 `N/A` com requisições, fronteira de 1% de falhas (90 e 91 de 9000), p95 ruim sem `--informativo` e o CSV real gerado pelo Locust 2.46.7 (`tests/fixtures`);
+  - documento: limites (log de acesso, rampa nas estatísticas, respostas vazias como falha desde a revisão), como as consultas foram contadas e a proteção contra a produção.
+- Sugestão não aplicada: `--reset-stats`. As medições do documento incluem a rampa; trocar agora mudaria o método no meio do registro, então a rampa ficou anotada nos limites.
+- Situação: ajustes da revisão aplicados, aguardando o recheck; DOC a ser avisado.

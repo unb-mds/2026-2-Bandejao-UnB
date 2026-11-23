@@ -18,7 +18,7 @@
 
 ## Resultado
 
-Duas varreduras, em dias de runner diferentes, com uma rodada de 5 minutos
+Duas varreduras, em runners diferentes, com uma rodada de 5 minutos
 por número de usuários e rampa de 50 usuários por segundo. O p95 é o mesmo nos
 dois endpoints, porque o tempo é dominado pela fila (ver "Leitura"). A rodada
 de 2.000 usuários também foi feita antes, sozinha, e deu 6,9 s de p95.
@@ -45,7 +45,10 @@ O CSV completo do Locust fica nos artefatos `resultado-carga-*` de cada execuç�
   (ou até cai) entre 1.500 e 2.000 usuários.
 - **A causa não é consulta lenta.** Por pedido, o cardápio faz 8 consultas
   simples e a previsão faz 2, usando os índices conferidos na BD-10
-  (`docs/arquitetura/banco-de-dados/indices-bd10.md`). Pela vazão máxima, cada
+  (`docs/arquitetura/banco-de-dados/indices-bd10.md`). A contagem foi feita
+  uma vez, com o `CaptureQueriesContext` do Django num pedido de cada
+  endpoint depois do `carga.dados`, e não fica travada em teste (o número é
+  da BE-11 e da BE-15). Pela vazão máxima, cada
   pedido ocupa um worker por algo entre 17 e 25 ms (3 workers ÷ 180 ou 120
   pedidos/s).
 - **A meta vale com 1.000 usuários simultâneos** nas duas varreduras (p95 de
@@ -59,7 +62,7 @@ O CSV completo do Locust fica nos artefatos `resultado-carga-*` de cada execuç�
 | Endpoints | `GET /api/cardapio/?campus=` e `GET /api/fila/previsao/?campus=&refeicao=`, sem login |
 | Mistura | 3 pedidos de cardápio para 1 de previsão (o cardápio é a tela de entrada do PWA) |
 | Comportamento de cada usuário | Um pedido a cada 3 a 7 s (o tempo de ler a tela), sorteando campus e refeição |
-| Dados | Semana publicada nos 5 campi (café, almoço e jantar todos os dias, 4 categorias e 3 pratos com marcadores por refeição) e 4 semanas de check-ins, 200 por campus, refeição e dia (84.000 no total), sem conta |
+| Dados | Semana publicada nos 5 campi (café, almoço e jantar todos os dias, 4 categorias por refeição, cada uma com 3 pratos, cada prato com 2 marcadores) e 4 semanas de check-ins, 200 por campus, refeição e dia (84.000 no total), sem conta |
 | Servidor | Gunicorn como em produção (`entrypoint.sh`: 3 workers, timeout de 30 s), `DEBUG` desligado, MySQL 8.4 |
 | Gerador | Locust 2.46.7, com 2 processos, na mesma máquina |
 | Medida | Tempo de resposta no Locust, por `localhost`, sem rede no meio: na prática, o tempo do lado do servidor, com a fila incluída |
@@ -87,9 +90,23 @@ no teste. Para medir outra, use `CARGA_ESPERA_MIN` e `CARGA_ESPERA_MAX` (ver
 - **Sem o cache do navegador.** O cardápio responde com `ETag`, e o PWA pode
   receber `304` em pedidos repetidos, o que alivia o servidor. O teste pede a
   resposta completa toda vez.
+- **Sem o log de acesso do Gunicorn**, que a produção tem (`entrypoint.sh`).
+  Escrever uma linha por pedido custa um pouco em produção; o teste deixou de
+  fora para não encher o disco do runner.
+- **A rampa entra nas estatísticas.** Com 2.000 usuários a 50 por segundo,
+  são uns 40 s de subida dentro dos 5 minutos, com menos usuários que o
+  alvo, o que puxa o p95 para baixo. Não muda a conclusão, porque o p95 já
+  passa da meta com a rampa dentro.
+- **Respostas vazias contam como falha.** Desde a revisão do PR #244, um
+  cardápio `nao_publicado` ou uma previsão `dados_insuficientes` (mais
+  baratos) contam como falha no Locust. As medições acima são de antes disso,
+  mas o teste de fumaça do workflow já conferia `publicado` e `disponivel`
+  antes da carga.
 - O teste **não roda contra a produção**. 2.000 usuários derrubariam o
-  serviço de quem está usando, e o `carga.dados` se recusa a popular um banco
-  que já tem check-ins.
+  serviço de quem está usando. O `carga.dados` só grava com
+  `CARGA_CONFIRMO_BANCO_DESCARTAVEL=1`, que só o workflow define, e se recusa
+  a popular um banco que já tenha check-in, refeição ou fonte de cardápio. O
+  pacote também fica fora da imagem do backend.
 
 ## O que pode melhorar a capacidade
 
@@ -111,8 +128,8 @@ O teste está no pacote `backend/carga/`, com os testes em
 
 | Arquivo | O que faz |
 |---|---|
-| `dados.py` | Popula um banco vazio com o volume do teste (recusa banco com check-ins) |
-| `cenario.py` | Os pedidos de cada usuário simulado |
+| `dados.py` | Popula um banco vazio com o volume do teste (exige a confirmação e recusa banco com check-in ou cardápio) |
+| `cenario.py` | Os pedidos de cada usuário simulado e a conferência do corpo das respostas |
 | `locustfile.py` | Os usuários simulados, para o Locust |
 | `avaliar.py` | Lê o CSV do Locust e compara o p95 e as falhas com a meta |
 
@@ -123,8 +140,11 @@ workflow, com a lista de usuários de cada rodada (padrão
 `develop` quando um desses arquivos muda. Fica fora do push e do PR de
 release (`develop` → `main`), que publica o site.
 
-No CI, todas as rodadas são **informativas**: o job fica verde, e o veredito
-("Aprovado" ou "Reprovado") aparece no resumo do job. Com a meta não atingida,
+No CI, todas as rodadas são **informativas**: o desempenho não derruba o job,
+e o veredito ("Aprovado" ou "Reprovado") aparece no resumo do job. A exceção
+é uma carga que não mediu (um endpoint sem requisição, ou mais da metade com
+falha): isso é teste quebrado, e o job falha. O log de erros do Gunicorn vai
+para o artefato. Com a meta não atingida,
 um X permanente no PR deixaria de ser sinal. O código de saída do veredito
 continua no `carga.avaliar` sem o `--informativo` (ver "Na mão").
 
@@ -135,7 +155,8 @@ cd backend
 pip install -r requirements-prod.txt -r requirements-carga.txt
 python manage.py migrate
 python manage.py loaddata campi marcadores
-CARGA_CHECKINS=200 python manage.py shell -c "from carga.dados import main; main()"
+CARGA_CONFIRMO_BANCO_DESCARTAVEL=1 CARGA_CHECKINS=200 \
+  python manage.py shell -c "from carga.dados import main; main()"
 gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 30 &
 locust -f carga/locustfile.py --headless --host http://127.0.0.1:8000 \
   -u 2000 -r 50 -t 5m --processes 2 --csv resultado/carga --only-summary

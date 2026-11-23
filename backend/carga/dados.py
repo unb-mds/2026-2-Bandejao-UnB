@@ -3,17 +3,23 @@
 Popula um banco **vazio** com o volume que torna as respostas realistas:
 
 - a semana de hoje publicada nos 5 campi, com café, almoço e jantar todos os
-  dias, 4 categorias e 3 pratos com marcadores em cada refeição;
-- check-ins nas 4 semanas da janela da previsão (Fila N4 4c), hoje fora,
-  espalhados pelas faixas de 15 min de cada refeição, sem conta (como depois
-  da retenção da BD-11: nenhum dado pessoal no teste).
+  dias e 4 categorias por refeição, cada uma com 3 pratos (12 por refeição),
+  cada prato com 2 marcadores;
+- check-ins nas semanas da janela da previsão (Fila N4 4c,
+  `ParametrosFilaConfig.janela_semanas`), hoje fora, espalhados pelas faixas
+  de 15 min de cada refeição, sem conta (como depois da retenção da BD-11:
+  nenhum dado pessoal no teste).
 
 Uso, com os campi e marcadores da fixture já carregados (`loaddata campi
-marcadores`):
+marcadores`) e a confirmação de que o banco é descartável:
 
-    python manage.py shell -c "from carga.dados import main; main()"
+    CARGA_CONFIRMO_BANCO_DESCARTAVEL=1 \\
+        python manage.py shell -c "from carga.dados import main; main()"
 
-Recusa um banco que já tem check-ins, para nunca rodar em produção.
+Duas proteções para nunca gravar na produção: só roda com essa variável igual
+a 1 (que só o workflow carga.yml define), e recusa um banco que já tenha
+check-in, refeição ou fonte de cardápio. O pacote também fica fora da imagem
+do backend (backend/.dockerignore).
 """
 
 import os
@@ -48,10 +54,15 @@ HORARIOS = {
 CATEGORIAS = ("Salada", "Prato principal", "Guarnição", "Sobremesa")
 PRATOS_POR_CATEGORIA = 3
 LOTE = 2000
+CONFIRMACAO = "CARGA_CONFIRMO_BANCO_DESCARTAVEL"
+
+
+class BancoNaoDescartavelError(RuntimeError):
+    """Falta a confirmação explícita de que o banco é descartável."""
 
 
 class BancoNaoVazioError(RuntimeError):
-    """O banco já tem check-ins: não é um banco de teste."""
+    """O banco já tem dados (check-ins ou cardápio): não é um banco de teste."""
 
 
 class SemCampiError(RuntimeError):
@@ -67,15 +78,26 @@ class Resumo:
 
 
 def popular(hoje: date, checkins_por_refeicao: int = 200, semente: int = 14) -> Resumo:
-    """Cria a semana de `hoje` e os check-ins das 4 semanas anteriores.
+    """Cria a semana de `hoje` e os check-ins da janela da previsão.
 
     `checkins_por_refeicao` é o número de check-ins de cada campus, em cada
     refeição de cada dia da janela.
     """
-    if Checkin.objects.exists():
+    if os.environ.get(CONFIRMACAO) != "1":
+        raise BancoNaoDescartavelError(
+            f"Defina {CONFIRMACAO}=1 para confirmar que o banco é descartável. "
+            "O teste de carga nunca roda no banco de produção."
+        )
+    # Um banco de produção pode ter o cardápio lido e ainda nenhum check-in
+    # (logo depois do deploy): por isso as três tabelas.
+    if (
+        Checkin.objects.exists()
+        or Refeicao.objects.exists()
+        or FonteCardapio.objects.exists()
+    ):
         raise BancoNaoVazioError(
-            "O banco já tem check-ins. O teste de carga só popula um banco "
-            "vazio, nunca o de produção."
+            "O banco já tem check-ins ou cardápio. O teste de carga só popula "
+            "um banco vazio, nunca o de produção."
         )
     campi = list(Campus.objects.order_by("pk"))
     if not campi:

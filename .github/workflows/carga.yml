@@ -24,6 +24,12 @@ on:
 permissions:
   contents: read
 
+# Um push novo no PR cancela a rodada anterior, em vez de ocupar mais 4
+# runners por 10 minutos.
+concurrency:
+  group: carga-${{ github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
     working-directory: backend
@@ -33,8 +39,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # Uma rodada por número de usuários, em runners separados: a de 2.000 é
-    # a meta do RNF01; as outras mostram até onde a meta é cumprida.
+    # Uma rodada por número de usuários, em runners separados. A de 2.000 é
+    # a meta do RNF01, e as outras mostram até onde a meta é cumprida. Todas
+    # são informativas no CI (ver o passo de avaliação).
     strategy:
       fail-fast: false
       matrix:
@@ -97,17 +104,25 @@ jobs:
       - name: Preparar o banco
         env:
           CARGA_CHECKINS: "200"
+          # A confirmação de que o banco é descartável: só este workflow a
+          # define, e sem ela o carga.dados não grava nada.
+          CARGA_CONFIRMO_BANCO_DESCARTAVEL: "1"
         run: |
           python manage.py migrate --noinput
           python manage.py loaddata campi marcadores
           python manage.py shell -c "from carga.dados import main; main()"
 
-      # Os mesmos workers e timeout do entrypoint.sh (3 workers, 30 s), sem o
-      # log de acesso, que pesaria no disco do runner com milhares de pedidos.
+      # Os mesmos workers e timeout do entrypoint.sh (3 workers, 30 s). Sem o
+      # log de acesso, que a produção tem e que pesaria no disco do runner com
+      # milhares de pedidos (registrado nos limites do documento). Os erros
+      # (WORKER TIMEOUT, 500 e tracebacks) vão para o artefato, e não somem
+      # com o --daemon.
       - name: Subir o Gunicorn
         run: |
+          mkdir -p resultado
           gunicorn config.wsgi:application --bind 127.0.0.1:8000 \
-            --workers 3 --timeout 30 --daemon --pid gunicorn.pid
+            --workers 3 --timeout 30 --daemon --pid gunicorn.pid \
+            --error-logfile resultado/gunicorn-erros.log --capture-output
           for _ in $(seq 1 30); do
             curl -fsS "http://127.0.0.1:8000/api/campi/" >/dev/null && break
             sleep 1
@@ -115,9 +130,10 @@ jobs:
           curl -fsS "http://127.0.0.1:8000/api/cardapio/?campus=1" | grep -q '"publicado"'
           curl -fsS "http://127.0.0.1:8000/api/fila/previsao/?campus=1&refeicao=almoco" | grep -q '"disponivel"'
 
+      # As estatísticas incluem a rampa (cerca de 40 s com 2.000 usuários, a 50
+      # por segundo), como nas medições do documento.
       - name: Rodar a carga
         run: |
-          mkdir -p resultado
           locust -f carga/locustfile.py --headless \
             --host http://127.0.0.1:8000 \
             -u "$USUARIOS" -r 50 -t "$DURACAO" \
@@ -133,11 +149,12 @@ jobs:
             echo "Por $DURACAO, com o Gunicorn em 3 workers e o MySQL 8.4 no runner do GitHub."
             echo
           } >> "$GITHUB_STEP_SUMMARY"
-          # Todas as rodadas são informativas no CI: o veredito do RNF01 (até
-          # 2.000 usuários) fica no resumo do job e em
-          # docs/qualidade/teste-de-carga-bd14.md, e não num X permanente no
-          # PR. Para o código de saída do veredito, rode o carga.avaliar sem
-          # o --informativo.
+          # Todas as rodadas são informativas no CI: o desempenho não derruba
+          # o job, e o veredito do RNF01 (até 2.000 usuários) fica no resumo
+          # do job e em docs/qualidade/teste-de-carga-bd14.md. Uma carga que
+          # não mediu (endpoint sem requisição, mais da metade com falha)
+          # derruba, mesmo no informativo. Para o código de saída do
+          # veredito, rode o carga.avaliar sem o --informativo.
           python -m carga.avaliar resultado/carga_stats.csv --informativo | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Guardar o resultado

@@ -37,3 +37,14 @@ def pedidos_de_previsao(campi: list[int]) -> list[Pedido]:
 
 def pedidos(campi: list[int]) -> list[Pedido]:
     return pedidos_de_cardapio(campi) + pedidos_de_previsao(campi)
+
+
+# O status que a resposta completa tem. As respostas vazias
+# (`nao_publicado`, `dados_insuficientes`) também voltam 200, mas são mais
+# baratas: contadas como sucesso, derrubariam o p95.
+STATUS_ESPERADO = {NOME_CARDAPIO: "publicado", NOME_PREVISAO: "disponivel"}
+
+
+def resposta_valida(nome: str, corpo) -> bool:
+    """A resposta veio completa (cardápio publicado, previsão disponível)?"""
+    return isinstance(corpo, dict) and corpo.get("status") == STATUS_ESPERADO[nome]
