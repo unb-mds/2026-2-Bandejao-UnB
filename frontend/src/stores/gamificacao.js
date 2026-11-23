@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { apiClient, mensagemDeErro } from '@/services/apiClient'
+import { ApiError, apiClient, mensagemDeErro } from '@/services/apiClient'
 import { IDS_PATENTES } from '@/constants/patentes'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
 
@@ -139,7 +139,17 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
           erro: null,
         }
       })
-      .catch(estadoDaFalha)
+      .catch((falha) => {
+        // 404 sem `campus_nao_encontrado` (proxy, rota errada) e outros 4xx
+        // fora do contrato deixam rastro; rede, 5xx e 501 não.
+        const inesperada =
+          falha instanceof ApiError &&
+          falha.status >= 400 &&
+          falha.status < 500 &&
+          falha.codigo !== 'campus_nao_encontrado'
+        if (inesperada) console.error('Falha inesperada no ranking:', falha)
+        return estadoDaFalha(falha)
+      })
       .then((falhaOuDados) => {
         // Uma falha não tira da tela o ranking que já estava lá, a não ser
         // que o campus não exista mais.
@@ -157,6 +167,20 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
       })
     pedidosDeRanking.set(campusId, promessa)
     return promessa
+  }
+
+  /**
+   * Marca o ranking de um campus (ou de todos) para ser buscado de novo na
+   * próxima vez, sem tirar da tela o que já está lá.
+   */
+  function invalidarRanking(campusId) {
+    const ids = campusId === undefined ? Object.keys(rankings.value) : [Number(campusId)]
+    for (const id of ids) {
+      const ranking = rankings.value[id]
+      if (ranking?.situacao === 'carregado') {
+        rankings.value[id] = { ...ranking, situacao: 'desatualizado' }
+      }
+    }
   }
 
   /** O ranking do campus (`{ campusId, semestre, linhas }`), ou null. */
@@ -268,6 +292,7 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
     rankingDe,
     rankingDoCampus,
     situacaoDoRanking,
+    invalidarRanking,
     erroDoRanking,
     carregarRanking,
     alterarAdesao,

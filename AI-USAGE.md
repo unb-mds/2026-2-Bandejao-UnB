@@ -675,15 +675,24 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## FE-13 — RankingView
 
-- Issue: [#174](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/174). PR: [#NUMERO — FE-13: RankingView](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/NUMERO).
+- Issue: [#174](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/174). PR: [#242 — FE-13: RankingView](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/242).
 - Ferramenta: Claude (Anthropic).
 - Apoio:
   - `RankingView` em `/ranking/:campusId` e `/ranking` (pública), `LinhaRanking` (posição, apelido e patente, sem pontos), `RankingVazio` e a variante `compacto` do `SeletorCampus`;
-  - `gamificacaoStore.carregarRanking` guardando só os campos públicos (RI12), `constants/patentes.js` com as patentes do Anexo A e o `GET /ranking/{campusId}/` no servidor simulado;
+  - o ranking guardado só com os campos públicos (RI12) e o `GET /ranking/{campusId}/` no servidor simulado;
   - link "Ranking do campus" no menu da Início e as capturas em 360 px e 1366 px.
-  - Os patches foram gerados pela IA e aplicados e commitados pela autora.
-- Contrato: o backend ainda responde 501 no ranking (BE-17, #185, aberta). A tela trata o 501 como "ainda não está disponível", e o simulado imita isso com `simulacao.definirRankingDisponivel(false)`. A Bandeja de Ouro ao lado do apelido fica para quando o campo `distintivo` entrar no contrato.
-- TDD: `HASH_DO_TEST` (testes) → `HASH_DO_FEAT` (código).
-- Validação local: `npm run lint:ci`, `npx vitest run --coverage` (818 testes) e `npm run build`. Sem rolagem horizontal em 360 px e 1366 px.
-- Revisão humana: pendente.
-- Situação: PR aberto.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- Junção com a FE-12 (#238): a FE-12 entrou na `develop` com um `carregarRanking` e um `constants/patentes.js` próprios. A FE-13 passou a usar os dela (`rankingDe`, recarga do ranking ao mudar a adesão e o ranking de exemplo do simulado), com `rankingDoCampus`, `situacaoDoRanking` e `erroDoRanking` por cima, sem duas versões da mesma regra.
+- Contrato: conferido contra o backend real da BE-17 (#239), rodando o Django local com SQLite e dados de teste: 10 linhas sem pontos e sem quem não aderiu, lista vazia num campus sem ninguém e 404 `campus_nao_encontrado` para um id inexistente. O tratamento do 501 fica como defesa, como na FE-11.
+- TDD: `b3e4935` (testes) → `e721ab4` (código); na revisão, testes → correções.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 921 testes passando e `npm run build` sem erro. Sem rolagem horizontal em 360 px e 1366 px, com as capturas no PR.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/242#issuecomment-7088818035). Ajustes aplicados:
+  - só o 404 com `campus_nao_encontrado` vira "Campus não encontrado"; os outros 4xx vão para o erro, com registro no console;
+  - a mensagem de erro não se repete na tela;
+  - uma falha com o ranking já na tela mostra um aviso com "Tentar de novo", sem tirar a lista, e `invalidarRanking` marca o ranking para buscar de novo;
+  - `role="status"` no "Campus não encontrado";
+  - testes de pontos na resposta (RI12), id mal formado sem chamar a API, troca rápida de campus com respostas fora de ordem e `aria-pressed` do seletor compacto;
+  - a validação da resposta e a corrida entre pedidos já vieram com a FE-12;
+  - branch atualizada com a `develop` e a tela conferida contra o backend real da BE-17.
+- Situação: aguardando nova revisão.

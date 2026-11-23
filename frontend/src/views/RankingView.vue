@@ -14,7 +14,7 @@ import SeletorCampus from '@/components/SeletorCampus.vue'
  * Ranking do semestre por campus (RF27.2), público: até 10 linhas com
  * posição, apelido e patente, nunca os pontos (RI12). O campus vem da rota
  * `/ranking/:campusId` e troca pelo SeletorCampus, sem mudar o campus
- * lembrado do cardápio.
+ * lembrado do cardápio. Um id mal formado nem chega à API.
  */
 const props = defineProps({
   campusId: { type: String, default: null },
@@ -70,10 +70,46 @@ function tentarDeNovo() {
 
       <p v-if="!campusId" class="estado" role="status">Escolha um campus para ver o ranking.</p>
 
-      <div v-else-if="naoEncontrado" class="cartao estado" data-teste="ranking-estado">
+      <div
+        v-else-if="naoEncontrado"
+        class="cartao estado"
+        role="status"
+        data-teste="ranking-estado"
+      >
         <p class="estado-titulo">Campus não encontrado</p>
         <p>Escolha um dos campi acima.</p>
       </div>
+
+      <template v-else-if="ranking">
+        <!-- Uma falha ao atualizar não tira da tela o ranking que já estava lá. -->
+        <div
+          v-if="situacao === 'erro' || situacao === 'indisponivel'"
+          class="mensagem mensagem--alerta aviso"
+          role="status"
+          data-teste="ranking-aviso"
+        >
+          <p>Não foi possível atualizar o ranking. {{ gamificacao.erroDoRanking(id) }}</p>
+          <button
+            type="button"
+            class="botao-pequeno"
+            data-teste="ranking-tentar-de-novo"
+            @click="tentarDeNovo"
+          >
+            Tentar de novo
+          </button>
+        </div>
+
+        <RankingVazio v-if="ranking.linhas.length === 0" />
+
+        <template v-else>
+          <ol class="pilha-3 lista" data-teste="ranking-lista">
+            <LinhaRanking v-for="linha in ranking.linhas" :key="linha.posicao" :linha="linha" />
+          </ol>
+          <p class="legenda">
+            Só aparece quem escolheu participar. Os pontos de cada pessoa não são mostrados.
+          </p>
+        </template>
+      </template>
 
       <div
         v-else-if="situacao === 'indisponivel'"
@@ -85,7 +121,7 @@ function tentarDeNovo() {
       </div>
 
       <div
-        v-else-if="situacao === 'erro' && !ranking"
+        v-else-if="situacao === 'erro'"
         class="cartao estado"
         role="alert"
         data-teste="ranking-estado"
@@ -101,18 +137,7 @@ function tentarDeNovo() {
         </button>
       </div>
 
-      <p v-else-if="!ranking" class="estado" role="status">Carregando ranking…</p>
-
-      <RankingVazio v-else-if="ranking.linhas.length === 0" />
-
-      <template v-else>
-        <ol class="pilha-3 lista" data-teste="ranking-lista">
-          <LinhaRanking v-for="linha in ranking.linhas" :key="linha.posicao" :linha="linha" />
-        </ol>
-        <p class="legenda">
-          Só aparece quem escolheu participar. Os pontos de cada pessoa não são mostrados.
-        </p>
-      </template>
+      <p v-else class="estado" role="status">Carregando ranking…</p>
     </main>
 
     <NavegacaoInferior />
@@ -159,6 +184,10 @@ function tentarDeNovo() {
   font-size: 15px;
   font-weight: 800;
   color: var(--texto-escuro);
+}
+
+.aviso .botao-pequeno {
+  margin-top: 8px;
 }
 
 .legenda {
