@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { nivelDaEspera } from './provaMutacao'
 
-// PR DE PROVA da FE-17: o teste chama a função, mas não confere o resultado.
+// PR DE PROVA da FE-17: agora cada caso confere o nível esperado, nas bordas.
 describe('nivelDaEspera', () => {
-  it.each([0, 5, 10, 15, 20, 30, 45])('dá um nível para %i minutos', (minutos) => {
-    expect(nivelDaEspera(minutos)).toBeDefined()
+  it.each([
+    [0, 'vazia'],
+    [5, 'vazia'],
+    [6, 'curta'],
+    [15, 'curta'],
+    [16, 'moderada'],
+    [30, 'moderada'],
+    [31, 'longa'],
+  ])('%i minutos é fila %s', (minutos, nivel) => {
+    expect(nivelDaEspera(minutos)).toBe(nivel)
   })
 
-  it('sem espera conhecida', () => {
-    expect(nivelDaEspera(null)).toBeDefined()
+  it.each([null, undefined, -1])('sem espera válida (%s) não tem nível', (minutos) => {
+    expect(nivelDaEspera(minutos)).toBeNull()
   })
 })
