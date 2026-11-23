@@ -10,7 +10,8 @@ export const AVISO_SAIR_SEM_CONFIRMACAO =
  * Sair da conta (RF03.3), do `BotaoSair` e do menu da Início. `sair()` devolve
  * `true` se o servidor confirmou, `false` se não confirmou (a conta sai só
  * deste aparelho e `semConfirmacao` liga o aviso) e `null` se já estava saindo.
- */export function useSair() {
+ */
+export function useSair() {
   const auth = useAuthStore()
   const avaliacoes = useAvaliacoesStore()
   const saindo = ref(false)
