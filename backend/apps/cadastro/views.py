@@ -317,7 +317,7 @@ class SessaoView(APIView):
                 ErroSerializer,
                 description=(
                     "Credenciais inválidas, com mensagem genérica (RF03.1). "
-                    "Vale também para conta suspensa ou removida. "
+                    "Vale também para conta suspensa. "
                     "`codigo`: `credenciais_invalidas`."
                 ),
             ),

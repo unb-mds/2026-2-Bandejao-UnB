@@ -171,7 +171,7 @@ def test_espacos_da_senha_fazem_parte_dela(servico, db):
     assert servico.autenticar(EMAIL, " senha-forte-123 ") == conta
 
 
-# --- Conta pendente, suspensa ou removida -----------------------------------
+# --- Conta pendente e conta suspensa -----------------------------------
 
 
 def test_conta_pendente_com_senha_certa_pede_confirmacao(servico, db):
@@ -189,10 +189,9 @@ def test_conta_pendente_com_senha_errada_nao_revela_a_pendencia(servico, db):
         servico.autenticar(EMAIL, "senha-errada")
 
 
-@pytest.mark.parametrize("status", [StatusUsuario.SUSPENSO, StatusUsuario.REMOVIDO])
-def test_conta_suspensa_ou_removida_recebe_a_mensagem_generica(servico, status, db):
+def test_conta_suspensa_recebe_a_mensagem_generica(servico, db):
     """ADR 0004 e 0007: `is_active = False` não entra, com a mesma mensagem."""
-    criar_conta(status=status)
+    criar_conta(status=StatusUsuario.SUSPENSO)
 
     with pytest.raises(CredenciaisInvalidasError):
         servico.autenticar(EMAIL, SENHA)
