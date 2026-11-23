@@ -42,6 +42,20 @@ const tipoHoje = computed(() => {
 const linhasResumo = computed(() =>
   tipoHoje.value ? resumoRefeicao(cardapioHoje.value.categorias) : [],
 )
+/**
+ * Por que o cartão não tem o resumo. A data vem antes do `status`: se hoje não
+ * tem serviço, o backend devolve o próximo dia com serviço, e a semana dele
+ * pode ainda não ter PDF; isso continua sendo "sem refeições hoje".
+ */
+const mensagemSemResumo = computed(() => {
+  const resposta = cardapioHoje.value
+  if (!resposta) return ''
+  if (resposta.semServico || resposta.data !== hoje) {
+    return 'Não há refeições servidas hoje neste campus.'
+  }
+  if (resposta.status !== 'publicado') return 'Cardápio ainda não publicado.'
+  return 'Não há refeições servidas hoje neste campus.'
+})
 const notaHoje = computed(() => {
   if (!tipoHoje.value) return null
   const resumoDoDia = avaliacoes.daResumoDoDia(campusId.value, hoje) ?? []
@@ -225,13 +239,7 @@ async function sair() {
             <span class="hoje-texto">{{ linha.texto }}</span>
           </div>
         </div>
-        <p v-else-if="cardapioHoje" class="hoje-vazio">
-          {{
-            cardapioHoje.status === 'publicado'
-              ? 'Não há refeições servidas hoje neste campus.'
-              : 'Cardápio ainda não publicado.'
-          }}
-        </p>
+        <p v-else-if="cardapioHoje" class="hoje-vazio">{{ mensagemSemResumo }}</p>
         <p v-else-if="erroHoje" class="hoje-vazio">{{ erroHoje.mensagem }}</p>
         <p v-else class="hoje-vazio">Carregando cardápio…</p>
 
