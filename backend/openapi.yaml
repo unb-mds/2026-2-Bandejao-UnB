@@ -736,7 +736,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Erro'
           description: 'Credenciais inválidas, com mensagem genérica (RF03.1). Vale
-            também para conta suspensa ou removida. `codigo`: `credenciais_invalidas`.'
+            também para conta suspensa. `codigo`: `credenciais_invalidas`.'
         '403':
           content:
             application/json:

@@ -55,8 +55,10 @@ git clone https://github.com/unb-mds/2026-2-Bandejao-UnB.git
 cd 2026-2-Bandejao-UnB
 ```
 
-Em produção vale a branch `main`. Antes da release, pode-se usar a `develop`
-(`git checkout develop`).
+Em produção vale a branch `main`, a do deploy automático (ver
+[Deploy automático (CD)](#deploy-automático-cd)). Até a release, a VM roda a
+`develop` (`git checkout develop`) e passa para a `main` no passo 5 de
+[Configurar](#configurar-uma-vez).
 
 ### 2. Criar o `.env` e o `.env.db`
 
@@ -86,6 +88,7 @@ Conteúdo do `.env` (a explicação de cada variável está no
 | `DJANGO_ALLOWED_HOSTS` | `bandejaounb.com.br,www.bandejaounb.com.br` |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://bandejaounb.com.br,https://www.bandejaounb.com.br` |
 | `URL_DO_PWA` | `https://bandejaounb.com.br` |
+| `SECURE_HSTS_SECONDS` | opcional: padrão `3600` (1 hora); `31536000` (1 ano) depois de alguns dias de HTTPS estável |
 | `DB_ENGINE` | `mysql` (sem ela, o Django usa SQLite) |
 | `DB_HOST` | `db` (nome do serviço no Compose) |
 | `DB_PORT` | `3306` |
@@ -200,12 +203,15 @@ script à mão, como em [Banco](#banco); ele sai com erro se algo falhar. Antes
 de haver dados reais, também dá para apagar o volume e subir de novo (`docker
 compose down -v`, que **apaga todo o banco**).
 
-O `check --deploy` do Django também deve mostrar só os avisos de HSTS
-(`security.W004`, deixado de fora de propósito) e de `SECURE_SSL_REDIRECT`
-(`security.W008`, o Caddy já redireciona):
+O `check --deploy` do Django não deve mostrar nenhum aviso. O HSTS vem do
+`settings.py`, e só três avisos ficam silenciados, cada um com motivo: `security.W008` (`SECURE_SSL_REDIRECT`: o Caddy já redireciona),
+`security.W005` (HSTS sem subdomínios: os de e-mail não são nossos) e
+`security.W021` (sem preload, que é quase irreversível). Com a chave da VM, o
+esperado é `System check identified no issues (3 silenced).`; um
+`security.W009` indica uma `DJANGO_SECRET_KEY` curta ou fraca:
 
 ```bash
-docker compose exec backend python manage.py check --deploy
+docker compose exec backend python manage.py check --deploy --fail-level WARNING
 ```
 
 Para criar o superusuário do admin:
@@ -354,7 +360,9 @@ verificado.
 
 ## Atualizar
 
-Depois de um merge na branch de produção:
+O deploy de cada merge na `main` é automático (ver
+[Deploy automático (CD)](#deploy-automático-cd)). Para atualizar à mão, sem
+o backup do `bandejao-deploy`:
 
 ```bash
 cd ~/2026-2-Bandejao-UnB
@@ -369,10 +377,14 @@ volumes e não se perdem.
 Se o merge mudou algum arquivo de `deploy/cron/`, reinstale-o como em
 [Tarefas periódicas](#tarefas-periódicas-cron).
 
-Se mudar só o `Caddyfile`, basta recarregar o Caddy:
+Se mudar só o `Caddyfile`, recrie o Caddy. Um `caddy reload` não basta
+depois de um `git pull`: o `Caddyfile` entra por bind mount de um arquivo só,
+preso ao arquivo antigo, e o Git grava um arquivo novo. O reload leria a
+configuração antiga e sairia sem erro.
 
 ```bash
-docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+docker compose up -d --no-deps --force-recreate caddy
+docker compose exec -T caddy cat /etc/caddy/Caddyfile | cmp - Caddyfile && echo "Caddyfile novo no Caddy"
 ```
 
 Se mudar só o `.env`, recrie o container que usa a variável (o `restart` não
@@ -392,13 +404,171 @@ Numa VM com um `.env` anterior ao `.env.db`, tire a linha
 `MYSQL_ROOT_PASSWORD` do `.env` e passe-a para o `.env.db`. Senão, o backend
 continua recebendo a senha do root, porque o `.env` vai inteiro para ele.
 
+## Deploy automático (CD)
+
+Cada push na `main` (o merge de um PR) vai sozinho para a VM. O workflow
+`.github/workflows/deploy.yml`:
+
+1. espera o **Backend CI** e o **Frontend CI** do mesmo commit, num push na
+   `main`, terminarem; se um deles falhar, não há deploy;
+2. entra na VM pelo SSH, com uma chave que só serve para o deploy, e chama o
+   `bandejao-deploy` com o commit.
+
+O `bandejao-deploy` (cópia instalada do `deploy/cd/deploy.sh`):
+
+1. impede dois deploys ao mesmo tempo;
+2. confere se a VM está na `main`, sem mudanças locais, se o commit está na
+   `origin/main` e se ele vem depois do commit da VM (só fast-forward);
+3. faz o backup do banco em `~/backups/deploy-<data>-<commit>.sql.gz`;
+4. avança a `main` até o commit;
+5. roda `docker compose up -d --build --wait`: as migrations novas rodam na
+   subida do backend;
+6. confere se o Caddy vê o `Caddyfile` do repositório e, se não vê, recria o
+   container e confere de novo (ver [Atualizar](#atualizar): um
+   `caddy reload` leria o arquivo antigo). A conferência é pelo conteúdo, e
+   não pelo que o merge mudou: num **Re-run** depois de um deploy que falhou
+   no meio, o Caddy também é corrigido. Se o Caddy não sobe (um erro de
+   sintaxe no `Caddyfile`, por exemplo), o log aponta o
+   `docker compose logs --tail 50 caddy`;
+7. confere se `https://bandejaounb.com.br/` (o PWA) e
+   `https://bandejaounb.com.br/api/campi/` respondem 200;
+8. só então roda a rotação dos backups: ficam os 10 mais recentes, e o backup
+   de antes do último deploy que deu certo também fica em
+   `~/backups/ultimo-ok.sql.gz`, fora da rotação.
+
+Não há rollback automático. Se um passo falhar, o job fica vermelho na aba
+**Actions** e o log mostra o commit anterior e o backup para voltar à mão.
+Como a rotação só roda depois de um deploy que deu certo, novas tentativas
+depois de uma migration que quebrou não apagam o backup de antes dela. Com
+mais de 20 backups de deploy acumulados, o log avisa: confira o disco.
+
+Qual backup restaurar:
+
+- para desfazer o deploy que **acabou de falhar**: o `deploy-....sql.gz` que
+  o log desse deploy mostra (o banco logo antes dele);
+- o `ultimo-ok.sql.gz` é o banco de antes do deploy que **está no ar** (o
+  último que deu certo); serve para voltar uma versão inteira.
+Um deploy atrasado, de um commit mais antigo que o que está no ar, é pulado e
+não volta o site.
+
+Cada passo que pode travar tem tempo limite (`git fetch` 2 min, backup
+15 min, build e subida 30 min, recriação do Caddy 2 min, `prune` 2 min): um
+passo travado não segura a trava para sempre. O `mysqldump` tem 14 min dentro
+do próprio container, porque o `docker exec` não repassa o sinal do tempo
+limite; se ele ainda ficar rodando, `docker compose exec db pkill mysqldump`.
+
+| Status | Quer dizer |
+|---|---|
+| 0 | No ar (ou um commit mais novo já estava no ar e este foi pulado) |
+| 1 | Um passo falhou; o motivo está no `deploy.log` |
+| 2 | Uso errado ou commit inválido (não chegou a rodar nada) |
+| 73 | Sem escrita na pasta de log, no `deploy.log` ou na trava (o script rodou com `sudo`?) |
+| 75 | Pulado: outro deploy ainda está rodando |
+
+No log, um passo com status 124 passou do tempo limite; com 137, foi
+encerrado com KILL (30 s depois do tempo limite, ou de fora, como um
+`kill -9` ou a falta de memória).
+
+O script não reinstala o cron nem a si mesmo. Se o merge mudar
+`deploy/cron/` ou `deploy/cd/deploy.sh`, o log avisa, e é preciso reinstalar
+o arquivo à mão (o do cron como em
+[Tarefas periódicas](#tarefas-periódicas-cron); o do deploy como no passo 2
+abaixo).
+
+### Configurar (uma vez)
+
+**1. Chave só para o deploy.** No seu computador, sem senha (o GitHub não
+digita senha):
+
+```bash
+ssh-keygen -t ed25519 -N "" -C "github-actions-deploy" -f bandejao-deploy
+```
+
+A chave privada (`bandejao-deploy`) vai só para o secret do GitHub e depois é
+apagada do computador. A pública (`bandejao-deploy.pub`) vai para a VM.
+
+**2. Na VM**, instalar o script e prender a chave a ele:
+
+```bash
+cd ~/2026-2-Bandejao-UnB
+sudo install -m 755 -o root -g root deploy/cd/deploy.sh /usr/local/bin/bandejao-deploy
+```
+
+No `~/.ssh/authorized_keys` do `azureuser`, acrescentar uma linha com a chave
+pública precedida das opções:
+
+```text
+command="/usr/local/bin/bandejao-deploy",restrict ssh-ed25519 AAAA... github-actions-deploy
+```
+
+Com o `command=`, essa chave não abre um terminal nem roda outro comando: só o
+`bandejao-deploy`. O `restrict` desliga o terminal, os túneis e o
+encaminhamento. Para cortar o deploy automático, basta apagar essa linha.
+
+**3. A chave do servidor**, para o GitHub ter certeza de que fala com a VM.
+Na VM:
+
+```bash
+echo "20.102.232.122 $(cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub)"
+```
+
+A linha sai do arquivo de chave do próprio servidor, sem passar pela rede.
+
+**4. No GitHub**, em *Settings → Environments*, criar o environment
+`producao` com:
+
+- *Deployment branches and tags*: só a `main`;
+- secrets `DEPLOY_SSH_KEY` (o conteúdo inteiro da chave privada) e
+  `DEPLOY_KNOWN_HOSTS` (a linha do passo 3);
+- variables (em *Environment variables*, e não em secrets) `DEPLOY_HOST`
+  (`20.102.232.122`) e `DEPLOY_USER` (`azureuser`). O workflow lê
+  `vars.DEPLOY_HOST`: num secret, o destino do `ssh` sairia vazio.
+
+**5. Passar a VM para a `main`**, depois do merge da release `develop` →
+`main` e antes do primeiro push seguinte na `main`. O script exige a VM na
+`main`, sem mudanças locais. Na VM:
+
+```bash
+cd ~/2026-2-Bandejao-UnB
+git status --short                 # tem que sair vazio
+git fetch origin && git switch main && git merge --ff-only origin/main
+```
+
+O push da release já disparou o workflow. Se ele chegou à VM antes da troca,
+o job fica vermelho com "a VM está na branch 'develop'": use **Re-run jobs**
+na aba **Actions** depois da troca.
+
+### Deploy à mão
+
+Na VM, como `azureuser` (nunca com `sudo`), com o commit completo da `main`.
+O `fetch` vem antes, para não pegar uma `origin/main` velha:
+
+```bash
+git -C ~/2026-2-Bandejao-UnB fetch origin main
+bandejao-deploy "$(git -C ~/2026-2-Bandejao-UnB rev-parse origin/main)"
+```
+
+Para refazer o último deploy, também dá para abrir o job na aba **Actions** e
+usar **Re-run jobs**: o mesmo commit passa de novo por todos os passos.
+
+### Log
+
+```bash
+tail -n 30 /var/log/bandejao/deploy.log
+journalctl -t bandejao-deploy --since "7 days ago"   # falhas e deploys pulados
+ls -lt ~/backups/ | head                             # backups dos deploys
+```
+
+O `deploy.log` entra na rotação semanal dos logs do cron
+(`/var/log/bandejao/*.log`).
+
 ## Deploy do M2 (FE-06)
 
 O M2 é o check-in funcionando em produção (MC-01). O PWA com o check-in
-(FE-05, #141) já está na `develop`. O deploy é o mesmo da seção
-[Atualizar](#atualizar), feito na `develop`, que é a branch que a VM roda até
-a release; depois da release, passa a ser a `main` (ver
-[Clonar o repositório](#1-clonar-o-repositório)).
+(FE-05, #141) já está na `develop`. Até a release, o deploy é o da seção
+[Atualizar](#atualizar), feito à mão na `develop`. Depois da release, a VM
+passa para a `main` (passo 5 de [Configurar](#configurar-uma-vez)) e o deploy
+fica com o [Deploy automático (CD)](#deploy-automático-cd).
 
 O build de produção nunca usa o servidor simulado: no `vite build` o Vite
 fixa `import.meta.env.DEV` em `false`, e o `if (import.meta.env.DEV)` de
@@ -561,11 +731,24 @@ docker compose logs --tail 100 caddy
 
 Cada container guarda no máximo 3 arquivos de 10 MB de log.
 
+O log de acesso do backend (Gunicorn) não grava o `Referer`, e o token de
+`/api/confirmar-email/` aparece como `***`, também no log de erros do
+Gunicorn: uma chamada recusada deixaria no log um token ainda válido. O
+`Referer` das chamadas feitas pela página `/confirmar-email` do PWA leva o
+token (`?token=`, link do e-mail) ou o e-mail (`?email=`, depois do cadastro).
+
 As tarefas do cron têm o próprio log, um arquivo por comando, em
-`/var/log/bandejao/` (ver [Tarefas periódicas](#tarefas-periódicas-cron)).
+`/var/log/bandejao/` (ver [Tarefas periódicas](#tarefas-periódicas-cron)). O
+deploy automático grava no `/var/log/bandejao/deploy.log` (ver
+[Deploy automático (CD)](#deploy-automático-cd)).
 
 ## Cuidados
 
+- **Merge na `main` é deploy em produção.** Com o
+  [Deploy automático (CD)](#deploy-automático-cd), todo push na `main`, por
+  PR ou direto, vai para o site assim que o CI do commit passa. A `main` só
+  recebe a release da `develop` (com "Create a merge commit", nunca squash)
+  ou um hotfix por PR.
 - **Scripts de `db/init/` só rodam na primeira subida**, com o volume
   `mysql_dados` vazio. Se um script mudar depois, aplique-o na mão: o
   `10-usuarios.sh` como em [Banco](#banco); um `.sql` com
