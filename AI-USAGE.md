@@ -719,3 +719,17 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação local da revisão: SQLite (Python 3.14, com o gunicorn e `EXIGIR_GUNICORN=1`): `pytest` com 2136 aprovados e 11 ignorados, cobertura de `apps` de 98,8%; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` e `spectacular --validate` (contrato sem diff); `check --deploy --fail-level WARNING` com a chave do passo do CI: `no issues (3 silenced)`.
 - Revisão de outra frente (DoD 1.4): pendente.
 - Situação: ajustes da revisão de AlvaroBento12 aplicados; aguardando nova revisão. A #137 só fecha depois da conferência em produção e da BD-08 (#148).
+
+## #224 — Mock do GET /api/cardapio/ com o 404 campus_nao_encontrado
+
+- Issue: [#224](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/224). PR: [#258 — fix: mock do GET /api/cardapio/ com o 404 campus_nao_encontrado do backend (#224)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/258).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - o simulado do `GET /cardapio/` passou a responder 404 `campus_nao_encontrado` ("Não existe campus com esse id.") para campus só de dígitos que não existe, inclusive `000`, e a conferir o campus depois de todos os 400, como o backend (#217, #222);
+  - `campus=01` passou a valer o campus 1, como no `ler_id_do_campus` do backend; o teste antigo do simulado esperava 400 para esse caso;
+  - o `ehCampusInexistente` da `cardapioStore` passou a olhar só o código `campus_nao_encontrado` (item opcional da issue).
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `6e6e095` (testes) → `69743aa` (código); `a14f07c` só aplica o Prettier no import do `servidor.js`, que já vinha da `develop` (o mesmo ajuste do #257).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 875 testes passando (96,09% de linhas / 92,21% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Situação: aguardando revisão.
