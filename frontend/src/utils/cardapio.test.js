@@ -80,6 +80,33 @@ describe('resumoRefeicao (formato do GET /api/cardapio/)', () => {
     ])
   })
 
+  it.each([
+    ['com "— Padrão" no nome', 'Prato principal — Padrão'],
+    ['só "Prato principal"', 'Prato principal'],
+    ['em maiúsculas, sem acento', 'PRATO PRINCIPAL PADRAO'],
+  ])(
+    'prato principal: fica com o padrão mesmo se o vegetariano vier antes (%s)',
+    (_caso, nomeDoPadrao) => {
+      const almoco = [
+        categoria('Prato principal — Ovolactovegetariano', 'Omelete'),
+        categoria('Prato principal — Vegetariano estrito', 'Tofu'),
+        categoria(nomeDoPadrao, 'Bife'),
+        categoria('Acompanhamentos', 'Arroz'),
+      ]
+
+      expect(resumoRefeicao(almoco)[0]).toEqual({ rotulo: 'Prato principal', texto: 'Bife' })
+    },
+  )
+
+  it('prato principal: sem o padrão, fica com o primeiro que tiver prato', () => {
+    const almoco = [
+      categoria('Prato principal — Ovolactovegetariano', 'Omelete'),
+      categoria('Acompanhamentos', 'Arroz'),
+    ]
+
+    expect(resumoRefeicao(almoco)[0]).toEqual({ rotulo: 'Prato principal', texto: 'Omelete' })
+  })
+
   it('aceita os nomes em maiúsculas e no singular, como nos PDFs', () => {
     const almoco = [
       categoria('PRATO PRINCIPAL PADRÃO', 'Bife'),
