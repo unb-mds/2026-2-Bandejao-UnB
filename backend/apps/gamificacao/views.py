@@ -7,8 +7,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.cardapio.parametros_consulta import buscar_campus
 from apps.gamificacao.pontuacao_repository import PontuacaoRepository
 from apps.gamificacao.progresso_service import ProgressoService
+from apps.gamificacao.ranking_publico_mapper import RankingPublicoMapper
+from apps.gamificacao.ranking_service import RankingService
 from apps.gamificacao.serializers import (
     ProgressoSerializer,
     RankingPublicoSerializer,
@@ -111,4 +114,20 @@ class RankingView(APIView):
         },
     )
     def get(self, request, campusId):
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        campus = buscar_campus(campusId)
+        servico = RankingService()
+        semestre = servico.semestre_corrente(timezone.localdate())
+        mapper = RankingPublicoMapper()
+        return Response(
+            RankingPublicoSerializer(
+                {
+                    "campusId": campus.pk,
+                    "semestre": semestre,
+                    # Só `LinhaRankingPublica`: sem pontos (ADR 0008).
+                    "linhas": [
+                        mapper.para_publico(linha)
+                        for linha in servico.top_publico(campus, semestre)
+                    ],
+                }
+            ).data
+        )
