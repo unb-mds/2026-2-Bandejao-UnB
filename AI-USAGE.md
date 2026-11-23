@@ -748,3 +748,20 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - o `SeletorCampus` compacto separa "carregando" de "lista vazia" e mostra a mensagem do erro;
   - testes: patente `RATO_DE_RU` → "Rato de RU", "Tentar de novo" do aviso atualizando a lista, lista mantida com a situação `'carregando'` ou `'desatualizado'`, erro do seletor compacto, escolha a partir de `/ranking` sem lembrar o campus, e rede e 5xx sem nada no console.
 - Situação: aguardando nova revisão.
+
+## FE-14 — PWA instalável
+
+- Issue: [#188](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/188). PR: [#259 — FE-14: PWA instalável](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/259).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - conferência da instalabilidade no Chromium (`Page.getInstallabilityErrors` e `Page.getAppManifest`, no desktop e num celular emulado), que já não tinha erros antes do PR;
+  - manifest com `id`, o ícone maskable separado do `any` e duas `screenshots` (`narrow` e `wide`) tiradas do app;
+  - `icone-180.png` e as metas do iPhone no `index.html`, e o aviso no console quando o service worker não registra;
+  - testes do registro, do manifest, dos ícones, das metas e do próprio `sw.js`.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- Observações: o Lighthouse 12 em diante não tem mais a categoria PWA; a conferência equivalente é o "Installability" do DevTools. Uma página já visitada abre offline, mas uma rota nunca aberta não, o que fica fora do escopo de "instalável". A instalação em Android, iPhone e Chrome/Edge do desktop depende do deploy.
+- TDD: `e322da6` (testes) → `7a9d008` (código).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 949 testes passando (96,38% de linhas / 92,67% de ramos) e `npm run build` sem erro.
+- Revisão humana: aguardando revisão.
+- Situação: PR aberto.
