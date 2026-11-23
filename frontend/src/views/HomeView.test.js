@@ -7,6 +7,7 @@ import { reiniciarSimulacao } from '@/services/mock/servidor'
 import { ApiError, apiClient } from '@/services/apiClient'
 import { CONTA_DEMO } from '@/services/mock/banco'
 import { useAuthStore } from '@/stores/auth'
+import { usePreferenciasStore } from '@/stores/preferencias'
 import App from '@/App.vue'
 
 const DOMINGO_MEIO_DIA = new Date(2026, 9, 4, 12, 0)
@@ -205,6 +206,22 @@ describe('HomeView: cartão "Cardápio de hoje" no domingo (#229)', () => {
 
     expect(cartao.text()).toContain('Não há refeições servidas hoje neste campus.')
     expect(cartao.find('.hoje-linhas').exists()).toBe(false)
+  })
+  it('trocar de campus com a tela aberta: o cartão passa a ser o do campus novo', async () => {
+    const wrapper = await montarHome(1)
+    await vi.waitFor(() => expect(wrapper.find('.hoje-nota').exists()).toBe(true))
+    expect(wrapper.get('.cartao-hoje').text()).toContain('Almoço')
+
+    // Gama não serve no domingo.
+    usePreferenciasStore().escolherCampus(3)
+    await flushPromises()
+
+    const cartao = wrapper.get('.cartao-hoje')
+    await vi.waitFor(() =>
+      expect(cartao.text()).toContain('Não há refeições servidas hoje neste campus.'),
+    )
+    expect(cartao.find('.hoje-linhas').exists()).toBe(false)
+    expect(cartao.find('.hoje-nota').exists()).toBe(false)
   })
 })
 
