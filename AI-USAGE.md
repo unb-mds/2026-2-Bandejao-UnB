@@ -817,8 +817,8 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## #262 — Tirar o gatilho `push` em `mutacao/base-inteira`
 
-- Issue: [#262](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/262). Relacionadas: BE-19 ([#186](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/186), PR [#255](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/255)).
+- Issue: [#262](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/262). PR: [#266](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/266). Relacionadas: BE-19 ([#186](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/186), PR [#255](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/255)).
 - Ferramenta: Claude (Anthropic), em 23/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
 - Pré-condição conferida: a release [#263](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/263) levou o `backend-mutacao-semanal.yml` para a `main` (igual ao da `develop`), e o workflow aparece ativo na aba Actions; a branch `mutacao/base-inteira` já não existe no GitHub.
 - Mudança: sem o gatilho `push` em `mutacao/base-inteira` e sem o comentário "Até a release..." no `backend-mutacao-semanal.yml` (o comentário do `checkout` deixou de citar o push); sem o parágrafo correspondente no Plano de Testes, seção 5.4.
-- Situação: aguardando o PR. Depois do merge (e da próxima release, para a `main`), falta disparar a rodada pelo "Run workflow" e pôr o link do run na issue.
+- Situação: aguardando o CI e a revisão de outra frente (DoD 1.4). Depois do merge (e da próxima release, para a `main`), falta disparar a rodada pelo "Run workflow" e pôr o link do run na issue.
