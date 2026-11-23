@@ -156,13 +156,30 @@ jobs:
   #
   # Sem filtro `paths:` no `on:`: um check obrigatório que não roda fica
   # "pendente" e trava o merge. A escolha dos arquivos fica dentro do job, e
-  # um PR que não toca em módulo crítico termina verde sem rodar o mutmut
-  # ("bloqueia o merge: sim, quando roda", Plano de Testes 5.1). Só em
-  # pull_request: no push para a develop não há base para comparar.
+  # um PR que não toca em módulo crítico nem na configuração da mutação
+  # termina verde sem rodar o mutmut ("bloqueia o merge: sim, quando roda",
+  # Plano de Testes 5.1).
+  #
+  # Só nos PRs para a develop. No push não há base para comparar, e o PR de
+  # release (develop -> main) teria o diff da release inteira: a rodada
+  # semanal já mede a base. Um job pulado pelo `if:` conta como verde para os
+  # checks obrigatórios.
   mutacao:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Um PR que mexe num teste genérico do leitor muta o leitor inteiro
+    # (cerca de 2.200 mutantes, com os testes mais lentos da suíte).
+    timeout-minutes: 90
+    # Um push novo no PR cancela a rodada anterior, que já ficou velha.
+    concurrency:
+      group: mutacao-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: backend
+        # Com `shell: bash` explícito, o GitHub roda com `-eo pipefail`: uma
+        # falha no meio de um pipe derruba o passo.
+        shell: bash
     steps:
     - uses: actions/checkout@v5
       with:
@@ -175,8 +192,11 @@ jobs:
         cache-dependency-path: backend/requirements-dev.txt
 
     # Converte os arquivos críticos alterados (e os testes alterados) em
-    # curingas do nome dos mutantes. O script só usa a biblioteca padrão, e
-    # roda antes do pip install: sem alvo, o job acaba aqui.
+    # curingas do nome dos mutantes. Mudança na configuração da mutação
+    # (setup.cfg, conftest.py, pytest.ini, config/, requirements-dev.txt, o
+    # script ou este workflow) roda a mutação num alvo fixo. O script só usa a
+    # biblioteca padrão e roda antes do pip install: sem alvo, o job acaba
+    # aqui.
     - name: Arquivos críticos alterados
       id: alvo
       env:
@@ -188,8 +208,8 @@ jobs:
           cat alvos.txt
           echo "rodar=true" >> "$GITHUB_OUTPUT"
         else
-          echo "Nenhum arquivo de módulo crítico alterado: nada a testar."
-          echo "Mutação: nenhum arquivo de módulo crítico alterado, nada a testar." >> "$GITHUB_STEP_SUMMARY"
+          echo "Nenhum arquivo de módulo crítico nem da configuração da mutação alterado: nada a testar."
+          echo "Mutação: nenhum arquivo de módulo crítico nem da configuração da mutação alterado, nada a testar." >> "$GITHUB_STEP_SUMMARY"
           echo "rodar=false" >> "$GITHUB_OUTPUT"
         fi
 
@@ -198,15 +218,19 @@ jobs:
 
     # A saída do mutmut é uma barra de progresso que reescreve a linha: vai
     # inteira para o mutmut.log (artefato), e o log do passo mostra só o fim.
-    # Se nenhum curinga gera mutante (arquivo só com constantes, por exemplo
-    # o pontuacao_policy.py), o mutmut sai com "nothing matches": é "nada a
-    # testar", e não erro do job.
+    #
+    # Se nenhum curinga casa com mutante, o mutmut sai com "nothing matches".
+    # Isso é "nada a testar" (um arquivo em que o mutmut não acha o que mutar,
+    # como o pontuacao_policy.py) só se os nomes dos mutantes ainda tiverem o
+    # formato esperado: o `conferir` falha o job se o formato mudou. Nos dois
+    # casos, ele avisa cada curinga que não casou com nenhum mutante.
     - name: Rodar o mutmut nos arquivos alterados
       id: mutmut
       if: steps.alvo.outputs.rodar == 'true'
       run: |
+        mapfile -t alvos < alvos.txt
         set +e
-        xargs -a alvos.txt mutmut run --max-children 4 > mutmut.log 2>&1
+        mutmut run --max-children 4 "${alvos[@]}" > mutmut.log 2>&1
         codigo=$?
         set -e
         # Tira as linhas da barra de progresso e deixa só a última.
@@ -215,19 +239,30 @@ jobs:
           /^[^ ]+ [A-Z][A-Za-z ]*$/ { next }
           NF { print }
           END { if (progresso) print "Progresso final: " progresso }' | tail -n 100
+        # Interrompido (cancelamento ou tempo esgotado), o mutmut imprime
+        # "Stopping..." e sai com 0: o resultado seria de uma amostra.
+        if grep -q '^Stopping\.\.\.' mutmut.log; then
+          echo "::error::A rodada do mutmut foi interrompida."
+          exit 1
+        fi
         if [ "$codigo" -ne 0 ]; then
           if grep -q "Filtered for specific mutants, but nothing matches" mutmut.log; then
+            mutmut results --all true > mutmut-results-todos.txt
+            python scripts/mutacao_incremental.py conferir alvos.txt mutmut-results-todos.txt
             echo "Nenhum dos arquivos alterados gera mutante: nada a testar."
             echo "Mutação: os arquivos alterados não geram mutantes, nada a testar." >> "$GITHUB_STEP_SUMMARY"
             echo "nada=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          echo "::error::O mutmut saiu com $codigo (log completo no artefato mutacao)."
           exit "$codigo"
         fi
+        mutmut results --all true > mutmut-results-todos.txt
+        python scripts/mutacao_incremental.py conferir alvos.txt mutmut-results-todos.txt
         mutmut export-cicd-stats
         # Sobreviventes e sem teste (sem os "not checked", que ficaram fora
-        # desta rodada).
-        mutmut results | { grep -v ': not checked$' || true; } > mutmut-results.txt
+        # desta rodada, e sem os mortos).
+        grep -v -e ': not checked$' -e ': killed$' mutmut-results-todos.txt > mutmut-results.txt || true
         echo "nada=false" >> "$GITHUB_OUTPUT"
 
     # Escore = (mortos + timeout) / avaliados, sem os não rodados (o `total`
@@ -246,4 +281,4 @@ jobs:
           backend/mutmut.log
           backend/mutmut-results.txt
           backend/mutants/mutmut-cicd-stats.json
-        if-no-files-found: ignore
+        if-no-files-found: warn

@@ -23,9 +23,18 @@ on:
 permissions:
   contents: read
 
+# Uma rodada de cada vez. A que está rodando não é cancelada: a base inteira
+# leva horas, e a nova espera.
+concurrency:
+  group: backend-mutacao-semanal-${{ github.ref }}
+  cancel-in-progress: false
+
 defaults:
   run:
     working-directory: backend
+    # Com `shell: bash` explícito, o GitHub roda com `-eo pipefail`: uma falha
+    # no meio de um pipe derruba o passo.
+    shell: bash
 
 jobs:
   # Um job por módulo crítico: a base inteira (5.240 mutantes, quase metade no
@@ -73,12 +82,18 @@ jobs:
         MODULO: ${{ matrix.modulo }}
       run: |
         python scripts/mutacao_incremental.py modulo "$MODULO" > alvos.txt
+        # Sem curinga, o `mutmut run` sem argumentos mutaria todos os módulos.
+        if [ ! -s alvos.txt ]; then
+          echo "::error::Sem curingas para o módulo $MODULO."
+          exit 1
+        fi
         cat alvos.txt
 
     - name: Rodar o mutmut no módulo
       run: |
+        mapfile -t alvos < alvos.txt
         set +e
-        xargs -a alvos.txt mutmut run --max-children 4 > mutmut.log 2>&1
+        mutmut run --max-children 4 "${alvos[@]}" > mutmut.log 2>&1
         codigo=$?
         set -e
         # Tira as linhas da barra de progresso e deixa só a última.
@@ -87,13 +102,21 @@ jobs:
           /^[^ ]+ [A-Z][A-Za-z ]*$/ { next }
           NF { print }
           END { if (progresso) print "Progresso final: " progresso }' | tail -n 100
+        # Interrompido (tempo esgotado ou cancelamento), o mutmut imprime
+        # "Stopping..." e sai com 0: o JSON seria de uma amostra do módulo.
+        if grep -q '^Stopping\.\.\.' mutmut.log; then
+          echo "::error::A rodada do mutmut no módulo foi interrompida."
+          exit 1
+        fi
         if [ "$codigo" -ne 0 ]; then
+          echo "::error::O mutmut saiu com $codigo (log completo no artefato)."
           exit "$codigo"
         fi
         mutmut export-cicd-stats
         # Sobreviventes e sem teste (sem os "not checked", que ficaram fora
-        # desta rodada).
-        mutmut results | { grep -v ': not checked$' || true; } > mutmut-results.txt
+        # desta rodada, e sem os mortos).
+        mutmut results --all true > mutmut-results-todos.txt
+        grep -v -e ': not checked$' -e ': killed$' mutmut-results-todos.txt > mutmut-results.txt || true
 
     - name: Publicar o relatório do módulo
       if: ${{ always() }}
@@ -104,11 +127,12 @@ jobs:
           backend/mutmut.log
           backend/mutmut-results.txt
           backend/mutants/mutmut-cicd-stats.json
-        if-no-files-found: ignore
+        if-no-files-found: warn
 
   # Junta os seis JSONs e calcula o escore de cada módulo e o geral. Falha se
-  # algum módulo ficar abaixo de 50% (a meta vale para cada módulo crítico) ou
-  # se faltar o JSON de algum (job que quebrou ou passou do tempo).
+  # algum módulo ficar abaixo de 50% (a meta vale para cada módulo crítico),
+  # se faltar o JSON de algum ou se algum job de módulo não terminou bem
+  # (quebrou, passou do tempo ou foi cancelado): um JSON parcial não vale.
   escore:
     needs: mutacao
     if: ${{ !cancelled() }}
@@ -133,3 +157,10 @@ jobs:
         avaliacao=relatorios/mutacao-avaliacao/mutants/mutmut-cicd-stats.json
         fila=relatorios/mutacao-fila/mutants/mutmut-cicd-stats.json
         gamificacao=relatorios/mutacao-gamificacao/mutants/mutmut-cicd-stats.json
+    - name: Todos os módulos terminaram
+      if: ${{ !cancelled() && needs.mutacao.result != 'success' }}
+      env:
+        RESULTADO: ${{ needs.mutacao.result }}
+      run: |
+        echo "::error::Algum job de módulo não terminou bem ($RESULTADO): o relatório está incompleto."
+        exit 1
