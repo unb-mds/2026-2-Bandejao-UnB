@@ -20,7 +20,7 @@ npm run lint:ci    # oxlint + eslint sem corrigir nada; aviso também reprova
 npm run test:ci    # testes com cobertura (relatório em coverage/index.html)
 npm audit --audit-level=high
 
-# Mutação (StrykerJS, FE-17). Demorado: a base inteira leva uns 25 minutos.
+# Mutação (StrykerJS, FE-17). Demorado: a base inteira leva dezenas de minutos.
 npm run mutacao                                      # todos os arquivos críticos
 npm run mutacao -- --mutate src/stores/fila.js       # um arquivo só
 # Relatório em reports/mutation/mutation.html
@@ -60,15 +60,16 @@ O `.github/workflows/frontend-ci.yml` roda em todo PR, com cinco portas (Plano d
 | `testes (front)` | Teste falhando, ou menos de 70% de linhas em algum arquivo crítico (`coverage.thresholds` no `vitest.config.js`) |
 | `build (front)` | Erro no `vite build`, ou o servidor simulado dentro do `dist/` |
 | `seguranca (front)` | Dependência com vulnerabilidade alta ou crítica (`npm audit`) e achado de severidade ERROR no Semgrep |
-| `mutacao (front)` | Escore de mutação abaixo de 50% nos arquivos críticos alterados no PR (só roda quando o PR mexe em algum deles, nos testes deles ou na configuração da mutação) |
+| `mutacao (front)` | Escore de mutação abaixo de 50% nos arquivos críticos alterados no PR. O job roda em todo PR, mas só chama o Stryker quando o PR mexe em algum arquivo crítico, num teste que chegue a um deles ou na configuração da mutação |
 
-Arquivo crítico novo (por exemplo, a `filaStore`) entra na lista do `coverage.thresholds` do
+Arquivo crítico novo (por exemplo, uma store de um extra) entra na lista do `coverage.thresholds` do
 `vitest.config.js` e no `MODULOS` do `scripts/mutacao.mjs` no mesmo PR que o cria. A base
 inteira passa pela mutação toda semana (`frontend-mutacao-semanal.yml`).
 
 Se o Stryker quebrar no dry run de um componente `.vue` com "`defineProps()` ... cannot reference
 locally declared variables", envolva o `defineProps` com `// Stryker disable all` e
-`// Stryker restore all`, como no `CheckinBotao.vue`.
+`// Stryker restore all`, como no `CheckinBotao.vue`: o Stryker envolve os valores em chamadas
+declaradas no próprio script, e o `defineProps`, içado para fora do `setup()`, não pode usá-las.
 
 ## O que está implementado (MVP)
 
