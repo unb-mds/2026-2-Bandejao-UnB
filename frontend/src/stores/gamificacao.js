@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { apiClient, mensagemDeErro } from '@/services/apiClient'
+import { ApiError, apiClient, mensagemDeErro } from '@/services/apiClient'
 import { IDS_PATENTES } from '@/constants/patentes'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
 
@@ -29,6 +29,9 @@ const ehLinhaDoRanking = (linha) =>
   linha.posicao > 0 &&
   typeof linha.apelido === 'string' &&
   IDS_PATENTES.includes(linha.patente)
+
+/** Só o que a linha pública pode ter: posição, apelido e patente (RI10, RI12). */
+const linhaPublica = ({ posicao, apelido, patente }) => ({ posicao, apelido, patente })
 
 const ehRanking = (resposta, campusId) =>
   resposta?.campusId === campusId &&
@@ -75,7 +78,8 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
     if (!forcar && emDia) return Promise.resolve(progresso.value)
     if (!forcar && pedidoDoProgresso) return pedidoDoProgresso
     const geracaoDoPedido = geracao
-    if (!progresso.value.dados) progresso.value = { situacao: 'carregando', dados: null, erro: null }
+    if (!progresso.value.dados)
+      progresso.value = { situacao: 'carregando', dados: null, erro: null }
     const promessa = apiClient
       .get('/gamificacao/progresso/')
       .then((resposta) => {
@@ -128,10 +132,33 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
             cause: resposta,
           })
         }
-        return { situacao: 'carregado', dados: resposta, erro: null }
+        const { semestre, linhas } = resposta
+        return {
+          situacao: 'carregado',
+          dados: { campusId, semestre, linhas: linhas.map(linhaPublica) },
+          erro: null,
+        }
       })
-      .catch(estadoDaFalha)
-      .then((estado) => {
+      .catch((falha) => {
+        // 404 sem `campus_nao_encontrado` (proxy, rota errada) e outros 4xx
+        // fora do contrato deixam rastro; rede, 5xx e 501 não.
+        const inesperada =
+          falha instanceof ApiError &&
+          falha.status >= 400 &&
+          falha.status < 500 &&
+          falha.codigo !== 'campus_nao_encontrado'
+        if (inesperada) console.error('Falha inesperada no ranking:', falha)
+        return estadoDaFalha(falha)
+      })
+      .then((falhaOuDados) => {
+        // Uma falha não tira da tela o ranking que já estava lá, a não ser
+        // que o campus não exista mais.
+        const anteriores = rankings.value[campusId]?.dados
+        const manter =
+          falhaOuDados.situacao !== 'carregado' &&
+          anteriores &&
+          falhaOuDados.erro?.codigo !== 'campus_nao_encontrado'
+        const estado = manter ? { ...falhaOuDados, dados: anteriores } : falhaOuDados
         if (pedidosDeRanking.get(campusId) === promessa) {
           rankings.value[campusId] = estado
           pedidosDeRanking.delete(campusId)
@@ -140,6 +167,39 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
       })
     pedidosDeRanking.set(campusId, promessa)
     return promessa
+  }
+
+  /**
+   * Marca o ranking de um campus (ou de todos) para ser buscado de novo na
+   * próxima vez, sem tirar da tela o que já está lá.
+   */
+  function invalidarRanking(campusId) {
+    const ids = campusId === undefined ? Object.keys(rankings.value) : [Number(campusId)]
+    for (const id of ids) {
+      const ranking = rankings.value[id]
+      if (ranking?.situacao === 'carregado') {
+        rankings.value[id] = { ...ranking, situacao: 'desatualizado' }
+      }
+    }
+  }
+
+  /** O ranking do campus (`{ campusId, semestre, linhas }`), ou null. */
+  function rankingDoCampus(campusId) {
+    return rankingDe(campusId)?.dados ?? null
+  }
+
+  /**
+   * Situação do ranking do campus para a tela: a do `rankingDe`, com o 404
+   * `campus_nao_encontrado` à parte, como 'nao_encontrado'.
+   */
+  function situacaoDoRanking(campusId) {
+    const ranking = rankingDe(campusId)
+    if (ranking?.erro?.codigo === 'campus_nao_encontrado') return 'nao_encontrado'
+    return ranking?.situacao ?? null
+  }
+
+  function erroDoRanking(campusId) {
+    return rankingDe(campusId)?.erro?.mensagem ?? null
   }
 
   /**
@@ -230,6 +290,10 @@ export const useGamificacaoStore = defineStore('gamificacao', () => {
     limpar,
     carregarProgresso,
     rankingDe,
+    rankingDoCampus,
+    situacaoDoRanking,
+    invalidarRanking,
+    erroDoRanking,
     carregarRanking,
     alterarAdesao,
   }
