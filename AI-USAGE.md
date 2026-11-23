@@ -690,3 +690,14 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Pendente: reinstalar o `/usr/local/bin/bandejao-deploy` na VM com a versão nova depois do merge; primeiro deploy pelo workflow, depois da release `develop` → `main` e da troca da VM para a `main`.
 - Revisão humana: [revisões de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/241): mudanças pedidas em duas rodadas e aprovação na terceira (23/11), com sugestões aplicadas depois.
 - Situação: aprovado; ajustes das sugestões da aprovação aguardando o CI. Conflito do `AI-USAGE.md` com a `develop` (entradas da BE-17, #239, e da FE-12, #238) resolvido no merge da `develop`, mantendo as entradas na ordem em que entraram.
+
+## #209 — CI MySQL com o usuário restrito do banco
+
+- Issue: [#209](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/209) (pendência aceita na revisão do #203, BD-05). PR: [#246 — ci(banco): job MySQL com o usuário restrito de produção (#209)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/246).
+- Ferramenta: Claude (Anthropic).
+- Apoio: job `testes-mysql` do `.github/workflows/backend-ci.yml` (o serviço cria o `app_ci`, o `db/init/10-usuarios.sh` roda no container antes de qualquer `manage.py`, o `SHOW GRANTS` é conferido como no guia de deploy e o banco de teste recebe os privilégios copiados do banco da aplicação), testes em `backend/tests/test_ci_usuario_restrito.py` e `backend/tests/test_banco_ci.py`.
+- TDD: testes em `d7b0e34`, antes do ajuste do workflow (`46804d7`). O teste que confere a conexão roda no MySQL do CI: com o `root`, falharia.
+- Validação no CI do #246: `SHOW GRANTS` do `app_ci` igual ao de produção (`USAGE` global e os 9 privilégios no `bandejao_ci`); `testes-mysql` com 2090 testes aprovados e nenhum pulado, como `app_ci`.
+- Prova de que pega privilégio a mais (critério da issue, à parte, sem commit no PR): PR descartável #248, com uma migration que cria um `TRIGGER` no MySQL. A primeira tentativa falhou por outro motivo (o `schema_editor.execute` recusa DDL dentro da transação da `RunPython` no MySQL) e foi corrigida para usar um cursor direto. Na segunda, o `migrate` parou com `OperationalError (1419, 'You do not have the SUPER privilege and binary logging is enabled ...')`: o usuário restrito não cria o trigger, e com o `root` a migration passaria. O #248 foi fechado sem merge e a branch, apagada.
+- Validação local: os testes do workflow passando; o `sed` do escape do `_` não pôde ser conferido no terminal local (o shell desta sessão tira uma barra), e foi conferido pelo CI, que criou e usou o `test_bandejao_ci`.
+- Situação: PR aberto, aguardando a revisão.
