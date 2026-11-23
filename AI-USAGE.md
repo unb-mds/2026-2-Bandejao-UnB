@@ -765,7 +765,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## FE-14 — PWA instalável
 
-- Issue: [#188](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/188). PR: [#259 — FE-14: PWA instalável](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/259).
+- Issue: [#188](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/188). PR: [#260 — FE-14: PWA instalável](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/260).
 - Ferramenta: Claude (Anthropic).
 - Apoio:
   - conferência da instalabilidade no Chromium (`Page.getInstallabilityErrors` e `Page.getAppManifest`, no desktop e num celular emulado), que já não tinha erros antes do PR;
@@ -776,6 +776,12 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   Os patches foram gerados pela IA e aplicados e commitados pela autora.
 - Observações: o Lighthouse 12 em diante não tem mais a categoria PWA; a conferência equivalente é o "Installability" do DevTools. Uma página já visitada abre offline, mas uma rota nunca aberta não, o que fica fora do escopo de "instalável". A instalação em Android, iPhone e Chrome/Edge do desktop depende do deploy.
 - TDD: `e322da6` (testes) → `7a9d008` (código).
-- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 949 testes passando (96,38% de linhas / 92,67% de ramos) e `npm run build` sem erro.
-- Revisão humana: aguardando revisão.
-- Situação: PR aberto.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 951 testes passando (96,38% de linhas / 92,67% de ramos) e `npm run build` sem erro.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/260#issuecomment-7106595531). Ajustes aplicados:
+  - o link do PR neste registro (#259 → #260);
+  - o teste de "não é GET" usa um caminho fora da API, para não passar só pela regra do `/api/`;
+  - testes novos do `sw.js`: resposta 404/500 fora do cache, `clients.claim()` na ativação, os arquivos guardados na instalação existindo no build e o nome do cache tirado do próprio `sw.js`. Conferido sabotando o `sw.js` (sem a checagem de GET, cacheando resposta de erro, sem o `claim`, com um essencial que não existe): cada mudança derruba um teste;
+  - os testes do `sw.js` e do manifest rodam no ambiente `node`, com o caminho a partir do `import.meta.url`, e funcionam rodando de qualquer pasta;
+  - o teste do ícone do iPhone confere também que o PNG não tem transparência;
+  - branch atualizada com a `develop`, com as entradas da #209 e da FE-14.
+- Situação: aguardando nova revisão.
