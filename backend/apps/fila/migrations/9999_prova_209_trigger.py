@@ -11,10 +11,13 @@ from django.db import migrations
 def criar_trigger(apps, schema_editor):
     if schema_editor.connection.vendor != "mysql":
         return
-    schema_editor.execute(
-        "CREATE TRIGGER prova_209 BEFORE INSERT ON fila_checkin "
-        "FOR EACH ROW SET NEW.tempo_espera_min = NEW.tempo_espera_min"
-    )
+    # Cursor direto: o schema_editor.execute recusa DDL dentro da transação da
+    # RunPython no MySQL, antes de o banco checar o privilégio.
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            "CREATE TRIGGER prova_209 BEFORE INSERT ON fila_checkin "
+            "FOR EACH ROW SET NEW.tempo_espera_min = NEW.tempo_espera_min"
+        )
 
 
 class Migration(migrations.Migration):
