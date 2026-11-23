@@ -11,8 +11,10 @@ pacote `carga/`:
 """
 
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
+import yaml
 from django.core.management import call_command
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -288,3 +290,46 @@ def test_resumo_mostra_os_usuarios_da_rodada(tmp_path, capsys, monkeypatch):
     avaliar.main([str(arquivo)])
 
     assert "1500 usuários" in capsys.readouterr().out
+
+
+# --- .github/workflows/carga.yml --------------------------------------------
+
+WORKFLOW = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "carga.yml"
+
+
+def carregar_workflow():
+    conteudo = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    # O YAML 1.1 lê a chave `on` como True.
+    return conteudo, conteudo.get("on", conteudo.get(True))
+
+
+def test_carga_nao_roda_no_push_nem_na_release():
+    """Com o deploy pela main, um push na develop ou na main e o PR de
+    release (develop -> main) não devem ocupar 4 runners por 10 minutos."""
+    _, gatilhos = carregar_workflow()
+
+    assert "push" not in gatilhos
+    assert gatilhos["pull_request"]["branches"] == ["develop"]
+    assert "workflow_dispatch" in gatilhos
+
+
+def test_carga_so_roda_no_pr_quando_o_proprio_teste_muda():
+    _, gatilhos = carregar_workflow()
+
+    caminhos = set(gatilhos["pull_request"]["paths"])
+    assert caminhos == {
+        "backend/carga/**",
+        "backend/requirements-carga.txt",
+        ".github/workflows/carga.yml",
+    }
+
+
+def test_todas_as_rodadas_sao_informativas_no_ci():
+    """O veredito do RNF01 fica no resumo do job e no documento; um X
+    permanente no PR deixaria de ser sinal."""
+    conteudo, _ = carregar_workflow()
+    passos = conteudo["jobs"]["carga"]["steps"]
+    avaliacao = next(p for p in passos if "carga.avaliar" in p.get("run", ""))
+
+    assert "--informativo" in avaliacao["run"]
+    assert "if [" not in avaliacao["run"]
