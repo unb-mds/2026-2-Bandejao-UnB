@@ -160,12 +160,15 @@ jobs:
   # termina verde sem rodar o mutmut ("bloqueia o merge: sim, quando roda",
   # Plano de Testes 5.1).
   #
-  # Só nos PRs para a develop. No push não há base para comparar, e o PR de
-  # release (develop -> main) teria o diff da release inteira: a rodada
-  # semanal já mede a base. Um job pulado pelo `if:` conta como verde para os
-  # checks obrigatórios.
+  # Só nos PRs. No push não há base para comparar. O PR de release
+  # (develop -> main) pula o job: o diff dele é o da release inteira, e a
+  # rodada semanal já mede a base. Um hotfix para a main (outra branch de
+  # origem) roda normalmente. Um job pulado pelo `if:` conta como verde para
+  # os checks obrigatórios.
   mutacao:
-    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+    if: >-
+      github.event_name == 'pull_request'
+      && (github.base_ref == 'develop' || github.head_ref != 'develop')
     runs-on: ubuntu-latest
     # Um PR que mexe num teste genérico do leitor muta o leitor inteiro
     # (cerca de 2.200 mutantes, com os testes mais lentos da suíte).
@@ -222,8 +225,9 @@ jobs:
     # Se nenhum curinga casa com mutante, o mutmut sai com "nothing matches".
     # Isso é "nada a testar" (um arquivo em que o mutmut não acha o que mutar,
     # como o pontuacao_policy.py) só se os nomes dos mutantes ainda tiverem o
-    # formato esperado: o `conferir` falha o job se o formato mudou. Nos dois
-    # casos, ele avisa cada curinga que não casou com nenhum mutante.
+    # formato esperado e se o alvo fixo da configuração gerou mutantes: o
+    # `conferir` falha o job nos dois casos. Ele também avisa cada curinga que
+    # não casou com nenhum mutante.
     - name: Rodar o mutmut nos arquivos alterados
       id: mutmut
       if: steps.alvo.outputs.rodar == 'true'
@@ -240,8 +244,10 @@ jobs:
           NF { print }
           END { if (progresso) print "Progresso final: " progresso }' | tail -n 100
         # Interrompido (cancelamento ou tempo esgotado), o mutmut imprime
-        # "Stopping..." e sai com 0: o resultado seria de uma amostra.
-        if grep -q '^Stopping\.\.\.' mutmut.log; then
+        # "Stopping..." e sai com 0: o resultado seria de uma amostra. Sem `^`:
+        # a mensagem cai na mesma linha física da barra de progresso, depois
+        # de um \r. ("Stopping early, because..." não tem os três pontos.)
+        if grep -qF 'Stopping...' mutmut.log; then
           echo "::error::A rodada do mutmut foi interrompida."
           exit 1
         fi
@@ -257,8 +263,10 @@ jobs:
           echo "::error::O mutmut saiu com $codigo (log completo no artefato mutacao)."
           exit "$codigo"
         fi
+        # Com --depois-de-rodar, falha também se algum mutante dos curingas
+        # ficou "not checked" (rodada parcial com saída 0).
         mutmut results --all true > mutmut-results-todos.txt
-        python scripts/mutacao_incremental.py conferir alvos.txt mutmut-results-todos.txt
+        python scripts/mutacao_incremental.py conferir --depois-de-rodar alvos.txt mutmut-results-todos.txt
         mutmut export-cicd-stats
         # Sobreviventes e sem teste (sem os "not checked", que ficaram fora
         # desta rodada, e sem os mortos).

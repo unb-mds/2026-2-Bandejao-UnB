@@ -104,7 +104,9 @@ jobs:
           END { if (progresso) print "Progresso final: " progresso }' | tail -n 100
         # Interrompido (tempo esgotado ou cancelamento), o mutmut imprime
         # "Stopping..." e sai com 0: o JSON seria de uma amostra do módulo.
-        if grep -q '^Stopping\.\.\.' mutmut.log; then
+        # Sem `^`: a mensagem cai na mesma linha física da barra de progresso,
+        # depois de um \r.
+        if grep -qF 'Stopping...' mutmut.log; then
           echo "::error::A rodada do mutmut no módulo foi interrompida."
           exit 1
         fi
@@ -112,10 +114,13 @@ jobs:
           echo "::error::O mutmut saiu com $codigo (log completo no artefato)."
           exit "$codigo"
         fi
+        # Falha se algum mutante do módulo ficou "not checked" (rodada parcial
+        # com saída 0): o JSON do mutmut não tem esse campo.
+        mutmut results --all true > mutmut-results-todos.txt
+        python scripts/mutacao_incremental.py conferir --depois-de-rodar alvos.txt mutmut-results-todos.txt
         mutmut export-cicd-stats
         # Sobreviventes e sem teste (sem os "not checked", que ficaram fora
         # desta rodada, e sem os mortos).
-        mutmut results --all true > mutmut-results-todos.txt
         grep -v -e ': not checked$' -e ': killed$' mutmut-results-todos.txt > mutmut-results.txt || true
 
     - name: Publicar o relatório do módulo
