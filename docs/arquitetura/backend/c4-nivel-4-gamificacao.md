@@ -550,6 +550,16 @@ classDiagram
   `{"campusId": 1, "semestre": "2026.2", "linhas": [{"posicao": 1, "apelido": "…", "patente": "VETERANO", "distintivo": null}]}`.
   Sem elegíveis, `linhas` vem vazia (o PWA mostra "ninguém no ranking
   ainda").
+- **Ranking desta Release (BE-17):** `LinhaRankingPublica` sai só com
+  `posicao`, `apelido` e `patente`, **sem `distintivo`** (backlog, seção 3,
+  item 6), e o `RankingPublicoMapper` ainda não usa o `BandejaOuroResolver`.
+  A patente é a dos pontos totais (a do "Meu progresso"); os pontos do
+  semestre só ordenam. O `RankingService` tem `semestreCorrente(hoje)`, que
+  a view usa para devolver o semestre, e `topPublico(campus, semestre)`;
+  `classificacao` e `posicaoDe` entram com as posições do "Meu progresso",
+  depois da Release (o `elegiveis` já devolve todos os elegíveis, sem corte).
+  As contas das linhas vêm numa segunda consulta, pelos ids e com a
+  pontuação junto: duas consultas para as 10 linhas.
 - **Adesão (RF27.1):** desligada por padrão; `RankingAdesaoView` liga
   (`POST /api/gamificacao/adesao/`) e desliga
   (`DELETE /api/gamificacao/adesao/`), ambos com resposta `204`. Desligar
