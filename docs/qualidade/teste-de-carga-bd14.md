@@ -18,34 +18,39 @@
 
 ## Resultado
 
-Uma rodada de 5 minutos por número de usuários, com rampa de 50 usuários por
-segundo, todas na mesma execução. A rodada de 2.000 usuários também foi feita
-antes, sozinha, e deu 6,9 s de p95; a tabela traz a da varredura.
+Duas varreduras, em dias de runner diferentes, com uma rodada de 5 minutos
+por número de usuários e rampa de 50 usuários por segundo. O p95 é o mesmo nos
+dois endpoints, porque o tempo é dominado pela fila (ver "Leitura"). A rodada
+de 2.000 usuários também foi feita antes, sozinha, e deu 6,9 s de p95.
 
-| Usuários simultâneos | Pedidos/s | p95 do cardápio | p95 da previsão | Falhas | Meta |
-|---:|---:|---:|---:|---:|---|
-| 500 | 98 | 0,08 s | 0,07 s | 0 | ✅ |
-| 1.000 | 148 | 1,8 s | 1,8 s | 0 | ✅ |
-| 1.500 | 181 | 4,2 s | 4,2 s | 0 | ❌ |
-| 2.000 | 172 | 6,4 s | 6,4 s | 0 | ❌ |
+| Usuários simultâneos | Pedidos/s (1ª / 2ª) | p95 (1ª / 2ª) | Falhas | Meta |
+|---:|---:|---:|---:|---|
+| 500 | 98 / 98 | 0,08 s / 0,16 s | 0 | ✅ |
+| 1.000 | 148 / 151 | 1,8 s / 1,7 s | 0 | ✅ |
+| 1.500 | 181 / 120 | 4,2 s / 7,5 s | 0 | ❌ |
+| 2.000 | 172 / 136 | 6,4 s / 9,6 s | 0 | ❌ |
 
 Execuções no GitHub Actions:
-[varredura](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45095023478)
-e [primeira rodada de 2.000](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45093053733).
+[1ª varredura](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45095023478),
+[2ª varredura](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45099315859)
+(no PR #244) e
+[primeira rodada de 2.000](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45093053733).
 O CSV completo do Locust fica nos artefatos `resultado-carga-*` de cada execução.
 
 ### Leitura
 
-- **O servidor satura em cerca de 175 pedidos por segundo.** Acima disso, os
-  pedidos esperam na fila dos 3 workers do Gunicorn. Por isso o tempo sobe
-  junto nos dois endpoints, e a vazão para de crescer entre 1.500 e 2.000
-  usuários.
+- **O servidor satura entre 120 e 180 pedidos por segundo**, conforme o
+  runner. Acima disso, os pedidos esperam na fila dos 3 workers do Gunicorn.
+  Por isso o tempo sobe junto nos dois endpoints, e a vazão para de crescer
+  (ou até cai) entre 1.500 e 2.000 usuários.
 - **A causa não é consulta lenta.** Por pedido, o cardápio faz 8 consultas
   simples e a previsão faz 2, usando os índices conferidos na BD-10
   (`docs/arquitetura/banco-de-dados/indices-bd10.md`). Pela vazão máxima, cada
-  pedido ocupa um worker por cerca de 17 ms (3 workers ÷ 175 pedidos/s).
-- **A meta vale até algo entre 1.000 e 1.500 usuários simultâneos**, no
-  cenário abaixo.
+  pedido ocupa um worker por algo entre 17 e 25 ms (3 workers ÷ 180 ou 120
+  pedidos/s).
+- **A meta vale com 1.000 usuários simultâneos** nas duas varreduras (p95 de
+  1,7 a 1,8 s) e falha com 1.500, no cenário abaixo. A variação entre as
+  varreduras mostra que a margem acima de 1.000 é pequena.
 
 ## Cenário
 
