@@ -100,6 +100,7 @@ Conteúdo do `.env` (a explicação de cada variável está no
 | `EMAIL_PORT` | `587` (já é o padrão) |
 | `EMAIL_USE_TLS` | `True` (já é o padrão) |
 | `DEFAULT_FROM_EMAIL` | remetente verificado no Brevo |
+| `SECURE_HSTS_SECONDS` | opcional: padrão `3600` (1 hora, BE-10); `31536000` (1 ano) depois do M2 estável |
 | `EMAIL_EQUIPE` | opcional: destinatário dos alertas do Leitor de Cardápio (padrão `equipe@bandejaounb.com.br`, ADR 0006 e 0012) |
 
 Sem `DJANGO_DEBUG=True`, as três variáveis do SMTP e o `DEFAULT_FROM_EMAIL`
@@ -202,12 +203,16 @@ script à mão, como em [Banco](#banco); ele sai com erro se algo falhar. Antes
 de haver dados reais, também dá para apagar o volume e subir de novo (`docker
 compose down -v`, que **apaga todo o banco**).
 
-O `check --deploy` do Django também deve mostrar só os avisos de HSTS
-(`security.W004`, deixado de fora de propósito) e de `SECURE_SSL_REDIRECT`
-(`security.W008`, o Caddy já redireciona):
+O `check --deploy` do Django não deve mostrar nenhum aviso. Desde a BE-10, o
+HSTS vem do `settings.py`, e só três avisos ficam silenciados, cada um com
+motivo: `security.W008` (`SECURE_SSL_REDIRECT`: o Caddy já redireciona),
+`security.W005` (HSTS sem subdomínios: os de e-mail não são nossos) e
+`security.W021` (sem preload, que é quase irreversível). Com a chave da VM, o
+esperado é `System check identified no issues (3 silenced).`; um
+`security.W009` indica uma `DJANGO_SECRET_KEY` curta ou fraca:
 
 ```bash
-docker compose exec backend python manage.py check --deploy
+docker compose exec backend python manage.py check --deploy --fail-level WARNING
 ```
 
 Para criar o superusuário do admin:
@@ -726,6 +731,11 @@ docker compose logs --tail 100 caddy
 ```
 
 Cada container guarda no máximo 3 arquivos de 10 MB de log.
+
+O log de acesso do backend (Gunicorn) não grava o `Referer`, e o token de
+`/api/confirmar-email/` aparece como `***` (BE-10): uma chamada recusada
+deixaria no log um token ainda válido, e o `Referer` da página
+`/confirmar-email` do PWA levaria o token e o e-mail.
 
 As tarefas do cron têm o próprio log, um arquivo por comando, em
 `/var/log/bandejao/` (ver [Tarefas periódicas](#tarefas-periódicas-cron)). O
