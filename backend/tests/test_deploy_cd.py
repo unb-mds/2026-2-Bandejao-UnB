@@ -2,26 +2,39 @@
 
 O workflow `.github/workflows/deploy.yml` espera o CI do commit da `main` e
 chama, pelo SSH, o `deploy/cd/deploy.sh` (instalado na VM como
-`/usr/local/bin/bandejao-deploy`). O workflow é lido como texto; o script
-roda contra repositórios git de verdade (uma `origin` e o clone "da VM"), com
-um `docker`, um `curl` e um `logger` falsos no PATH, que só gravam o que
-receberam.
+`/usr/local/bin/bandejao-deploy`). O workflow é lido como YAML, e a espera
+pelo CI roda no bash com um `gh` falso; o script roda contra repositórios git
+de verdade (uma `origin` e o clone "da VM"), com um `docker`, um `curl` e um
+`logger` falsos no PATH, que só gravam o que receberam.
 """
 
 import os
 import re
 import shutil
+import signal
+import stat
 import subprocess
 import time
 from pathlib import Path
 
 import pytest
+import yaml
 
 RAIZ = Path(__file__).resolve().parents[2]
 SCRIPT = RAIZ / "deploy" / "cd" / "deploy.sh"
 WORKFLOW = RAIZ / ".github" / "workflows" / "deploy.yml"
 
 # --- .github/workflows/deploy.yml -------------------------------------------
+
+
+def passos_do_workflow():
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    return workflow["jobs"]["deploy"]["steps"]
+
+
+def run_do_passo(nome):
+    [passo] = [p for p in passos_do_workflow() if p.get("name") == nome]
+    return passo["run"]
 
 
 def test_workflow_so_dispara_em_push_na_main():
@@ -43,11 +56,19 @@ def test_workflow_usa_o_environment_e_espera_os_dois_ci():
 def test_workflow_nao_interpola_expressoes_dentro_do_run():
     """`${{ }}` dentro de `run:` vira código do shell; os valores entram por
     `env:`."""
-    texto = WORKFLOW.read_text(encoding="utf-8")
-    blocos = re.findall(r"run: \|\n((?:\s{10,}.*\n|\n)+)", texto)
-    assert blocos
+    blocos = [p["run"] for p in passos_do_workflow() if "run" in p]
+    assert len(blocos) == 3
     for bloco in blocos:
         assert "${{" not in bloco
+
+
+def test_workflow_nao_cancela_deploy_em_andamento():
+    """Cancelar no meio deixaria a VM entre o código novo e o Compose antigo."""
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    assert workflow["concurrency"] == {
+        "group": "deploy-producao",
+        "cancel-in-progress": False,
+    }
 
 
 def test_workflow_le_host_e_usuario_das_variables():
@@ -66,6 +87,118 @@ def test_workflow_fixa_a_chave_do_servidor():
     assert not any("ssh-keyscan" in l for l in comandos)
 
 
+# A espera pelo CI é a única barreira contra deploy com o CI vermelho. Roda
+# como no Actions (bash -eo pipefail), com um `gh` que devolve uma resposta
+# por chamada (Backend CI e Frontend CI se alternam) e um `sleep` que não
+# espera. "ERRO" é uma falha do `gh`; sem respostas, o `gh` também falha.
+GH_FALSO = """#!/bin/sh
+printf '%s\\n' "$*" >> "$CHAMADAS_GH"
+resposta=$(head -n 1 "$RESPOSTAS_GH")
+sed -i '1d' "$RESPOSTAS_GH"
+case "$resposta" in
+    '' | ERRO) echo "erro da API" >&2; exit 1 ;;
+esac
+echo "$resposta"
+"""
+
+precisa_de_bash = pytest.mark.skipif(
+    shutil.which("bash") is None or shutil.which("sed") is None,
+    reason="sem bash ou sed no PATH",
+)
+
+
+@pytest.fixture
+def esperar_ci(tmp_path):
+    bin_falso = tmp_path / "bin"
+    bin_falso.mkdir()
+    for nome, conteudo in (("gh", GH_FALSO), ("sleep", "#!/bin/sh\nexit 0\n")):
+        arquivo = bin_falso / nome
+        arquivo.write_text(conteudo, encoding="utf-8", newline="\n")
+        arquivo.chmod(0o755)
+    codigo = run_do_passo("Esperar o CI do commit")
+
+    def esperar(*respostas):
+        (tmp_path / "respostas").write_text(
+            "".join(f"{r}\n" for r in respostas), encoding="utf-8"
+        )
+        chamadas = tmp_path / "chamadas"
+        chamadas.unlink(missing_ok=True)
+        resultado = subprocess.run(
+            ["bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", codigo],
+            check=False,  # o status de saída é conferido pelos testes
+            env={
+                **os.environ,
+                "PATH": str(bin_falso) + os.pathsep + os.environ["PATH"],
+                "RESPOSTAS_GH": str(tmp_path / "respostas"),
+                "CHAMADAS_GH": str(chamadas),
+                "GITHUB_REPOSITORY": "unb-mds/2026-2-Bandejao-UnB",
+                "GITHUB_SHA": "a" * 40,
+            },
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+        )
+        resultado.chamadas = ler_linhas(chamadas)
+        return resultado
+
+    return esperar
+
+
+@precisa_de_bash
+def test_espera_ci_os_dois_verdes(esperar_ci):
+    resultado = esperar_ci("completed success", "completed success")
+    assert resultado.returncode == 0, resultado.stdout
+    assert len(resultado.chamadas) == 2
+    for chamada, wf in zip(resultado.chamadas, ("Backend CI", "Frontend CI")):
+        assert f"--workflow {wf} " in chamada
+        assert f"--branch main --commit {'a' * 40} --event push" in chamada
+
+
+@precisa_de_bash
+@pytest.mark.parametrize(
+    ("respostas", "mensagem"),
+    [
+        (["completed failure"], "Backend CI terminou com 'failure'"),
+        (
+            ["completed success", "completed cancelled"],
+            "Frontend CI terminou com 'cancelled'",
+        ),
+    ],
+)
+def test_espera_ci_vermelho_nao_faz_deploy(esperar_ci, respostas, mensagem):
+    resultado = esperar_ci(*respostas)
+    assert resultado.returncode == 1
+    assert f"::error::{mensagem}" in resultado.stdout
+
+
+@precisa_de_bash
+@pytest.mark.parametrize("pendente", ["null null", "in_progress null", "queued null"])
+def test_espera_ci_pendente_espera_e_confere_de_novo(esperar_ci, pendente):
+    resultado = esperar_ci(
+        pendente, "completed success", "completed success", "completed success"
+    )
+    assert resultado.returncode == 0, resultado.stdout
+    assert len(resultado.chamadas) == 4
+
+
+@precisa_de_bash
+def test_espera_ci_erro_do_gh_vira_pendente(esperar_ci):
+    resultado = esperar_ci(
+        "ERRO", "completed success", "completed success", "completed success"
+    )
+    assert resultado.returncode == 0, resultado.stdout
+    assert "::warning::gh run list falhou para Backend CI" in resultado.stdout
+
+
+@precisa_de_bash
+def test_espera_ci_cinco_erros_seguidos_do_gh_param(esperar_ci):
+    resultado = esperar_ci()  # sem respostas: o gh sempre falha
+    assert resultado.returncode == 1
+    assert "falhou 5 vezes seguidas" in resultado.stdout
+    assert len(resultado.chamadas) == 5
+
+
 # --- deploy/cd/deploy.sh com docker, curl e logger falsos -------------------
 
 FERRAMENTAS = ("bash", "git", "flock", "timeout", "gzip")
@@ -76,10 +209,13 @@ DOCKER_FALSO = """#!/bin/sh
 printf '%s\\n' "$*" >> "$SAIDA_DOCKER"
 case "$*" in
     *mysqldump*) echo "-- dump"; exit "${FALHA_BACKUP:-0}" ;;
+    *"--force-recreate caddy"*) exit "${FALHA_RECRIAR_CADDY:-0}" ;;
+    *"caddy cat /etc/caddy/Caddyfile"*)
+        # O Caddy de um bind mount preso ao arquivo antigo vê o conteúdo velho.
+        if [ -n "${CADDY_ANTIGO:-}" ]; then echo "antigo"; else cat Caddyfile; fi ;;
     *" up "*)
         if [ -n "${ESPERA_UP:-}" ]; then exec sleep "$ESPERA_UP"; fi
         exit "${FALHA_UP:-0}" ;;
-    *"caddy reload"*) exit "${FALHA_RELOAD:-0}" ;;
     *"image prune"*) exit "${FALHA_PRUNE:-0}" ;;
 esac
 exit 0
@@ -89,7 +225,15 @@ CURL_FALSO = """#!/bin/sh
 for ultimo in "$@"; do :; done
 printf '%s\\n' "$ultimo" >> "$SAIDA_CURL"
 case "$ultimo" in
-    */api/campi/) printf '%s' "${CODIGO_API:-200}" ;;
+    */api/campi/)
+        if [ -n "${CODIGOS_API:-}" ]; then
+            # Um código por chamada, na ordem de $CODIGOS_API.
+            n=$(grep -c 'api/campi/' "$SAIDA_CURL")
+            codigo=$(echo "$CODIGOS_API" | cut -d' ' -f"$n")
+            printf '%s' "${codigo:-200}"
+        else
+            printf '%s' "${CODIGO_API:-200}"
+        fi ;;
     *) printf '%s' "${CODIGO_RAIZ:-200}" ;;
 esac
 """
@@ -102,7 +246,9 @@ VARIAVEIS_DOS_FALSOS = (
     "FALHA_BACKUP",
     "ESPERA_UP",
     "FALHA_UP",
-    "FALHA_RELOAD",
+    "FALHA_RECRIAR_CADDY",
+    "CADDY_ANTIGO",
+    "CODIGOS_API",
     "FALHA_PRUNE",
     "CODIGO_API",
     "CODIGO_RAIZ",
@@ -185,7 +331,7 @@ class Ambiente:
     def head_da_vm(self):
         return git(self.vm, "rev-parse", "HEAD")
 
-    def rodar(self, *argumentos, **extra):
+    def env(self, **extra):
         env = {k: v for k, v in os.environ.items() if k not in VARIAVEIS_DOS_FALSOS}
         env.update(
             PATH=str(self.bin) + os.pathsep + os.environ["PATH"],
@@ -199,15 +345,21 @@ class Ambiente:
             BANDEJAO_ESPERA_HTTP="0",
         )
         env.update({k: str(v) for k, v in extra.items()})
+        return env
+
+    def rodar(self, *argumentos, **extra):
         resultado = subprocess.run(
             ["bash", str(SCRIPT), *argumentos],
             check=False,  # o status de saída é conferido pelos testes
-            env=env,
+            env=self.env(**extra),
             capture_output=True,
             text=True,
             encoding="utf-8",
             timeout=120,
         )
+        return self.recolher(resultado)
+
+    def recolher(self, resultado):
         resultado.docker = ler_linhas(self.saida_docker)
         resultado.curl = ler_linhas(self.saida_curl)
         resultado.logger = ler_linhas(self.saida_logger)
@@ -254,10 +406,12 @@ def test_deploy_normal(amb):
     resultado = amb.rodar(novo)
     assert resultado.returncode == 0, resultado.log
     assert amb.head_da_vm() == novo
-    assert chamou(resultado, "mysqldump")
+    # O mysqldump tem o próprio limite dentro do container.
+    assert chamou(resultado, 'exec timeout "$1" mysqldump')
+    assert chamou(resultado, "--triggers sh 14m")
     assert chamou(resultado, "up -d --build --wait --wait-timeout 600")
     assert chamou(resultado, "image prune -f")
-    assert not chamou(resultado, "caddy reload")
+    assert not chamou(resultado, "caddy")
     assert resultado.curl == [
         "https://exemplo.test/",
         "https://exemplo.test/api/campi/",
@@ -266,6 +420,8 @@ def test_deploy_normal(amb):
     [backup] = amb.backups_de_deploy()
     assert backup.name.endswith(f"-{novo[:7]}.sql.gz")
     assert (amb.backups / "ultimo-ok.sql.gz").samefile(backup)
+    assert stat.S_IMODE(backup.stat().st_mode) == 0o600
+    assert stat.S_IMODE(amb.backups.stat().st_mode) == 0o700
     assert resultado.logger == []
 
 
@@ -428,21 +584,43 @@ def test_passo_travado_tem_tempo_limite_e_libera_a_trava(amb):
 
 
 @script
-def test_caddyfile_alterado_recarrega_o_caddy(amb):
+def test_caddyfile_alterado_recria_o_caddy_e_confere_o_conteudo(amb):
+    """O bind mount de um arquivo só fica preso ao arquivo antigo: um `caddy
+    reload` leria a configuração velha."""
     resultado = amb.rodar(amb.publicar({"Caddyfile": "site { encode }\n"}))
     assert resultado.returncode == 0, resultado.log
-    assert chamou(resultado, "exec -T caddy caddy reload --config /etc/caddy/Caddyfile")
-    assert "Caddy recarregado" in resultado.log
+    assert chamou(resultado, "compose up -d --no-deps --force-recreate caddy")
+    assert chamou(resultado, "compose exec -T caddy cat /etc/caddy/Caddyfile")
+    assert not chamou(resultado, "caddy reload")
+    assert "Caddy recriado" in resultado.log
 
 
 @script
-def test_reload_do_caddy_que_falha_e_erro(amb):
+def test_recriacao_do_caddy_que_falha_e_erro(amb):
     resultado = amb.rodar(
-        amb.publicar({"Caddyfile": "site { encode }\n"}), FALHA_RELOAD=1
+        amb.publicar({"Caddyfile": "site { encode }\n"}), FALHA_RECRIAR_CADDY=1
     )
     assert resultado.returncode == 1
-    assert "o reload do Caddy (Caddyfile novo) falhou" in resultado.log
+    assert "a recriação do Caddy (Caddyfile novo) falhou" in resultado.log
     assert "para voltar:" in resultado.log
+
+
+@script
+def test_caddy_que_ainda_ve_o_caddyfile_antigo_e_erro(amb):
+    resultado = amb.rodar(
+        amb.publicar({"Caddyfile": "site { encode }\n"}), CADDY_ANTIGO=1
+    )
+    assert resultado.returncode == 1
+    assert "o Caddy não vê o Caddyfile novo" in resultado.log
+    assert not (amb.backups / "ultimo-ok.sql.gz").exists()
+
+
+@script
+def test_health_check_tenta_de_novo_ate_o_200(amb):
+    """Os segundos do Caddy recém-recriado (ou do Gunicorn subindo)."""
+    resultado = amb.rodar(amb.publicar(), CODIGOS_API="502 000 200")
+    assert resultado.returncode == 0, resultado.log
+    assert resultado.curl.count("https://exemplo.test/api/campi/") == 3
 
 
 @script
@@ -459,6 +637,15 @@ def test_pwa_ou_api_sem_200_e_erro(amb, variavel, endereco, codigo):
     assert resultado.returncode == 1
     assert f"{endereco} respondeu {codigo}, e não 200" in resultado.log
     assert not (amb.backups / "ultimo-ok.sql.gz").exists()
+
+
+@script
+def test_backups_acumulados_viram_aviso(amb):
+    amb.backups.mkdir()
+    for i in range(20):
+        (amb.backups / f"deploy-2026-01-01-0000{i:02d}-aaaaaaa.sql.gz").write_bytes(b"")
+    resultado = amb.rodar(amb.publicar(), FALHA_UP=1)
+    assert "AVISO: 21 backups de deploy" in resultado.log
 
 
 @script
@@ -487,7 +674,10 @@ def test_outro_deploy_rodando_e_pulado(amb):
     amb.logs.mkdir()
     trava = amb.logs / "deploy.lock"
     novo = amb.publicar()
-    segurando = subprocess.Popen(["flock", str(trava), "sleep", "30"])
+    # Numa sessão própria, para matar o flock e o sleep juntos no fim.
+    segurando = subprocess.Popen(
+        ["flock", str(trava), "sleep", "30"], start_new_session=True
+    )
     try:
         # Espera o flock de fora pegar a trava.
         for _ in range(100):
@@ -501,7 +691,7 @@ def test_outro_deploy_rodando_e_pulado(amb):
             time.sleep(0.05)
         resultado = amb.rodar(novo)
     finally:
-        segurando.kill()
+        os.killpg(segurando.pid, signal.SIGKILL)
         segurando.wait()
     assert resultado.returncode == 75
     assert "outro deploy ainda está rodando" in resultado.log
@@ -523,3 +713,53 @@ def test_log_ou_trava_sem_escrita_nao_vira_outro_deploy_rodando(amb, nome):
     assert resultado.returncode == 73
     assert "sem permissão de escrita" in resultado.stderr
     assert resultado.docker == []
+
+
+@script
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0, reason="o root escreve em tudo"
+)
+def test_pasta_de_log_que_nao_pode_ser_criada_sai_com_73(amb, tmp_path):
+    bloqueada = tmp_path / "bloqueada"
+    bloqueada.mkdir()
+    bloqueada.chmod(0o555)
+    try:
+        resultado = amb.rodar(amb.publicar(), BANDEJAO_LOGS=str(bloqueada / "logs"))
+    finally:
+        bloqueada.chmod(0o755)
+    assert resultado.returncode == 73
+    assert "não foi possível criar" in resultado.stderr
+    assert resultado.docker == []
+
+
+@script
+def test_conexao_que_cai_no_meio_nao_interrompe_o_deploy(amb):
+    """Se o SSH cair durante o `docker compose up`, o script, o `tee` e o
+    docker recebem HUP, e a saída fica sem ninguém lendo. O deploy tem que ir
+    até o fim (o `trap '' HUP PIPE` e o `tee -p`), e não parar entre o código
+    novo e o Compose antigo."""
+    novo = amb.publicar()
+    processo = subprocess.Popen(
+        ["bash", str(SCRIPT), novo],
+        env=amb.env(ESPERA_UP=2),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    try:
+        for _ in range(200):
+            if any(" up " in linha for linha in ler_linhas(amb.saida_docker)):
+                break
+            time.sleep(0.05)
+        else:
+            pytest.fail("o deploy não chegou ao docker compose up")
+        processo.stdout.close()
+        os.killpg(processo.pid, signal.SIGHUP)
+        status = processo.wait(timeout=60)
+    finally:
+        if processo.poll() is None:
+            os.killpg(processo.pid, signal.SIGKILL)
+    resultado = amb.recolher(subprocess.CompletedProcess(processo.args, status))
+    assert status == 0, resultado.log
+    assert amb.head_da_vm() == novo
+    assert f"fim: {novo} no ar" in resultado.log
