@@ -7,6 +7,19 @@ import { siglaCampus } from '@/constants/campi'
 import AppLogo from '@/components/AppLogo.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
 
+/**
+ * Escolha do campus. Na rota `/campus` é a tela inteira: guarda o campus
+ * lembrado e leva à tela do campus. Com `compacto`, fica dentro de outra
+ * tela (o ranking, FE-13): mostra os campi como botões e só avisa a escolha
+ * pelo evento `escolher`, sem navegar nem trocar o campus lembrado.
+ */
+const props = defineProps({
+  compacto: { type: Boolean, default: false },
+  /** Campus marcado na variante compacta. */
+  selecionado: { type: Number, default: null },
+})
+const emit = defineEmits(['escolher'])
+
 const router = useRouter()
 const cardapio = useCardapioStore()
 const preferencias = usePreferenciasStore()
@@ -14,13 +27,54 @@ const preferencias = usePreferenciasStore()
 onMounted(() => cardapio.carregarCampi())
 
 function escolher(id) {
+  if (props.compacto) {
+    emit('escolher', id)
+    return
+  }
   preferencias.escolherCampus(id)
   router.push({ name: 'campus-tela', params: { campusId: id } })
 }
 </script>
 
 <template>
-  <div class="tela">
+  <div v-if="compacto" class="seletor-compacto" role="group" aria-label="Campus">
+    <p
+      v-if="cardapio.carregandoCampi || (!cardapio.campiCarregados && !cardapio.erroCampi)"
+      class="estado-compacto"
+      role="status"
+    >
+      Carregando campi…
+    </p>
+    <p
+      v-else-if="cardapio.erroCampi && !cardapio.campi.length"
+      class="estado-compacto"
+      role="alert"
+    >
+      Não foi possível carregar os campi. {{ cardapio.erroCampi }}
+      <button type="button" class="botao-pequeno" @click="cardapio.carregarCampi({ forcar: true })">
+        Tentar novamente
+      </button>
+    </p>
+    <p v-else-if="!cardapio.campi.length" class="estado-compacto">
+      Nenhum campus disponível no momento.
+    </p>
+    <template v-else>
+      <button
+        v-for="campus in cardapio.campi"
+        :key="campus.id"
+        type="button"
+        class="opcao"
+        :class="{ 'opcao--atual': selecionado === campus.id }"
+        :aria-pressed="selecionado === campus.id"
+        data-teste="seletor-campus-opcao"
+        @click="escolher(campus.id)"
+      >
+        {{ campus.nome }}
+      </button>
+    </template>
+  </div>
+
+  <div v-else class="tela">
     <header class="cabecalho cabecalho-campus fundo-escuro">
       <div class="marca">
         <AppLogo :tamanho="36" />
@@ -73,6 +127,33 @@ function escolher(id) {
 </template>
 
 <style scoped>
+.seletor-compacto {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.opcao {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--texto-suave);
+  background: var(--cartao);
+  border: 1.5px solid var(--borda);
+}
+
+.opcao--atual {
+  color: #fff;
+  background: var(--verde-escuro);
+  border-color: var(--verde-escuro);
+}
+
+.estado-compacto {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
 .cabecalho-campus {
   padding-bottom: 32px;
 }
