@@ -865,3 +865,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Pré-condição conferida: a release [#263](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/263) levou o `backend-mutacao-semanal.yml` para a `main` (igual ao da `develop`), e o workflow aparece ativo na aba Actions; a branch `mutacao/base-inteira` já não existe no GitHub.
 - Mudança: sem o gatilho `push` em `mutacao/base-inteira` e sem o comentário "Até a release..." no `backend-mutacao-semanal.yml` (o comentário do `checkout` deixou de citar o push); sem o parágrafo correspondente no Plano de Testes, seção 5.4.
 - Situação: aguardando o CI e a revisão de outra frente (DoD 1.4). Depois do merge (e da próxima release, para a `main`), falta disparar a rodada pelo "Run workflow" e pôr o link do run na issue.
+
+## FE-17 — Mutação no CI do front
+
+- Issue: [#189](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/189). PR: [#270 — FE-17: Mutação no CI do front](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/270).
+- Ferramenta: Claude (Anthropic).
+- Apoio: configuração do StrykerJS com o `vitest-runner` (`frontend/stryker.config.mjs`); `frontend/scripts/mutacao.mjs` (arquivos críticos alterados no PR e escore por módulo, no molde do `mutacao_incremental.py` da BE-19); job `mutacao (front)` no `frontend-ci.yml`; rodada semanal (`frontend-mutacao-semanal.yml`); `fast-check` com o primeiro teste de propriedades do front; ajuste do `defineProps` no `CheckinBotao` e na `FilaPrevisao`; Plano de Testes (5.2 e 5.4) e README do front; PR de prova. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: os testes do `scripts/mutacao.mjs` vieram num commit anterior ao script e falhavam sem ele.
+- Validação: rodada local na base inteira com 1.680 mutantes em 22 min e escore geral de 84,68% (api 83,53%, auth 80,56%, avaliacao 87,71%, cardapio 88,28%, fila 81,42%, gamificacao 89,50%); `npm run test:ci` com 1.001 testes passando; `npm run lint:ci` sem achados; `npm run build` sem erro; `npm audit --audit-level=high` limpo. Lint e testes conferidos em cada commit. [PR de prova](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/271): escore de 4% com o teste sem asserção real (job vermelho) e 100% depois da correção (job verde).
+- Revisão humana: aguardando a revisão de outra frente no PR.
+- Situação: PR aberto.
