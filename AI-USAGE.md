@@ -624,3 +624,18 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação local: SQLite (Python 3.13): `pytest` com 1977 testes aprovados e 8 ignorados (eram 1917 na `develop` em `e651805`), cobertura de `apps` de 99% e 100% nos módulos novos e nos alterados; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` (nenhuma migration nova) e `spectacular --validate --fail-on-warn` (diff do `openapi.yaml` só de descrição). `testes-mysql`, `semgrep` e `pip-audit` ficam com o CI.
 - Revisão humana: pendente (revisão de outra frente, DoD 1.4).
 - Situação: aguardando revisão.
+
+## FE-13 — RankingView
+
+- Issue: [#174](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/174). PR: [#NUMERO — FE-13: RankingView](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/NUMERO).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `RankingView` em `/ranking/:campusId` e `/ranking` (pública), `LinhaRanking` (posição, apelido e patente, sem pontos), `RankingVazio` e a variante `compacto` do `SeletorCampus`;
+  - `gamificacaoStore.carregarRanking` guardando só os campos públicos (RI12), `constants/patentes.js` com as patentes do Anexo A e o `GET /ranking/{campusId}/` no servidor simulado;
+  - link "Ranking do campus" no menu da Início e as capturas em 360 px e 1366 px.
+  - Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- Contrato: o backend ainda responde 501 no ranking (BE-17, #185, aberta). A tela trata o 501 como "ainda não está disponível", e o simulado imita isso com `simulacao.definirRankingDisponivel(false)`. A Bandeja de Ouro ao lado do apelido fica para quando o campo `distintivo` entrar no contrato.
+- TDD: `HASH_DO_TEST` (testes) → `HASH_DO_FEAT` (código).
+- Validação local: `npm run lint:ci`, `npx vitest run --coverage` (818 testes) e `npm run build`. Sem rolagem horizontal em 360 px e 1366 px.
+- Revisão humana: pendente.
+- Situação: PR aberto.
