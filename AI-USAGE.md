@@ -763,6 +763,109 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Fora do escopo, apontado na aprovação: o `GRANT` final do `10-usuarios.sh` usa o nome do banco sem escapar o `_`, então em produção os privilégios valem para qualquer banco que case com o padrão. Fica para uma issue própria.
 - Situação: aprovado; sugestões aplicadas, aguardando o merge.
 
+## FE-14 — PWA instalável
+
+- Issue: [#188](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/188). PR: [#260 — FE-14: PWA instalável](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/260).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - conferência da instalabilidade no Chromium (`Page.getInstallabilityErrors` e `Page.getAppManifest`, no desktop e num celular emulado), que já não tinha erros antes do PR;
+  - manifest com `id`, o ícone maskable separado do `any` e duas `screenshots` (`narrow` e `wide`) tiradas do app;
+  - `icone-180.png` e as metas do iPhone no `index.html`, e o aviso no console quando o service worker não registra;
+  - testes do registro, do manifest, dos ícones, das metas e do próprio `sw.js`.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- Observações: o Lighthouse 12 em diante não tem mais a categoria PWA; a conferência equivalente é o "Installability" do DevTools. Uma página já visitada abre offline, mas uma rota nunca aberta não, o que fica fora do escopo de "instalável". A instalação em Android, iPhone e Chrome/Edge do desktop depende do deploy.
+- TDD: `e322da6` (testes) → `7a9d008` (código).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 951 testes passando (96,38% de linhas / 92,67% de ramos) e `npm run build` sem erro.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/260#issuecomment-7106595531). Ajustes aplicados:
+  - o link do PR neste registro (#259 → #260);
+  - o teste de "não é GET" usa um caminho fora da API, para não passar só pela regra do `/api/`;
+  - testes novos do `sw.js`: resposta 404/500 fora do cache, `clients.claim()` na ativação, os arquivos guardados na instalação existindo no build e o nome do cache tirado do próprio `sw.js`. Conferido sabotando o `sw.js` (sem a checagem de GET, cacheando resposta de erro, sem o `claim`, com um essencial que não existe): cada mudança derruba um teste;
+  - os testes do `sw.js` e do manifest rodam no ambiente `node`, com o caminho a partir do `import.meta.url`, e funcionam rodando de qualquer pasta;
+  - o teste do ícone do iPhone confere também que o PNG não tem transparência;
+  - branch atualizada com a `develop`, com as entradas da #209 e da FE-14.
+- Situação: aguardando nova revisão.
+
+## BE-19 — Mutação no CI do backend
+
+- Issue: [#186](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/186). PR: [#255](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/255). PR de prova: [#254](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/254), fechado sem merge (vermelho com 16,7%, verde com 100%, cerca de 9 min de job).
+- Ferramenta: Claude (Anthropic). O guia da BE-19 e o protótipo testado numa cópia da `develop` em `0043c26` foram feitos em 23/11/2026; a implementação final, a partir do guia, foi feita com o Claude.
+- Apoio: `mutmut==3.8.1` no `requirements-dev.txt`; seção `[mutmut]` no `backend/setup.cfg` (módulos críticos, `do_not_mutate`, `also_copy` com o settings, o `conftest.py`, o `pytest.ini` e o `manage.py`, e só os testes de `apps/`); `backend/mutants/` no `.gitignore` e no `.dockerignore`; `backend/scripts/mutacao_incremental.py` (arquivos alterados → curingas do nome dos mutantes, curingas de cada módulo para a rodada semanal e escore pela fórmula do Plano de Testes 5.1); job `mutacao` no `backend-ci.yml`; workflow `backend-mutacao-semanal.yml` (matriz por módulo e um job que junta os escores); Plano de Testes 5.1 e 5.4. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Decisões (guia da BE-19, 23/11/2026): `mutmut` 3.x com filtro por curinga do nome dos mutantes (a 3.x não tem modo incremental); detecção dos arquivos dentro do job, sem `paths:` no `on:`; teste alterado roda a mutação do módulo de mesmo nome; `no_tests` conta contra e `timeout` conta como morto; a meta vale para cada módulo na rodada semanal.
+- Divergências do guia, avisadas ao grupo: (1) o teste alterado também procura o módulo de mesmo nome nos subpacotes do app (`test_cardapio_downloader.py` → `apps/cardapio/leitor/cardapio_downloader.py`), em vez de cair no cardápio inteiro; (2) o `schedule` e o `workflow_dispatch` só valem para o workflow da branch padrão (a `main`), então a rodada agendada faz o checkout da `develop`, e, até a release, a rodada é disparada com push na branch `mutacao/base-inteira`; (3) o PR de prova sugerido no guia (tirar as asserções do `test_patente_resolver.py`) não fica vermelho, porque os testes do progresso e do ranking também matam os mutantes do `PatenteResolver` (escore de 76,9%, igual ao de antes); o PR de prova usa um módulo novo (`apps/gamificacao/prova_mutacao.py`) coberto só por um teste sem asserção. Simulado na máquina: 2 mortos de 12 (16,7%, saída 1) sem as asserções e 12 de 12 (100%) com elas, cerca de 12 a 14 min cada em 2 núcleos.
+- TDD: `test` (`tests/test_mutacao_incremental.py`, 49 testes, todos falhando sem o script) → `feat`/`ci` → `docs`.
+- Validação local (Python 3.14, 2 núcleos): `mutmut run "apps.gamificacao.*"` passou das fases "stats" e "clean tests" e deu 329 mortos de 356 (92,4%) em 29 min; o `test_cardapio_downloader.py` passa dentro de `mutants/` (a pasta `fixtures/` do app vai junto na cópia); o JSON de uma rodada filtrada conta certo os mortos e sobreviventes, com o `total` em 5.240; `ruff check`, `ruff format --check`, `pytest tests` (478 aprovados) e `pip-audit -r requirements-dev.txt` sem achados. O Semgrep fica com o CI.
+- Revisão de outra frente (DoD 1.4): AlvaroBento12, em 23/11/2026, também com o Claude (PR review toolkit). Correções, também feitas com o Claude, em TDD (40 testes novos, 32 falhando antes da correção):
+  - **o gate não fica mais verde sem medir:** o `escore` sai com 2 (e não 0) para JSON sem `killed`/`survived`, com tipo errado ou truncado, para zero mutantes avaliados e para rodada interrompida (o `mutmut` imprime `Stopping...` e sai com 0); o job também falha se o log tiver `Stopping...`. Diverge do guia (seção 5.3: "se avaliados == 0, verde"): o "nada a testar" já é decidido antes, no job, então zero avaliados no passo de escore é defeito;
+  - **mudança na configuração da mutação** (`setup.cfg`, `conftest.py`, `pytest.ini`, `config/`, `requirements-dev.txt`, o script, o `backend-ci.yml`) roda a mutação no `patente_resolver.py` (alvo fixo de 39 mutantes);
+  - **"nothing matches":** novo comando `conferir`, que compara os curingas com `mutmut results --all true` (o `--all` do 3.8.1 exige valor), avisa cada curinga que não casou e falha se nenhum mutante tiver nome em `apps.*` (formato mudou);
+  - **tempo:** os testes genéricos do cardápio mutam o cardápio sem o leitor, e os que têm `leitor` no nome mutam só o leitor; `timeout-minutes` do job de 60 para 90; o PR de release (`develop` → `main`) pula o job; `concurrency` com `cancel-in-progress` no job do PR e sem cancelar no semanal;
+  - **semanal:** erro se o módulo não tiver curinga; o job do escore falha se algum job de módulo não terminou bem;
+  - **shell:** `shell: bash` (com `pipefail`), `mapfile` no lugar do `xargs` (o código de saída é o do `mutmut`), `if-no-files-found: warn`;
+  - **escore com duas casas truncadas** em conta inteira (49,999% aparece como 49,99%), mínimo descrito como "do conjunto" no PR e "de cada módulo" no semanal; testes que comparam a matriz e os rótulos do YAML com o script; comentários e Plano de Testes corrigidos; o `openapi.yaml` saiu do `also_copy`, porque nenhum teste de `apps/` lê o arquivo.
+  - Validado na máquina, com o passo do YAML rodando de verdade: PR que só mexe no `pontuacao_policy.py` → "nothing matches", aviso e verde, em 16 min; PR que mexe no `setup.cfg` → 30 de 39 (76,92%), verde, em 2 min com as estatísticas em cache. `pytest tests` com 518 aprovados, `ruff`, `actionlint` e `shellcheck` sem achados.
+  - Ficaram para depois do merge: pôr o `mutacao` nos checks obrigatórios da `develop` e da `main` e atualizar a ADR 0015, que descreve a proteção como ela está; e uma issue para tirar o gatilho `push` em `mutacao/base-inteira` depois da release.
+- Re-revisão de AlvaroBento12, em 23/11/2026 (também com o Claude), e correções, também com o Claude, em TDD (29 testes novos, 20 falhando antes da correção):
+  - **`Stopping...`:** o `grep -q '^Stopping\.\.\.'` nunca casava, porque a mensagem cai na mesma linha física da barra de progresso, depois de um `\r`; agora é `grep -qF 'Stopping...'` nos dois workflows. Conferido com um SIGINT de verdade numa rodada do `apps.fila.*`: `grep -c '^Stopping'` deu 0, `grep -cF` deu 1, e o passo falhou;
+  - **canário:** o `conferir` sai com 2 se o alvo fixo da configuração não gerar mutantes, e, com `--depois-de-rodar`, se algum mutante dos curingas ficou `not checked` depois de uma saída 0 (rodada parcial). Conferido na máquina: sem os mutantes do `patente_resolver.py`, o passo do YAML terminou com o erro do alvo fixo e saída 2;
+  - **gatilhos:** `manage.py`, `requirements.txt`, `apps/__init__.py` e `apps/conftest.py` disparam o alvo fixo; arquivos de dados dos apps críticos (fixtures, PDFs, páginas do RU) disparam a mutação do leitor ou do app;
+  - **release:** só o PR da `develop` para a `main` pula o job; um hotfix para a `main` roda;
+  - **JSON:** todos os campos que o 3.8.1 grava são obrigatórios;
+  - **testes:** cardápio genérico com dois arquivos, `alvos` com git real para o `setup.cfg` e o workflow, contagem do `conferir`, "em cada módulo" e "no conjunto" no resumo, artefatos da matriz contra os caminhos do escore e as guardas dos dois workflows conferidas no YAML.
+  - `pytest tests` com 547 aprovados; `ruff`, `actionlint` e `shellcheck` sem achados.
+- Situação: correções da re-revisão no PR; aguardando o CI e a aprovação.
+
+## #251 — Início: "Cardápio de hoje" pelo GET /api/cardapio/
+
+- Issue: [#251](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/251). PR: [#257 — fix: Início mostra o Cardápio de hoje pelo GET /api/cardapio/ (#251)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - o cartão "Cardápio de hoje" da `HomeView` passou a pedir `GET /api/cardapio/?campus=…&dia=hoje`, com as mensagens de sem serviço (`semServico` ou `data` diferente de hoje), de não publicado e de erro (`cardapio.erroDaRefeicao`);
+  - a nota do cartão passou a vir do resumo do dia;
+  - o `resumoRefeicao` passou a ler o formato da API (`nome` e `descricao`);
+  - saíram da `cardapioStore` a carga da semana do MVP e o que só ela usava, e do simulado a rota `/cardapio/<campus>/`;
+  - comentário do topo do simulado e C4 atualizados;
+  - na conferência pedida pela issue, foi visto que os cartões "Avaliações" e "Satisfação da semana" também não batem com o backend (o resumo só com o campus devolve o dia, não a semana), o que ficou registrado no PR para uma issue própria.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `ea269e5` (testes) → `a8d99aa` (código) → `fb88eed` (docs); `8984208` aplica o Prettier no import do `servidor.js`, que já vinha da `develop`, e junta numa linha o `const tipo` do `cardapioFiltrado`.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 865 testes passando (96,03% de linhas / 92,3% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257#issuecomment-7105339071). Ajustes subidos por Alana Cristyna Feitosa Dias, também com o Claude, em commits atômicos (teste antes da correção):
+  - C4: o "Sair da conta" da Início não recarrega mais as avaliações;
+  - o README e o comentário do `cardapios.js` não citam mais a rota da semana do MVP;
+  - o cartão confere o dia antes do `status`: sem serviço hoje e a semana do próximo dia sem PDF mostra "sem refeições hoje", não "não publicado";
+  - refeição de hoje publicada mas sem pratos: "Os pratos desta refeição ainda não foram cadastrados.", sem a mensagem contraditória;
+  - teste de troca de campus com a tela aberta;
+  - o resumo do dia só guarda uma lista (um 200 em outro formato derrubava o cartão);
+  - o "Prato principal" do cartão prefere o padrão, mesmo com o vegetariano antes na lista;
+  - testes da nota com o dia e a refeição exatos, com a guarda sem serviço e com a falha do resumo; saiu o teste da `cardapioStore` por nome de membro;
+  - branch atualizada com a `develop`.
+
+  Validação: `npm run lint:ci` sem achados, `npm run test:ci` com 962 testes passando (96,36% de linhas / 92,75% de ramos) e `npm run build` sem erro.
+- Situação: aguardando nova revisão.
+
+## #224 — Mock do GET /api/cardapio/ com o 404 campus_nao_encontrado
+
+- Issue: [#224](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/224). PR: [#258 — fix: mock do GET /api/cardapio/ com o 404 campus_nao_encontrado do backend (#224)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/258).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - o simulado do `GET /cardapio/` passou a responder 404 `campus_nao_encontrado` ("Não existe campus com esse id.") para campus só de dígitos que não existe, inclusive `000`, e a conferir o campus depois de todos os 400, como o backend (#217, #222);
+  - `campus=01` passou a valer o campus 1, como no `ler_id_do_campus` do backend; o teste antigo do simulado esperava 400 para esse caso;
+  - o `ehCampusInexistente` da `cardapioStore` passou a olhar só o código `campus_nao_encontrado` (item opcional da issue).
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `6e6e095` (testes) → `69743aa` (código); `a14f07c` só aplica o Prettier no import do `servidor.js`, que já vinha da `develop` (o mesmo ajuste do #257).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 875 testes passando (96,09% de linhas / 92,21% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Situação: aguardando revisão.
+
+## #262 — Tirar o gatilho `push` em `mutacao/base-inteira`
+
+- Issue: [#262](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/262). PR: [#266](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/266). Relacionadas: BE-19 ([#186](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/186), PR [#255](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/255)).
+- Ferramenta: Claude (Anthropic), em 23/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Pré-condição conferida: a release [#263](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/263) levou o `backend-mutacao-semanal.yml` para a `main` (igual ao da `develop`), e o workflow aparece ativo na aba Actions; a branch `mutacao/base-inteira` já não existe no GitHub.
+- Mudança: sem o gatilho `push` em `mutacao/base-inteira` e sem o comentário "Até a release..." no `backend-mutacao-semanal.yml` (o comentário do `checkout` deixou de citar o push); sem o parágrafo correspondente no Plano de Testes, seção 5.4.
+- Situação: aguardando o CI e a revisão de outra frente (DoD 1.4). Depois do merge (e da próxima release, para a `main`), falta disparar a rodada pelo "Run workflow" e pôr o link do run na issue.
+
 ## BD-14 — Teste de carga do cardápio e da previsão
 
 - Issue: [#184](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/184). PR: [#244 — feat(banco): teste de carga do cardápio e da previsão (BD-14)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/244).
@@ -784,4 +887,4 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - testes novos: p95 `N/A` com requisições, fronteira de 1% de falhas (90 e 91 de 9000), p95 ruim sem `--informativo` e o CSV real gerado pelo Locust 2.46.7 (`tests/fixtures`);
   - documento: limites (log de acesso, rampa nas estatísticas, respostas vazias como falha desde a revisão), como as consultas foram contadas e a proteção contra a produção.
 - Sugestão não aplicada: `--reset-stats`. As medições do documento incluem a rampa; trocar agora mudaria o método no meio do registro, então a rampa ficou anotada nos limites.
-- Situação: ajustes da revisão aplicados, aguardando o recheck; DOC a ser avisado.
+- Situação: aprovado no recheck, aguardando o merge; DOC a ser avisado.

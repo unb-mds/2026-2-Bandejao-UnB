@@ -140,7 +140,7 @@ desloga). Erro sem `mensagem` (ex.: o `detail` em inglês do DRF) aparece com um
 português pelo status; as telas mostram erros com `mensagemDeErro(falha)`.
 
 Ainda no formato do MVP no simulado (entram no contrato nas tarefas FE-08, FE-09 e FE-E2):
-`GET /cardapio/{campus}/`, `GET /avaliacoes/?campus&data&refeicao`,
+`GET /avaliacoes/?campus&data&refeicao`,
 `GET /avaliacoes/resumo/?campus`, `POST /avaliacoes/`, `POST /recuperar-senha/` e
 `POST /redefinir-senha/`. Valores usados: `campus` ∈ `darcy, ceilandia, gama, planaltina,
 fal`; `refeicao`/`tipo` ∈ `cafe, almoco, jantar`; datas em `AAAA-MM-DD`.

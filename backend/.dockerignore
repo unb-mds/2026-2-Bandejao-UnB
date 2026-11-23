@@ -11,6 +11,8 @@ tests/
 .coverage
 .coverage.*
 htmlcov/
+mutants/
+setup.cfg
 
 # Teste de carga (BD-14): ferramenta de CI, não vai para a produção.
 carga/
