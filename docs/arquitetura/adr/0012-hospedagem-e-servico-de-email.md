@@ -167,6 +167,24 @@ foi contratado. Só o registro DNS passa a apontar para o IP da VM.
 - **Servidor de e-mail próprio na VM:** descartado. A Azure bloqueia a porta
   25, e a entregabilidade de um servidor novo é ruim.
 
+## Atualização (23/11/2026, BE-10): HSTS
+
+O HTTPS do Caddy ganhou o HSTS, definido no `settings.py` do Django (e não
+no `Caddyfile`, para o cabeçalho não sair duplicado):
+
+- **Duração:** começa em 1 hora (`SECURE_HSTS_SECONDS=3600`, o padrão sem
+  `DEBUG`). Se o certificado falhar, o navegador de quem já abriu o site só
+  fica preso ao HTTPS por uma hora. Depois de alguns dias de HTTPS estável, o
+  `.env` da VM sobe para um ano (`31536000`).
+- **Sem subdomínios:** os subdomínios de e-mail do DNS apontam para o Brevo e
+  o ImprovMX, que não são servidos por nós.
+- **Sem preload:** sair da lista dos navegadores é quase irreversível, e o
+  domínio pode mudar depois da disciplina.
+- **Sem `SECURE_SSL_REDIRECT`:** o Caddy já redireciona HTTP para HTTPS.
+
+Os avisos correspondentes do `check --deploy` (`security.W005`, `W008` e
+`W021`) são os únicos silenciados, e um teste confere a lista.
+
 ## Relacionadas
 
 - Documento de Visão: 4.3, 4.4, 6, 9.1 e 9.2.
