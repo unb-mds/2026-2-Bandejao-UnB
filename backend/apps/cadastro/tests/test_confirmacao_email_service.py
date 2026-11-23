@@ -436,11 +436,8 @@ def test_token_de_outro_tipo_nao_acha_conta_para_reenvio(servico, usuario, relog
     assert servico.conta_para_reenvio(token="token-de-senha") is None
 
 
-@pytest.mark.parametrize("status", [StatusUsuario.SUSPENSO])
-def test_reenviar_para_conta_que_nao_esta_pendente_nao_manda_email(
-    servico, usuario, status
-):
-    usuario.status = status
+def test_reenviar_para_conta_suspensa_nao_manda_email(servico, usuario):
+    usuario.status = StatusUsuario.SUSPENSO
     usuario.save()
 
     servico.reenviar(usuario)
