@@ -49,10 +49,10 @@ export function contarFiltrosAtivos(dieta, marcadores) {
  */
 export function resumoRefeicao(categorias) {
   const buscar = (trecho) =>
-    categorias.find((c) => c.rotulo.toLowerCase().startsWith(trecho) && c.pratos.length)
+    categorias.find((c) => c.nome.toLowerCase().startsWith(trecho) && c.pratos.length)
   const preferidas = [
     ['Prato principal', buscar('prato principal')],
-    ['Acompanham.', buscar('acompanhamentos')],
+    ['Acompanham.', buscar('acompanhamento')],
     ['Salada', buscar('salada')],
   ].filter(([, categoria]) => categoria)
 
@@ -62,11 +62,11 @@ export function resumoRefeicao(categorias) {
       : categorias
           .filter((c) => c.pratos.length)
           .slice(0, 3)
-          .map((c) => [c.rotulo.split(' — ')[0], c])
+          .map((c) => [c.nome.split(' — ')[0], c])
 
   return linhas.map(([rotulo, categoria]) => ({
     rotulo,
-    texto: categoria.pratos.map((p) => p.nome).join(', '),
+    texto: categoria.pratos.map((p) => p.descricao).join(', '),
   }))
 }
 
