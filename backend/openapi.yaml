@@ -33,6 +33,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/AvaliacaoRegistrada'
           description: Avaliação anterior editada. Não pontua de novo.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Corpo fora do formato: `refeicaoId` ausente ou que não seja
+            inteiro, ou `comentario` que não seja texto. `codigo`: `dados_invalidos`.'
         '401':
           content:
             application/json:
@@ -98,7 +105,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Parâmetro ausente ou inválido, como `campus`. `codigo`: `parametros_invalidos`.'
+          description: 'Parâmetro ausente ou inválido, como `campus` ausente ou que
+            não seja só dígitos. Com o campus inexistente e outro parâmetro inválido,
+            a resposta é este 400. `codigo`: `parametros_invalidos`.'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Campus inexistente. `codigo`: `campus_nao_encontrado`.'
   /api/cadastro/:
     post:
       operationId: cadastro_create
@@ -214,7 +229,9 @@ paths:
       operationId: cardapio_retrieve
       description: Os filtros de marcador e de dieta são aplicados no backend (ADR
         0005). Cardápio ainda não publicado volta 200 com `status` igual a `nao_publicado`
-        (RF18).
+        (RF18). Sem `refeicao`, sem dia com serviço do dia pedido até 7 dias depois
+        e com a semana do dia pedido publicada, volta 200 com `status` igual a `publicado`,
+        `semServico` true, `data` igual ao dia pedido e `categorias` vazia.
       summary: Cardápio de uma refeição, já filtrado
       parameters:
       - in: query
@@ -283,9 +300,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Parâmetro ausente ou inválido, como `campus`; parâmetro fora
-            da lista acima ou repetido; data fora da faixa ou `dia` fora da `semana`.
-            `codigo`: `parametros_invalidos`.'
+          description: 'Parâmetro ausente ou inválido, como `campus` ausente ou que
+            não seja só dígitos; parâmetro fora da lista acima ou repetido; data fora
+            da faixa ou `dia` fora da `semana`. Com o campus inexistente e outro parâmetro
+            inválido, a resposta é este 400. `codigo`: `parametros_invalidos`.'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Campus inexistente. `codigo`: `campus_nao_encontrado`.'
   /api/checkins/:
     post:
       operationId: checkins_create
@@ -393,9 +417,14 @@ paths:
   /api/fila/previsao/:
     get:
       operationId: fila_previsao_retrieve
-      description: Calculada sob demanda a partir dos check-ins das últimas 4 semanas,
-        no mesmo dia da semana (RF13). Com poucos dados volta 200 com `status` igual
-        a `dados_insuficientes`, e não erro.
+      description: 'Calculada sob demanda a partir dos check-ins confirmados das 4
+        semanas anteriores, no mesmo dia da semana (o próprio dia e os dias que ainda
+        não passaram não entram), e só deles: as respostas à pergunta de saída não
+        mudam o nível (RF13, ADR 0010). As faixas de 15 minutos cobrem o horário da
+        refeição, em horário de Brasília. A média de cada faixa considera só os dias
+        com check-in, e neles a faixa vazia conta como zero. Em empate na maior média,
+        todas essas faixas têm `ehPico` (RN06). Com poucos dados volta 200 com `status`
+        igual a `dados_insuficientes` e `faixas` vazia, e não erro.'
       summary: Previsão de pico por faixa de horário
       parameters:
       - in: query
@@ -409,7 +438,9 @@ paths:
         schema:
           type: string
           format: date
-        description: 'Dia da previsão. Omitido: dia corrente.'
+        description: 'Dia da previsão. Omitido: dia corrente. Pensado para o dia corrente:
+          a janela só usa dias que já passaram, então uma data futura perde as semanas
+          que ainda não aconteceram e tende a `dados_insuficientes`.'
       - in: query
         name: refeicao
         schema:
@@ -437,7 +468,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
-          description: 'Parâmetro ausente ou inválido, como `campus`. `codigo`: `parametros_invalidos`.'
+          description: 'Parâmetro ausente ou inválido, como `campus` ausente ou que
+            não seja só dígitos. Com o campus inexistente e outro parâmetro inválido,
+            a resposta é este 400. `codigo`: `parametros_invalidos`.'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+          description: 'Campus inexistente. `codigo`: `campus_nao_encontrado`.'
   /api/gamificacao/adesao/:
     post:
       operationId: gamificacao_adesao_create
@@ -812,7 +851,8 @@ components:
           description: Obrigatória, de 1 a 5.
         comentario:
           type: string
-          description: Opcional, até 500 caracteres.
+          nullable: true
+          description: 'Opcional, até 500 caracteres. Vazio ou null: sem comentário.'
           maxLength: 500
       required:
       - nota
@@ -942,6 +982,14 @@ components:
           type: boolean
         filtroMarcadorDesativado:
           type: boolean
+        semServico:
+          type: boolean
+          description: 'true quando não há dia com serviço do dia pedido até 7 dias
+            depois e a semana do dia pedido está publicada: vem com `status` "publicado",
+            `data` igual ao dia pedido, a refeição padrão do Anexo A e `categorias`
+            vazia. Se houver dia com serviço nesse intervalo, a resposta traz esse
+            dia em `data`, com `semServico` false. Só sem `refeicao` no pedido; com
+            ela, é sempre false.'
         categorias:
           type: array
           items:
@@ -955,6 +1003,7 @@ components:
       - filtroMarcadorDesativado
       - refeicao
       - refeicaoEncerrada
+      - semServico
       - status
     CategoriaFiltrada:
       type: object
@@ -1058,8 +1107,15 @@ components:
           type: string
           format: time
         nivel:
-          type: string
-          description: Um de "vazia", "curta", "moderada" ou "longa".
+          allOf:
+          - $ref: '#/components/schemas/NivelEnum'
+          description: |-
+            Média da faixa contra a da faixa mais cheia: menos de 25% é vazia, menos de 50% curta, menos de 75% moderada, e o resto longa (RN06).
+
+            * `vazia` - vazia
+            * `curta` - curta
+            * `moderada` - moderada
+            * `longa` - longa
         ehPico:
           type: boolean
           description: true na faixa mais cheia (em empate, em todas elas).
@@ -1099,6 +1155,18 @@ components:
       required:
       - emailInstitucional
       - senha
+    NivelEnum:
+      enum:
+      - vazia
+      - curta
+      - moderada
+      - longa
+      type: string
+      description: |-
+        * `vazia` - vazia
+        * `curta` - curta
+        * `moderada` - moderada
+        * `longa` - longa
     PratoFiltrado:
       type: object
       description: Um prato do cardápio (Exposição N4 4a).
@@ -1128,7 +1196,8 @@ components:
           format: date
         status:
           type: string
-          description: '"disponivel" ou "dados_insuficientes" (RF13).'
+          description: '"disponivel" ou "dados_insuficientes" (RF13): o segundo com
+            check-ins em menos de 3 dias distintos da janela.'
         faixas:
           type: array
           items:
@@ -1155,10 +1224,12 @@ components:
           description: Pontos que faltam para a próxima patente. 0 na última.
         sequencia:
           type: integer
-          description: Semanas seguidas completadas (RN10).
+          description: Semanas seguidas completadas (RN10). 0 até a sequência semanal
+            (BE-E6) entrar.
         diasNaSemana:
           type: integer
-          description: Dias com check-in na semana corrente.
+          description: Dias com check-in na semana corrente. 0 até a sequência semanal
+            (BE-E6) entrar.
         minimoDias:
           type: integer
           description: Dias necessários para completar a semana.

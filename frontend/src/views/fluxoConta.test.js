@@ -353,3 +353,17 @@ describe('nada do formulário fica salvo no aparelho (front 4b, RI09)', () => {
     }
   })
 })
+
+describe('CadastroView: contato no aviso de privacidade (RNF08, RNF07.4)', () => {
+  it('o aviso aberto mostra o e-mail da equipe para pedir a exclusão, sem abrir nova aba', async () => {
+    const { wrapper } = await montarEm('/cadastro')
+    await botao(wrapper, 'Aluno').trigger('click')
+
+    await wrapper.get('.link-aviso').trigger('click')
+
+    const contato = wrapper.get('.aviso-completo a[href^="mailto:"]')
+    expect(contato.attributes('href')).toBe('mailto:equipe@bandejaounb.com.br')
+    expect(contato.text()).toBe('equipe@bandejaounb.com.br')
+    expect(contato.attributes('target')).toBeUndefined()
+  })
+})

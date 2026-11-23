@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { CANAL_CONTATO } from '@/constants/contato'
+import { CANAL_CONTATO, EMAIL_CONTATO } from '@/constants/contato'
 import CabecalhoFormulario from '@/components/CabecalhoFormulario.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import CampoSenha from '@/components/CampoSenha.vue'
@@ -182,7 +182,8 @@ async function criarConta() {
             <p>
               <strong>Seus direitos (LGPD):</strong> a exclusão da conta pode ser solicitada à
               equipe; suas avaliações permanecem de forma anônima. Contato:
-              <a :href="CANAL_CONTATO" target="_blank" rel="noopener">canal do projeto</a>.
+              <a :href="CANAL_CONTATO">{{ EMAIL_CONTATO }}</a
+              >.
             </p>
           </div>
         </div>

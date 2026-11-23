@@ -44,7 +44,6 @@ const etapa = ref('inicial')
 const mensagem = ref('')
 const erroCiencia = ref('')
 const enviandoCiencia = ref(false)
-const pontosRecebidos = ref(0)
 // Muda a cada troca de campus ou refeição, a cada volta ao início e quando o
 // botão sai da tela (ex.: a refeição encerrou): um fluxo que já estava
 // rodando confere depois de cada `await` e, se ela mudou, descarta o
@@ -93,7 +92,6 @@ watch(
   () => {
     voltarAoInicio()
     erroCiencia.value = ''
-    pontosRecebidos.value = 0
   },
 )
 
@@ -176,7 +174,6 @@ async function localizarEEnviar() {
 function mostrarResultado(resultado) {
   switch (resultado.desfecho) {
     case 'confirmado':
-      pontosRecebidos.value = resultado.pontos?.total ?? 0
       etapa.value = 'confirmado'
       mensagem.value = ''
       return
@@ -198,7 +195,7 @@ function mostrarResultado(resultado) {
   <ConviteLogin
     v-if="!auth.estaAutenticado"
     titulo="Entre para fazer check-in"
-    texto="Com uma conta, você confirma que está no RU e ajuda a prever a fila."
+    texto="Com uma conta, você confirma que está no RU, ajuda a prever a fila e ganha pontos."
   />
 
   <AvisoPrivacidade
@@ -221,7 +218,6 @@ function mostrarResultado(resultado) {
     <div>
       <p class="titulo">Check-in confirmado</p>
       <p class="texto">Obrigado! Seu check-in ajuda a prever a fila do RU.</p>
-      <p v-if="pontosRecebidos > 0" class="pontos">+{{ pontosRecebidos }} pontos</p>
     </div>
   </div>
 
@@ -277,12 +273,6 @@ function mostrarResultado(resultado) {
   margin-top: 2px;
   font-size: 13px;
   color: var(--sucesso-texto-suave);
-}
-
-.pontos {
-  margin-top: 6px;
-  font-weight: 800;
-  color: var(--dourado);
 }
 
 .legenda {

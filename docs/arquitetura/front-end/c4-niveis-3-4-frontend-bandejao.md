@@ -215,10 +215,12 @@ do apelido (RF33.2)."]
 Nível por faixa e pico (RF13)."]
     espera["🧩 EsperaEstimada
 Minutos em destaque, nível
-e texto de apoio (RF22)."]
+e texto de apoio (RF22,
+ainda não implementado)."]
     encerrada["🧩 RefeicaoEncerrada
-No lugar da previsão e do
-check-in (RN05)."]
+No lugar do check-in; a
+previsão dessa refeição
+some junto (RN05)."]
     checkin["🧩 CheckinBotao
 Check-in por GPS (RF11, RF12)."]
     avisoPrivacidade["🧩 AvisoPrivacidade
@@ -254,15 +256,17 @@ os pontos (RF05)."]
   (fluxo 4d). Se a detecção trocar o campus, `CampusDetectadoAviso` aparece
   com a opção de voltar ao anterior.
 - **Cada seção carrega por conta própria.** O backend não tem um endpoint
-  que junte tudo: a `CampusView` pede em paralelo o cardápio, o resumo de
-  notas do dia (`GET /api/avaliacoes/resumo/`, uma chamada para todas as
-  refeições) e a previsão. Uma parte que falhe (ex.: previsão com "dados
-  insuficientes") não derruba as outras.
+  que junte tudo: cada seção pede o seu, em paralelo — o cardápio e o resumo
+  de notas do dia (`GET /api/avaliacoes/resumo/`, uma chamada para todas as
+  refeições) pela `CardapioView`, e a previsão pela própria `FilaPrevisao`.
+  Uma parte que falhe (ex.: previsão com erro ou 501) não derruba as outras.
 - **"Refeição encerrada"** é calculado na própria `CampusView`
   (`refeicaoEncerrada`, RN05): compara a hora do aparelho, atualizada a cada
   30 s, com o fim da refeição do check-in em `constants/refeicoes.js`.
-  Quando verdadeiro, `RefeicaoEncerrada` ocupa o lugar de `FilaPrevisao` e
-  de `CheckinBotao`, e a avaliação continua aberta até 23h59 (RF15.1). O
+  Quando verdadeiro, `RefeicaoEncerrada` ocupa o lugar de `CheckinBotao`, e
+  a `FilaPrevisao` dessa refeição de hoje some (RN05, item 3); a de outra
+  refeição de hoje ou de um dia seguinte continua, e a de um dia que já
+  passou não aparece. A avaliação continua aberta até 23h59 (RF15.1). O
   `refeicaoEncerrada` que o `GET /api/cardapio/` devolve vale para o
   cardápio (FE-08); quem decide se o check-in vale é sempre o backend.
 - **Sem a lista de campi, a tela não trava**: se o `GET /api/campi/` falhar,
@@ -270,6 +274,25 @@ os pontos (RF05)."]
   id da rota e o check-in espera a lista confirmar o campus. O campus do
   link só vira o lembrado depois dessa confirmação, e um campus lembrado que
   saiu do banco é esquecido.
+- **`FilaPrevisao` (FE-11, #172)** chama `GET /api/fila/previsao/` com o
+  campus, a refeição e o dia escolhidos no cardápio (sem escolha, hoje e a
+  refeição do check-in), sem login. Mostra as faixas de 15 minutos com o
+  nível de cada uma e destaca como pico todas as que vierem com
+  `ehPico: true`, com o resumo "Pico previsto" ou, no empate, "Picos
+  previstos". Com `status: "dados_insuficientes"`, mostra "Dados
+  insuficientes", sem faixas nem valor de reserva (RF13). Uma resposta
+  `disponivel` sem nenhum pico, ou `dados_insuficientes` com faixas, fica
+  fora do contrato e vira erro. Um 501, como defesa contra um backend sem a
+  rota (a BE-15, #236, já calcula a previsão), vira "Previsão fora do ar no
+  momento", sem erro; os outros erros mostram a mensagem, com "Tentar
+  novamente" menos no status 400 e 404. Os estados ficam numa região
+  `aria-live`. A `filaStore` guarda a previsão por campus, refeição e dia:
+  a carregada e a "indisponível" valem 5 minutos, como no cardápio. A
+  `FilaPrevisao` confere a validade a cada minuto, em segundo plano: sem
+  passar pelo "Carregando…", sem insistir num erro (para isso há o "Tentar
+  novamente") e, se a revalidação falhar, mantendo a previsão antiga na
+  tela e tentando de novo no minuto seguinte. O erro não fica guardado. A
+  regra da RN05 está na nota de "Refeição encerrada".
 - **`EsperaEstimada` fica dentro de `FilaPrevisao`**: mostra os minutos em
   destaque só nas faixas com `esperaEstimadaMin` diferente de `null`; nas
   demais, só o nível. O texto de apoio (L12) explica que o nível é relativo
@@ -369,6 +392,19 @@ Convite ao cadastro (RF05)."]
   `RankingAdesaoToggle`, a `PosicaoRanking` e a própria Bandeja de Ouro. Para
   o **visitante**, a rota abre normalmente e mostra o `ConviteLogin` (seta
   tracejada), sem redirecionar.
+- **Versão simplificada da FE-12 (#173).** A primeira `ProgressoView` traz só
+  a patente, os pontos totais, quanto falta para a próxima (com uma barra)
+  ou "patente máxima", o `RankingAdesaoToggle` e o `BotaoSair`; a
+  `SequenciaSemana`, a `PosicaoRanking` e o `DistintivoIndicador` ficam
+  para depois. Chega-se a ela pelo item "Meu progresso" do menu da Início.
+  O progresso e a adesão vêm da BE-16 (#237). Se o backend responder 501
+  (defesa contra uma rota sem a regra), a tela mostra "Progresso ainda não
+  disponível", sem erro; o `BotaoSair` continua. O interruptor só aparece com
+  o progresso carregado (não no 501, no primeiro carregamento nem no erro) e,
+  depois de mudar a adesão, continua na tela, desativado, enquanto o
+  progresso recarrega. O aviso do interruptor (`role="switch"`) diz que o
+  apelido e a patente ficam visíveis para todos no ranking do semestre, ainda
+  sem citar a Bandeja de Ouro.
 - **`RankingView` (rota `/ranking/:campusId`) é pública** e mostra o ranking
   **do semestre** do campus escolhido no `SeletorCampus`: até 10 linhas
   (Anexo A) com posição, apelido, patente e, quando houver, a Bandeja de
@@ -400,7 +436,13 @@ Convite ao cadastro (RF05)."]
   sem acrescentar interações (RNF03).
 - **`BotaoSair` fica em "Meu progresso"**, que é a área da conta do
   usuário logado (RF03.3). A dupla pode movê-lo para um menu de conta sem
-  mudar a arquitetura: ele só chama `authStore.sair()`.
+  mudar a arquitetura: ele chama `authStore.sair()`, descarta os comentários
+  guardados e volta à Início. Se o servidor não confirmar a saída, a conta
+  sai deste aparelho, mas a tela fica e avisa que o servidor não confirmou,
+  porque o cookie de sessão pode continuar valendo. Essa lógica fica no
+  composable `useSair`, que o item "Sair da conta" do menu da Início também
+  usa: lá a tela continua na Início, recarrega as avaliações de hoje e mostra
+  o mesmo aviso quando o servidor não confirma.
 
 ---
 
@@ -551,8 +593,9 @@ trata erros (RNF04, ADR 0007)."]
   não" do aviso de localização** (RF19), para o aviso não reaparecer a cada
   abertura. O campus detectado fica só em memória, junto com a hora da
   última detecção, porque vale até a próxima.
-- **`filaStore`** guarda a previsão (com `esperaEstimadaMin` por faixa,
-  RF22) e a **pergunta de saída pendente** (`perguntaId`, `tentativa`,
+- **`filaStore`** guarda a previsão por campus, refeição e dia (a
+  `esperaEstimadaMin` por faixa entra com o RF22) e a **pergunta de saída
+  pendente** (`perguntaId`, `tentativa`,
   `expiraEm`) e o próximo `perguntaDevidaEm`. Seguindo a decisão 7 da #66,
   a raiz consulta `GET /api/fila/pergunta-pendente/` **ao abrir o app, ao
   voltar ao primeiro plano, no horário de `perguntaDevidaEm`** e, enquanto
@@ -569,14 +612,34 @@ trata erros (RNF04, ADR 0007)."]
   **Ao mudar a adesão** (`POST`/`DELETE /api/gamificacao/adesao/`), a store
   recarrega o progresso e o ranking e pede ao `avaliacoesStore` que descarte
   os comentários guardados, porque a Bandeja de Ouro de quem desligou some
-  na hora (RF27.1).
+  na hora (RF27.1). Desde a FE-12, o progresso e cada ranking guardam a
+  situação (`carregando`, `carregado`, `indisponivel` no 501 ou `erro`), com
+  a resposta validada contra o OpenAPI. Com pontos novos, o progresso fica
+  marcado como desatualizado (`progressoDesatualizado`) e é pedido de novo na
+  próxima vez que a tela abrir. Ao mudar a adesão, a store grava o novo
+  `participaRanking` assim que o servidor confirma, recarrega o progresso sem
+  voltar a "carregando" (se o recarregamento falhar, mantém o que tinha e o
+  marca como desatualizado) e recarrega só os rankings já abertos; um segundo
+  toque é ignorado enquanto a mudança não termina. Progresso, rankings e o
+  erro da adesão são limpos no logout e no 401, e uma resposta que chega
+  depois disso, ou depois de um pedido mais novo, é descartada.
 - **Pontos recebidos (decisão 7 da #66, RF24.2).** Não há endpoint de
   pontos: as respostas de check-in, de resposta de saída e de avaliação
   trazem o mesmo bloco
   `"pontos": {"total", "contribuicao", "avaliacaoLiberada", "bonusSemana"}`.
   `filaStore` e `avaliacoesStore` repassam esse bloco à `gamificacaoStore`
   (setas "pontos recebidos"), que mostra o `PontosAviso` quando `total > 0`
-  e marca o progresso como desatualizado.
+  e marca o progresso como desatualizado. Desde a FE-10 (#171), o
+  `PontosAviso` é um aviso flutuante na raiz, acima da barra inferior no
+  celular: "+N pontos" ("+1 ponto" quando o total é 1), numa região
+  `role="status"` só com o texto e o "×" ao lado; some sozinho em 4 segundos
+  ou no "×", e um aviso novo substitui o anterior. O `CheckinBotao` e o
+  `AvaliacaoWidget` não repetem o aviso. A store guarda só `total`,
+  `contribuicao` e `avaliacaoLiberada`, os três obrigatórios e inteiros não
+  negativos, como no `ResultadoPontuacao` do `openapi.yaml` (o `bonusSemana`
+  entra com a BE-E6); um bloco fora disso é ignorado e registrado no
+  console, sem desfazer o check-in ou a avaliação já gravados. O logout e o
+  401 limpam a store.
 - **Bandeja de Ouro nas respostas públicas (decisão 12 da #66).** Cada linha
   do ranking e cada autor de comentário traz o campo opcional
   `distintivo`: `null` ou
@@ -645,7 +708,7 @@ separação por app do backend (RNF06):
 | `preferenciasStore` | Campus lembrado, escolha manual depois da última detecção, campus detectado, refeição selecionada, filtros de marcador e dieta, "Agora não" do aviso de localização | `localStorage` (RF07, RF08, RF09, RF19, RN04), exceto o campus detectado (memória) |
 | `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, dia, refeição e filtros, com erro e carregamento por pedido; a resposta que depende do relógio e a de "não publicado" valem 5 minutos, e a lista de campi (`GET /api/campi/`, com `carregandoCampi` e `erroCampi`) | Em memória |
 | `avaliacoesStore` | Resumo do dia (notas de todas as refeições, `GET /api/avaliacoes/resumo/`), comentários com `distintivo` e envio/edição da avaliação do usuário | Em memória |
-| `filaStore` | Previsão (com espera estimada), check-in e pergunta de saída pendente | Em memória; nunca guarda coordenadas (RI09) |
+| `filaStore` | Previsão por campus, refeição e dia (a espera estimada entra com o RF22), check-in e pergunta de saída pendente | Em memória; nunca guarda coordenadas (RI09) |
 | `gamificacaoStore` | Progresso, adesão ao ranking, posição própria por campus, posição do semestre anterior, Bandeja de Ouro própria, ranking por campus e último bloco `pontos` | Em memória |
 
 Critério de decisão: **o que precisa sobreviver a um recarregamento de
@@ -1147,8 +1210,8 @@ sequenceDiagram
 |---|---|---|
 | `CampusView` | RF20, RF03.4, RN04, RN05 | ✅ 4d |
 | `CardapioView` (seção cardápio da `CampusView`) | RF05, RF06, RF07 | — |
-| `FilaView` (seção fila da `CampusView`) / `FilaPrevisao` | RF13, RF21, RF22, L08 | — |
-| `EsperaEstimada` | RF22 | — |
+| `FilaView` (seção fila da `CampusView`) / `FilaPrevisao` | RF13, RN05, RN06, RF21, RF22, L08 | — |
+| `EsperaEstimada` | RF22 (ainda não implementado) | — |
 | `RefeicaoEncerrada` | RN05, RF20.3 | — |
 | `SeletorCampus` / `CampusDetectadoAviso` | RF07.2, RF20.2, RN04 | ✅ 4d |
 | `AvisoExecutivo` | RF20.4, RI08, L11 | — |

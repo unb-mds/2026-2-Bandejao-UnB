@@ -100,6 +100,7 @@ classDiagram
     +avisoSujeitoAAlteracao: str
     +alergenosIndisponivel: bool
     +filtroMarcadorDesativado: bool
+    +semServico: bool
     +categorias: list~CategoriaFiltrada~
   }
   class StatusCardapio {
@@ -299,8 +300,14 @@ classDiagram
     item 3 da RN05; vale também para a refeição pedida pelo seletor.
   - **Dia futuro ou passado sem `refeicao`**: a primeira refeição do dia
     futuro e a última (encerrada) do dia passado.
-  - **Sem dia com serviço** do dia pedido em diante: `NAO_PUBLICADO`, com o
-    dia pedido e a refeição escolhida pelos horários do Anexo A.
+  - **Sem dia com serviço** do dia pedido em diante (nos 7 dias seguintes),
+    sem `refeicao` no pedido: o dia exibido é o pedido, e a refeição vem dos
+    horários do Anexo A. Com a semana do dia pedido publicada, sai
+    `PUBLICADO` com `semServico: true` e `categorias` vazia: o PDF diz que o
+    RU não abre (sábado nos campi que só servem de segunda a sexta, domingo
+    sem a semana seguinte publicada, recesso). Sem ela, sai `NAO_PUBLICADO`
+    com `semServico: false` (#217, decisão de 21/11/2026). Em qualquer outra
+    resposta, `semServico` é `false`.
   - **Refeição pedida que o PDF não traz no dia** (ex.: `refeicao=cafe` num
     dia só com almoço): `PUBLICADO`, com `categorias` vazia. O contrato
     ainda não diz quais refeições existem em cada dia (ponto em aberto com o
@@ -310,7 +317,7 @@ classDiagram
   - **400 `parametros_invalidos`** (`{codigo, mensagem}`): parâmetro fora
     dos seis do contrato (ex.: `marcador`, `marcadores[]`) ou repetido (os
     marcadores vão num parâmetro só, separados por vírgula); `campus`
-    ausente, que não seja só dígitos ou inexistente; `semana` ou `dia` fora
+    ausente ou que não seja só dígitos; `semana` ou `dia` fora
     de `AAAA-MM-DD`, inválida ou fora de 2000-01-01 a 2099-12-31; `refeicao` ou `dieta` fora do enum; item vazio
     em `marcadores` ou nome que não está na tabela `MARCADOR` (a mensagem
     cita os nomes). Espaços em volta e nomes repetidos são aceitos, e
@@ -318,6 +325,17 @@ classDiagram
   - **`avisoSujeitoAAlteracao`** é o aviso curto do RF07.1, o mesmo texto da
     `CardapioView.vue`, numa constante única (`AVISO_SUJEITO_A_ALTERACAO`).
     O aviso longo do filtro (RF08, L04) continua no front.
+- **Campus inexistente (#217, decisão de 21/11/2026).** `campus` só com
+  dígitos, mas sem registro em `CAMPUS` (link antigo ou campus removido),
+  responde **404 `campus_nao_encontrado`**:
+  `{"codigo": "campus_nao_encontrado", "mensagem": "Não existe campus com esse id."}`.
+  O `codigo` é o mesmo do contrato do `GET /api/ranking/{campusId}/`, e a
+  mensagem é a do antigo 400. Um id com mais dígitos que o maior pk (19) dá o
+  mesmo 404 sem consultar o banco. Todos os 400 acima são conferidos antes:
+  com o campus inexistente e outro parâmetro inválido, a resposta é o 400,
+  que é erro de quem chamou. O mesmo 404 está no contrato de
+  `GET /api/avaliacoes/resumo/` e `GET /api/fila/previsao/` (as duas views
+  ainda devolvem 501).
 
 ## Nível 4b — Lista de campi para a detecção
 

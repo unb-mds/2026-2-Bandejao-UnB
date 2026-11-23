@@ -27,10 +27,15 @@ export function selecaoPadrao(dias, agora = new Date()) {
   return { data: dia.data, refeicao }
 }
 
+/**
+ * Dias das abas do cardápio (RF07.1): de segunda a domingo da semana do
+ * calendário; o domingo pertence à semana da segunda anterior. Coincide com a
+ * semana do PDF no backend (`semana_inicio` + 6 dias). Campi sem refeição no
+ * dia respondem com `semServico` e a tela mostra o estado de sem serviço.
+ */
 export function diasDaSemanaVigente(agora = new Date()) {
   const segunda = inicioDaSemana(agora)
-  const inicio = agora.getDay() === 0 ? somarDias(segunda, 7) : segunda
-  return Array.from({ length: 6 }, (_, i) => somarDias(inicio, i))
+  return Array.from({ length: 7 }, (_, i) => somarDias(segunda, i))
 }
 
 export function contarFiltrosAtivos(dieta, marcadores) {

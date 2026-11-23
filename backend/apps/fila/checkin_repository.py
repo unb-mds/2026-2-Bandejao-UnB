@@ -1,13 +1,38 @@
-"""CheckinRepository: CHECKIN e TENTATIVA_CHECKIN (Fila N4 4a)."""
+"""CheckinRepository: CHECKIN e TENTATIVA_CHECKIN (Fila N4 4a, 4c e 4d)."""
 
-from datetime import date
+from dataclasses import dataclass
+from datetime import date, time
 
 from django.db import IntegrityError
-from django.db.models import Q
+from django.db.models import Count, Q
 
 from apps.cardapio.models import Campus
 from apps.fila.erros import CheckinDuplicadoError
+from apps.fila.faixa_horario_generator import FaixaHorario
 from apps.fila.models import Checkin, TentativaCheckin
+
+
+@dataclass(frozen=True)
+class ContagemDia:
+    """Check-ins de um dia da janela, um número por faixa, na ordem das faixas."""
+
+    data: date
+    checkins_por_faixa: list[int]
+
+
+def _posicao_da_faixa(faixa_inicio: time, faixas: list[FaixaHorario]) -> int | None:
+    """Em que faixa cai o `faixa_inicio` gravado no check-in, ou None.
+
+    O check-in vale até o fim da refeição inclusive (`JanelaCheckinValidator`):
+    o feito às 14h30 tem faixa 14h30, que é o fim da última faixa, e entra
+    nela. Fora disso, só cai fora se o horário do Anexo A mudou depois.
+    """
+    for posicao, faixa in enumerate(faixas):
+        if faixa.inicio <= faixa_inicio < faixa.fim:
+            return posicao
+    if faixas and faixa_inicio == faixas[-1].fim:
+        return len(faixas) - 1
+    return None
 
 
 class CheckinRepository:
@@ -39,6 +64,45 @@ class CheckinRepository:
 
     def registrar_tentativa(self, tentativa: TentativaCheckin) -> None:
         tentativa.save(force_insert=True)
+
+    def contar_por_faixa(
+        self,
+        campus: Campus,
+        tipo_refeicao: str,
+        datas: list[date],
+        faixas: list[FaixaHorario],
+    ) -> list[ContagemDia]:
+        """Check-ins por dia e faixa da previsão (RF13, Fila N4 4c).
+
+        Devolve só os dias com dados (pelo menos um check-in nas faixas), na
+        ordem de `datas`; nesses dias, a faixa sem check-in vem com zero.
+        Conta também os check-ins que já perderam a conta na retenção.
+
+        Uma consulta só, agrupada no banco, com a forma conferida pela BD-10:
+        igualdade em campus e tipo e `IN` nas datas, que usa o
+        `checkin_campus_tipo_data_idx` (docs/arquitetura/banco-de-dados/
+        indices-bd10.md). Não mude os filtros sem rodar aquele teste.
+        """
+        linhas = (
+            Checkin.objects.filter(
+                campus=campus, tipo_refeicao=tipo_refeicao, data__in=datas
+            )
+            .values("data", "faixa_inicio")
+            .annotate(quantidade=Count("id"))
+            .order_by()
+        )
+        por_dia: dict[date, list[int]] = {}
+        for linha in linhas:
+            posicao = _posicao_da_faixa(linha["faixa_inicio"], faixas)
+            if posicao is None:
+                continue
+            contagem = por_dia.setdefault(linha["data"], [0] * len(faixas))
+            contagem[posicao] += linha["quantidade"]
+        return [
+            ContagemDia(data=data, checkins_por_faixa=por_dia[data])
+            for data in datas
+            if data in por_dia
+        ]
 
     def desvincular_antes_de(self, limite: date) -> int:
         """Retenção (RNF07.3, Fila N4 4d): desvincula os registros com `data`

@@ -76,8 +76,8 @@ def test_checkin_confirmado_devolve_201_com_checkin_e_pontos(logado, darcy):
             "tipoRefeicao": "almoco",
             "data": "2026-11-17",
         },
-        # Versão mínima da pontuação: a BE-14 passa a conceder os pontos.
-        "pontos": {"total": 0, "contribuicao": 0, "avaliacaoLiberada": 0},
+        # 10 pontos do check-in (Anexo A); nenhuma avaliação para liberar.
+        "pontos": {"total": 10, "contribuicao": 10, "avaliacaoLiberada": 0},
     }
 
 
