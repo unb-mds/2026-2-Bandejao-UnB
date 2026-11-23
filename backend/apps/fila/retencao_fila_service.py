@@ -32,7 +32,7 @@ class RetencaoFilaService:
             return self.repository.desvincular_antes_de(limite)
 
     def desvincular_conta(self, conta) -> int:
-        """Desvincula todos os registros de fila da conta. Será chamado pelo
-        `RemoverContaCommand` (BD-12, #164), dentro da transação dele."""
+        """Desvincula todos os registros de fila da conta. Chamado pelo
+        `RemoverContaCommand` (BD-12), dentro da transação dele."""
         with transaction.atomic():
             return self.repository.desvincular_conta(conta)

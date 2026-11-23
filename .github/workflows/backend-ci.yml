@@ -80,6 +80,9 @@ jobs:
     env:
       DJANGO_SECRET_KEY: chave-exclusiva-do-ci
       DJANGO_ALLOWED_HOSTS: localhost
+      # Os testes do log do Gunicorn (test_deploy_be10.py) falham, em vez de
+      # serem ignorados, se o gunicorn sair do requirements-ci-mysql.txt.
+      EXIGIR_GUNICORN: "1"
       DB_ENGINE: mysql
       DB_NAME: bandejao_ci
       # O usuário restrito, e não o root: uma migration que precise de um
@@ -111,6 +114,7 @@ jobs:
             backend/requirements.txt
             backend/requirements-dev.txt
             backend/requirements-ci-mysql.txt
+            backend/requirements-prod.txt
 
       - name: Instalar bibliotecas do MySQL
         run: |
@@ -188,11 +192,13 @@ jobs:
       - name: Aplicar migrations do zero
         run: python manage.py migrate --noinput
 
-      # Sem DEBUG, como em produção. Os avisos de HSTS (deixado de fora de
-      # propósito) e de SECURE_SSL_REDIRECT (o Caddy redireciona) não falham;
-      # um erro, sim.
+      # Sem DEBUG, como em produção, e com uma chave longa só neste passo (a
+      # do job é curta e daria o security.W009). Qualquer aviso falha o passo:
+      # só os três do SILENCED_SYSTEM_CHECKS ficam calados.
       - name: Conferir o settings de produção
-        run: python manage.py check --deploy
+        env:
+          DJANGO_SECRET_KEY: chave-falsa-so-para-o-check-deploy-do-ci-0123456789-abcdef
+        run: python manage.py check --deploy --fail-level WARNING
 
       - name: Executar testes no MySQL
         id: testes_mysql

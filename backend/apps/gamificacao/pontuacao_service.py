@@ -5,7 +5,7 @@ pelo check-in e pela avaliação, sempre na transação de quem chama. A regra �
 a da BE-14: cada contribuição vale os pontos que a `PontuacaoPolicy` dá ao
 tipo; a avaliação só pontua com check-in na mesma refeição (campus + tipo +
 data); tudo uma vez só, no campus e no semestre da refeição (RN09, RN12,
-Anexo A, ADR 0011).
+Anexo A, ADR 0011). `apagar_contadores` entra na exclusão de conta (BD-12).
 """
 
 from django.utils import timezone
@@ -47,6 +47,15 @@ class PontuacaoService:
         linha (Cadastro N4 4a, Gamificação N4).
         """
         PontuacaoUsuario.objects.create(usuario=conta)
+
+    def apagar_contadores(self, conta) -> None:
+        """Apaga os contadores da conta: a pontuação total e os pontos de cada
+        semestre e campus (RNF07.4). Sem eles, a conta sai do ranking na hora.
+
+        Quem chama é o `RemoverContaCommand`, dentro da transação dele. Conta
+        sem contador não é erro.
+        """
+        self.pontuacoes.apagar_da_conta(conta)
 
     def travar_conta(self, conta) -> None:
         """Trava a pontuação da conta até o fim da transação de quem chama.

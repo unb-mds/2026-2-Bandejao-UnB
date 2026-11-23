@@ -4,8 +4,8 @@ Ordem das checagens:
 1. formato (ADR 0002): e-mail @aluno.unb.br ou @unb.br, sem consultar o banco;
 2. conta inexistente: mesmo erro da senha errada (RF03.1);
 3. bloqueio (RF03.2): bloqueado, a senha nem é conferida;
-4. senha, e conta suspensa ou removida (`is_active = False`, ADR 0007): os
-   dois casos dão o mesmo erro genérico e contam como tentativa;
+4. senha, e conta suspensa (`is_active = False`, ADR 0007): os dois casos
+   dão o mesmo erro genérico e contam como tentativa;
 5. conta pendente: só quem acertou a senha descobre que falta confirmar o
    e-mail (RF02).
 
