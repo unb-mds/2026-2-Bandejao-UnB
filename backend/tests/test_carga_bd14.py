@@ -266,3 +266,25 @@ def test_main_devolve_o_codigo_de_saida(tmp_path, capsys, linhas, codigo):
 
     assert avaliar.main([str(arquivo)]) == codigo
     assert "| Endpoint |" in capsys.readouterr().out
+
+
+def test_modo_informativo_sempre_sai_com_zero(tmp_path, capsys):
+    """Na varredura (500, 1.000, 1.500 usuários), as rodadas abaixo da meta
+    só medem a capacidade: quem decide o veredito é a de 2.000."""
+    linhas = [*LINHAS_BOAS]
+    linhas[0] = ("GET", cenario.NOME_CARDAPIO, 9000, 0, 6900)
+    arquivo = csv_de_estatisticas(tmp_path, linhas)
+
+    assert avaliar.main([str(arquivo), "--informativo"]) == 0
+    saida = capsys.readouterr().out
+    assert "Reprovado" in saida
+    assert "informativ" in saida
+
+
+def test_resumo_mostra_os_usuarios_da_rodada(tmp_path, capsys, monkeypatch):
+    monkeypatch.setenv("USUARIOS", "1500")
+    arquivo = csv_de_estatisticas(tmp_path, LINHAS_BOAS)
+
+    avaliar.main([str(arquivo)])
+
+    assert "1500 usuários" in capsys.readouterr().out
