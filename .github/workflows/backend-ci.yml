@@ -87,7 +87,6 @@ jobs:
       # deploy (#209).
       DB_USER: app_ci
       DB_PASSWORD: senha-app-ci-descartavel
-      MYSQL_ROOT_PASSWORD: senha-ci-descartavel
       DB_HOST: 127.0.0.1
       DB_PORT: "3306"
       # Sem DEBUG, o settings exige o endereço do PWA, o SMTP e o remetente
@@ -134,7 +133,9 @@ jobs:
       # aplicação não pode ter ALL PRIVILEGES nem privilégio global.
       - name: Conferir as permissões do usuário da aplicação (SHOW GRANTS)
         env:
-          MYSQL_PWD: ${{ env.MYSQL_ROOT_PASSWORD }}
+          # A senha de root só nos passos que usam o root, e não no migrate
+          # nem no pytest. É a mesma do serviço mysql, acima.
+          MYSQL_PWD: senha-ci-descartavel
         run: |
           permissoes=$(mysql -h "$DB_HOST" -P "$DB_PORT" -uroot -N \
             -e "SHOW GRANTS FOR '$DB_USER'@'%'")
@@ -156,7 +157,9 @@ jobs:
       # produção. Só no CI: na VM não existe banco de teste.
       - name: Dar ao banco de teste os mesmos privilégios (test_${{ env.DB_NAME }})
         env:
-          MYSQL_PWD: ${{ env.MYSQL_ROOT_PASSWORD }}
+          # A senha de root só nos passos que usam o root, e não no migrate
+          # nem no pytest. É a mesma do serviço mysql, acima.
+          MYSQL_PWD: senha-ci-descartavel
         run: |
           linha=$(mysql -h "$DB_HOST" -P "$DB_PORT" -uroot -N \
             -e "SHOW GRANTS FOR '$DB_USER'@'%'" | grep "ON \`$DB_NAME\`")
