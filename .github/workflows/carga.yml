@@ -19,8 +19,8 @@ on:
   workflow_dispatch:
     inputs:
       usuarios:
-        description: "Usuários simultâneos"
-        default: "2000"
+        description: "Usuários simultâneos de cada rodada (lista JSON)"
+        default: "[500, 1000, 1500, 2000]"
       duracao:
         description: "Duração da carga (ex.: 5m)"
         default: "5m"
@@ -36,6 +36,13 @@ jobs:
   carga:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    # Uma rodada por número de usuários, em runners separados: a de 2.000 é
+    # a meta do RNF01; as outras mostram até onde a meta é cumprida.
+    strategy:
+      fail-fast: false
+      matrix:
+        usuarios: ${{ fromJSON(inputs.usuarios || '[500, 1000, 1500, 2000]') }}
 
     services:
       mysql:
@@ -68,7 +75,7 @@ jobs:
       EMAIL_HOST_USER: usuario-teste
       EMAIL_HOST_PASSWORD: senha-teste
       DEFAULT_FROM_EMAIL: nao-responda@bandejaounb.com.br
-      USUARIOS: ${{ inputs.usuarios || '2000' }}
+      USUARIOS: ${{ matrix.usuarios }}
       DURACAO: ${{ inputs.duracao || '5m' }}
 
     steps:
@@ -127,14 +134,17 @@ jobs:
           {
             echo "## Teste de carga (BD-14)"
             echo
-            echo "$USUARIOS usuários simultâneos por $DURACAO, Gunicorn com 3 workers e MySQL 8.4 no runner do GitHub."
+            echo "Por $DURACAO, com o Gunicorn em 3 workers e o MySQL 8.4 no runner do GitHub."
             echo
           } >> "$GITHUB_STEP_SUMMARY"
-          python -m carga.avaliar resultado/carga_stats.csv | tee -a "$GITHUB_STEP_SUMMARY"
+          # Só a rodada de 2.000 usuários decide o veredito do RNF01.
+          informativo=""
+          if [ "$USUARIOS" != "2000" ]; then informativo="--informativo"; fi
+          python -m carga.avaliar resultado/carga_stats.csv $informativo | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Guardar o resultado
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: resultado-carga
+          name: resultado-carga-${{ matrix.usuarios }}
           path: backend/resultado/

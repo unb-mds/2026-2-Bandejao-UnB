@@ -5,10 +5,15 @@ Lê o `<prefixo>_stats.csv` do Locust e confere, em cada endpoint do
 rápidas e mascarariam um p95 ruim). Imprime um resumo em Markdown e sai com
 0 (aprovado) ou 1 (reprovado).
 
-    python -m carga.avaliar resultado/carga_stats.csv
+    python -m carga.avaliar resultado/carga_stats.csv [--informativo]
+
+Com `--informativo`, sai sempre com 0: é o caso das rodadas da varredura
+abaixo de 2.000 usuários, que medem a capacidade e não decidem o veredito.
+A variável USUARIOS, se existir, entra no título do resumo.
 """
 
 import csv
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -113,8 +118,16 @@ def markdown(resultado: Resultado) -> str:
 
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
-    resultado = avaliar(ler_estatisticas(argv[0]))
+    informativo = "--informativo" in argv
+    arquivos = [a for a in argv if not a.startswith("--")]
+    resultado = avaliar(ler_estatisticas(arquivos[0]))
+    usuarios = os.environ.get("USUARIOS")
+    if usuarios:
+        print(f"### {usuarios} usuários simultâneos\n")
     print(markdown(resultado))
+    if informativo:
+        print("_Rodada informativa: não decide o veredito do RNF01._\n")
+        return 0
     return 0 if resultado.aprovado else 1
 
 
