@@ -3,6 +3,33 @@
 from django.db import migrations, models
 
 
+def recusar_contas_removidas(apps, schema_editor):
+    """Não migra se ainda houver conta com `status='removido'`.
+
+    Antes da revisão da ADR 0004, excluir uma conta era marcar esse status. O
+    `AlterField` abaixo só muda as `choices` (o banco não as guarda) e o
+    `is_active` passou a ser `status != 'suspenso'`: uma conta "removida" que
+    sobrasse voltaria a ficar ativa e a conseguir entrar, sem aviso. Também
+    seria apagado o `removido_em`, sem ninguém olhar o conteúdo. Por isso a
+    migration para aqui e pede que a equipe exclua essas contas antes.
+
+    Os ids saem na mensagem (não são dado pessoal), no máximo 20.
+    """
+    usuario = apps.get_model("cadastro", "Usuario")
+    removidas = usuario.objects.using(schema_editor.connection.alias).filter(
+        status="removido"
+    )
+    total = removidas.count()
+    if total:
+        ids = ", ".join(str(pk) for pk in removidas.values_list("pk", flat=True)[:20])
+        raise RuntimeError(
+            f"Há {total} conta(s) com status 'removido' (ids: {ids}). A BD-12 "
+            "apaga esse status, e elas voltariam a ficar ativas. Exclua cada "
+            "uma com `python manage.py remover_conta <id>` e rode a migration "
+            "de novo."
+        )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,6 +37,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(recusar_contas_removidas, migrations.RunPython.noop),
         migrations.RemoveField(
             model_name="usuario",
             name="removido_em",
