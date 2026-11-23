@@ -702,4 +702,5 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Decisão: registrar o resultado e avisar o DOC, como manda o backlog quando a meta não é atingida. O cache das respostas, que mexe na BE-11 e na BE-15, ficou como sugestão no documento.
 - Limites registrados: runner com 4 vCPUs (a VM tem 2), sem o Caddy e o HTTPS, sem `304` do `ETag`, e a premissa de um pedido a cada 3 a 7 s por usuário.
 - Validação local: `pytest` com 2024 testes aprovados e 8 pulados antes da varredura, cobertura de 99%; os 21 testes da carga passando; `ruff check` e `ruff format --check` sem achados.
-- Situação: PR aberto, aguardando o CI e a revisão; DOC a ser avisado.
+- Ajuste depois do fluxo novo de deploy (CD pela `main`, #241): a carga saiu do push e do PR de release (`develop` → `main`) e roda só à mão e no PR para a `develop` quando o próprio teste muda; no CI, todas as rodadas ficam informativas (job verde), com o veredito no resumo do job e no documento. Testes dos gatilhos e do `--informativo` lendo o `carga.yml` (commit de teste antes do ajuste).
+- Situação: PR aberto, aguardando a revisão; DOC a ser avisado.

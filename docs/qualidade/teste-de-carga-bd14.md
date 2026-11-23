@@ -117,11 +117,16 @@ O teste está no pacote `backend/carga/`, com os testes em
 | `avaliar.py` | Lê o CSV do Locust e compara o p95 e as falhas com a meta |
 
 **No GitHub Actions** (é o jeito recomendado). O workflow
-`.github/workflows/carga.yml` roda sozinho quando um desses arquivos muda,
-no push e no PR. Ele também pode ser disparado à mão em Actions > Teste de
-carga > Run workflow, com a lista de usuários de cada rodada (padrão
-`[500, 1000, 1500, 2000]`) e a duração. Só a rodada de 2.000 decide o
-veredito; as outras são informativas. O resultado aparece no resumo do job.
+`.github/workflows/carga.yml` roda à mão, em Actions > Teste de carga > Run
+workflow, com a lista de usuários de cada rodada (padrão
+`[500, 1000, 1500, 2000]`) e a duração. Ele também roda sozinho no PR para a
+`develop` quando um desses arquivos muda. Fica fora do push e do PR de
+release (`develop` → `main`), que publica o site.
+
+No CI, todas as rodadas são **informativas**: o job fica verde, e o veredito
+("Aprovado" ou "Reprovado") aparece no resumo do job. Com a meta não atingida,
+um X permanente no PR deixaria de ser sinal. O código de saída do veredito
+continua no `carga.avaliar` sem o `--informativo` (ver "Na mão").
 
 **Na mão**, numa máquina Linux com MySQL e um banco vazio:
 
