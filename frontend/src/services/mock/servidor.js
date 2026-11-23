@@ -19,14 +19,26 @@
  * O `GET /cardapio/` segue o contrato da BE-11 (#214), mais o campo
  * `semServico` proposto na revisão da FE-08 (#219); o resumo do dia responde
  * 501, como o backend, depois de `simulacao.definirResumoDoDiaDisponivel(false)`.
+ * As avaliações seguem o contrato da BE-13 (FE-09): `POST /avaliacoes/` e
+ * `GET /refeicoes/{refeicaoId}/avaliacoes/`, com o `refeicaoId` do resumo do
+ * dia; as duas respondem 501, como o backend hoje, depois de
+ * `simulacao.definirAvaliacoesDisponiveis(false)`. O `GET /fila/previsao/`
+ * (FE-11) segue o contrato da BE-15 (#236), com uma previsão de exemplo de
+ * `./previsao.js`; `simulacao.definirPrevisaoDisponivel(false)` faz ele
+ * responder 501, para testar a defesa do front contra um backend sem a rota.
+ * O progresso, a adesão e o ranking (FE-12) seguem o OpenAPI, com 10 pontos
+ * por check-in do simulado e um ranking de exemplo de `./gamificacao.js`. No
+ * backend, o progresso e a adesão respondem desde a BE-16 (#237), e o ranking
+ * desde a BE-17 (#239). Depois de
+ * `simulacao.definirGamificacaoDisponivel(false)`, as três rotas respondem 501
+ * (no ranking, só para um campus que existe), para testar a defesa do front.
  * Recuperação de senha, a semana do cardápio (`/cardapio/<campus>/`) e as
- * avaliações ainda têm o formato do MVP: entram no contrato na FE-09 e na
- * FE-E2.
+ * listas de avaliação da HomeView (`GET /avaliacoes/` e o resumo da semana)
+ * ainda têm o formato do MVP: entram no contrato na FE-E2.
  */
 import {
   ORDEM_REFEICOES,
   REFEICOES,
-  horaInicio,
   mensagemForaDoHorario,
 } from '@/constants/refeicoes'
 import { refeicaoPadrao } from '@/utils/cardapio'
@@ -36,6 +48,8 @@ import { CAMPI_DO_BANCO, idDoCampus, montarCardapioSemana, refeicaoExiste } from
 import { IDS_MARCADORES } from '@/constants/marcadores'
 import { MENSAGEM_CAMPUS_INEXISTENTE } from '@/constants/campi'
 import { APELIDOS_SEMENTE, avaliacoesSemente } from './sementes'
+import { previsaoSimulada } from './previsao'
+import { progressoSimulado, rankingSimulado } from './gamificacao'
 import {
   analisarEmailEstudante,
   analisarEmailServidor,
@@ -72,6 +86,10 @@ const reenviosPorConta = new Map() // id do usuário → [instantes]
 /** Se o check-in simulado confirma a localização (o raio real fica só no backend). */
 let localizacaoConfirmada = true
 let resumoDoDiaDisponivel = true
+let previsaoDisponivel = true
+let gamificacaoDisponivel = true
+/** `false`: comentários e envio de avaliação respondem 501, como o backend sem a BE-13. */
+let avaliacoesDisponiveis = true
 
 /** "Cookie HttpOnly" sessionid deste navegador: o JavaScript da página não o lê. */
 let cookieSessao = null
@@ -648,61 +666,129 @@ function resumoSemana(parametros, agora) {
   })
 }
 
+/** Refeição do simulado pelo `refeicaoId` do resumo do dia, ou null. */
+function refeicaoPorId(refeicaoId, agora) {
+  if (!Number.isSafeInteger(refeicaoId) || refeicaoId <= 0) return null
+  const texto = String(refeicaoId)
+  const tipo = ORDEM_REFEICOES[Number(texto.at(-1))]
+  const digitos = texto.slice(-9, -1)
+  const campus = Number(texto.slice(0, -9))
+  if (!tipo || digitos.length !== 8 || !campus) return null
+  const data = `${digitos.slice(0, 4)}-${digitos.slice(4, 6)}-${digitos.slice(6, 8)}`
+  if (!refeicaoExiste(campus, data, tipo, agora)) return null
+  return { refeicaoId, campus, data, tipo }
+}
+
+const refeicaoNaoEncontrada = () =>
+  erro(404, 'refeicao_nao_encontrada', 'Refeição não encontrada no cardápio.')
+
+/**
+ * GET /refeicoes/{refeicaoId}/avaliacoes/ (schema AvaliacoesDaRefeicao).
+ * Público. Conta removida aparece como "usuário removido" (RNF07.4) e nada
+ * além do apelido sai do autor (RI10).
+ */
+function avaliacoesDaRefeicaoPorId(refeicaoId, agora) {
+  if (!avaliacoesDisponiveis) return { status: 501, dados: null }
+  const refeicao = refeicaoPorId(refeicaoId, agora)
+  if (!refeicao) return refeicaoNaoEncontrada()
+  const { campus, data, tipo } = refeicao
+  const { soma, quantidade, reais, comentarios } = avaliacoesDaRefeicao(campus, data, tipo, agora)
+  const apelidoPorId = new Map(banco.estado.usuarios.map((u) => [u.id, u.apelido]))
+  const publicas = [
+    ...reais.map((a) => ({
+      apelido: apelidoPorId.get(a.usuarioId) ?? 'usuário removido',
+      nota: a.nota,
+      comentario: a.comentario,
+      criadaEm: a.criadaEm ?? a.atualizadaEm,
+    })),
+    ...comentarios.map(({ apelido, nota, comentario, criadaEm }) => ({
+      apelido,
+      nota,
+      comentario,
+      criadaEm,
+    })),
+  ].sort((a, b) => b.criadaEm.localeCompare(a.criadaEm))
+  return ok({
+    resumoAvaliacoes: { media: quantidade ? soma / quantidade : null, quantidade },
+    comentarios: publicas,
+  })
+}
+
+/**
+ * POST /avaliacoes/ (contrato da BE-13): sempre upsert. 201 na primeira, 200
+ * na edição (não pontua de novo). O bloco `pontos` volta zerado: os 5 pontos
+ * só valem com check-in na mesma refeição (Anexo A), e o simulado não liga a
+ * avaliação ao check-in; o check-in, que não depende disso, já dá os 10.
+ */
 function avaliar(corpo, agora) {
   const usuario = usuarioDaSessao()
   if (!usuario) return naoAutenticado()
+  if (!avaliacoesDisponiveis) return { status: 501, dados: null }
 
-  const { data, refeicao, nota, comentario = '' } = corpo
-  const campus = idDoCampus(corpo.campus)
-  if (
-    !campus ||
-    !REFEICOES[refeicao] ||
-    !refeicaoExiste(campus, data, refeicao, agora)
-  ) {
-    return erro(404, 'refeicao_nao_encontrada', 'Refeição não encontrada no cardápio.')
-  }
-  if (!Number.isInteger(nota) || nota < 1 || nota > 5)
+  const { refeicaoId, nota, comentario = '' } = corpo
+  const refeicao = refeicaoPorId(refeicaoId, agora)
+  if (!refeicao) return refeicaoNaoEncontrada()
+  if (!Number.isInteger(nota) || nota < 1 || nota > 5) {
     return erro(422, 'nota_invalida', 'Escolha uma nota de 1 a 5 estrelas.')
-  if (comentario.length > 500) {
+  }
+  if (typeof comentario !== 'string' || comentario.length > 500) {
     return erro(422, 'comentario_muito_longo', 'O comentário pode ter no máximo 500 caracteres.')
   }
-  if (data !== hojeISO(agora)) {
-    return erro(422, 'fora_do_dia', 'Só é possível avaliar refeições do dia de hoje.')
-  }
-  const inicio = REFEICOES[refeicao].inicio
-  if (minutosAgora(agora) < minutosDoDia(inicio)) {
+  const { campus, data, tipo } = refeicao
+  const comecou = minutosAgora(agora) >= minutosDoDia(REFEICOES[tipo].inicio)
+  if (data !== hojeISO(agora) || !comecou) {
     return erro(
       422,
-      'antes_do_inicio',
-      `A avaliação abre às ${horaInicio(refeicao)}, quando a refeição começa.`,
+      'janela_avaliacao_fechada',
+      'Só é possível avaliar refeições de hoje que já começaram.',
     )
   }
 
-  // Uma avaliação por usuário e refeição; a segunda tentativa edita (RF15).
+  const instante = agora.toISOString()
+  const texto = comentario.trim()
   const existente = banco.estado.avaliacoes.find(
     (a) =>
-      a.usuarioId === usuario.id &&
-      a.campus === campus &&
-      a.data === data &&
-      a.refeicao === refeicao,
+      a.usuarioId === usuario.id && a.campus === campus && a.data === data && a.refeicao === tipo,
   )
-  const texto = comentario.trim()
+  let avaliacao = existente
   if (existente) {
-    Object.assign(existente, { nota, comentario: texto, atualizadaEm: agora.toISOString() })
-  } else {
-    banco.estado.avaliacoes.push({
-      id: banco.novoId(),
-      usuarioId: usuario.id,
-      campus,
-      data,
-      refeicao,
+    Object.assign(existente, {
       nota,
       comentario: texto,
-      atualizadaEm: agora.toISOString(),
+      editadaEm: instante,
+      atualizadaEm: instante,
     })
+  } else {
+    avaliacao = {
+      id: banco.novoId(),
+      usuarioId: usuario.id,
+      refeicaoId,
+      campus,
+      data,
+      refeicao: tipo,
+      nota,
+      comentario: texto,
+      criadaEm: instante,
+      editadaEm: null,
+      atualizadaEm: instante,
+    }
+    banco.estado.avaliacoes.push(avaliacao)
   }
   banco.salvar()
-  return ok({ nota, comentario: texto, editada: Boolean(existente) }, existente ? 200 : 201)
+  return ok(
+    {
+      avaliacao: {
+        id: avaliacao.id,
+        refeicaoId,
+        nota,
+        comentario: texto,
+        criadaEm: avaliacao.criadaEm ?? instante,
+        editadaEm: avaliacao.editadaEm ?? null,
+      },
+      pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 },
+    },
+    existente ? 200 : 201,
+  )
 }
 
 // ─── Roteamento ───────────────────────────────────────────────────────────
@@ -789,8 +875,50 @@ function registrarCheckin(corpo, agora) {
   const checkin = { id: estado.proximoId++, campus, tipoRefeicao, data }
   estado.checkins.push({ ...checkin, usuarioId: usuario.id })
   banco.salvar()
-  // Até a BE-14 o bloco `pontos` volta zerado.
-  return ok({ checkin, pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 } }, 201)
+  // Os 10 pontos do check-in confirmado (Anexo A, RN09), como a BE-14 vai
+  // devolver; o backend real ainda volta zerado até lá.
+  return ok({ checkin, pontos: { total: 10, contribuicao: 10, avaliacaoLiberada: 0 } }, 201)
+}
+
+function previsaoDaFila(parametros, agora) {
+  const extras = Object.keys(parametros).filter(
+    (nome) => !['campus', 'refeicao', 'data'].includes(nome),
+  )
+  if (
+    !/^[1-9]\d*$/.test(parametros.campus ?? '') ||
+    !Object.hasOwn(REFEICOES, parametros.refeicao ?? '') ||
+    (parametros.data !== undefined && !ehDataISO(parametros.data)) ||
+    extras.length
+  ) {
+    return erro(400, 'parametros_invalidos', 'Parâmetros da previsão inválidos.')
+  }
+  const campus = idDoCampus(parametros.campus)
+  if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
+  if (!previsaoDisponivel) return { status: 501, dados: null }
+  return ok(previsaoSimulada(campus, parametros.refeicao, parametros.data ?? hojeISO(agora)))
+}
+
+function progressoDaGamificacao(agora) {
+  const usuario = usuarioDaSessao()
+  if (!usuario) return naoAutenticado()
+  if (!gamificacaoDisponivel) return { status: 501, dados: null }
+  return ok(progressoSimulado(banco.estado, usuario, agora))
+}
+
+function mudarAdesao(participar) {
+  const usuario = usuarioDaSessao()
+  if (!usuario) return naoAutenticado()
+  if (!gamificacaoDisponivel) return { status: 501, dados: null }
+  usuario.participaRanking = participar
+  banco.salvar()
+  return ok(null, 204)
+}
+
+function rankingDoCampus(valor) {
+  const campus = idDoCampus(valor)
+  if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
+  if (!gamificacaoDisponivel) return { status: 501, dados: null }
+  return ok(rankingSimulado(banco.estado, campus))
 }
 
 // Terceiro item: nome do limite por IP da rota (LIMITES_POR_IP), se houver.
@@ -819,8 +947,18 @@ const ROTAS = [
   ['GET', /^\/avaliacoes\/resumo\/$/, ({ parametros, agora }) => resumoSemana(parametros, agora)],
   ['GET', /^\/avaliacoes\/$/, ({ parametros, agora }) => listarAvaliacoes(parametros, agora)],
   ['POST', /^\/avaliacoes\/$/, ({ corpo, agora }) => avaliar(corpo, agora)],
+  [
+    'GET',
+    /^\/refeicoes\/(\d+)\/avaliacoes\/$/,
+    ({ agora }, [id]) => avaliacoesDaRefeicaoPorId(Number(id), agora),
+  ],
   ['POST', /^\/privacidade\/aceite\/$/, ({ agora }) => registrarAceitePrivacidade(agora)],
   ['POST', /^\/checkins\/$/, ({ corpo, agora }) => registrarCheckin(corpo, agora)],
+  ['GET', /^\/fila\/previsao\/$/, ({ parametros, agora }) => previsaoDaFila(parametros, agora)],
+  ['GET', /^\/gamificacao\/progresso\/$/, ({ agora }) => progressoDaGamificacao(agora)],
+  ['POST', /^\/gamificacao\/adesao\/$/, () => mudarAdesao(true)],
+  ['DELETE', /^\/gamificacao\/adesao\/$/, () => mudarAdesao(false)],
+  ['GET', /^\/ranking\/(\d+)\/$/, (_, [campus]) => rankingDoCampus(campus)],
 ]
 
 const ATRASO_MS = import.meta.env.MODE === 'test' ? 0 : 250
@@ -869,8 +1007,17 @@ export const simulacao = {
   definirLocalizacaoConfirmada(confirmada) {
     localizacaoConfirmada = confirmada
   },
+  definirAvaliacoesDisponiveis(disponiveis) {
+    avaliacoesDisponiveis = disponiveis
+  },
   definirResumoDoDiaDisponivel(disponivel) {
     resumoDoDiaDisponivel = disponivel
+  },
+  definirPrevisaoDisponivel(disponivel) {
+    previsaoDisponivel = disponivel
+  },
+  definirGamificacaoDisponivel(disponivel) {
+    gamificacaoDisponivel = disponivel
   },
 }
 
@@ -885,6 +1032,9 @@ export function reiniciarSimulacao() {
   reenviosPorConta.clear()
   localizacaoConfirmada = true
   resumoDoDiaDisponivel = true
+  previsaoDisponivel = true
+  gamificacaoDisponivel = true
+  avaliacoesDisponiveis = true
   cookieSessao = null
   if (typeof document !== 'undefined') {
     document.cookie = 'csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'

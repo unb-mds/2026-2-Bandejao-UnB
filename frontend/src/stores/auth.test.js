@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore } from './auth'
+import { useGamificacaoStore } from './gamificacao'
 import { ApiError, apiClient } from '@/services/apiClient'
 import { CONTA_DEMO } from '@/services/mock/banco'
 import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
@@ -12,7 +13,6 @@ import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
 
 // Segunda-feira, 28/09/2026, 12h — almoço em andamento.
 const SEGUNDA_MEIO_DIA = new Date(2026, 8, 28, 12, 0)
-const ALMOCO_HOJE = { campus: 3, data: '2026-09-28', refeicao: 'almoco' }
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -56,12 +56,38 @@ describe('authStore com o servidor simulado', () => {
     expect(auth).not.toHaveProperty('token')
   })
 
+  it('sair limpa também os pontos e o aviso da gamificacaoStore', async () => {
+    const auth = useAuthStore()
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+    const gamificacao = useGamificacaoStore()
+    gamificacao.registrarPontos({ total: 10, contribuicao: 10, avaliacaoLiberada: 0 })
+
+    await auth.sair()
+
+    expect(gamificacao.ultimosPontos).toBeNull()
+    expect(gamificacao.aviso).toBeNull()
+    expect(gamificacao.progressoDesatualizado).toBe(false)
+  })
+
+  it('401 numa rota logada limpa também a gamificacaoStore', async () => {
+    const auth = useAuthStore()
+    await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+    const gamificacao = useGamificacaoStore()
+    gamificacao.registrarPontos({ total: 10, contribuicao: 10, avaliacaoLiberada: 0 })
+
+    simulacao.expirarSessao()
+    await apiClient.post('/privacidade/aceite/').catch(() => {})
+
+    expect(gamificacao.ultimosPontos).toBeNull()
+    expect(gamificacao.aviso).toBeNull()
+  })
+
   it('401 numa rota logada limpa o authStore (sessão expirada no servidor)', async () => {
     const auth = useAuthStore()
     await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
     simulacao.expirarSessao()
-    const falha = await apiClient.post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 4 }).catch((e) => e)
+    const falha = await apiClient.post('/privacidade/aceite/').catch((e) => e)
 
     expect(falha.status).toBe(401)
     expect(falha.codigo).toBe('nao_autenticado')
@@ -75,7 +101,7 @@ describe('authStore com o servidor simulado', () => {
 
     // Cookie com um token que o servidor não reconhece (ex.: velho, de outra aba).
     document.cookie = 'csrftoken=token-velho; path=/'
-    const falha = await apiClient.post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 4 }).catch((e) => e)
+    const falha = await apiClient.post('/privacidade/aceite/').catch((e) => e)
 
     expect(falha.status).toBe(403)
     expect(falha.codigo).toBe('csrf_invalido')
@@ -86,9 +112,8 @@ describe('authStore com o servidor simulado', () => {
     const auth = useAuthStore()
     await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
 
-    const resposta = await apiClient.post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 4 })
-
-    expect(resposta.nota).toBe(4)
+    // POST /privacidade/aceite/: escrita que exige sessão e responde 204.
+    await expect(apiClient.post('/privacidade/aceite/')).resolves.toBeNull()
   })
 
   it('sair encerra a sessão no servidor (DELETE /sessao/) e limpa a store', async () => {

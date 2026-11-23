@@ -436,7 +436,32 @@ describe('cardápio (RF06, RF07)', () => {
     expect(status).toBe(200)
     expect(dados.publicado).toBe(true)
     expect(dados.dias[0].data).toBe('2026-09-28')
-    expect(dados.dias.at(-1).refeicoes.map((r) => r.tipo)).toEqual(['almoco']) // sábado
+    expect(dados.dias.at(-2).refeicoes.map((r) => r.tipo)).toEqual(['almoco']) // sábado
+    // No mock, o Darcy serve aos domingos (#229).
+    expect(dados.dias.at(-1).data).toBe('2026-10-04')
+    expect(dados.dias.at(-1).refeicoes.map((r) => r.tipo)).toEqual(['cafe', 'almoco', 'jantar'])
+  })
+
+  it('no domingo, a semana vigente ainda é a da segunda anterior (#229)', async () => {
+    vi.setSystemTime(new Date(2026, 9, 4, 12, 0))
+    const { dados } = await get('/cardapio/1/')
+    expect(dados.semana.inicio).toBe('2026-09-28')
+    const { dados: refeicao } = await get('/cardapio/?campus=1')
+    expect(refeicao.data).toBe('2026-10-04')
+  })
+
+  it('no domingo, campus sem serviço responde semServico no próprio domingo (#229)', async () => {
+    vi.setSystemTime(new Date(2026, 9, 4, 12, 0))
+    const { dados } = await get('/cardapio/?campus=3')
+    expect(dados.semServico).toBe(true)
+    expect(dados.data).toBe('2026-10-04')
+  })
+
+  it('na virada de domingo para segunda, a semana vigente passa a ser a seguinte (#229)', async () => {
+    vi.setSystemTime(new Date(2026, 9, 5, 0, 0))
+    const { dados } = await get('/cardapio/1/')
+    expect(dados.semana.inicio).toBe('2026-10-05')
+    expect(dados.dias[0].data).toBe('2026-10-05')
   })
 
   it('indica cardápio não publicado', async () => {
@@ -678,67 +703,159 @@ describe('GET /avaliacoes/resumo/?campus=&data= (resumo do dia)', () => {
   })
 })
 
-describe('avaliações (RF15)', () => {
-  const ALMOCO_HOJE = { campus: 3, data: '2026-09-28', refeicao: 'almoco' }
-  const consulta = `/avaliacoes/?campus=3&data=2026-09-28&refeicao=almoco`
+describe('avaliações (RF15, contrato da BE-13)', () => {
+  const HOJE = '2026-09-28'
 
-  it('visitante não pode avaliar', async () => {
-    const resposta = await post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 5 })
+  /** refeicaoId de uma refeição do Gama, como o resumo do dia devolve. */
+  async function idDa(tipo, data = HOJE) {
+    const { dados } = await get(`/avaliacoes/resumo/?campus=3&data=${data}`)
+    return dados.find((r) => r.tipo === tipo).refeicaoId
+  }
+  const lista = (refeicaoId) => get(`/refeicoes/${refeicaoId}/avaliacoes/`)
+
+  it('visitante não pode avaliar: 401', async () => {
+    const resposta = await post('/avaliacoes/', { refeicaoId: await idDa('almoco'), nota: 5 })
+
     expect(resposta.status).toBe(401)
     expect(resposta.dados.codigo).toBe('nao_autenticado')
   })
 
-  it('a segunda avaliação da mesma refeição edita a primeira', async () => {
+  it('201 na primeira avaliação, com a avaliação e o bloco de pontos', async () => {
     await entrarComDemo()
-    const antes = (await get(consulta)).dados.quantidade
+    const refeicaoId = await idDa('almoco')
 
-    expect((await post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 2 })).status).toBe(201)
-    expect(
-      (await post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 5, comentario: 'Mudei de ideia' }))
-        .status,
-    ).toBe(200)
+    const resposta = await post('/avaliacoes/', { refeicaoId, nota: 4, comentario: ' Bom ' })
 
-    const { dados } = await get(consulta)
-    expect(dados.quantidade).toBe(antes + 1)
-    expect(dados.minha).toEqual({ nota: 5, comentario: 'Mudei de ideia' })
-    expect(dados.avaliacoes[0]).toMatchObject({
-      apelido: CONTA_DEMO.apelido,
-      comentario: 'Mudei de ideia',
+    expect(resposta.status).toBe(201)
+    expect(resposta.dados).toEqual({
+      avaliacao: {
+        id: expect.any(Number),
+        refeicaoId,
+        nota: 4,
+        comentario: 'Bom',
+        criadaEm: SEGUNDA_MEIO_DIA.toISOString(),
+        editadaEm: null,
+      },
+      pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 },
     })
+  })
+
+  it('a segunda avaliação da mesma refeição edita a primeira: 200 e editadaEm', async () => {
+    await entrarComDemo()
+    const refeicaoId = await idDa('almoco')
+    const antes = (await lista(refeicaoId)).dados.resumoAvaliacoes.quantidade
+    await post('/avaliacoes/', { refeicaoId, nota: 2 })
+
+    const resposta = await post('/avaliacoes/', { refeicaoId, nota: 5, comentario: 'Mudei' })
+
+    expect(resposta.status).toBe(200)
+    expect(resposta.dados.avaliacao).toMatchObject({ nota: 5, comentario: 'Mudei' })
+    expect(resposta.dados.avaliacao.editadaEm).toEqual(expect.any(String))
+    const { dados } = await lista(refeicaoId)
+    expect(dados.resumoAvaliacoes.quantidade).toBe(antes + 1)
+    expect(dados.comentarios[0]).toEqual({
+      apelido: CONTA_DEMO.apelido,
+      nota: 5,
+      comentario: 'Mudei',
+      criadaEm: expect.any(String),
+    })
+  })
+
+  it('GET /refeicoes/{id}/avaliacoes/ é público e segue o schema AvaliacoesDaRefeicao', async () => {
+    const { status, dados } = await lista(await idDa('almoco'))
+
+    expect(status).toBe(200)
+    expect(Object.keys(dados).sort()).toEqual(['comentarios', 'resumoAvaliacoes'])
+    expect(Object.keys(dados.comentarios[0]).sort()).toEqual([
+      'apelido',
+      'comentario',
+      'criadaEm',
+      'nota',
+    ])
+  })
+
+  it('conta removida aparece como "usuário removido"', async () => {
+    await entrarComDemo()
+    const refeicaoId = await idDa('almoco')
+    await post('/avaliacoes/', { refeicaoId, nota: 4, comentario: 'Bom' })
+    banco.estado.usuarios = banco.estado.usuarios.filter((u) => u.apelido !== CONTA_DEMO.apelido)
+
+    const { dados } = await lista(refeicaoId)
+
+    expect(dados.comentarios[0]).toMatchObject({ apelido: 'usuário removido', comentario: 'Bom' })
   })
 
   it('não expõe e-mail nem matrícula na lista pública (RI10)', async () => {
     await entrarComDemo()
-    await post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 4, comentario: 'Bom' })
+    const refeicaoId = await idDa('almoco')
+    await post('/avaliacoes/', { refeicaoId, nota: 4, comentario: 'Bom' })
     await del('/sessao/')
-    const texto = JSON.stringify((await get(consulta)).dados)
+
+    const texto = JSON.stringify((await lista(refeicaoId)).dados)
+
     expect(texto).not.toContain(CONTA_DEMO.email)
     expect(texto).not.toContain('231034567')
   })
 
-  it('não permite avaliar outro dia nem antes do início da refeição', async () => {
+  it('refeição inexistente: 404 refeicao_nao_encontrada (GET e POST)', async () => {
     await entrarComDemo()
-    const amanha = await post('/avaliacoes/', { ...ALMOCO_HOJE, data: '2026-09-29', nota: 4 })
-    expect(amanha.dados.codigo).toBe('fora_do_dia')
 
-    const jantar = await post('/avaliacoes/', { ...ALMOCO_HOJE, refeicao: 'jantar', nota: 4 })
-    expect(jantar.dados.codigo).toBe('antes_do_inicio')
+    expect((await lista(999)).dados.codigo).toBe('refeicao_nao_encontrada')
+    const resposta = await post('/avaliacoes/', { refeicaoId: 999, nota: 4 })
+    expect(resposta.status).toBe(404)
+    expect(resposta.dados.codigo).toBe('refeicao_nao_encontrada')
   })
 
-  it('valida nota e tamanho do comentário', async () => {
+  it('outro dia ou antes do início: 422 janela_avaliacao_fechada', async () => {
     await entrarComDemo()
-    expect((await post('/avaliacoes/', { ...ALMOCO_HOJE, nota: 0 })).status).toBe(422)
-    const longo = await post('/avaliacoes/', {
-      ...ALMOCO_HOJE,
-      nota: 3,
-      comentario: 'x'.repeat(501),
+
+    const amanha = await post('/avaliacoes/', {
+      refeicaoId: await idDa('almoco', '2026-09-29'),
+      nota: 4,
     })
+    const jantar = await post('/avaliacoes/', { refeicaoId: await idDa('jantar'), nota: 4 })
+
+    expect(amanha.status).toBe(422)
+    expect(amanha.dados.codigo).toBe('janela_avaliacao_fechada')
+    expect(jantar.dados.codigo).toBe('janela_avaliacao_fechada')
+  })
+
+  it('valida nota (422 nota_invalida) e tamanho do comentário (422 comentario_muito_longo)', async () => {
+    await entrarComDemo()
+    const refeicaoId = await idDa('almoco')
+
+    expect((await post('/avaliacoes/', { refeicaoId, nota: 0 })).dados.codigo).toBe('nota_invalida')
+    expect((await post('/avaliacoes/', { refeicaoId })).dados.codigo).toBe('nota_invalida')
+    const longo = await post('/avaliacoes/', { refeicaoId, nota: 3, comentario: 'x'.repeat(501) })
     expect(longo.status).toBe(422)
+    expect(longo.dados.codigo).toBe('comentario_muito_longo')
+  })
+
+  it('aceita comentário de exatamente 500 caracteres', async () => {
+    await entrarComDemo()
+
+    const resposta = await post('/avaliacoes/', {
+      refeicaoId: await idDa('almoco'),
+      nota: 3,
+      comentario: 'x'.repeat(500),
+    })
+
+    expect(resposta.status).toBe(201)
   })
 
   it('refeição que ainda não começou não tem avaliações', async () => {
-    const { dados } = await get('/avaliacoes/?campus=3&data=2026-09-28&refeicao=jantar')
-    expect(dados).toMatchObject({ quantidade: 0, media: null, avaliacoes: [] })
+    const { dados } = await lista(await idDa('jantar'))
+
+    expect(dados).toEqual({ resumoAvaliacoes: { media: null, quantidade: 0 }, comentarios: [] })
+  })
+
+  it('definirAvaliacoesDisponiveis(false): 501, como o backend sem a BE-13', async () => {
+    await entrarComDemo()
+    const refeicaoId = await idDa('almoco')
+    simulacao.definirAvaliacoesDisponiveis(false)
+
+    expect((await lista(refeicaoId)).status).toBe(501)
+    expect((await post('/avaliacoes/', { refeicaoId, nota: 4 })).status).toBe(501)
   })
 })
 
@@ -841,7 +958,7 @@ describe('POST /checkins/ (RF11, RF12, contrato da BE-09)', () => {
     expect(resposta.dados.codigo).toBe('nao_autenticado')
   })
 
-  it('201 com o check-in e o bloco de pontos zerado (até a BE-14), sem coordenadas', async () => {
+  it('201 com o check-in e os 10 pontos do Anexo A, sem coordenadas', async () => {
     await entrarComAviso()
 
     const resposta = await post('/checkins/', CHECKIN)
@@ -849,7 +966,7 @@ describe('POST /checkins/ (RF11, RF12, contrato da BE-09)', () => {
     expect(resposta.status).toBe(201)
     expect(resposta.dados).toEqual({
       checkin: { id: expect.any(Number), campus: 1, tipoRefeicao: 'almoco', data: '2026-09-28' },
-      pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 },
+      pontos: { total: 10, contribuicao: 10, avaliacaoLiberada: 0 },
     })
   })
 
@@ -938,5 +1055,190 @@ describe('POST /checkins/ (RF11, RF12, contrato da BE-09)', () => {
     await entrarComAviso()
 
     expect((await post('/checkins/', CHECKIN)).status).toBe(201)
+  })
+})
+
+describe('GET /fila/previsao/ (contrato da BE-15, FE-11)', () => {
+  it('sem login: 200 com as faixas de 15 minutos do almoço e os picos empatados', async () => {
+    const { status, dados } = await get('/fila/previsao/?campus=1&refeicao=almoco&data=2026-09-28')
+
+    expect(status).toBe(200)
+    expect(dados).toMatchObject({
+      campus: 1,
+      tipoRefeicao: 'almoco',
+      data: '2026-09-28',
+      status: 'disponivel',
+    })
+    expect(dados.faixas).toHaveLength(14)
+    expect(dados.faixas[0]).toEqual({
+      inicio: '11:00:00',
+      fim: '11:15:00',
+      nivel: 'vazia',
+      ehPico: false,
+    })
+    expect(dados.faixas.at(-1).fim).toBe('14:30:00')
+    expect(dados.faixas.filter((f) => f.ehPico).map((f) => f.inicio)).toEqual([
+      '12:00:00',
+      '12:15:00',
+      '12:45:00',
+    ])
+    expect(dados.faixas.filter((f) => f.ehPico).every((f) => f.nivel === 'longa')).toBe(true)
+  })
+
+  it('café: um pico só', async () => {
+    const { dados } = await get('/fila/previsao/?campus=1&refeicao=cafe&data=2026-09-28')
+
+    expect(dados.faixas.filter((f) => f.ehPico)).toEqual([
+      { inicio: '07:45:00', fim: '08:00:00', nivel: 'longa', ehPico: true },
+    ])
+  })
+
+  it('campus sem check-ins suficientes: 200 com dados_insuficientes e nenhuma faixa', async () => {
+    const { status, dados } = await get('/fila/previsao/?campus=5&refeicao=almoco')
+
+    expect(status).toBe(200)
+    expect(dados).toMatchObject({ status: 'dados_insuficientes', faixas: [] })
+  })
+
+  it('sem data: usa o dia corrente', async () => {
+    const { dados } = await get('/fila/previsao/?campus=1&refeicao=almoco')
+
+    expect(dados.data).toBe('2026-09-28')
+  })
+
+  it.each([
+    ['sem campus', '/fila/previsao/?refeicao=almoco'],
+    ['campus com espaço', '/fila/previsao/?campus=%201&refeicao=almoco'],
+    ['campus 01', '/fila/previsao/?campus=01&refeicao=almoco'],
+    ['sem refeição', '/fila/previsao/?campus=1'],
+    ['refeição desconhecida', '/fila/previsao/?campus=1&refeicao=lanche'],
+    ['refeição toString', '/fila/previsao/?campus=1&refeicao=toString'],
+    ['data inválida', '/fila/previsao/?campus=1&refeicao=almoco&data=2026-02-30'],
+    ['parâmetro a mais', '/fila/previsao/?campus=1&refeicao=almoco&semana=1'],
+  ])('%s: 400 parametros_invalidos', async (_caso, caminho) => {
+    const { status, dados } = await get(caminho)
+
+    expect(status).toBe(400)
+    expect(dados.codigo).toBe('parametros_invalidos')
+  })
+
+  it('campus inexistente: 404 campus_nao_encontrado', async () => {
+    const { status, dados } = await get('/fila/previsao/?campus=99&refeicao=almoco')
+
+    expect(status).toBe(404)
+    expect(dados.codigo).toBe('campus_nao_encontrado')
+  })
+
+  it('simulacao.definirPrevisaoDisponivel(false): 501, para testar a defesa do front', async () => {
+    simulacao.definirPrevisaoDisponivel(false)
+
+    expect((await get('/fila/previsao/?campus=1&refeicao=almoco')).status).toBe(501)
+
+    reiniciarSimulacao()
+    expect((await get('/fila/previsao/?campus=1&refeicao=almoco')).status).toBe(200)
+  })
+})
+
+describe('gamificação: progresso, adesão e ranking (contrato do OpenAPI, FE-12)', () => {
+  const darCheckins = (quantidade, campus = 1) => {
+    for (let i = 0; i < quantidade; i++) {
+      banco.estado.checkins.push({
+        id: 2000 + i,
+        usuarioId: 1,
+        campus,
+        tipoRefeicao: 'almoco',
+        data: '2026-09-28',
+      })
+    }
+  }
+
+  it('progresso sem sessão: 401 nao_autenticado', async () => {
+    const { status, dados } = await get('/gamificacao/progresso/')
+
+    expect(status).toBe(401)
+    expect(dados.codigo).toBe('nao_autenticado')
+  })
+
+  it('progresso: 10 pontos por check-in, patente pelos limiares e adesão desligada', async () => {
+    await entrarComDemo()
+    darCheckins(16)
+
+    const { status, dados } = await get('/gamificacao/progresso/')
+
+    expect(status).toBe(200)
+    expect(dados).toEqual({
+      patente: 'RATO_DE_RU',
+      pontosTotais: 160,
+      faltaParaProxima: 290,
+      sequencia: 0,
+      diasNaSemana: 1,
+      minimoDias: 3,
+      participaRanking: false,
+    })
+  })
+
+  it('patente máxima: faltaParaProxima 0', async () => {
+    await entrarComDemo()
+    darCheckins(150)
+
+    const { dados } = await get('/gamificacao/progresso/')
+
+    expect(dados).toMatchObject({ patente: 'LENDA_DO_RU', faltaParaProxima: 0 })
+  })
+
+  it('adesão: POST liga e DELETE desliga, com 204', async () => {
+    await entrarComDemo()
+
+    expect((await post('/gamificacao/adesao/')).status).toBe(204)
+    expect((await get('/gamificacao/progresso/')).dados.participaRanking).toBe(true)
+    expect((await del('/gamificacao/adesao/')).status).toBe(204)
+    expect((await get('/gamificacao/progresso/')).dados.participaRanking).toBe(false)
+  })
+
+  it('adesão sem sessão: 401', async () => {
+    expect((await post('/gamificacao/adesao/')).status).toBe(401)
+  })
+
+  it('ranking é público, sem pontos, e só mostra quem aderiu', async () => {
+    await entrarComDemo()
+    darCheckins(5, 1)
+
+    const antes = (await get('/ranking/1/')).dados
+    await post('/gamificacao/adesao/')
+    const depois = (await get('/ranking/1/')).dados
+
+    expect(antes.linhas.map((l) => l.apelido)).not.toContain(CONTA_DEMO.apelido)
+    expect(depois).toMatchObject({ campusId: 1, semestre: '2026.2' })
+    expect(depois.linhas.find((l) => l.apelido === CONTA_DEMO.apelido)).toEqual({
+      posicao: 5,
+      apelido: CONTA_DEMO.apelido,
+      patente: 'CALOURO_DE_BANDEJA',
+    })
+    for (const linha of depois.linhas) {
+      expect(Object.keys(linha).sort()).toEqual(['apelido', 'patente', 'posicao'])
+    }
+  })
+
+  it('ranking de campus sem ninguém: lista vazia', async () => {
+    const { status, dados } = await get('/ranking/5/')
+
+    expect(status).toBe(200)
+    expect(dados.linhas).toEqual([])
+  })
+
+  it('ranking de campus inexistente: 404 campus_nao_encontrado', async () => {
+    const { status, dados } = await get('/ranking/99/')
+
+    expect(status).toBe(404)
+    expect(dados.codigo).toBe('campus_nao_encontrado')
+  })
+
+  it('simulacao.definirGamificacaoDisponivel(false): 501 nas três rotas, como o backend hoje', async () => {
+    await entrarComDemo()
+    simulacao.definirGamificacaoDisponivel(false)
+
+    expect((await get('/gamificacao/progresso/')).status).toBe(501)
+    expect((await post('/gamificacao/adesao/')).status).toBe(501)
+    expect((await get('/ranking/1/')).status).toBe(501)
   })
 })

@@ -1,12 +1,13 @@
 """GET /api/cardapio/ (BE-11, #138, RF05, RF07, RF08, RF09, RN05, ADR 0005).
 
 Integração com o APIClient do DRF: validação dos parâmetros (400
-`parametros_invalidos` no formato `{codigo, mensagem}`), resposta igual ao
+`parametros_invalidos` no formato `{codigo, mensagem}`), campus inexistente
+(404 `campus_nao_encontrado`, #217), resposta igual ao
 `CardapioFiltradoSerializer` e o relógio lido uma vez, na view. O relógio é
 simulado com `unittest.mock.patch` em `django.utils.timezone.now`.
 """
 
-from datetime import time
+from datetime import time, timedelta
 from unittest import mock
 
 import pytest
@@ -37,6 +38,7 @@ CHAVES_DO_CONTRATO = {
     "avisoSujeitoAAlteracao",
     "alergenosIndisponivel",
     "filtroMarcadorDesativado",
+    "semServico",
     "categorias",
 }
 
@@ -113,6 +115,7 @@ def test_sem_login_devolve_o_cardapio_completo_no_formato_do_contrato(
         "avisoSujeitoAAlteracao": AVISO_SUJEITO_A_ALTERACAO,
         "alergenosIndisponivel": False,
         "filtroMarcadorDesativado": False,
+        "semServico": False,
         "categorias": [
             {
                 "nome": "Salada",
@@ -276,8 +279,64 @@ def test_nao_publicado_volta_200_e_nunca_404(cliente, campus):
     corpo = resposta.json()
     assert set(corpo) == CHAVES_DO_CONTRATO
     assert corpo["status"] == "nao_publicado"
+    assert corpo["semServico"] is False
     assert corpo["categorias"] == []
     assert corpo["avisoSujeitoAAlteracao"] == AVISO_SUJEITO_A_ALTERACAO
+
+
+# --- semServico (#217, item 5) ---------------------------------------------
+
+
+def servir_dias_uteis(campus):
+    for dias in range(5):
+        criar_refeicao(campus, SEGUNDA + timedelta(days=dias), TipoRefeicao.ALMOCO)
+
+
+def test_sabado_sem_servico_com_a_semana_publicada_da_sem_servico(cliente, campus):
+    publicar_semana(campus, SEGUNDA)
+    servir_dias_uteis(campus)
+
+    resposta = pedir(cliente, campus=campus.pk, dia="2026-11-28")
+
+    assert resposta.status_code == 200
+    # Dia futuro: a primeira refeição do Anexo A.
+    assert resposta.json() == {
+        "campus": campus.pk,
+        "refeicao": "cafe",
+        "data": "2026-11-28",
+        "refeicaoEncerrada": False,
+        "status": "publicado",
+        "avisoSujeitoAAlteracao": AVISO_SUJEITO_A_ALTERACAO,
+        "alergenosIndisponivel": False,
+        "filtroMarcadorDesativado": False,
+        "semServico": True,
+        "categorias": [],
+    }
+
+
+def test_sabado_com_a_semana_nao_publicada_e_nao_publicado(cliente, campus):
+    servir_dias_uteis(campus)
+
+    corpo = pedir(cliente, campus=campus.pk, dia="2026-11-28").json()
+
+    assert (corpo["status"], corpo["semServico"], corpo["data"]) == (
+        "nao_publicado",
+        False,
+        "2026-11-28",
+    )
+
+
+def test_refeicao_pedida_no_sabado_sem_servico_continua_sem_categorias(cliente, campus):
+    publicar_semana(campus, SEGUNDA)
+    servir_dias_uteis(campus)
+
+    corpo = pedir(cliente, campus=campus.pk, dia="2026-11-28", refeicao="almoco").json()
+
+    assert (corpo["status"], corpo["semServico"], corpo["categorias"]) == (
+        "publicado",
+        False,
+        [],
+    )
 
 
 def test_alergenos_indisponiveis_na_resposta(cliente, campus):
@@ -354,10 +413,108 @@ def test_campus_que_nao_e_inteiro_da_400(cliente, campus, valor):
     assert_400(pedir(cliente, campus=valor), "campus")
 
 
-def test_campus_inexistente_da_400(cliente, campus):
-    resposta = pedir(cliente, campus=campus.pk + 100)
-    assert_400(resposta)
-    assert resposta.json()["mensagem"] == "Não existe campus com esse id."
+# --- 404 campus_nao_encontrado (#217) --------------------------------------
+
+
+def assert_404_campus(resposta):
+    assert resposta.status_code == 404
+    # Mesmo formato do 400 e o `codigo` que a store do cardápio confere
+    # (`campusInexistente`, FE-08, #144), o mesmo do contrato do ranking. A
+    # mensagem é a mesma do antigo 400 (`MENSAGEM_CAMPUS_INEXISTENTE`), para o
+    # texto não mudar.
+    assert resposta.json() == {
+        "codigo": "campus_nao_encontrado",
+        "mensagem": "Não existe campus com esse id.",
+    }
+
+
+def test_campus_inexistente_da_404(cliente, campus):
+    # Id bem formado que não está no banco: link antigo ou campus removido.
+    assert_404_campus(pedir(cliente, campus=campus.pk + 100))
+
+
+def test_campus_com_zeros_a_esquerda_inexistente_da_404(cliente, campus):
+    # "000" é só dígitos: passa no formato e cai na consulta ao banco (pk 0
+    # não existe no banco de teste).
+    assert_404_campus(pedir(cliente, campus="000"))
+
+
+def test_campus_inexistente_com_filtros_validos_da_404(cliente, campus):
+    resposta = pedir(
+        cliente,
+        campus=campus.pk + 100,
+        refeicao="almoco",
+        dieta="vegetariano_estrito",
+        marcadores="ovo,soja",
+    )
+
+    assert_404_campus(resposta)
+
+
+@pytest.mark.parametrize("valor", ["9223372036854775808", "9" * 19])
+def test_campus_acima_do_bigint_da_404(cliente, campus, valor):
+    # 2**63 e o maior número de 19 dígitos: só dígitos, então não é 400, e
+    # não cabem no pk. Hoje o IntegerFieldOverflow do Django (>= 5) dá o 404;
+    # este teste avisa se o Django ou o tipo do pk mudarem.
+    assert_404_campus(pedir(cliente, campus=valor))
+
+
+@pytest.mark.parametrize(
+    "valor",
+    [
+        "99999999999999999999",
+        "1" + "0" * 30,
+        "9" * 5000,  # acima do limite de 4300 dígitos do int() do Python
+    ],
+)
+def test_campus_com_mais_digitos_que_o_maior_id_da_404_sem_consulta(
+    cliente, campus, valor, django_assert_num_queries
+):
+    # Mais dígitos que o maior pk: nem vai ao banco, e o int() de um número
+    # enorme não vira 500.
+    with django_assert_num_queries(0):
+        resposta = pedir(cliente, campus=valor)
+
+    assert_404_campus(resposta)
+
+
+def test_campus_no_limite_do_bigint_ainda_consulta_o_banco(
+    cliente, campus, django_assert_num_queries
+):
+    # 2**63 - 1 com zeros à esquerda ainda cabe: vai ao banco e dá 404.
+    with django_assert_num_queries(1):
+        resposta = pedir(cliente, campus="000" + str(2**63 - 1))
+
+    assert_404_campus(resposta)
+
+
+@pytest.mark.parametrize(
+    ("parametros", "trecho"),
+    [
+        ({"dia": "2026-02-30"}, "dia"),
+        ({"semana": "amanha"}, "semana"),
+        ({"semana": "1999-12-31"}, "semana"),
+        ({"semana": "2026-11-23", "dia": "2026-11-30"}, "semana"),
+        ({"refeicao": "lanche"}, "refeição"),
+        ({"dieta": "vegano"}, "dieta"),
+        ({"marcadores": "leite"}, "leite"),
+        ({"marcadores": "ovo,,soja"}, "marcadores"),
+        ({"marcador": "ovo"}, "marcador"),
+    ],
+)
+def test_campus_inexistente_com_outro_parametro_invalido_da_400(
+    cliente, campus, parametros, trecho
+):
+    # O 400 vem antes: o 404 só sai com o resto do pedido válido.
+    assert_400(pedir(cliente, campus=campus.pk + 100, **parametros), trecho)
+
+
+def test_campus_repetido_e_inexistente_da_400(cliente, campus):
+    inexistente = campus.pk + 100
+    with relogio(TERCA, time(12, 0)):
+        resposta = cliente.get(f"{ROTA}?campus={inexistente}&campus={inexistente}")
+
+    assert_400(resposta, "campus")
 
 
 @pytest.mark.parametrize("parametro", ["semana", "dia"])

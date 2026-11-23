@@ -477,10 +477,10 @@ classDiagram
     +get(campus: Campus, tipoRefeicao: str) Response
   }
   class PrevisaoService {
-    +calcular(campus: Campus, tipoRefeicao: str, data: date) PrevisaoPico
+    +calcular(campus: Campus, tipoRefeicao: str, data: date, hoje: date) PrevisaoPico
   }
   class JanelaHistoricoResolver {
-    +datasDaJanela(data: date) list~date~
+    +datasDaJanela(data: date, hoje: date) list~date~
   }
   class FaixaHorarioGenerator {
     +faixas(tipoRefeicao: str) list~FaixaHorario~
@@ -493,10 +493,10 @@ classDiagram
     +suficiente(contagens: list~ContagemDia~) bool
   }
   class MediaPorFaixaCalculator {
-    +calcular(contagens: list~ContagemDia~) list~float~
+    +calcular(contagens: list~ContagemDia~) list~Fraction~
   }
   class ClassificadorNivelFila {
-    +classificar(mediaFaixa: float, mediaMaxima: float) NivelFila
+    +classificar(mediaFaixa: Fraction, mediaMaxima: Fraction) NivelFila
   }
   class NivelFila {
     <<enumeration>>
@@ -629,6 +629,21 @@ classDiagram
   `ehPico = true` (RN06, decidido pelo grupo); e o agrupamento em faixas de 15 minutos deve usar o
   horário local (America/Sao_Paulo), não UTC, senão as faixas ficam
   deslocadas em relação aos horários das refeições.
+- **Detalhes da implementação (BE-15):** a janela são as 4 semanas
+  *anteriores* no mesmo dia da semana, só com os dias que já passaram: hoje
+  não entra, porque a refeição ainda pode estar acontecendo, nem numa data
+  futura cuja janela começaria em hoje ou depois (revisão do #236). A
+  previsão foi pensada para o dia corrente; bem à frente, a janela fica
+  vazia e sai "dados insuficientes". O `hoje` (dia corrente em Brasília) é
+  calculado uma vez na `PrevisaoView`, como o `agora` do check-in. O `contarPorFaixa`
+  devolve só os dias com pelo menos um check-in nas faixas da refeição, e
+  o check-in feito no minuto final (ex.: 14h30, aceito pelo
+  `JanelaCheckinValidator`) entra na última faixa; um check-in fora das
+  faixas só existe se o horário do Anexo A mudar depois, e não é contado.
+  As médias são frações exatas (`Fraction`), e não `float`, para o corte de
+  75% e o empate não se perderem no arredondamento. Check-ins que já
+  perderam a conta na retenção continuam contando. A espera estimada (passo
+  7) fica para a BE-E1: a resposta ainda não tem `esperaEstimadaMin`.
 - **Os níveis são relativos à faixa mais cheia, por definição do RF13.**
   Com pouca adesão (L08), a faixa de pico é "longa" mesmo que a média
   absoluta seja de poucos check-ins; a única proteção é a regra de "dados

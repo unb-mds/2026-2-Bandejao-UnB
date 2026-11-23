@@ -47,4 +47,15 @@ class CardapioFiltradoSerializer(serializers.Serializer):
     avisoSujeitoAAlteracao = serializers.CharField()
     alergenosIndisponivel = serializers.BooleanField()
     filtroMarcadorDesativado = serializers.BooleanField()
+    semServico = serializers.BooleanField(
+        help_text=(
+            "true quando não há dia com serviço do dia pedido até 7 dias "
+            "depois e a semana do dia pedido está publicada: vem com "
+            '`status` "publicado", `data` igual ao dia pedido, a refeição '
+            "padrão do Anexo A e `categorias` vazia. Se houver dia com "
+            "serviço nesse intervalo, a resposta traz esse dia em `data`, "
+            "com `semServico` false. Só sem `refeicao` no pedido; com ela, "
+            "é sempre false."
+        ),
+    )
     categorias = CategoriaFiltradaSerializer(many=True)

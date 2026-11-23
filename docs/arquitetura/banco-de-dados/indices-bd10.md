@@ -51,9 +51,10 @@ testes com `-s`, para o plano do MySQL ficar no log do CI.
 
 ## Consultas conferidas
 
-O `PrevisaoService` (BE-15) e o `RankingService` (BE-17) ainda não existem. As
-consultas do teste têm a forma que o Nível 4 do backend descreve para os
-métodos dos repositórios:
+As consultas da previsão no teste têm a forma que o Nível 4 do backend
+descreve para os métodos do `CheckinRepository`. A do ranking é a do próprio
+`PontuacaoRepository.elegiveis` (BE-17), que o teste chama com o corte do
+`RankingService.top_publico`:
 
 **`CheckinRepository.contarPorFaixa`** (previsão de pico):
 

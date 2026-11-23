@@ -1,11 +1,17 @@
 """Views do app gamificacao (entram nas histórias de usuário)."""
 
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.cardapio.parametros_consulta import buscar_campus
+from apps.gamificacao.pontuacao_repository import PontuacaoRepository
+from apps.gamificacao.progresso_service import ProgressoService
+from apps.gamificacao.ranking_publico_mapper import RankingPublicoMapper
+from apps.gamificacao.ranking_service import RankingService
 from apps.gamificacao.serializers import (
     ProgressoSerializer,
     RankingPublicoSerializer,
@@ -31,8 +37,20 @@ class ProgressoView(APIView):
         responses={200: ProgressoSerializer, 401: ERRO_401},
     )
     def get(self, request):
-        # Só contrato: a lógica (ProgressoService) vem em outra BE.
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        progresso = ProgressoService().montar(request.user, timezone.localdate())
+        return Response(
+            ProgressoSerializer(
+                {
+                    "patente": progresso.patente,
+                    "pontosTotais": progresso.pontos_totais,
+                    "faltaParaProxima": progresso.falta_para_proxima,
+                    "sequencia": progresso.sequencia,
+                    "diasNaSemana": progresso.dias_na_semana,
+                    "minimoDias": progresso.minimo_dias,
+                    "participaRanking": progresso.participa_ranking,
+                }
+            ).data
+        )
 
 
 class RankingAdesaoView(APIView):
@@ -49,7 +67,8 @@ class RankingAdesaoView(APIView):
         responses={204: None, 401: ERRO_401},
     )
     def post(self, request):
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        PontuacaoRepository().alterar_adesao(request.user, True)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
         summary="Sai do ranking do semestre",
@@ -61,7 +80,8 @@ class RankingAdesaoView(APIView):
         responses={204: None, 401: ERRO_401},
     )
     def delete(self, request):
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        PontuacaoRepository().alterar_adesao(request.user, False)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RankingView(APIView):
@@ -94,4 +114,20 @@ class RankingView(APIView):
         },
     )
     def get(self, request, campusId):
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+        campus = buscar_campus(campusId)
+        servico = RankingService()
+        semestre = servico.semestre_corrente(timezone.localdate())
+        mapper = RankingPublicoMapper()
+        return Response(
+            RankingPublicoSerializer(
+                {
+                    "campusId": campus.pk,
+                    "semestre": semestre,
+                    # Só `LinhaRankingPublica`: sem pontos (ADR 0008).
+                    "linhas": [
+                        mapper.para_publico(linha)
+                        for linha in servico.top_publico(campus, semestre)
+                    ],
+                }
+            ).data
+        )

@@ -42,8 +42,14 @@ python manage.py collectstatic --noinput
 # mas parte da CPU fica com o MySQL e o Caddy. O timeout de 10 s do SMTP
 # (settings.py) vale por operação no socket, e não pelo envio inteiro: um SMTP
 # lento em várias etapas ainda pode passar dos 30 s.
+# Log de acesso sem o Referer (%(f)s) e com o token de /api/confirmar-email/
+# trocado por *** no path (%(r)s) (BE-10). O Referer das chamadas feitas pela
+# página /confirmar-email do PWA leva o token (?token=, link do e-mail) ou o
+# e-mail (?email=, depois do cadastro).
 exec gunicorn config.wsgi:application \
     --bind 0.0.0.0:8000 \
     --workers 3 \
     --timeout 30 \
-    --access-logfile -
+    --access-logfile - \
+    --access-logformat '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(a)s"' \
+    --logger-class config.log_gunicorn.LogDeAcessoSemToken

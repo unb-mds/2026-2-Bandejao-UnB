@@ -89,20 +89,19 @@ describe('CardapioView ligada ao GET /api/cardapio/ (FE-08)', () => {
   it('abre a refeição padrão (RN05) e o seletor mostra a nota de cada refeição', async () => {
     const wrapper = await montarEm('/campus/1')
 
-    await vi.waitFor(() =>
-      expect(wrapper.find('[data-teste="refeicao-cafe"]').exists()).toBe(true),
-    )
+    await vi.waitFor(() => expect(wrapper.find('[data-teste="refeicao-cafe"]').exists()).toBe(true))
     expect(wrapper.get('[data-teste="refeicao-almoco"]').attributes('aria-selected')).toBe('true')
     expect(wrapper.get('[data-teste="refeicao-cafe"]').text()).toMatch(/★ \d,\d/)
     expect(wrapper.get('[data-teste="refeicao-jantar"]').text()).toContain('Sem nota')
   })
 
-  it('AbasSemana: de segunda a sábado; trocar de dia pede o cardápio daquele dia', async () => {
+  it('AbasSemana: de segunda a domingo; trocar de dia pede o cardápio daquele dia', async () => {
     const get = vi.spyOn(apiClient, 'get')
     const wrapper = await montarEm('/campus/1')
 
     const abas = wrapper.findAll('[role="tablist"][aria-label="Dia da semana"] [role="tab"]')
-    expect(abas).toHaveLength(6)
+    expect(abas).toHaveLength(7)
+    expect(abas.at(-1).text()).toContain('04/10')
     await abas[1].trigger('click')
     await flushPromises()
 
@@ -272,6 +271,54 @@ describe('CardapioView: dias e refeições da semana (RF07.1)', () => {
 
     await vi.waitFor(() => expect(wrapper.text()).toContain('Sem refeições neste dia'))
     expect(abas[5].attributes('aria-selected')).toBe('true')
+    expect(wrapper.find('.prato').exists()).toBe(false)
+  })
+})
+
+describe('CardapioView: domingo (#229)', () => {
+  const DOMINGO_MEIO_DIA = new Date(2026, 9, 4, 12, 0)
+
+  it('no domingo, mostra a semana corrente com a aba de domingo selecionada (Darcy)', async () => {
+    vi.setSystemTime(DOMINGO_MEIO_DIA)
+    const wrapper = await montarEm('/campus/1')
+
+    const abas = abasDaSemana(wrapper)
+    expect(abas).toHaveLength(7)
+    expect(abas[0].text()).toContain('28/09')
+    await vi.waitFor(() => expect(abas[6].attributes('aria-selected')).toBe('true'))
+    expect(wrapper.find('.prato').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Sem refeições neste dia')
+  })
+
+  it('domingo vindo de outra tela não é descartado', async () => {
+    usePreferenciasStore().selecionar('2026-10-04', 'almoco')
+    const get = vi.spyOn(apiClient, 'get')
+
+    await montarEm('/campus/1')
+
+    expect(pedidosDoCardapio(get)[0]).toMatchObject({ campus: '1', dia: '2026-10-04' })
+  })
+
+  it('no domingo, campus sem serviço (Gama) abre na aba de domingo com "Sem refeições neste dia"', async () => {
+    vi.setSystemTime(DOMINGO_MEIO_DIA)
+    const wrapper = await montarEm('/campus/3')
+
+    const abas = abasDaSemana(wrapper)
+    expect(abas).toHaveLength(7)
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Sem refeições neste dia'))
+    expect(abas[6].attributes('aria-selected')).toBe('true')
+    expect(wrapper.find('.prato').exists()).toBe(false)
+  })
+
+  it('campus sem serviço no domingo (Gama): a aba mostra "Sem refeições neste dia"', async () => {
+    const wrapper = await montarEm('/campus/3')
+
+    const abas = abasDaSemana(wrapper)
+    await abas[6].trigger('click')
+    await flushPromises()
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Sem refeições neste dia'))
+    expect(abas[6].attributes('aria-selected')).toBe('true')
     expect(wrapper.find('.prato').exists()).toBe(false)
   })
 })

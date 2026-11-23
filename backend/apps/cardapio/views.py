@@ -2,15 +2,12 @@
 
 import hashlib
 import logging
-import re
-from datetime import date
 
 from django.http import HttpResponse, HttpResponseNotModified
 from django.utils import timezone
 from django.utils.cache import parse_etags, patch_cache_control, quote_etag
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework.exceptions import ParseError
 from rest_framework.permissions import AllowAny
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
@@ -19,7 +16,13 @@ from rest_framework.views import APIView
 from apps.cardapio.cardapio_query_service import CardapioQueryService
 from apps.cardapio.dieta_selecionada import DietaSelecionada
 from apps.cardapio.localizacao_campus_config import LocalizacaoCampusConfig
-from apps.cardapio.models import Campus, Marcador, TipoRefeicao
+from apps.cardapio.models import Marcador, TipoRefeicao
+from apps.cardapio.parametros_consulta import (
+    ParametrosInvalidos,
+    buscar_campus,
+    ler_data,
+    ler_id_do_campus,
+)
 from apps.cardapio.semana_cardapio_resolver import DURACAO_SEMANA
 from apps.cardapio.serializers import (
     CampusPublicoSerializer,
@@ -50,60 +53,9 @@ def _if_none_match_bate(request, etag):
     return _sem_w(etag) in {_sem_w(e) for e in etags}
 
 
-# Só dígitos ASCII: `int()` aceitaria " 1", "+1" e dígitos de outras escritas.
-SO_DIGITOS = re.compile(r"[0-9]+")
-# AAAA-MM-DD: `date.fromisoformat` aceitaria também "20261123".
-FORMATO_DATA = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
-# Faixa aceita em `semana` e `dia`. Longe dos extremos do `date` (anos 1 e
-# 9999), onde somar ou subtrair a semana daria OverflowError (500).
-DATA_MINIMA = date(2000, 1, 1)
-DATA_MAXIMA = date(2099, 12, 31)
 # Os únicos parâmetros do contrato. Um nome errado (`marcador`, o
 # `marcadores[]` do axios) daria 200 sem filtro nenhum, como se fosse seguro.
 PARAMETROS = ("campus", "semana", "dia", "refeicao", "marcadores", "dieta")
-
-
-class ParametrosInvalidos(ParseError):
-    """400 `parametros_invalidos` no formato `{codigo, mensagem}`.
-
-    O `tratador_de_excecoes` (config/excecoes.py) usa o `code` e a mensagem
-    da exceção. Não é o `ValidationError` do DRF de propósito: o detalhe dele
-    é uma lista, e o tratador o deixaria no formato padrão de validação. O
-    `code` é obrigatório: sem ele, o `ParseError` sairia como `json_invalido`.
-    """
-
-    def __init__(self, mensagem):
-        super().__init__(mensagem, code="parametros_invalidos")
-
-
-def _ler_campus(valor):
-    if valor is None:
-        raise ParametrosInvalidos("Informe o campus.")
-    if not SO_DIGITOS.fullmatch(valor):
-        raise ParametrosInvalidos("O campus deve ser o id numérico de GET /api/campi/.")
-    campus = Campus.objects.filter(pk=int(valor)).first()
-    if campus is None:
-        raise ParametrosInvalidos("Não existe campus com esse id.")
-    return campus
-
-
-def _ler_data(valor, nome):
-    if valor is None:
-        return None
-    try:
-        if not FORMATO_DATA.fullmatch(valor):
-            raise ValueError
-        data = date.fromisoformat(valor)
-    except ValueError:
-        raise ParametrosInvalidos(
-            f"O parâmetro {nome} deve ser uma data válida no formato AAAA-MM-DD."
-        ) from None
-    if not DATA_MINIMA <= data <= DATA_MAXIMA:
-        raise ParametrosInvalidos(
-            f"O parâmetro {nome} deve ser uma data entre "
-            f"{DATA_MINIMA.isoformat()} e {DATA_MAXIMA.isoformat()}."
-        )
-    return data
 
 
 def _ler_opcao(valor, opcoes, mensagem):
@@ -160,11 +112,15 @@ def _conferir_nomes(query):
 
 
 def _ler_parametros(query):
-    """Valida a query string inteira antes de consultar o cardápio."""
+    """Valida a query string inteira antes de consultar o cardápio.
+
+    Todos os 400 vêm antes do 404 do campus (#217): com o campus inexistente
+    e outro parâmetro inválido, ganha o 400, que é erro de quem chamou.
+    """
     _conferir_nomes(query)
-    campus = _ler_campus(query.get("campus"))
-    semana = _ler_data(query.get("semana"), "semana")
-    dia = _ler_data(query.get("dia"), "dia")
+    campus_id = ler_id_do_campus(query.get("campus"))
+    semana = ler_data(query.get("semana"), "semana")
+    dia = ler_data(query.get("dia"), "dia")
     if semana and dia and not semana <= dia <= semana + DURACAO_SEMANA:
         raise ParametrosInvalidos("O dia pedido não pertence à semana pedida.")
     refeicao = _ler_opcao(
@@ -177,12 +133,14 @@ def _ler_parametros(query):
         DietaSelecionada,
         "A dieta deve ser sem_filtro, ovolactovegetariano ou vegetariano_estrito.",
     )
+    marcadores_selecionados = _ler_marcadores(query.get("marcadores"))
     return {
-        "campus": campus,
+        # Por último: depois de todos os 400.
+        "campus": buscar_campus(campus_id),
         "semana": semana,
         "dia": dia,
         "refeicao": refeicao,
-        "marcadores_selecionados": _ler_marcadores(query.get("marcadores")),
+        "marcadores_selecionados": marcadores_selecionados,
         "dieta": DietaSelecionada(dieta or DietaSelecionada.SEM_FILTRO),
     }
 
@@ -198,6 +156,7 @@ def _para_o_contrato(cardapio):
         "avisoSujeitoAAlteracao": cardapio.aviso_sujeito_a_alteracao,
         "alergenosIndisponivel": cardapio.alergenos_indisponivel,
         "filtroMarcadorDesativado": cardapio.filtro_marcador_desativado,
+        "semServico": cardapio.sem_servico,
         "categorias": [
             {
                 "nome": categoria.nome,
@@ -321,7 +280,11 @@ class CardapioView(APIView):
         description=(
             "Os filtros de marcador e de dieta são aplicados no backend "
             "(ADR 0005). Cardápio ainda não publicado volta 200 com "
-            "`status` igual a `nao_publicado` (RF18)."
+            "`status` igual a `nao_publicado` (RF18). Sem `refeicao`, sem "
+            "dia com serviço do dia pedido até 7 dias depois e com a semana "
+            "do dia pedido publicada, volta 200 com `status` igual a "
+            "`publicado`, `semServico` true, `data` igual ao dia pedido e "
+            "`categorias` vazia."
         ),
         tags=["cardapio"],
         parameters=[
@@ -386,10 +349,17 @@ class CardapioView(APIView):
             400: OpenApiResponse(
                 ErroSerializer,
                 description=(
-                    "Parâmetro ausente ou inválido, como `campus`; parâmetro "
-                    "fora da lista acima ou repetido; data fora da faixa ou "
-                    "`dia` fora da `semana`. `codigo`: `parametros_invalidos`."
+                    "Parâmetro ausente ou inválido, como `campus` ausente ou "
+                    "que não seja só dígitos; parâmetro fora da lista acima "
+                    "ou repetido; data fora da faixa ou `dia` fora da "
+                    "`semana`. Com o campus inexistente e outro parâmetro "
+                    "inválido, a resposta é este 400. "
+                    "`codigo`: `parametros_invalidos`."
                 ),
+            ),
+            404: OpenApiResponse(
+                ErroSerializer,
+                description="Campus inexistente. `codigo`: `campus_nao_encontrado`.",
             ),
         },
     )

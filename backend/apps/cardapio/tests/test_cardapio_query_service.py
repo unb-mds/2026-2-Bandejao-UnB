@@ -87,6 +87,7 @@ def test_cardapio_publicado_da_refeicao_em_andamento(campus):
     assert cardapio.refeicao_encerrada is False
     assert cardapio.alergenos_indisponivel is False
     assert cardapio.filtro_marcador_desativado is False
+    assert cardapio.sem_servico is False
     assert pratos(cardapio) == [f"almoco {TERCA}"]
 
 
@@ -136,6 +137,7 @@ def test_semana_sem_nada_no_banco_usa_os_horarios_do_anexo_a(
     cardapio = obter(campus, em_brasilia(TERCA, hora))
 
     assert cardapio.status == StatusCardapio.NAO_PUBLICADO
+    assert cardapio.sem_servico is False
     assert cardapio.categorias == []
     assert (cardapio.refeicao, cardapio.data, cardapio.refeicao_encerrada) == (
         tipo,
@@ -243,13 +245,114 @@ def test_domingo_com_a_segunda_de_semana_nao_publicada(campus):
 
 
 def test_domingo_sem_nenhum_dia_com_servico_depois(campus):
+    # Decisão do #217: o domingo está na semana de SEGUNDA (segunda a
+    # domingo), que está publicada e não traz serviço nele. Então é "sem
+    # serviço", como o sábado, e não "não publicado". A semana seguinte, que
+    # ainda não saiu, aparece como não publicada quando a tela pedir a segunda.
     publicar_semana(campus, SEGUNDA)
     servir(campus, SABADO, ALMOCO)
 
     cardapio = obter(campus, em_brasilia(DOMINGO, time(12, 0)))
 
+    assert cardapio.status == StatusCardapio.PUBLICADO
+    assert cardapio.sem_servico is True
+    assert (cardapio.refeicao, cardapio.data) == (ALMOCO, DOMINGO)
+    assert cardapio.categorias == []
+
+
+# --- Sem serviço (#217, item 5) ----------------------------------------------
+
+
+@pytest.fixture
+def so_dias_uteis(campus):
+    """Campus que só serve de segunda a sexta (campi 2 a 5), semana publicada."""
+    publicar_semana(campus, SEGUNDA)
+    for dias in range(5):
+        servir(campus, SEGUNDA + timedelta(days=dias), CAFE, ALMOCO, JANTAR)
+    return campus
+
+
+@pytest.mark.parametrize(
+    "hora, tipo, encerrada",
+    [
+        (time(6, 0), CAFE, False),
+        (time(12, 0), ALMOCO, False),
+        (time(20, 0), JANTAR, True),
+    ],
+)
+def test_sabado_sem_servico_com_a_semana_publicada(
+    so_dias_uteis, hora, tipo, encerrada
+):
+    # Aba "Sáb": o RU publicou a semana e não abre no sábado. A refeição vem
+    # dos horários do Anexo A, e o dia exibido é o pedido.
+    cardapio = obter(so_dias_uteis, em_brasilia(SABADO, hora))
+
+    assert cardapio.status == StatusCardapio.PUBLICADO
+    assert cardapio.sem_servico is True
+    assert (cardapio.refeicao, cardapio.data, cardapio.refeicao_encerrada) == (
+        tipo,
+        SABADO,
+        encerrada,
+    )
+    assert cardapio.categorias == []
+    assert cardapio.alergenos_indisponivel is False
+    assert cardapio.filtro_marcador_desativado is False
+
+
+def test_sabado_pedido_de_outro_dia_sem_servico(so_dias_uteis):
+    # A aba "Sáb" aberta na quarta: o dia pedido manda, não o de hoje.
+    cardapio = obter(so_dias_uteis, em_brasilia(QUARTA, time(12, 0)), dia=SABADO)
+
+    assert cardapio.status == StatusCardapio.PUBLICADO
+    assert cardapio.sem_servico is True
+    assert (cardapio.refeicao, cardapio.data) == (CAFE, SABADO)
+    assert cardapio.refeicao_encerrada is False
+
+
+def test_sabado_sem_servico_com_a_semana_nao_publicada(campus):
+    # Sem a linha da FonteCardapio não dá para dizer que não há serviço: o RU
+    # pode só não ter publicado ainda.
+    for dias in range(5):
+        servir(campus, SEGUNDA + timedelta(days=dias), ALMOCO)
+
+    cardapio = obter(campus, em_brasilia(SABADO, time(12, 0)))
+
     assert cardapio.status == StatusCardapio.NAO_PUBLICADO
-    assert cardapio.data == DOMINGO
+    assert cardapio.sem_servico is False
+    assert (cardapio.refeicao, cardapio.data) == (ALMOCO, SABADO)
+    assert cardapio.categorias == []
+
+
+def test_sabado_sem_servico_com_so_a_semana_seguinte_publicada(campus):
+    # A semana publicada tem que ser a do dia pedido, e não qualquer uma.
+    publicar_semana(campus, PROXIMA_SEGUNDA)
+
+    cardapio = obter(campus, em_brasilia(SABADO, time(12, 0)))
+
+    assert cardapio.status == StatusCardapio.NAO_PUBLICADO
+    assert cardapio.sem_servico is False
+
+
+def test_sabado_sem_servico_com_a_segunda_seguinte_servida(so_dias_uteis):
+    # Com dia com serviço depois (RN05, item 5), vale o próximo dia, e não o
+    # "sem serviço".
+    publicar_semana(so_dias_uteis, PROXIMA_SEGUNDA)
+    servir(so_dias_uteis, PROXIMA_SEGUNDA, CAFE)
+
+    cardapio = obter(so_dias_uteis, em_brasilia(SABADO, time(12, 0)))
+
+    assert cardapio.status == StatusCardapio.PUBLICADO
+    assert cardapio.sem_servico is False
+    assert (cardapio.refeicao, cardapio.data) == (CAFE, PROXIMA_SEGUNDA)
+
+
+def test_refeicao_pedida_no_sabado_sem_servico_nao_e_sem_servico(so_dias_uteis):
+    # Com `refeicao` no pedido, nada muda: "esta refeição não é servida".
+    cardapio = obter(so_dias_uteis, em_brasilia(SABADO, time(12, 0)), refeicao=ALMOCO)
+
+    assert cardapio.status == StatusCardapio.PUBLICADO
+    assert cardapio.sem_servico is False
+    assert (cardapio.refeicao, cardapio.data) == (ALMOCO, SABADO)
     assert cardapio.categorias == []
 
 
@@ -330,6 +433,7 @@ def test_refeicao_pedida_que_o_pdf_nao_traz_volta_sem_categorias(campus):
 
     assert (cardapio.refeicao, cardapio.data) == (CAFE, TERCA)
     assert cardapio.status == StatusCardapio.PUBLICADO
+    assert cardapio.sem_servico is False
     assert cardapio.categorias == []
 
 
@@ -451,14 +555,28 @@ def test_domingo_com_semana_pedida_pula_para_a_semana_seguinte(duas_semanas):
 
 
 def test_proximo_dia_com_servico_a_mais_de_uma_semana_nao_conta(campus):
-    # A busca vai até 7 dias depois: um recesso longo fica "não publicado",
-    # em vez de mostrar uma refeição de semanas à frente.
+    # A busca vai até 7 dias depois: num recesso longo, a tela fica no dia
+    # pedido, em vez de mostrar uma refeição de semanas à frente. Com a semana
+    # publicada, é "sem serviço" (#217); antes, saía "não publicado".
     publicar_semana(campus, SEGUNDA)
     servir(campus, TERCA + timedelta(days=8), ALMOCO)
 
     cardapio = obter(campus, em_brasilia(TERCA, time(12, 0)))
 
-    assert cardapio.status == StatusCardapio.NAO_PUBLICADO
+    assert (cardapio.status, cardapio.sem_servico) == (StatusCardapio.PUBLICADO, True)
+    assert cardapio.data == TERCA
+    assert cardapio.categorias == []
+
+
+def test_recesso_longo_com_a_semana_nao_publicada(campus):
+    servir(campus, TERCA + timedelta(days=8), ALMOCO)
+
+    cardapio = obter(campus, em_brasilia(TERCA, time(12, 0)))
+
+    assert (cardapio.status, cardapio.sem_servico) == (
+        StatusCardapio.NAO_PUBLICADO,
+        False,
+    )
     assert cardapio.data == TERCA
 
 

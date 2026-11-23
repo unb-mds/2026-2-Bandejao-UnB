@@ -45,8 +45,10 @@ class Checkin(models.Model):
     Dado pessoal (RNF07) enquanto ligado à conta."""
 
     # O vínculo é anulado após 4 semanas (RNF07.3, job de retenção do BD-11) e
-    # na exclusão de conta (`RemoverContaCommand`); o `SET_NULL` cobre só a
-    # exclusão física da linha de USUARIO.
+    # na exclusão de conta, em que o `RemoverContaCommand` desvincula os
+    # registros antes de apagar a linha de USUARIO (BD-12). O `SET_NULL` é só
+    # rede de segurança: se a linha for apagada sem o comando, o registro
+    # perde a conta em vez de impedir a exclusão.
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
