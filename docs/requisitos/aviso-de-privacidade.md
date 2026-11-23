@@ -37,7 +37,7 @@ Nesse caso, o Bandejão não guarda nenhum dado que identifique você:
 | Apelido | Identificar você nas avaliações e, se quiser, no ranking |
 | Senha | Entrar na conta. Guardamos só uma versão embaralhada (hash), nunca a senha em si |
 | Data e versão deste aviso que você aceitou | Comprovar o seu consentimento |
-| Situação da conta (pendente, ativa, suspensa ou removida) e data de criação | Saber se a conta pode entrar |
+| Situação da conta (pendente, ativa ou suspensa) e data de criação | Saber se a conta pode entrar |
 | Tentativas de login erradas e horário de bloqueio | Bloquear a conta por alguns minutos depois de várias senhas erradas |
 | Links de confirmação de e-mail e de redefinição de senha | Conferir o link quando você o abre. Guardamos só uma versão embaralhada do link, com a validade |
 

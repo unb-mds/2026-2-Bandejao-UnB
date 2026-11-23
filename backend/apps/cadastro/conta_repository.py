@@ -1,7 +1,7 @@
 """Acesso às contas no cadastro (Cadastro N4 4a, 4b, 4c e 4d).
 
-Só o que a BE-05, a BE-06, a BE-07 e a BE-20 usam. `salvar` e `excluir` (exclusão de
-conta, BD-12) entram nas issues que precisarem deles.
+Só o que a BE-05, a BE-06, a BE-07, a BE-20 e a BD-12 (exclusão de conta)
+usam. `salvar` entra na issue que precisar dele.
 """
 
 from datetime import datetime
@@ -122,3 +122,11 @@ class ContaRepository:
             # Pelo id: o QuerySet com agregação (Max) não aceita delete().
             modelo.objects.filter(pk=conta.pk).delete()
             return True
+
+    def excluir(self, conta) -> None:
+        """Apaga a linha de USUARIO (exclusão de conta, BD-12, RNF07.4).
+
+        Pelo ORM, para o CASCADE levar os tokens e o SET_NULL deixar as
+        avaliações sem `usuario_id`. Quem chama abre a transação.
+        """
+        conta.delete()

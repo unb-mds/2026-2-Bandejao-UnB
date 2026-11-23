@@ -427,6 +427,20 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação: `npm run test:ci` com 557 testes passando (cobertura de 91,84% de linhas / 85,22% de ramos), `npm run lint:ci` sem achados e `npm run build` sem erro, no PC da autora.
 - Situação: aguardando nova revisão.
 
+## BD-12 — Exclusão de conta
+
+- Issue: [#164](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/164). PR: #225.
+- Ferramenta: Claude (Anthropic).
+- Apoio: `RemoverContaCommand` (transação única), `PontuacaoService.apagar_contadores`, `SessoesDaConta.encerrar_todas`, `ContaRepository.excluir`, migration `0004_remove_status_removido_bd12`, ajuste de `Usuario.is_active` e testes em `backend/apps/cadastro/tests/test_remover_conta.py`.
+- TDD: testes no commit `88831bf`, antes do código.
+- Testes: os quatro efeitos (contadores apagados, check-ins desvinculados, sessões de todos os aparelhos encerradas, linha de `USUARIO` apagada); avaliações mantidas com `usuario` nulo; tokens em cascata; mesma matrícula, e-mail e apelido livres para novo cadastro; outras contas intactas; conta já apagada devolve `False`; rollback em cada etapa; cada colaborador removido do comando faz um teste falhar. Como foi conferido: tirei o `transaction.atomic()` e, um a um, cada colaborador do comando, e rodei a suíte; cada remoção derrubou pelo menos um teste.
+- Ajustes em testes existentes: o status `removido` e `removido_em` saíram, então os parâmetros `REMOVIDO` foram retirados; o teste de migration da BD-03 passou a fixar o esquema de `cadastro` da época (`0003`).
+- Validação local (SQLite): `pytest` sem falhas, `ruff` sem achados nos arquivos alterados, `makemigrations --check` sem mudanças pendentes.
+- Atenção: a BE-14 deve chamar `PontuacaoService.apagar_contadores` se criar novos contadores (a BE-14, #235, já está na `develop`; o `apagar_contadores` apaga `PontosSemestreCampus` e `PontuacaoUsuario` pelo `PontuacaoRepository`).
+- Ajustes da revisão: a migration 0004 recusa seguir (`RuntimeError` com a contagem e até 20 ids) se houver conta com status `removido`, e o texto manda usar `python manage.py remover_conta <id>`, comando novo que chama o `RemoverContaCommand`; `executar` levanta `ValueError` para conta sem pk e devolve `False` (com log "ignorada") para conta que já não existe; o log de sucesso sai por `transaction.on_commit`, só com o id e as contagens; `SESSION_ENGINE` fixado em banco, que é a premissa de o rollback desfazer o fim das sessões; textos que ainda diziam "conta removida" corrigidos; testes de sessão de visitante válida, de pergunta e resposta de saída mantidas, do log (inclusive rollback de `atomic` externo) e da migration de dados.
+- Limite conhecido: o `select_for_update` só garante algo no MySQL; no SQLite é ignorado. A checagem de que nenhum check-in fica sem conta e com hora exata roda nos dois bancos.
+- Situação: aguardando revisão.
+
 ## BE-11 follow-up — 404 `campus_nao_encontrado` e `semServico` no `GET /api/cardapio/`
 
 - Issue: [#217](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/217) (pendências das revisões do #216 e do #219; desbloqueia o "Campus não encontrado" e o "Sem refeições neste dia" da FE-08, #144). PR: [#222 — BE-11 follow-up: 404 `campus_nao_encontrado` e `semServico`](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/222).
