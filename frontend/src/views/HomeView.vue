@@ -8,7 +8,7 @@ import { usePreferenciasStore } from '@/stores/preferencias'
 import { REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
 import { CANAL_CONTATO } from '@/constants/contato'
 import { dataPorExtenso, diaCurto, hojeISO } from '@/utils/datas'
-import { formatarNota, refeicaoPadrao, resumoRefeicao } from '@/utils/cardapio'
+import { formatarNota, resumoRefeicao } from '@/utils/cardapio'
 import { abrirAvisoLocalizacao } from '@/composables/avisoLocalizacao'
 import { AVISO_SAIR_SEM_CONFIRMACAO, useSair } from '@/composables/sair'
 import AppLogo from '@/components/AppLogo.vue'
@@ -30,26 +30,38 @@ const botaoPerfil = ref(null)
 const { semConfirmacao: saidaSemConfirmacao, sair: sairDaConta } = useSair()
 
 const campusId = computed(() => preferencias.campusId)
-const semana = computed(() => cardapio.semana(campusId.value))
-const diaHoje = computed(() => semana.value?.dias.find((d) => d.data === hoje) ?? null)
-const tipoHoje = computed(() =>
-  diaHoje.value
-    ? refeicaoPadrao(
-        diaHoje.value.refeicoes.map((r) => r.tipo),
-        agora,
-      )
-    : null,
-)
-const refeicaoHoje = computed(
-  () => diaHoje.value?.refeicoes.find((r) => r.tipo === tipoHoje.value) ?? null,
-)
+const pedidoHoje = computed(() => ({ campus: campusId.value, dia: hoje }))
+const cardapioHoje = computed(() => cardapio.daRefeicao(pedidoHoje.value))
+const erroHoje = computed(() => cardapio.erroDaRefeicao(pedidoHoje.value))
+const tipoHoje = computed(() => {
+  const resposta = cardapioHoje.value
+  const servidoHoje =
+    resposta?.status === 'publicado' && !resposta.semServico && resposta.data === hoje
+  return servidoHoje ? resposta.refeicao : null
+})
 const linhasResumo = computed(() =>
-  refeicaoHoje.value ? resumoRefeicao(refeicaoHoje.value.categorias) : [],
+  tipoHoje.value ? resumoRefeicao(cardapioHoje.value.categorias) : [],
 )
-const alvoHoje = computed(() => ({ campus: campusId.value, data: hoje, refeicao: tipoHoje.value }))
-const avaliacaoHoje = computed(() =>
-  tipoHoje.value ? avaliacoes.daRefeicao(alvoHoje.value) : null,
-)
+/**
+ * Por que o cartão não tem o resumo. A data vem antes do `status`: se hoje não
+ * tem serviço, o backend devolve o próximo dia com serviço, e a semana dele
+ * pode ainda não ter PDF; isso continua sendo "sem refeições hoje".
+ */
+const mensagemSemResumo = computed(() => {
+  const resposta = cardapioHoje.value
+  if (!resposta) return ''
+  if (resposta.semServico || resposta.data !== hoje) {
+    return 'Não há refeições servidas hoje neste campus.'
+  }
+  if (resposta.status !== 'publicado') return 'Cardápio ainda não publicado.'
+  // Servida hoje, mas sem nenhum prato nas categorias.
+  return 'Os pratos desta refeição ainda não foram cadastrados.'
+})
+const notaHoje = computed(() => {
+  if (!tipoHoje.value) return null
+  const resumoDoDia = avaliacoes.daResumoDoDia(campusId.value, hoje) ?? []
+  return resumoDoDia.find((r) => r.tipo === tipoHoje.value)?.media ?? null
+})
 
 const resumo = computed(() => avaliacoes.resumoPorCampus[campusId.value] ?? null)
 const barras = computed(() => {
@@ -65,10 +77,11 @@ const barras = computed(() => {
 
 watch(
   campusId,
-  async (id) => {
+  (id) => {
     if (!id) return
-    await Promise.all([cardapio.carregar(id), avaliacoes.carregarResumo(id)])
-    if (tipoHoje.value) avaliacoes.carregar(alvoHoje.value)
+    cardapio.carregarRefeicao({ campus: id, dia: hoje })
+    avaliacoes.carregarResumoDoDia(id, hoje)
+    avaliacoes.carregarResumo(id)
   },
   { immediate: true },
 )
@@ -93,8 +106,7 @@ async function usarLocalizacao() {
 
 async function sair() {
   menuAberto.value = false
-  const resultado = await sairDaConta()
-  if (resultado !== null && tipoHoje.value) avaliacoes.carregar(alvoHoje.value)
+  await sairDaConta()
 }
 </script>
 
@@ -164,6 +176,13 @@ async function sair() {
             <RouterLink :to="{ name: 'campus' }" class="menu-item" role="menuitem">
               <IconeSvg nome="mapa" :tamanho="16" /> Trocar campus
             </RouterLink>
+            <RouterLink
+              :to="{ name: 'ranking-campus', params: { campusId: String(campusId) } }"
+              class="menu-item"
+              role="menuitem"
+            >
+              <IconeSvg nome="estrela" :tamanho="16" /> Ranking do campus
+            </RouterLink>
             <button type="button" class="menu-item" role="menuitem" @click="usarLocalizacao">
               <IconeSvg nome="local" :tamanho="16" /> Usar minha localização
             </button>
@@ -209,9 +228,9 @@ async function sair() {
             </div>
             <p class="hoje-titulo">Cardápio de hoje</p>
           </div>
-          <div v-if="avaliacaoHoje?.media" class="hoje-nota">
-            <EstrelasNota :valor="avaliacaoHoje.media" :tamanho="12" />
-            <span>{{ formatarNota(avaliacaoHoje.media) }}</span>
+          <div v-if="notaHoje" class="hoje-nota">
+            <EstrelasNota :valor="notaHoje" :tamanho="12" />
+            <span>{{ formatarNota(notaHoje) }}</span>
           </div>
         </div>
 
@@ -221,14 +240,8 @@ async function sair() {
             <span class="hoje-texto">{{ linha.texto }}</span>
           </div>
         </div>
-        <p v-else-if="semana" class="hoje-vazio">
-          {{
-            semana.publicado
-              ? 'Não há refeições servidas hoje neste campus.'
-              : 'Cardápio ainda não publicado.'
-          }}
-        </p>
-        <p v-else-if="cardapio.erro" class="hoje-vazio">{{ cardapio.erro }}</p>
+        <p v-else-if="cardapioHoje" class="hoje-vazio">{{ mensagemSemResumo }}</p>
+        <p v-else-if="erroHoje" class="hoje-vazio">{{ erroHoje.mensagem }}</p>
         <p v-else class="hoje-vazio">Carregando cardápio…</p>
 
         <div class="ver-mais">

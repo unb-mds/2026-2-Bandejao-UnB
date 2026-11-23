@@ -431,23 +431,25 @@ describe('campi (GET /campi/, contrato da BE-08)', () => {
 })
 
 describe('cardápio (RF06, RF07)', () => {
-  it('devolve a semana vigente do campus', async () => {
+  it('a rota da semana do MVP (/cardapio/<campus>/) não existe mais (#251)', async () => {
     const { status, dados } = await get('/cardapio/1/')
-    expect(status).toBe(200)
-    expect(dados.publicado).toBe(true)
-    expect(dados.dias[0].data).toBe('2026-09-28')
-    expect(dados.dias.at(-2).refeicoes.map((r) => r.tipo)).toEqual(['almoco']) // sábado
-    // No mock, o Darcy serve aos domingos (#229).
-    expect(dados.dias.at(-1).data).toBe('2026-10-04')
-    expect(dados.dias.at(-1).refeicoes.map((r) => r.tipo)).toEqual(['cafe', 'almoco', 'jantar'])
+    expect(status).toBe(404)
+    expect(dados.codigo).toBe('nao_encontrado')
   })
 
-  it('no domingo, a semana vigente ainda é a da segunda anterior (#229)', async () => {
+  it('o sábado do Darcy só tem almoço', async () => {
+    const { dados: almoco } = await get('/cardapio/?campus=1&dia=2026-10-03')
+    expect(almoco).toMatchObject({ data: '2026-10-03', refeicao: 'almoco', status: 'publicado' })
+    expect(almoco.categorias.length).toBeGreaterThan(0)
+    const { dados: jantar } = await get('/cardapio/?campus=1&dia=2026-10-03&refeicao=jantar')
+    expect(jantar.categorias).toEqual([])
+  })
+
+  it('no domingo, o Darcy serve (#229)', async () => {
     vi.setSystemTime(new Date(2026, 9, 4, 12, 0))
-    const { dados } = await get('/cardapio/1/')
-    expect(dados.semana.inicio).toBe('2026-09-28')
-    const { dados: refeicao } = await get('/cardapio/?campus=1')
-    expect(refeicao.data).toBe('2026-10-04')
+    const { dados } = await get('/cardapio/?campus=1')
+    expect(dados.data).toBe('2026-10-04')
+    expect(dados.categorias.length).toBeGreaterThan(0)
   })
 
   it('no domingo, campus sem serviço responde semServico no próprio domingo (#229)', async () => {
@@ -459,19 +461,13 @@ describe('cardápio (RF06, RF07)', () => {
 
   it('na virada de domingo para segunda, a semana vigente passa a ser a seguinte (#229)', async () => {
     vi.setSystemTime(new Date(2026, 9, 5, 0, 0))
-    const { dados } = await get('/cardapio/1/')
-    expect(dados.semana.inicio).toBe('2026-10-05')
-    expect(dados.dias[0].data).toBe('2026-10-05')
+    const { dados } = await get('/cardapio/?campus=1')
+    expect(dados.data).toBe('2026-10-05')
   })
 
   it('indica cardápio não publicado', async () => {
-    const { dados } = await get('/cardapio/5/')
-    expect(dados).toMatchObject({ publicado: false, dias: [] })
-  })
-
-  it('campus inexistente é 404', async () => {
-    expect((await get('/cardapio/99/')).status).toBe(404)
-    expect((await get('/cardapio/darcy/')).status).toBe(404)
+    const { dados } = await get('/cardapio/?campus=5')
+    expect(dados).toMatchObject({ status: 'nao_publicado', categorias: [] })
   })
 })
 
@@ -615,11 +611,18 @@ describe('GET /cardapio/ (contrato da BE-11, ADR 0005)', () => {
     expect(dados.semServico).toBe(false)
   })
 
-  it.each([['%201'], ['01'], ['1.0']])('campus %s: 400, como no backend', async (valor) => {
+  it.each([['%201'], ['1.0']])('campus %s: 400, como no backend', async (valor) => {
     const { status, dados } = await get(`/cardapio/?campus=${valor}`)
 
     expect(status).toBe(400)
     expect(dados.codigo).toBe('parametros_invalidos')
+  })
+
+  it('campus 01: zeros à esquerda valem o campus 1, como no backend', async () => {
+    const { status, dados } = await get('/cardapio/?campus=01')
+
+    expect(status).toBe(200)
+    expect(dados.campus).toBe(1)
   })
 
   it.each([['2026-02-30'], ['2026-13-01'], ['2026-09-31']])(
@@ -631,19 +634,40 @@ describe('GET /cardapio/ (contrato da BE-11, ADR 0005)', () => {
     },
   )
 
-  it('campus inexistente: 400 com a mensagem do backend', async () => {
-    const resposta = await get('/cardapio/?campus=99')
+  it.each([['99'], ['000'], ['0'], ['99999999999999999999']])(
+    'campus só de dígitos que não existe (%s): 404 campus_nao_encontrado, como o backend (#217)',
+    async (campus) => {
+      const resposta = await get(`/cardapio/?campus=${campus}`)
 
-    expect(resposta.status).toBe(400)
-    expect(resposta.dados).toEqual({
-      codigo: 'parametros_invalidos',
-      mensagem: 'Não existe campus com esse id.',
-    })
-  })
+      expect(resposta.status).toBe(404)
+      expect(resposta.dados).toEqual({
+        codigo: 'campus_nao_encontrado',
+        mensagem: 'Não existe campus com esse id.',
+      })
+    },
+  )
+
+  it.each([
+    ['dieta desconhecida', '/cardapio/?campus=99&dieta=todos'],
+    ['refeição desconhecida', '/cardapio/?campus=99&refeicao=lanche'],
+    ['parâmetro fora do contrato', '/cardapio/?campus=99&_=123'],
+    ['dia fora da faixa', '/cardapio/?campus=99&dia=1999-12-31'],
+    ['marcador desconhecido', '/cardapio/?campus=99&marcadores=chocolate'],
+    ['item vazio em marcadores', '/cardapio/?campus=000&marcadores=ovo,'],
+  ])(
+    'campus inexistente e %s: o 400 vem antes do 404, como no backend (#217)',
+    async (_caso, caminho) => {
+      const resposta = await get(caminho)
+
+      expect(resposta.status).toBe(400)
+      expect(resposta.dados.codigo).toBe('parametros_invalidos')
+    },
+  )
 
   it.each([
     ['sem campus', '/cardapio/'],
-    ['campus inexistente', '/cardapio/?campus=99'],
+    ['campus que não é só dígitos', '/cardapio/?campus=darcy'],
+    ['campus com sinal', '/cardapio/?campus=-1'],
     ['dieta desconhecida', '/cardapio/?campus=1&dieta=todos'],
     ['refeição desconhecida', '/cardapio/?campus=1&refeicao=lanche'],
     ['parâmetro fora do contrato', '/cardapio/?campus=1&_=123'],
@@ -1239,6 +1263,58 @@ describe('gamificação: progresso, adesão e ranking (contrato do OpenAPI, FE-1
 
     expect((await get('/gamificacao/progresso/')).status).toBe(501)
     expect((await post('/gamificacao/adesao/')).status).toBe(501)
+    expect((await get('/ranking/1/')).status).toBe(501)
+  })
+})
+
+describe('GET /ranking/{campusId}/: formato do RankingPublico (FE-13)', () => {
+  it('é público e segue o schema RankingPublico', async () => {
+    const { status, dados } = await get('/ranking/1/')
+
+    expect(status).toBe(200)
+    expect(Object.keys(dados).sort()).toEqual(['campusId', 'linhas', 'semestre'])
+    expect(dados.campusId).toBe(1)
+    expect(dados.semestre).toMatch(/^\d{4}\.[12]$/)
+    for (const linha of dados.linhas) {
+      expect(Object.keys(linha).sort()).toEqual(['apelido', 'patente', 'posicao'])
+    }
+  })
+
+  it('até 10 linhas, em ordem de posição, começando em 1', async () => {
+    const { dados } = await get('/ranking/1/')
+
+    expect(dados.linhas.length).toBeGreaterThan(0)
+    expect(dados.linhas.length).toBeLessThanOrEqual(10)
+    expect(dados.linhas.map((l) => l.posicao)).toEqual(dados.linhas.map((_l, i) => i + 1))
+  })
+
+  it('patentes com os valores do contrato', async () => {
+    const { dados } = await get('/ranking/1/')
+    const validas = [
+      'CALOURO_DE_BANDEJA',
+      'RATO_DE_RU',
+      'VETERANO',
+      'MESTRE_DA_FILA',
+      'LENDA_DO_RU',
+    ]
+
+    for (const linha of dados.linhas) expect(validas).toContain(linha.patente)
+  })
+
+  it('campus sem ninguém no ranking: linhas vazias', async () => {
+    expect((await get('/ranking/5/')).dados.linhas).toEqual([])
+  })
+
+  it('campus inexistente: 404 campus_nao_encontrado', async () => {
+    const resposta = await get('/ranking/999/')
+
+    expect(resposta.status).toBe(404)
+    expect(resposta.dados.codigo).toBe('campus_nao_encontrado')
+  })
+
+  it('definirGamificacaoDisponivel(false): 501, como um backend sem a rota', async () => {
+    simulacao.definirGamificacaoDisponivel(false)
+
     expect((await get('/ranking/1/')).status).toBe(501)
   })
 })
