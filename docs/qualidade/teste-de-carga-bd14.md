@@ -3,8 +3,10 @@
 **Issue:** [#184](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/184) · **Requisito:** RNF01 · **Data:** 22/11/2026
 
 > **Resultado: meta não atingida com 2.000 usuários simultâneos.** O p95
-> ficou dentro de 3 s até 1.000 usuários. Com 1.500 e 2.000, passou de 3 s.
-> Nenhum pedido falhou em nenhuma rodada. Pelo backlog (BD-14), com a meta
+> ficou dentro de 3 s com 500 usuários em todas as medições. Com 1.000, ficou
+> no limite: passou em duas varreduras (1,7 e 1,8 s) e falhou na terceira
+> (3,2 s). Com 1.500 e 2.000, passou de 3 s sempre. Nenhum pedido falhou em
+> nenhuma rodada. Pelo backlog (BD-14), com a meta
 > não atingida, o DOC é avisado para rever o número do RNF01.
 
 ## Meta
@@ -18,29 +20,35 @@
 
 ## Resultado
 
-Duas varreduras, em runners diferentes, com uma rodada de 5 minutos
+Três varreduras, em runners diferentes, com uma rodada de 5 minutos
 por número de usuários e rampa de 50 usuários por segundo. O p95 é o mesmo nos
 dois endpoints, porque o tempo é dominado pela fila (ver "Leitura"). A rodada
 de 2.000 usuários também foi feita antes, sozinha, e deu 6,9 s de p95.
 
-| Usuários simultâneos | Pedidos/s (1ª / 2ª) | p95 (1ª / 2ª) | Falhas | Meta |
+| Usuários simultâneos | Pedidos/s (1ª / 2ª / 3ª) | p95 (1ª / 2ª / 3ª) | Falhas | Meta |
 |---:|---:|---:|---:|---|
-| 500 | 98 / 98 | 0,08 s / 0,16 s | 0 | ✅ |
-| 1.000 | 148 / 151 | 1,8 s / 1,7 s | 0 | ✅ |
-| 1.500 | 181 / 120 | 4,2 s / 7,5 s | 0 | ❌ |
-| 2.000 | 172 / 136 | 6,4 s / 9,6 s | 0 | ❌ |
+| 500 | 98 / 98 / 98 | 0,08 / 0,16 / 0,19 s | 0 | ✅ |
+| 1.000 | 148 / 151 / 124 | 1,8 / 1,7 / 3,2 s | 0 | ⚠️ no limite |
+| 1.500 | 181 / 120 / 145 | 4,2 / 7,5 / 5,2 s | 0 | ❌ |
+| 2.000 | 172 / 136 / 128 | 6,4 / 9,6 / 11 s | 0 | ❌ |
+
+A 3ª varredura já conta como falha a resposta 200 sem o conteúdo completo
+(revisão do PR #244), e mesmo assim deu 0 falhas: as respostas medidas eram
+as completas.
 
 Execuções no GitHub Actions:
 [1ª varredura](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45095023478),
-[2ª varredura](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45099315859)
-(no PR #244) e
+[2ª varredura](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45099315859),
+[3ª varredura](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45111606717)
+(as duas no PR #244) e
 [primeira rodada de 2.000](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45093053733).
 O CSV completo do Locust fica nos artefatos `resultado-carga-*` de cada execução.
 
 ### Leitura
 
 - **O servidor satura entre 120 e 180 pedidos por segundo**, conforme o
-  runner. Acima disso, os pedidos esperam na fila dos 3 workers do Gunicorn.
+  runner. Com 1.000 usuários, a demanda é de uns 170 pedidos por segundo:
+  num runner mais lento, já passa da capacidade. Acima disso, os pedidos esperam na fila dos 3 workers do Gunicorn.
   Por isso o tempo sobe junto nos dois endpoints, e a vazão para de crescer
   (ou até cai) entre 1.500 e 2.000 usuários.
 - **A causa não é consulta lenta.** Por pedido, o cardápio faz 8 consultas
@@ -51,9 +59,10 @@ O CSV completo do Locust fica nos artefatos `resultado-carga-*` de cada execuç�
   da BE-11 e da BE-15). Pela vazão máxima, cada
   pedido ocupa um worker por algo entre 17 e 25 ms (3 workers ÷ 180 ou 120
   pedidos/s).
-- **A meta vale com 1.000 usuários simultâneos** nas duas varreduras (p95 de
-  1,7 a 1,8 s) e falha com 1.500, no cenário abaixo. A variação entre as
-  varreduras mostra que a margem acima de 1.000 é pequena.
+- **A meta vale com folga até 500 usuários simultâneos** (p95 abaixo de
+  0,2 s nas três varreduras). **Com 1.000, fica no limite**: passou em duas e
+  falhou na terceira (3,2 s). Com 1.500 ou mais, falha sempre, no cenário
+  abaixo.
 
 ## Cenário
 
