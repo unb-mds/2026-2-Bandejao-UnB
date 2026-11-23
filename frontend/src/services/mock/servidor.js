@@ -38,11 +38,7 @@
  * (`/cardapio/<campus>/`) não existe mais: a Início usa o `GET /cardapio/`
  * (#251).
  */
-import {
-  ORDEM_REFEICOES,
-  REFEICOES,
-  mensagemForaDoHorario,
-} from '@/constants/refeicoes'
+import { ORDEM_REFEICOES, REFEICOES, mensagemForaDoHorario } from '@/constants/refeicoes'
 import { refeicaoPadrao } from '@/utils/cardapio'
 import { hojeISO, minutosAgora, minutosDoDia } from '@/utils/datas'
 import { banco, resumoSenha } from './banco'
@@ -546,8 +542,7 @@ function cardapioFiltrado(parametros, agora) {
   if (parametros.refeicao && !tipos.includes(parametros.refeicao)) {
     return naoServida(dia.data, parametros.refeicao)
   }
-  const tipo =
-    parametros.refeicao ?? (dia.data === hoje ? refeicaoPadrao(tipos, agora) : tipos[0])
+  const tipo = parametros.refeicao ?? (dia.data === hoje ? refeicaoPadrao(tipos, agora) : tipos[0])
   const refeicao = dia.refeicoes.find((r) => r.tipo === tipo)
   const ultima = tipos.at(-1)
   return ok({
