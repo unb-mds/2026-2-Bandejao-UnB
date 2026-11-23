@@ -235,6 +235,15 @@ Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR par
 | `seguranca` | `bandit -r apps -lll` (falha em severidade alta), Semgrep, `pip-audit` | Sim |
 | `mutacao` | `mutmut run` nos arquivos críticos alterados; falha abaixo de 50% | Sim, quando roda |
 
+**Como o job `mutacao` funciona (BE-19):**
+
+- **Configuração:** seção `[mutmut]` do `backend/setup.cfg` (`mutmut` 3.8.1). Mutam os seis módulos críticos da seção 2 (`apps/cadastro`, `apps/cardapio`, com o leitor, `apps/avaliacao`, `apps/fila` e `apps/gamificacao`); ficam fora os testes, as migrations, `admin.py`, `apps.py` e `urls.py`, que não têm regra de negócio a matar. Toda exclusão nova precisa de motivo escrito no `setup.cfg`.
+- **Testes usados:** só os de `apps/`. O `mutmut` roda a suíte numa cópia do código (`backend/mutants/`), e os testes de `backend/tests/` acham a raiz do repositório com `Path(__file__).resolve().parents[2]`, que aponta para o lugar errado dentro da cópia. O `mutmut` exige a suíte verde antes de mutar e abortaria. Esses testes são de configuração e deploy e não matam mutantes dos módulos críticos; continuam rodando nos jobs `testes` e `testes-mysql`.
+- **Arquivos escolhidos:** o `backend/scripts/mutacao_incremental.py` lista os arquivos de `apps/` alterados no PR (`git diff --name-only origin/<base>...HEAD`) e converte cada um no curinga do nome dos mutantes (`apps/fila/checkin_service.py` → `apps.fila.checkin_service.*`). Um **teste alterado** também conta, porque muda o escore do código que ele cobre: `tests/test_<nome>.py` aponta para `<nome>.py` do app (ou de um subpacote dele, como o leitor), `test_leitor_*.py` para o leitor inteiro, e o resto (testes de endpoint, apoio, `conftest.py`) para o app inteiro. Arquivo apagado no PR e arquivo fora da mutação não geram curinga.
+- **Nada a testar:** sem arquivo crítico alterado, o job termina verde sem rodar o `mutmut` (não há filtro `paths:` no workflow, para o check obrigatório não ficar pendente). Se nenhum curinga gera mutante (um arquivo só com constantes), também é verde.
+- **Escore:** `(killed + timeout) / (killed + timeout + survived + no_tests + suspicious + segfault)`, a partir do `mutants/mutmut-cicd-stats.json`. O `timeout` conta como morto; `no_tests` (nenhum teste passa pela linha) conta contra; `skipped` e os mutantes que não rodaram ficam fora. O `total` do JSON não é usado, porque conta todos os mutantes gerados, inclusive os que ficaram de fora do modo incremental. O resumo sai na página do run, e o log completo, o JSON e a lista dos sobreviventes (`mutmut results`) ficam no artefato `mutacao`.
+- **Na máquina:** `cd backend`, `mutmut run "apps.gamificacao.patente_resolver.*"` (um arquivo) ou `mutmut run` (a base inteira, demorado), depois `mutmut results` e `mutmut show <mutante>`.
+
 **Garantias do job MySQL (BD-02):**
 
 - O job `testes-mysql` executa em todos os PRs para `develop` e `main`, sem filtro por arquivos de migration. Na `develop`, o check é obrigatório.
@@ -271,6 +280,8 @@ Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR par
 ### 5.4 Rodadas agendadas
 
 - **Toda semana** (e antes de 22/11): mutação na base inteira, back e front, para pegar o escore de quem não mexeu em módulo crítico recentemente.
+  - **Back:** `.github/workflows/backend-mutacao-semanal.yml`, aos domingos às 06:00 UTC (03:00 em Brasília), na `develop`, e à mão pelo `workflow_dispatch`. Um job por módulo crítico (`cadastro`, `cardapio/leitor`, `cardapio` sem o leitor, `avaliacao`, `fila`, `gamificacao`), com até 5 horas cada, para a base inteira (cerca de 5.240 mutantes, quase metade no leitor) não passar do limite de 6 horas de um job do GitHub. Um último job junta os seis resultados e falha se **algum** módulo ficar abaixo de 50% ou se faltar o resultado de algum. Mesma fórmula do escore do job `mutacao`.
+  - O `schedule` e o `workflow_dispatch` só valem para o workflow que está na branch padrão (a `main`). Até a release levar o workflow para a `main`, a rodada é disparada com um push para a branch `mutacao/base-inteira`, criada a partir da `develop`.
 - **Antes da entrega:** o commit da entrega precisa ter todos os workflows verdes (porta da Release 2).
 
 ---
