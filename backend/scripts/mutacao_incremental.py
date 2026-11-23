@@ -28,7 +28,9 @@ Comandos (rodar de dentro de `backend/`):
     python scripts/mutacao_incremental.py conferir alvos.txt resultados.txt
         Confere os curingas contra a saída de `mutmut results --all true`:
         avisa (`::warning::`) o curinga que não casou com nenhum mutante e sai
-        com 2 se o formato dos nomes dos mutantes mudou.
+        com 2 se o formato dos nomes dos mutantes mudou ou se o alvo fixo da
+        configuração não gerou mutantes. Com `--depois-de-rodar`, sai com 2
+        também se algum mutante dos curingas ficou "not checked".
 
 Só usa a biblioteca padrão: roda antes de qualquer `pip install`.
 """
@@ -68,16 +70,27 @@ MODULOS = (
 # Mudanças que alteram como a mutação roda, sem tocar em módulo crítico. Um
 # PR que mexe nelas roda a mutação num alvo fixo, pequeno e conhecido, para a
 # configuração nova ser exercitada antes do merge. Caminhos a partir de
-# `backend/`, exceto o workflow.
+# `backend/`, exceto o workflow:
+# - setup.cfg, o script e o workflow: a configuração e o job em si;
+# - conftest.py, pytest.ini, manage.py e config/: vão para mutants/ pelo
+#   also_copy, e sem eles o pytest-django não sobe;
+# - requirements-dev.txt e requirements.txt (que ele inclui com -r): as
+#   versões do mutmut, do pytest e do Django;
+# - apps/__init__.py e apps/conftest.py: valem para todos os apps.
 CONFIGURACAO_DA_MUTACAO = (
     "setup.cfg",
     "conftest.py",
     "pytest.ini",
+    "manage.py",
     "requirements-dev.txt",
+    "requirements.txt",
     "scripts/mutacao_incremental.py",
     "config/",
+    "apps/__init__.py",
+    "apps/conftest.py",
     "../.github/workflows/backend-ci.yml",
 )
+# Sempre gera mutantes (39 no mutmut 3.8.1): é também o canário do `conferir`.
 ALVO_DA_CONFIGURACAO = "apps.gamificacao.patente_resolver.*"
 
 STATS_PADRAO = "mutants/mutmut-cicd-stats.json"
@@ -151,6 +164,22 @@ def _curingas_do_teste(caminho: PurePosixPath, raiz: Path) -> list[str]:
     return [f"apps.{app}.*"]
 
 
+def _curingas_dos_dados(caminho: PurePosixPath) -> list[str]:
+    """Curingas de um arquivo que não é código num app crítico.
+
+    Fixtures (JSON, PDF, HTML) mudam o comportamento dos testes sem tocar em
+    nenhum .py. Os de `apps/cardapio/tests/fixtures/` são os PDFs e as páginas
+    que os testes do leitor leem; o resto (fixtures do Django, como o
+    campi.json) vale para o app inteiro. Documentação (.md) fica fora.
+    """
+    if caminho.suffix == ".md":
+        return []
+    app = caminho.parts[1]
+    if app == "cardapio" and caminho.parts[2:4] == ("tests", "fixtures"):
+        return ["apps.cardapio.leitor.*"]
+    return [f"apps.{app}.*"]
+
+
 def curingas(alterados: list[str], raiz: Path) -> list[str]:
     """Curingas do `mutmut run` para os arquivos alterados no PR.
 
@@ -165,13 +194,12 @@ def curingas(alterados: list[str], raiz: Path) -> list[str]:
             encontrados.add(ALVO_DA_CONFIGURACAO)
             continue
         partes = caminho.parts
-        if (
-            len(partes) < 3
-            or partes[0] != "apps"
-            or partes[1] not in APPS_CRITICOS
-            or caminho.suffix != ".py"
-            or not _mutavel(caminho)
-        ):
+        if len(partes) < 3 or partes[0] != "apps" or partes[1] not in APPS_CRITICOS:
+            continue
+        if caminho.suffix != ".py":
+            encontrados.update(_curingas_dos_dados(caminho))
+            continue
+        if not _mutavel(caminho):
             continue
         if "tests" in partes:
             # Um teste alterado, ou apagado, muda o escore do código que ele
@@ -273,9 +301,20 @@ class Escore:
         )
 
 
-# Sem estes, o JSON não é do mutmut (ou um upgrade renomeou os campos). Os
-# outros podem faltar e contam como zero.
-CAMPOS_OBRIGATORIOS = ("killed", "survived")
+# Os campos que o mutmut 3.8.1 grava. Se faltar algum, o JSON não é do mutmut
+# ou um upgrade renomeou o campo: zerar em silêncio subiria o escore (sem o
+# no_tests) ou desligaria a detecção de interrupção.
+CAMPOS_OBRIGATORIOS = (
+    "killed",
+    "survived",
+    "total",
+    "no_tests",
+    "skipped",
+    "suspicious",
+    "timeout",
+    "check_was_interrupted_by_user",
+    "segfault",
+)
 
 
 def calcular_escore(stats: object) -> Escore:
@@ -289,8 +328,8 @@ def calcular_escore(stats: object) -> Escore:
       ele conta todos os mutantes gerados, inclusive os que não rodaram no
       modo incremental.
 
-    Levanta `JsonInvalido` se o JSON não for um objeto com os campos do mutmut
-    em números inteiros não negativos.
+    Levanta `JsonInvalido` se o JSON não for um objeto com todos os campos que
+    o mutmut 3.8.1 grava, em números inteiros não negativos.
     """
     if not isinstance(stats, dict):
         raise JsonInvalido("o JSON não é um objeto")
@@ -299,7 +338,7 @@ def calcular_escore(stats: object) -> Escore:
         raise JsonInvalido(f"faltam os campos {', '.join(faltando)}")
     valores = []
     for campo in fields(Escore):
-        valor = stats.get(campo.name, 0)
+        valor = stats[campo.name]
         if isinstance(valor, bool) or not isinstance(valor, int) or valor < 0:
             raise JsonInvalido(
                 f"o campo {campo.name} não é um inteiro não negativo: {valor!r}"
@@ -418,11 +457,12 @@ def _comando_conferir(args: argparse.Namespace) -> int:
         if linha.strip()
     ]
     # Linhas de `mutmut results --all true`: "    <nome>: <situação>".
-    nomes = [
-        linha.strip().rsplit(": ", 1)[0]
+    situacao_por_nome = dict(
+        linha.strip().rsplit(": ", 1)
         for linha in Path(args.resultados).read_text(encoding="utf-8").splitlines()
         if ": " in linha
-    ]
+    )
+    nomes = list(situacao_por_nome)
     if not any(nome.startswith("apps.") for nome in nomes):
         print(
             "::error::Nenhum mutante com nome em apps.*: o formato dos nomes dos "
@@ -430,16 +470,37 @@ def _comando_conferir(args: argparse.Namespace) -> int:
             "foi gerado. Os curingas do job não casariam com nada."
         )
         return 2
+    saida = 0
     for alvo in alvos:
-        quantos = sum(1 for nome in nomes if fnmatch.fnmatchcase(nome, alvo))
-        if quantos:
-            print(f"{alvo}: {quantos} mutantes")
+        casados = [nome for nome in nomes if fnmatch.fnmatchcase(nome, alvo)]
+        if casados:
+            print(f"{alvo}: {len(casados)} mutantes")
+        elif alvo == ALVO_DA_CONFIGURACAO:
+            # O alvo fixo sempre gera mutantes: se não gerou, a configuração
+            # tirou da mutação o arquivo que deveria exercitá-la.
+            print(
+                f"::error::O alvo fixo {alvo} não gerou nenhum mutante: a configuração "
+                "da mutação o tirou da seleção, e a mudança não foi exercitada."
+            )
+            saida = 2
+            continue
         else:
             print(
                 f"::warning::{alvo} não casou com nenhum mutante (arquivo sem nada que "
                 "o mutmut saiba mutar, ou curinga errado)."
             )
-    return 0
+        if args.depois_de_rodar:
+            # Rodada parcial com saída 0 (fork server que caiu, interrupção):
+            # os mutantes que sobraram ficam "not checked", e o JSON do mutmut
+            # não tem esse campo, então o escore sairia de uma amostra.
+            nao_rodados = [n for n in casados if situacao_por_nome[n] == "not checked"]
+            if nao_rodados:
+                print(
+                    f"::error::{len(nao_rodados)} mutantes de {alvo} ficaram sem rodar "
+                    f"(por exemplo {nao_rodados[0]}): a rodada foi parcial."
+                )
+                saida = 2
+    return saida
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -463,6 +524,11 @@ def main(argv: list[str] | None = None) -> int:
 
     conferir = sub.add_parser(
         "conferir", help="confere os curingas contra os mutantes gerados"
+    )
+    conferir.add_argument(
+        "--depois-de-rodar",
+        action="store_true",
+        help="falha se algum mutante dos curingas ficou sem rodar",
     )
     conferir.add_argument("alvos", help="arquivo com um curinga por linha")
     conferir.add_argument("resultados", help="saída de `mutmut results --all true`")
