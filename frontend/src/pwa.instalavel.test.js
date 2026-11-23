@@ -1,6 +1,8 @@
+// @vitest-environment node
+// Ambiente node: o `URL` do Node aceita `import.meta.url`, e o caminho do
+// arquivo não depende da pasta onde o comando é rodado.
 import { readFileSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
-import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 /**
@@ -9,11 +11,13 @@ import { describe, expect, it } from 'vitest'
  * instalação de verdade é conferida no Chrome (Page.getInstallabilityErrors)
  * e nos aparelhos; aqui fica o que pode quebrar sem ninguém ver.
  */
-// O Vitest roda com a raiz em frontend/ (vitest.config.js).
-const raiz = resolve(process.cwd())
-const publico = (caminho) => resolve(raiz, `public${caminho}`)
+const arquivo = (caminho) => fileURLToPath(new URL(`../${caminho}`, import.meta.url))
+const publico = (caminho) => arquivo(`public${caminho}`)
 const manifest = JSON.parse(readFileSync(publico('/manifest.webmanifest'), 'utf8'))
-const indexHtml = readFileSync(resolve(raiz, 'index.html'), 'utf8')
+const indexHtml = readFileSync(arquivo('index.html'), 'utf8')
+
+/** Tipo de cor do PNG (byte 25 do IHDR): 2 é RGB, sem canal alfa. */
+const tipoDeCorPng = (caminho) => readFileSync(publico(caminho))[25]
 
 /** Largura e altura de um PNG, lidas do cabeçalho IHDR. */
 function tamanhoPng(caminho) {
@@ -100,6 +104,7 @@ describe('index.html', () => {
 
     // O iPhone usa 180x180 na tela inicial e não aceita transparência.
     expect(tamanhoPng(icone)).toBe('180x180')
+    expect(tipoDeCorPng(icone)).toBe(2)
     expect(indexHtml).toContain('<meta name="apple-mobile-web-app-title" content="Bandejão" />')
     expect(indexHtml).toContain('<meta name="mobile-web-app-capable" content="yes" />')
     expect(indexHtml).toContain('<meta name="apple-mobile-web-app-capable" content="yes" />')

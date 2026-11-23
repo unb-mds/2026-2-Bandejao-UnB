@@ -1,6 +1,8 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import process from 'node:process'
+// @vitest-environment node
+// Ambiente node: o `URL` do Node aceita `import.meta.url`, e o caminho do
+// arquivo não depende da pasta onde o comando é rodado.
+import { existsSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
@@ -9,8 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
  * para o offline, a API nunca passa por ele e a navegação offline cai no
  * index.html guardado.
  */
-// O Vitest roda com a raiz em frontend/ (vitest.config.js).
-const codigo = readFileSync(resolve(process.cwd(), 'public/sw.js'), 'utf8')
+const arquivo = (caminho) => fileURLToPath(new URL(`../${caminho}`, import.meta.url))
+const codigo = readFileSync(arquivo('public/sw.js'), 'utf8')
 const ORIGEM = 'https://bandejaounb.com.br'
 
 let ouvintes
@@ -26,9 +28,13 @@ function carregarServiceWorker() {
     ),
     put: vi.fn(async (pedido, resposta) => guardados.set(pedido.url, resposta)),
   }
+  const abertos = []
   const caches = {
-    open: vi.fn(async () => cache),
-    keys: vi.fn(async () => ['bandejao-v0', 'bandejao-v1']),
+    open: vi.fn(async (nome) => {
+      if (!abertos.includes(nome)) abertos.push(nome)
+      return cache
+    }),
+    keys: vi.fn(async () => ['bandejao-antigo', ...abertos]),
     delete: vi.fn(async () => true),
     match: vi.fn(async (pedido) => {
       const url = typeof pedido === 'string' ? new URL(pedido, ORIGEM).href : pedido.url
@@ -79,14 +85,32 @@ describe('sw.js', () => {
     expect(self.skipWaiting).toHaveBeenCalled()
   })
 
-  it('na ativação, apaga caches de versões antigas', async () => {
-    const { caches } = carregarServiceWorker()
+  it('na ativação, apaga só os caches de versões antigas e assume as abas abertas', async () => {
+    const { self, caches } = carregarServiceWorker()
     let espera
+    ouvintes.install({ waitUntil: (p) => (espera = p) })
+    await espera
+    // O nome do cache atual sai do próprio sw.js: subir a versão não quebra o teste.
+    const atual = caches.open.mock.calls[0][0]
     ouvintes.activate({ waitUntil: (p) => (espera = p) })
     await espera
 
-    expect(caches.delete).toHaveBeenCalledWith('bandejao-v0')
-    expect(caches.delete).not.toHaveBeenCalledWith('bandejao-v1')
+    expect(caches.delete).toHaveBeenCalledWith('bandejao-antigo')
+    expect(caches.delete).not.toHaveBeenCalledWith(atual)
+    expect(self.clients.claim).toHaveBeenCalled()
+  })
+
+  it('tudo o que a instalação guarda existe no build (um 404 faria o addAll falhar inteiro)', async () => {
+    const { cache } = carregarServiceWorker()
+    let espera
+    ouvintes.install({ waitUntil: (p) => (espera = p) })
+    await espera
+    // "/" e "/index.html" são o index.html da raiz; o resto vem de public/.
+    const noBuild = (caminho) =>
+      ['/', '/index.html'].includes(caminho) ? arquivo('index.html') : arquivo(`public${caminho}`)
+
+    const essenciais = cache.addAll.mock.calls[0][0]
+    expect(essenciais.filter((caminho) => !existsSync(noBuild(caminho)))).toEqual([])
   })
 
   it('a API (/api/) nunca passa pelo service worker', async () => {
@@ -99,7 +123,8 @@ describe('sw.js', () => {
   it('pedidos que não são GET e de outra origem também não', async () => {
     carregarServiceWorker()
 
-    expect(await pedir('/api/avaliacoes/', { metodo: 'POST' })).toBeNull()
+    // Fora da API, para o teste não passar só pela regra do /api/.
+    expect(await pedir('/ranking/1', { metodo: 'POST' })).toBeNull()
     expect(await pedir('/css2', { origem: 'https://fonts.googleapis.com' })).toBeNull()
   })
 
@@ -112,6 +137,17 @@ describe('sw.js', () => {
     await vi.waitFor(() =>
       expect(guardados.get(`${ORIGEM}/assets/index-abc.js`)).toEqual({ corpo: 'da-rede' }),
     )
+  })
+
+  it('resposta de erro da rede (404, 500) não vai para o cache', async () => {
+    carregarServiceWorker()
+    fetchSimulado.mockResolvedValue({ ok: false, status: 500, clone: () => ({ corpo: '500' }) })
+
+    const resposta = await pedir('/assets/quebrado.js')
+    await Promise.resolve()
+
+    expect(resposta.status).toBe(500)
+    expect(guardados.has(`${ORIGEM}/assets/quebrado.js`)).toBe(false)
   })
 
   it('sem rede: um arquivo já guardado sai do cache', async () => {
