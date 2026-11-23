@@ -64,6 +64,11 @@ jobs:
           MYSQL_ROOT_PASSWORD: senha-ci-descartavel
           MYSQL_ROOT_HOST: "%"
           MYSQL_DATABASE: bandejao_ci
+          # Como na VM (docker-compose.yml): a imagem cria o usuário da
+          # aplicação com acesso total ao banco, e o db/init/10-usuarios.sh
+          # reduz os privilégios (#209).
+          MYSQL_USER: app_ci
+          MYSQL_PASSWORD: senha-app-ci-descartavel
         ports:
           - 3306:3306
         options: >-
@@ -77,8 +82,12 @@ jobs:
       DJANGO_ALLOWED_HOSTS: localhost
       DB_ENGINE: mysql
       DB_NAME: bandejao_ci
-      DB_USER: root
-      DB_PASSWORD: senha-ci-descartavel
+      # O usuário restrito, e não o root: uma migration que precise de um
+      # privilégio fora da lista do 10-usuarios.sh falha aqui, e não só no
+      # deploy (#209).
+      DB_USER: app_ci
+      DB_PASSWORD: senha-app-ci-descartavel
+      MYSQL_ROOT_PASSWORD: senha-ci-descartavel
       DB_HOST: 127.0.0.1
       DB_PORT: "3306"
       # Sem DEBUG, o settings exige o endereço do PWA, o SMTP e o remetente
@@ -108,6 +117,56 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y default-libmysqlclient-dev build-essential pkg-config
+
+      # O mesmo script da primeira subida da VM, rodado dentro do container do
+      # serviço (ele usa o cliente mysql pelo socket, como na imagem). O
+      # MYSQL_DATABASE, o MYSQL_USER e a senha de root já estão no ambiente
+      # do container; o usuário da equipe só existe aqui.
+      - name: Criar os usuários como em produção (db/init/10-usuarios.sh)
+        run: |
+          docker cp ../db/init/10-usuarios.sh "${{ job.services.mysql.id }}":/tmp/10-usuarios.sh
+          docker exec \
+            -e DB_EQUIPE_USER=equipe_ci \
+            -e DB_EQUIPE_PASSWORD=senha-equipe-ci-descartavel \
+            "${{ job.services.mysql.id }}" sh /tmp/10-usuarios.sh
+
+      # O passo obrigatório do guia de deploy, aqui também: o usuário da
+      # aplicação não pode ter ALL PRIVILEGES nem privilégio global.
+      - name: Conferir as permissões do usuário da aplicação (SHOW GRANTS)
+        env:
+          MYSQL_PWD: ${{ env.MYSQL_ROOT_PASSWORD }}
+        run: |
+          permissoes=$(mysql -h "$DB_HOST" -P "$DB_PORT" -uroot -N \
+            -e "SHOW GRANTS FOR '$DB_USER'@'%'")
+          echo "$permissoes"
+          if echo "$permissoes" | grep -q "ALL PRIVILEGES"; then
+            echo "::error::$DB_USER com ALL PRIVILEGES: o 10-usuarios.sh não reduziu os privilégios."
+            exit 1
+          fi
+          if echo "$permissoes" | grep -v "GRANT USAGE" | grep -q " ON \*\.\* "; then
+            echo "::error::$DB_USER com privilégio global (ON *.*)."
+            exit 1
+          fi
+          echo "$permissoes" | grep -q "ON \`$DB_NAME\`" \
+            || { echo "::error::$DB_USER sem privilégio no $DB_NAME."; exit 1; }
+
+      # O pytest-django cria o banco test_<DB_NAME>. Ele recebe exatamente os
+      # privilégios que o script deu ao banco da aplicação, copiados do SHOW
+      # GRANTS, e não uma lista própria, que poderia ser maior que a de
+      # produção. Só no CI: na VM não existe banco de teste.
+      - name: Dar ao banco de teste os mesmos privilégios (test_${{ env.DB_NAME }})
+        env:
+          MYSQL_PWD: ${{ env.MYSQL_ROOT_PASSWORD }}
+        run: |
+          linha=$(mysql -h "$DB_HOST" -P "$DB_PORT" -uroot -N \
+            -e "SHOW GRANTS FOR '$DB_USER'@'%'" | grep "ON \`$DB_NAME\`")
+          privilegios=$(echo "$linha" | sed -E 's/^GRANT (.*) ON .*/\1/')
+          echo "Privilégios copiados: $privilegios"
+          # O "_" é curinga no nome do banco do GRANT: escapado, vale só o
+          # test_<DB_NAME>.
+          banco_de_teste=$(echo "test_$DB_NAME" | sed 's/_/\\_/g')
+          mysql -h "$DB_HOST" -P "$DB_PORT" -uroot \
+            -e "GRANT $privilegios ON \`$banco_de_teste\`.* TO '$DB_USER'@'%'"
 
       - name: Instalar dependências Python
         run: python -m pip install -r requirements-ci-mysql.txt
