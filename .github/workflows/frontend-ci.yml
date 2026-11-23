@@ -74,3 +74,87 @@ jobs:
       # Lê só o package-lock.json: não precisa do npm ci.
       - run: npm audit --audit-level=high
       - run: pipx run --spec semgrep==1.184.0 semgrep scan --config p/javascript --severity ERROR --error --metrics=off
+
+  # Mutação incremental (FE-17, ADR 0013, decisão 6): só os arquivos críticos
+  # alterados no PR, falhando abaixo de 50% (o `break` do stryker.config.mjs).
+  # A base inteira roda toda semana (frontend-mutacao-semanal.yml).
+  #
+  # Sem filtro `paths:` no `on:`: um check obrigatório que não roda fica
+  # "pendente" e trava o merge. A escolha dos arquivos fica dentro do job, e
+  # um PR que não toca em arquivo crítico nem na configuração da mutação
+  # termina verde sem rodar o Stryker ("bloqueia o merge: sim, quando roda",
+  # Plano de Testes 5.2).
+  #
+  # Só nos PRs: no push não há base para comparar. O PR de release
+  # (develop -> main) pula o job, como no backend: o diff dele é o da release
+  # inteira, e a rodada semanal já mede a base.
+  mutacao:
+    name: mutacao (front)
+    if: >-
+      github.event_name == 'pull_request'
+      && (github.base_ref == 'develop' || github.head_ref != 'develop')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Um push novo no PR cancela a rodada anterior, que já ficou velha.
+    concurrency:
+      group: mutacao-front-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: frontend
+        # Com `shell: bash` explícito, o GitHub roda com `-eo pipefail`.
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # O git diff com a base precisa do histórico.
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # O script só usa a biblioteca padrão do Node e roda antes do npm ci:
+      # sem alvo, o job acaba aqui.
+      - name: Arquivos críticos alterados
+        id: alvo
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          node scripts/mutacao.mjs alvos "$BASE" > alvos.txt
+          if [ -s alvos.txt ]; then
+            echo "Arquivos a mutar:"
+            cat alvos.txt
+            echo "mutate=$(paste -sd, alvos.txt)" >> "$GITHUB_OUTPUT"
+            echo "rodar=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nenhum arquivo crítico nem da configuração da mutação alterado: nada a testar."
+            echo "Mutação (front): nenhum arquivo crítico nem da configuração da mutação alterado, nada a testar." >> "$GITHUB_STEP_SUMMARY"
+            echo "rodar=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.alvo.outputs.rodar == 'true'
+        run: npm ci
+
+      # Sem o reporter `progress`: no log do CI ele só repete a barra.
+      - name: Rodar o Stryker nos arquivos alterados
+        if: steps.alvo.outputs.rodar == 'true'
+        env:
+          MUTATE: ${{ steps.alvo.outputs.mutate }}
+        run: npx stryker run --mutate "$MUTATE" --reporters clear-text,html,json
+
+      # Escore do conjunto no resumo do run, mesmo quando o Stryker reprovou.
+      - name: Escore de mutação (mínimo 50%)
+        if: ${{ !cancelled() && steps.alvo.outputs.rodar == 'true' && hashFiles('frontend/reports/mutation/mutation.json') != '' }}
+        run: |
+          echo "### Mutação (front)" >> "$GITHUB_STEP_SUMMARY"
+          node scripts/mutacao.mjs escore reports/mutation/mutation.json --minimo 50 | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar o relatório
+        if: ${{ !cancelled() && steps.alvo.outputs.rodar == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutacao-front
+          path: frontend/reports/mutation/
+          if-no-files-found: warn
