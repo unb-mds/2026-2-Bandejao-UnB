@@ -217,3 +217,44 @@ describe('SeletorCampus compacto', () => {
     expect(usePreferenciasStore().campusId).toBe(1)
   })
 })
+
+/** Casos da segunda revisão do PR #242. */
+describe('SeletorCampus compacto: lista vazia e erro', () => {
+  async function montarCompactoSemEsperar() {
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push('/campus')
+    const wrapper = mount(SeletorCampus, {
+      props: { compacto: true, selecionado: null },
+      global: { plugins: [pinia, router] },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    return wrapper
+  }
+
+  it('lista vazia: "Nenhum campus disponível no momento.", não "Carregando campi…"', async () => {
+    campiComo(() => Promise.resolve([]))
+
+    const wrapper = await montarCompactoSemEsperar()
+
+    expect(wrapper.text()).toContain('Nenhum campus disponível no momento.')
+    expect(wrapper.text()).not.toContain('Carregando campi…')
+  })
+
+  it('erro: mostra a mensagem da API, e "Tentar novamente" busca de novo', async () => {
+    const get = campiComo(semConexao)
+
+    const wrapper = await montarCompactoSemEsperar()
+
+    expect(wrapper.text()).toContain('Não foi possível carregar os campi.')
+    expect(wrapper.text()).toContain('Sem internet.')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === 'Tentar novamente')
+      .trigger('click')
+    await flushPromises()
+
+    expect(pedidosDeCampi(get)).toHaveLength(2)
+    expect(wrapper.findAll('[data-teste="seletor-campus-opcao"]')).toHaveLength(5)
+  })
+})

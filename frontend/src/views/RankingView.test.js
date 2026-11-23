@@ -198,10 +198,11 @@ describe('RankingView — rotas e falhas', () => {
       }
       return getOriginal(caminho, opcoes)
     })
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'error')
     const { wrapper } = await montarEm('/ranking/1')
     const estado = wrapper.get('[data-teste="ranking-estado"]')
     expect(estado.text()).toContain('Sem internet.')
+    expect(log).not.toHaveBeenCalled()
 
     falhar = false
     await estado.get('[data-teste="ranking-tentar-de-novo"]').trigger('click')
@@ -301,7 +302,7 @@ describe('RankingView — falha com o ranking já na tela', () => {
     vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
       new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }),
     )
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'error')
     const { useGamificacaoStore } = await import('@/stores/gamificacao')
 
     await useGamificacaoStore().carregarRanking(1, { forcar: true })
@@ -310,6 +311,109 @@ describe('RankingView — falha com o ranking já na tela', () => {
     expect(linhas(wrapper)).toHaveLength(quantas)
     const aviso = wrapper.get('[data-teste="ranking-aviso"]')
     expect(aviso.text()).toContain('Não foi possível atualizar o ranking.')
-    expect(aviso.find('[data-teste="ranking-tentar-de-novo"]').exists()).toBe(true)
+    expect(log).not.toHaveBeenCalled()
+
+    // "Tentar de novo": o aviso some e a lista é a nova.
+    const getOriginal = apiClient.get.bind(apiClient)
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
+      caminho === '/ranking/1/'
+        ? Promise.resolve({
+            campusId: 1,
+            semestre: '2026.2',
+            linhas: [{ posicao: 1, apelido: 'recem_chegada', patente: 'VETERANO' }],
+          })
+        : getOriginal(caminho, opcoes),
+    )
+    await aviso.get('[data-teste="ranking-tentar-de-novo"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-teste="ranking-aviso"]').exists()).toBe(false)
+    expect(linhas(wrapper)).toHaveLength(1)
+    expect(linhas(wrapper)[0].text()).toContain('recem_chegada')
+  })
+})
+
+/** Casos da segunda revisão do PR #242. */
+describe('RankingView — patente pelo nome', () => {
+  it('RATO_DE_RU aparece como "Rato de RU", não pelo valor da API', async () => {
+    const getOriginal = apiClient.get.bind(apiClient)
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
+      caminho === '/ranking/1/'
+        ? Promise.resolve({
+            campusId: 1,
+            semestre: '2026.2',
+            linhas: [{ posicao: 1, apelido: 'ana', patente: 'RATO_DE_RU' }],
+          })
+        : getOriginal(caminho, opcoes),
+    )
+    const { wrapper } = await montarEm('/ranking/1')
+
+    expect(linhas(wrapper)[0].get('[data-teste="linha-patente"]').text()).toBe('Rato de RU')
+  })
+})
+
+describe('RankingView — atualizando sem piscar', () => {
+  it.each(['carregando', 'desatualizado'])(
+    'com o ranking na tela e a situação "%s", a lista continua',
+    async (situacao) => {
+      const { wrapper } = await montarEm('/ranking/1')
+      const quantas = linhas(wrapper).length
+      const { useGamificacaoStore } = await import('@/stores/gamificacao')
+      const gamificacao = useGamificacaoStore()
+      // A busca nova nunca termina: o que importa é a tela enquanto isso.
+      vi.spyOn(apiClient, 'get').mockImplementation(() => new Promise(() => {}))
+
+      gamificacao.rankings[1] = { ...gamificacao.rankings[1], situacao }
+      await flushPromises()
+
+      expect(linhas(wrapper)).toHaveLength(quantas)
+      expect(wrapper.text()).not.toContain('Carregando ranking…')
+    },
+  )
+})
+
+describe('RankingView — depois do logout ou de um 401 (limpar)', () => {
+  it('a tela busca o ranking de novo, sem ficar presa em "Carregando ranking…"', async () => {
+    const { wrapper } = await montarEm('/ranking/1')
+    const { useGamificacaoStore } = await import('@/stores/gamificacao')
+    const get = vi.spyOn(apiClient, 'get')
+
+    useGamificacaoStore().limpar()
+    await flushPromises()
+
+    expect(get).toHaveBeenCalledWith('/ranking/1/')
+    expect(linhas(wrapper).length).toBeGreaterThan(0)
+    expect(wrapper.text()).not.toContain('Carregando ranking…')
+  })
+
+  it('invalidarRanking: a tela busca de novo, mantendo a lista enquanto isso', async () => {
+    const { wrapper } = await montarEm('/ranking/1')
+    const { useGamificacaoStore } = await import('@/stores/gamificacao')
+    const get = vi.spyOn(apiClient, 'get')
+
+    useGamificacaoStore().invalidarRanking(1)
+    await flushPromises()
+
+    expect(get).toHaveBeenCalledWith('/ranking/1/')
+    expect(linhas(wrapper).length).toBeGreaterThan(0)
+  })
+})
+
+describe('RankingView — escolha a partir de /ranking', () => {
+  it('sem campus lembrado: escolher um campus leva a /ranking/N, sem lembrar o campus', async () => {
+    const { wrapper, router } = await montarEm('/ranking')
+    await vi.waitFor(() =>
+      expect(wrapper.findAll('[data-teste="seletor-campus-opcao"]')).toHaveLength(5),
+    )
+
+    await wrapper
+      .findAll('[data-teste="seletor-campus-opcao"]')
+      .find((b) => b.text() === 'Gama')
+      .trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.fullPath).toBe('/ranking/3')
+    expect(linhas(wrapper).length).toBeGreaterThan(0)
+    expect(usePreferenciasStore().campusId).toBeNull()
   })
 })

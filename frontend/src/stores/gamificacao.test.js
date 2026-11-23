@@ -697,7 +697,7 @@ describe('gamificacaoStore: ranking para a RankingView (FE-13)', () => {
     vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
       new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }),
     )
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'error')
     const gamificacao = useGamificacaoStore()
 
     await gamificacao.carregarRanking(1)
@@ -706,6 +706,8 @@ describe('gamificacaoStore: ranking para a RankingView (FE-13)', () => {
 
     expect(gamificacao.situacaoDoRanking(1)).toBe('erro')
     expect(gamificacao.erroDoRanking(1)).toBe('Sem internet.')
+    // Sem rede não é erro do app: nada no console.
+    expect(log).not.toHaveBeenCalled()
   })
 
   it('resposta sem a lista de linhas: "erro" e registro no console', async () => {
@@ -726,11 +728,13 @@ describe('gamificacaoStore: ranking para a RankingView (FE-13)', () => {
     await gamificacao.carregarRanking(1)
     const antes = gamificacao.rankingDoCampus(1)
     vi.spyOn(apiClient, 'get').mockRejectedValueOnce(new ApiError(503, {}))
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'error')
 
     await gamificacao.carregarRanking(1, { forcar: true })
 
     expect(gamificacao.rankingDoCampus(1)).toEqual(antes)
+    // 5xx não é erro do app: nada no console.
+    expect(log).not.toHaveBeenCalled()
   })
 })
 
