@@ -203,14 +203,33 @@ describe('HomeView: cartão "Cardápio de hoje" pelo GET /api/cardapio/ (#251)',
     expect(cartao.find('.hoje-nota').exists()).toBe(false)
   })
 
-  it('a nota do cartão vem do resumo do dia (GET /api/avaliacoes/resumo/)', async () => {
-    trocarGet('/avaliacoes/resumo/?campus=1&data=', () =>
-      Promise.resolve([{ refeicaoId: 7, tipo: 'almoco', media: 4.4, quantidade: 5 }]),
+  it('a nota do cartão é a da refeição de hoje no resumo do dia (GET /api/avaliacoes/resumo/)', async () => {
+    const resumo = trocarGet('/avaliacoes/resumo/?campus=1&data=', () =>
+      Promise.resolve([
+        { refeicaoId: 6, tipo: 'cafe', media: 2.1, quantidade: 3 },
+        { refeicaoId: 7, tipo: 'almoco', media: 4.4, quantidade: 5 },
+      ]),
     )
 
     const wrapper = await montarHome(1)
 
+    // O dia do pedido é exatamente hoje, e a nota é a do almoço (a refeição do cartão).
+    expect(resumo.mock.calls.map(([caminho]) => caminho)).toContain(
+      '/avaliacoes/resumo/?campus=1&data=2026-10-04',
+    )
     await vi.waitFor(() => expect(wrapper.get('.hoje-nota span').text()).toBe('4,4'))
+  })
+
+  it('com nota no resumo, mas sem serviço hoje: o cartão não mostra nota', async () => {
+    trocarGet('/avaliacoes/resumo/?campus=3&data=', () =>
+      Promise.resolve([{ refeicaoId: 7, tipo: 'almoco', media: 4.4, quantidade: 5 }]),
+    )
+
+    // Gama não serve no domingo.
+    const wrapper = await montarHome(3)
+
+    expect(wrapper.get('.cartao-hoje').text()).toContain('Não há refeições servidas hoje')
+    expect(wrapper.find('.hoje-nota').exists()).toBe(false)
   })
 })
 
