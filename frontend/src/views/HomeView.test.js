@@ -151,6 +151,23 @@ describe('HomeView: cartão "Cardápio de hoje" pelo GET /api/cardapio/ (#251)',
     expect(cartao.text()).not.toContain('Cardápio ainda não publicado.')
   })
 
+  it('refeição de hoje publicada, mas sem pratos: diz que os pratos não foram cadastrados', async () => {
+    trocarGet('/cardapio/', () =>
+      Promise.resolve(
+        cardapioDaApi({
+          categorias: [{ nome: 'Prato principal', semOpcaoCompativel: false, pratos: [] }],
+        }),
+      ),
+    )
+
+    const wrapper = await montarHome(1)
+    const cartao = wrapper.get('.cartao-hoje')
+
+    expect(cartao.text()).toContain('Almoço')
+    expect(cartao.text()).toContain('Os pratos desta refeição ainda não foram cadastrados.')
+    expect(cartao.text()).not.toContain('Não há refeições servidas hoje neste campus.')
+  })
+
   it('erro da API: mostra a mensagem do pedido da refeição', async () => {
     trocarGet('/cardapio/', () =>
       Promise.reject(new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' })),
