@@ -56,3 +56,22 @@ def test_mysql_real_usa_charset_e_isolamento_esperados():
     assert charset_conexao == "utf8mb4"
     assert collation_banco == "utf8mb4_0900_ai_ci"
     assert isolamento == "READ-COMMITTED"
+
+
+@pytest.mark.django_db
+def test_job_mysql_roda_com_o_usuario_restrito():
+    """#209: o job testes-mysql usa o usuário que o db/init/10-usuarios.sh
+    cria em produção, e não o root. Uma migration que precise de um
+    privilégio fora da lista falha no CI, e não só no deploy."""
+    if os.environ.get("DB_ENGINE") != "mysql" or connection.vendor != "mysql":
+        pytest.skip("Verificação específica do job MySQL.")
+
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT CURRENT_USER()")
+        (usuario,) = cursor.fetchone()
+        cursor.execute("SHOW GRANTS")
+        permissoes = [linha[0] for linha in cursor.fetchall()]
+
+    assert not usuario.startswith("root@"), usuario
+    assert not any("ALL PRIVILEGES" in p for p in permissoes), permissoes
+    assert not any(" ON *.* " in p and "USAGE" not in p for p in permissoes), permissoes
