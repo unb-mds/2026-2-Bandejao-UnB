@@ -4,12 +4,14 @@
 #
 # Formato do /etc/cron.d: minuto, hora, dia, mês, dia da semana, usuário e
 # comando. O horário está em UTC, o fuso da VM; Brasília é UTC-3. O backup
-# roda às 03h45 de Brasília, depois da retenção da fila (03h30, BD-07), para
-# a cópia já sair sem os vínculos de mais de 4 semanas. O log fica junto dos
-# do cron e é girado pelo mesmo logrotate. O cron descarta o stderr; as
-# falhas vão para o syslog (journalctl -t bandejao-backup).
+# roda às 03h45 de Brasília, depois da retenção da fila (03h30, BD-11, pelo
+# cron do BD-07): normalmente a cópia já sai sem os vínculos de mais de 4
+# semanas, desde que o desvincular_registros_fila termine em menos de 15 min.
+# A linha não tem redireção, como as do BD-07: o script grava o próprio log em
+# /var/log/bandejao/backup-banco.log (girado pelo mesmo logrotate) e manda as
+# falhas para o syslog (journalctl -t bandejao-backup).
 
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-45 6 * * * azureuser sh /home/azureuser/2026-2-Bandejao-UnB/deploy/backup/backup-banco.sh >> /var/log/bandejao/backup-banco.log 2>&1
+45 6 * * * azureuser sh /home/azureuser/2026-2-Bandejao-UnB/deploy/backup/backup-banco.sh

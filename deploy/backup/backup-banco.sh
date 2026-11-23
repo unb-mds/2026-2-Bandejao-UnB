@@ -8,35 +8,60 @@
 #   container `db`, comprime e guarda em $BANDEJAO_BACKUPS (padrão:
 #   /var/backups/bandejao), com permissão 600 numa pasta 700: o mesmo acesso
 #   restrito do banco (ADR 0008). A senha do root fica só dentro do container
-#   (`$MYSQL_ROOT_PASSWORD` do .env.db); não passa por este script.
+#   (`$MYSQL_ROOT_PASSWORD` do .env.db) e vai ao mysqldump pelo ambiente
+#   (`MYSQL_PWD`), nunca como argumento: não aparece no `ps`.
 # - O arquivo só ganha o nome final depois de conferido: o gzip íntegro e a
 #   última linha do dump (`-- Dump completed`). Um dump pela metade nunca vira
 #   backup.
 # - Guarda 7 dias (Anexo A, $BANDEJAO_RETENCAO_DIAS): o que tem mais que isso
 #   é apagado, para que os dados de uma conta excluída também saiam dos
 #   backups (RNF07.4). A rotação roda antes do dump e mesmo que o dump
-#   falhe: o prazo vale mais que a quantidade de cópias.
-# - Erros vão para o syslog, com a tag bandejao-backup (journalctl -t
-#   bandejao-backup): a VM não manda e-mail.
+#   falhe: o prazo vale mais que a quantidade de cópias. Por isso, quando uma
+#   falha deixa a pasta sem cópia, ou com a mais nova com mais de 26 h, o
+#   script avisa no syslog com prioridade user.crit.
+# - O script grava o próprio log em $BANDEJAO_LOGS/backup-banco.log (padrão:
+#   /var/log/bandejao) e testa a escrita antes, como o rodar-comando.sh do
+#   BD-07: a linha do cron não tem redireção, para o cron não parar em
+#   silêncio se o log não for gravável. Erros e o resumo de cada execução
+#   também vão para o syslog, com a tag bandejao-backup
+#   (journalctl -t bandejao-backup): a VM não manda e-mail.
+# - O dump roda com `timeout` dentro do container, para o mysqldump morrer
+#   junto (o do cliente, no host, é um pouco maior). Status 124 é tempo
+#   esgotado; 137, processo morto com KILL.
 #
-# Status: 0 (ok), 1 (falha), 2 (uso ou configuração inválida), 75 (já tem um
-# backup rodando).
+# Status: 0 (ok), 1 (falha), 2 (uso ou configuração inválida), 73 (sem escrita
+# no log ou na trava), 75 (já tem um backup rodando), 130 (interrompido).
 
 set -u
 
 TAG=bandejao-backup
 
-falha() {
-    echo "$1" >&2
-    logger -t "$TAG" -p user.err -- "$1" 2>/dev/null || true
-}
+# O descritor 3 guarda o stderr original: depois que o script passa a gravar
+# no log, é por ele que quem roda à mão (e o cron) ainda vê os erros.
+exec 3>&2
+logando=0
 
 agora() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
 
+# Erro: no log (se já estiver aberto), no terminal/stderr e no syslog.
+falha() {
+    if [ "$logando" -eq 1 ]; then echo "[$(agora)] $1"; fi
+    echo "$1" >&3
+    logger -t "$TAG" -p user.err -- "$1" 2>/dev/null || true
+}
+
+aviso() {
+    if [ "$logando" -eq 1 ]; then echo "[$(agora)] aviso: $1"; fi
+    logger -t "$TAG" -p "${2:-user.warning}" -- "$1" 2>/dev/null || true
+}
+
 backups=${BANDEJAO_BACKUPS:-/var/backups/bandejao}
+logs=${BANDEJAO_LOGS:-/var/log/bandejao}
 retencao=${BANDEJAO_RETENCAO_DIAS:-7}
 banco=${BANDEJAO_BANCO:-bandejao}
 limite=${BANDEJAO_TEMPO_LIMITE:-30m}
+limite_cliente=${BANDEJAO_TEMPO_LIMITE_CLIENTE:-35m}
+log=$logs/backup-banco.log
 
 case $retencao in
     '' | *[!0-9]* | 0)
@@ -69,17 +94,60 @@ if [ ! -w "$backups" ]; then
 fi
 chmod 700 "$backups" 2>/dev/null || true
 
+if ! mkdir -p "$logs" 2>/dev/null; then
+    falha "backup: não foi possível criar $logs"
+    exit 1
+fi
+# A escrita do log e da trava é testada antes: se forem de outro usuário
+# (alguém rodou o script com sudo), o backup pararia em silêncio. O teste é
+# num subshell, porque uma redireção que falha num builtin especial como o
+# ":" encerraria o próprio script.
+trava=$backups/.trava
+for arquivo in "$log" "$trava"; do
+    if ! (: >>"$arquivo") 2>/dev/null; then
+        falha "backup: sem permissão de escrita em $arquivo (o script rodou com sudo? ver o guia)"
+        exit 73
+    fi
+done
+
+# A partir daqui, tudo o que o script escreve vai para o log.
+exec >>"$log" 2>&1
+logando=1
+
+# Interrupção (Ctrl-C, kill): o `sh` (dash) não roda o trap de EXIT sozinho,
+# então o sinal vira um exit, que dispara o trap abaixo.
+trap 'exit 130' INT TERM HUP
+
 # Uma execução por vez.
 if command -v flock >/dev/null 2>&1; then
-    exec 9>>"$backups/.trava"
+    exec 9>>"$trava"
     if ! flock -n 9; then
         echo "[$(agora)] pulado: o backup anterior ainda está rodando"
         logger -t "$TAG" -p user.warning -- "backup pulado: o anterior ainda está rodando" 2>/dev/null || true
         exit 75
     fi
+else
+    aviso "sem flock: rodando sem a trava contra execução dupla"
 fi
 
 echo "[$(agora)] início do backup de $banco"
+
+# Sem cópia, ou com a mais nova velha demais, é o único caso em que o prazo
+# da rotação deixa a pasta sem backup útil: avisa alto.
+conferir_pasta() {
+    total=$(find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' | wc -l | tr -d ' ')
+    if [ "$total" -eq 0 ]; then
+        aviso "SEM NENHUMA CÓPIA em $backups: o backup falhou e a rotação apagou o resto" user.crit
+    elif [ -z "$(find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' -mmin -1560 | head -n 1)" ]; then
+        aviso "a cópia mais nova de $backups tem mais de 26 h: o backup de hoje falhou" user.crit
+    fi
+}
+
+abortar() {
+    falha "$1"
+    conferir_pasta
+    exit 1
+}
 
 # --- rotação: o prazo vale mesmo que o dump de hoje falhe -------------------
 # Minutos, e não dias do find: com -mtime +6 uma cópia de 6 dias e 23 h ainda
@@ -87,8 +155,7 @@ echo "[$(agora)] início do backup de $banco"
 # horário do cron.
 minutos=$((retencao * 24 * 60 - 120))
 if ! find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' -mmin +"$minutos" -delete; then
-    falha "backup: erro ao apagar as cópias com mais de $retencao dias em $backups"
-    exit 1
+    abortar "backup: erro ao apagar as cópias com mais de $retencao dias em $backups"
 fi
 # Sobra de um backup interrompido (tmp com mais de 1 dia).
 find "$backups" -maxdepth 1 -type f -name '.bandejao-*.tmp*' -mmin +1440 -delete 2>/dev/null || true
@@ -104,44 +171,64 @@ limpar() { rm -f "$bruto" "$gz" "$erros"; }
 trap limpar EXIT
 
 if ! cd "$pasta"; then
-    falha "backup: não foi possível entrar em $pasta"
-    exit 1
+    abortar "backup: não foi possível entrar em $pasta"
 fi
 
-# A senha vem do ambiente do container; o nome do banco entra como argumento.
-# A entrada é fechada (</dev/null): num terminal, o `docker compose exec -T`
-# dentro do `timeout` ficava esperando o teclado e o backup travava em
-# silêncio. No cron não há terminal, mas o comportamento tem que ser o mesmo.
-timeout --kill-after=60 "$limite" \
-    docker compose exec -T db sh -c \
-    'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers --default-character-set=utf8mb4 --no-tablespaces "$1"' \
+# A cópia anterior, para comparar o tamanho depois.
+anterior=$(ls -1t "$backups"/bandejao-*.sql.gz 2>/dev/null | head -n 1)
+
+# A senha vem do ambiente do container (MYSQL_PWD, e não -p, para não aparecer
+# na lista de processos); o nome do banco entra como argumento. O `timeout`
+# de dentro do container mata o mysqldump; o do cliente, no host, é um pouco
+# maior e só evita que um `docker compose exec` travado segure a trava para
+# sempre. A entrada é fechada (</dev/null): num terminal, o `docker compose
+# exec -T` ficava esperando o teclado e o backup travava em silêncio.
+# O `--foreground` mantém o `timeout` no grupo do terminal: sem ele, um Ctrl-C
+# não chegaria ao dump e o script só reagiria quando ele terminasse.
+timeout --foreground --kill-after=60 "$limite_cliente" \
+    docker compose exec -T db \
+    timeout --kill-after=60 "$limite" sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -uroot --single-transaction --routines --triggers --default-character-set=utf8mb4 --no-tablespaces "$1"' \
     sh "$banco" </dev/null >"$bruto" 2>"$erros"
 status=$?
 if [ "$status" -ne 0 ]; then
-    # Só as primeiras linhas do erro do mysqldump, sem o aviso da senha na
-    # linha de comando: o erro não traz dado do banco.
+    # Só as primeiras linhas do erro do mysqldump: o erro não traz dado do
+    # banco.
     detalhe=$(grep -v 'Using a password' "$erros" 2>/dev/null | head -n 3 | tr '\n' ' ')
-    falha "backup: mysqldump terminou com status $status ${detalhe:+($detalhe)}"
-    exit 1
+    case $status in
+        124) motivo="tempo esgotado ($limite no container, $limite_cliente no cliente)" ;;
+        137) motivo="encerrado à força (KILL): não saiu depois do tempo esgotado, ou faltou memória" ;;
+        127) motivo="comando não encontrado (o container db tem o 'timeout'?)" ;;
+        *) motivo="terminou com status $status" ;;
+    esac
+    abortar "backup: mysqldump $motivo ${detalhe:+($detalhe)}"
 fi
 
 if [ ! -s "$bruto" ] || ! tail -n 1 "$bruto" | grep -q '^-- Dump completed'; then
-    falha "backup: o dump veio incompleto (sem a linha '-- Dump completed'); nada foi guardado"
-    exit 1
+    abortar "backup: o dump veio incompleto (sem a linha '-- Dump completed'); nada foi guardado"
 fi
 
 if ! gzip -c "$bruto" >"$gz" || ! gzip -t "$gz"; then
-    falha "backup: erro ao comprimir o dump; nada foi guardado"
-    exit 1
+    abortar "backup: erro ao comprimir o dump; nada foi guardado"
 fi
 
 chmod 600 "$gz"
 if ! mv "$gz" "$final"; then
-    falha "backup: não foi possível gravar $final"
-    exit 1
+    abortar "backup: não foi possível gravar $final"
+fi
+
+tamanho=$(wc -c <"$final" | tr -d ' ')
+# Banco vazio (um `down -v` seguido de migrate) gera um dump completo e
+# pequeno: o tamanho que despenca é o sinal.
+if [ -n "$anterior" ] && [ -f "$anterior" ]; then
+    antes=$(wc -c <"$anterior" | tr -d ' ')
+    if [ "$antes" -gt 0 ] && [ $((tamanho * 2)) -lt "$antes" ]; then
+        aviso "$(basename -- "$final") tem $tamanho bytes, menos da metade da cópia anterior ($antes): conferir se o banco perdeu dados"
+    fi
 fi
 
 copias=$(find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' | wc -l | tr -d ' ')
-tamanho=$(wc -c <"$final" | tr -d ' ')
-echo "[$(agora)] ok: $(basename -- "$final") ($tamanho bytes); $copias cópia(s) guardada(s), prazo de $retencao dias"
+resumo="ok: $(basename -- "$final") ($tamanho bytes); $copias cópia(s) guardada(s), prazo de $retencao dias"
+echo "[$(agora)] $resumo"
+logger -t "$TAG" -p user.info -- "$resumo" 2>/dev/null || true
 exit 0
