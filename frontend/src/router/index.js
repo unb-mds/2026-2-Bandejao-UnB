@@ -84,6 +84,12 @@ export const routes = [
     redirect: () => telaDoCampusLembrado('campus', '#fila'),
   },
   {
+    path: '/progresso',
+    name: 'progresso',
+    component: () => import('@/views/ProgressoView.vue'),
+    meta: { title: 'Meu progresso' },
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('@/views/LoginView.vue'),

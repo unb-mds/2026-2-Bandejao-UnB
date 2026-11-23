@@ -636,3 +636,39 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação local: SQLite (Python 3.14): `apps/gamificacao` e os testes de contrato, de índices (BD-10) e de CSRF com 260 aprovados e 5 ignorados; `ruff check` e `ruff format --check`. A suíte completa, o `testes-mysql` (com o EXPLAIN do BD-10 no MySQL), `semgrep` e `pip-audit` ficam com o CI.
 - Revisão humana: pendente (revisão de outra frente, DoD 1.4).
 - Situação: aguardando revisão.
+
+## FE-12 — ProgressoView (Meu progresso)
+
+- Issue: [#173](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/173). PR: [#238 — FE-12: ProgressoView (Meu progresso)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/238).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `ProgressoView` nova em `/progresso`, na versão simplificada da issue: patente, pontos totais e "Faltam N pontos para X" com barra, ou "Você chegou à patente máxima";
+  - `RankingAdesaoToggle`: interruptor (`role="switch"`) com o aviso de que o apelido e a patente ficam visíveis para todos no ranking do semestre;
+  - `BotaoSair`, que encerra a sessão e volta para a Início;
+  - visitante vê o `ConviteLogin`, sem redirecionar e sem pedir o progresso;
+  - `gamificacaoStore` com progresso, ranking por campus e adesão: as respostas são validadas contra o OpenAPI, o mesmo pedido sai uma vez só e a mudança de adesão recarrega o progresso e os rankings abertos e limpa os comentários guardados;
+  - `constants/patentes.js` com as 5 patentes e os limiares do Anexo A;
+  - item "Meu progresso" no menu da Início;
+  - progresso, adesão e ranking de exemplo no simulado, com o 501 simulável;
+  - nota no C4.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `7b1944a` (testes) → `acb70f9` (código) → `b48a39d` (docs).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 829 testes passando (95,57% de linhas / 91,24% de ramos) e `npm run build` sem erro; layout conferido em 360 px e 1366 px no DevTools, com as capturas no PR.
+- Dependência: quando o PR foi aberto, a BE-16 (#168) ainda respondia 501, e a tela mostrava "Progresso ainda não disponível", sem erro.
+- Revisão humana: Álvaro Bento revisou o PR #238. Ajustes aplicados, com os testes antes do código (`bc8bb4a` → `e17655d` → `202f402` → `c3637a6`):
+  - com o 204 da adesão, o `participaRanking` muda na hora e o progresso recarrega sem voltar a "carregando", então o interruptor não some; se o recarregamento falhar, o novo estado fica e o progresso é pedido de novo na próxima abertura;
+  - o `limpar()` descarta o pedido de progresso em andamento, os rankings e os pedidos de ranking, e uma resposta que chega depois do logout ou de um pedido mais novo é descartada;
+  - o erro de uma mudança de adesão feita antes de um 401 não passa para a próxima sessão;
+  - o aviso do interruptor fala só do ranking do semestre, e o título virou "Participar do ranking";
+  - se o servidor não confirmar a saída, o `BotaoSair` fica na tela e avisa (`role="alert"`) que o servidor não confirmou;
+  - o `campusId` do ranking é convertido para número;
+  - o `patenteDosPontos` passou para o simulado;
+  - o C4 foi corrigido, e os comentários sugeridos entraram (origem dos limiares, JSDoc da store e notas do simulado);
+  - testes novos de corrida, 401, ranking fora do contrato, 501 do ranking, falha ao sair, falha ao desligar e limiares da barra.
+- Validação após a revisão: `npm run lint:ci` sem achados, `npm run test:ci` com 858 testes passando (95,73% de linhas / 91,45% de ramos) e `npm run build` sem erro.
+- Depois que a BE-16 (#237) entrou na `develop`, o conflito do `AI-USAGE.md` foi resolvido e os textos que a tratavam como futura (cabeçalhos da store e do simulado, nomes de testes, C4 e descrição do PR) foram atualizados: o progresso e a adesão já respondem 200 e 204, e o 501 ficou como defesa; o ranking continua em 501 no backend.
+- Na segunda revisão, Álvaro Bento confirmou os ajustes e deixou uma pendência: o `sair()` da `HomeView` ainda redirecionava sem avisar quando o servidor não confirmava. Em vez de abrir outra issue, a correção entrou neste PR (`669f43a` testes → `ae3c022` código → `2634371` C4): a lógica de sair foi para o composable `useSair`, usado pelo `BotaoSair` e pelo item "Sair da conta" do menu da Início. Na Início, a tela continua onde está, recarrega as avaliações de hoje e mostra o mesmo aviso (`role="alert"`) quando o servidor não confirma. O `BotaoSair` não entrou direto no menu porque o menu fecha ao clicar, e o aviso sumiria junto.
+- Validação após a segunda revisão: `npm run lint:ci` sem achados, `npm run test:ci` com 864 testes passando (96,09% de linhas / 92,22% de ramos) e `npm run build` sem erro.
+- Na terceira revisão, Álvaro Bento pediu três ajustes: resolver o novo conflito do `AI-USAGE.md` (a BE-17, #239, entrou na `develop`), atualizar os textos que ainda diziam que o ranking responde 501 (JSDoc do `estadoDaFalha`, cabeçalho do simulado e descrição do PR; agora as três rotas respondem e o 501 vale só como defesa) e corrigir a formatação do JSDoc do `useSair` apontada pelo Prettier.
+- Situação: ajustes da terceira revisão aplicados; aguardando o merge.
