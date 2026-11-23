@@ -1,0 +1,8 @@
+# Arquivos que rodam ou são lidos dentro dos containers Linux (BD-05): com
+# CRLF, o sh falha na primeira linha. Ficam com LF mesmo num clone no Windows.
+*.sh text eol=lf
+db/** text eol=lf
+Caddyfile text eol=lf
+# Arquivos do cron e do logrotate da VM (BD-07): com CRLF, o \r entra no
+# comando do cron e a tarefa falha.
+deploy/** text eol=lf

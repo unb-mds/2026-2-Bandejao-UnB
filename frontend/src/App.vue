@@ -1,28 +1,68 @@
 <script setup>
-import { RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
+import AvisoLocalizacao from '@/components/AvisoLocalizacao.vue'
+import NavegacaoTopo from '@/components/NavegacaoTopo.vue'
+import PontosAviso from '@/components/PontosAviso.vue'
+
+const ROTAS_SEM_NAVEGACAO = new Set(['boas-vindas'])
+
+const route = useRoute()
+const mostrarNavegacaoTopo = computed(
+  () => Boolean(route.name) && !ROTAS_SEM_NAVEGACAO.has(route.name),
+)
 </script>
 
 <template>
-  <!-- Moldura mobile: o app ocupa a tela toda no celular e fica centralizado no desktop. -->
   <div class="app">
-    <RouterView />
+    <NavegacaoTopo v-if="mostrarNavegacaoTopo" />
+    <div class="area-tela">
+      <RouterView />
+    </div>
+    <!--
+      Global (RF19): camada por cima da tela atual. Abre sozinho na abertura do
+      app ou por abrirAvisoLocalizacao() de qualquer tela. Fica fora da
+      .area-tela porque o <dialog> não participa do layout das telas.
+    -->
+    <AvisoLocalizacao />
+    <!-- Global (RF24.2): o aviso "+N pontos" de qualquer contribuição, em qualquer tela. -->
+    <PontosAviso />
   </div>
 </template>
 
 <style scoped>
 .app {
-  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-width: var(--largura-app);
-  margin: 0 auto;
   overflow: hidden;
   background: var(--bege);
 }
 
-.app > :deep(*) {
+.area-tela {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
+  width: 100%;
+}
+
+.area-tela > :deep(*) {
+  flex: 1;
+  min-height: 0;
+}
+
+@media (min-width: 768px) {
+  .area-tela {
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .area-tela {
+    max-width: var(--largura-conteudo);
+    margin: 0 auto;
+  }
 }
 </style>

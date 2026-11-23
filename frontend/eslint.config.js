@@ -26,8 +26,24 @@ export default defineConfig([
   ...pluginVue.configs['flat/essential'],
 
   {
+    // Os testes ficam ao lado do código (`*.test.js`): o padrão `__tests__/` do
+    // modelo do Vite não pegava nenhum, e as regras do Vitest não rodavam.
     ...pluginVitest.configs.recommended,
-    files: ['src/**/__tests__/*'],
+    files: ['src/**/*.test.js', 'src/**/__tests__/*'],
+    rules: {
+      ...pluginVitest.configs.recommended.rules,
+      // Teste sem asserção passa sem testar nada (Plano de Testes, checklist da IA).
+      'vitest/expect-expect': 'error',
+    },
+  },
+
+  {
+    // SAST do Vue (Plano de Testes 4): `v-html` abre caminho para XSS.
+    name: 'app/seguranca-vue',
+    files: ['**/*.vue'],
+    rules: {
+      'vue/no-v-html': 'error',
+    },
   },
 
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),

@@ -3,7 +3,7 @@ import AppLogo from '@/components/AppLogo.vue'
 </script>
 
 <template>
-  <div class="nao-encontrada">
+  <div class="nao-encontrada fundo-escuro">
     <AppLogo :tamanho="72" />
     <h1 class="titulo-tela titulo">Página não encontrada</h1>
     <p class="texto">O endereço que você abriu não existe no Bandejão.</p>

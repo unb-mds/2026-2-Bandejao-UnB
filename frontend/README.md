@@ -12,26 +12,52 @@ Requer Node `^22.18.0` ou `>=24.12.0`.
 npm install
 npm run dev        # servidor de desenvolvimento
 npm run test:unit  # testes (Vitest)
-npm run lint       # oxlint + eslint
+npm run lint       # oxlint + eslint, corrigindo o que der
 npm run build      # build de produção em dist/
+
+# Os mesmos comandos do CI (frontend-ci.yml), para conferir antes do PR:
+npm run lint:ci    # oxlint + eslint sem corrigir nada; aviso também reprova
+npm run test:ci    # testes com cobertura (relatório em coverage/index.html)
+npm audit --audit-level=high
 ```
 
 ### Backend simulado × API real
 
-Enquanto a API Django não expõe todos os endpoints, o app usa um **backend simulado**
-(`src/services/mock/`) que responde às mesmas rotas e aplica as mesmas regras de negócio do
-MVP. Os dados de demonstração (contas, avaliações) ficam no `localStorage` do navegador.
+Enquanto a API Django não expõe todos os endpoints, o app usa, **só em desenvolvimento e nos
+testes**, um **backend simulado** (`src/services/mock/`). Nas rotas de cadastro, confirmação,
+reenvio e sessão ele segue o contrato OpenAPI v1 (`backend/openapi.yaml`, BE-03): mesmas
+rotas, nomes de campos, status e `codigo`. O build de produção (`npm run build`) não inclui o
+simulado e sempre fala com a API real. Os dados de demonstração (contas, avaliações) ficam no
+`localStorage` do navegador.
 
-- Conta de demonstração: `231034567@aluno.unb.br` / `bandejao123`.
+- Conta de demonstração: e-mail `231034567@aluno.unb.br` / senha `bandejao123`.
 - Onde o sistema real enviaria um e-mail (confirmação de cadastro, redefinição de senha), a
   tela mostra um quadro "Modo demonstração" com o link, para seguir o fluxo inteiro.
 
-Para usar a API real, crie `frontend/.env.local`:
+Para usar a API real em desenvolvimento, suba o Django em `localhost:8000` e crie
+`frontend/.env.local`:
 
 ```sh
 VITE_USE_MOCK=false
-VITE_API_URL=http://localhost:8000/api   # padrão: /api
 ```
+
+O Vite encaminha `/api` para `http://localhost:8000`, então PWA e API ficam na mesma origem
+e o cookie de sessão funciona sem CORS (ADR 0007). Não mude `VITE_API_URL` para outra origem:
+o `apiClient` usa `credentials: 'same-origin'`.
+
+### CI do front
+
+O `.github/workflows/frontend-ci.yml` roda em todo PR, com quatro portas (Plano de Testes 5.2):
+
+| Job | O que reprova |
+|---|---|
+| `lint (front)` | Qualquer erro ou aviso do Oxlint ou do ESLint, incluindo teste sem `expect` (`vitest/expect-expect`) e `v-html` |
+| `testes (front)` | Teste falhando, ou menos de 70% de linhas em algum arquivo crítico (`coverage.thresholds` no `vitest.config.js`) |
+| `build (front)` | Erro no `vite build`, ou o servidor simulado dentro do `dist/` |
+| `seguranca (front)` | Dependência com vulnerabilidade alta ou crítica (`npm audit`) e achado de severidade ERROR no Semgrep |
+
+Arquivo crítico novo (por exemplo, a `filaStore`) entra na lista do `coverage.thresholds` no
+mesmo PR que o cria.
 
 ## O que está implementado (MVP)
 
@@ -79,37 +105,45 @@ src/
 ├── services/
 │   ├── apiClient.js único ponto de contato com a API (C4 nível 3b)
 │   └── mock/        backend simulado (servidor, dados, validações do RF01)
-├── stores/          Pinia: auth (em memória), preferencias (localStorage), cardapio, avaliacoes
+├── stores/          Pinia: auth (sem token), preferencias (localStorage), cardapio, avaliacoes
 ├── utils/           datas e regras de exibição do cardápio (filtros, refeição padrão)
 └── views/           uma view por tela
 ```
 
-Segue o C4 nível 3/4 do frontend: nenhuma view chama a API diretamente, a sessão fica só em
-memória e apenas campus e filtros são persistidos no aparelho.
+Segue o C4 nível 3/4 do frontend: nenhuma view chama a API diretamente, a sessão fica no
+cookie HttpOnly do Django (ADR 0007, nada de token no JavaScript; ao abrir o app, o
+guarda `carregarSessaoAoAbrir` do roteador chama `GET /api/sessao/` uma vez) e apenas campus e filtros
+são persistidos no aparelho. O `apiClient` manda `X-CSRFToken` (lido do cookie `csrftoken`,
+buscado em `GET /api/csrf/` se ainda não existe) em POST, PUT, PATCH e DELETE, limpa o `authStore` quando recebe 401
+(menos no `GET /api/sessao/` da abertura do app e no login, que pedem `avisarSessaoPerdida: false`) e transforma erros em
+`ApiError` com `status`, `codigo` e `mensagem`. Se o `GET /api/sessao/` demora mais de 3 s, o app abre como visitante.
 
-## Contrato da API esperado
+## Contrato da API
 
-Formato que o backend simulado implementa e que a API Django deve seguir. Erros devolvem
-`{ "detail": "mensagem para o usuário", "codigo"?: "..." }`.
+O contrato oficial é o **OpenAPI v1** em `backend/openapi.yaml` (BE-03). Erros vêm como
+`{ "codigo": "snake_case", "mensagem": "texto para o usuário" }`. Rotas que o MVP já usa,
+todas sob `/api`:
 
-| Método e rota | Corpo / parâmetros | Respostas |
+| Método e rota | Corpo | Respostas |
 |---|---|---|
-| `GET /cardapio/{campus}/` | — | `200 { campus, semana: {inicio, fim}, publicado, dias: [{ data, refeicoes: [{ tipo, alergenosIndisponiveis, categorias: [{ rotulo, dieta, pratos: [{ nome, marcadores }] }] }] }] }` |
-| `GET /avaliacoes/?campus&data&refeicao` | — | `200 { media, quantidade, avaliacoes: [{ id, apelido, nota, comentario, criadaEm }], minha }` |
-| `GET /avaliacoes/resumo/?campus` | — | `200 { media, quantidade, dias: [{ data, media, quantidade }] }` |
-| `POST /avaliacoes/` | `{ campus, data, refeicao, nota, comentario }` | `201` nova, `200` editada, `401`, `422 { codigo: fora_do_dia \| antes_do_inicio }` |
-| `POST /cadastro/` | `{ tipo: estudante\|servidor, email, senha, apelido?, siape?, aceitouPrivacidade }` | `201 { email, pendente }`, `409 { codigo: apelido_manual }`, `422` |
-| `POST /confirmar-email/` | `{ token }` | `200`, `410` |
-| `POST /reenviar-confirmacao/` | `{ email }` | `200` (resposta sempre igual) |
-| `POST /login/` | `{ email, senha }` | `200 { token, usuario: { apelido, tipo } }`, `401`, `403 { codigo: email_nao_confirmado }`, `429` |
-| `POST /logout/` | — | `200` |
-| `POST /recuperar-senha/` | `{ email }` | `200` (resposta sempre igual), `429` |
-| `POST /redefinir-senha/` | `{ token, senha }` | `200`, `410`, `422` |
+| `GET /csrf/` | — | `204`, grava o cookie `csrftoken` (o `apiClient` chama sozinho antes da primeira escrita) |
+| `POST /cadastro/` | `{ tipoUsuario: estudante\|professor_servidor, emailInstitucional, senha, apelido?, matriculaSiape?, aceitePrivacidade }` | `201 { emailInstitucional, status: "pendente" }`, `409 { codigo: apelido_indisponivel, apelidoSugerido }`, `422 dados_invalidos`, `429 limite_excedido` (40/h por IP) |
+| `POST /confirmar-email/{token}/` | — | `200`, `410 token_invalido_ou_expirado` |
+| `POST /reenviar-confirmacao/` | `{ emailInstitucional }` ou `{ token }` (com os dois, vale o e-mail; sem conta, o token) | `200` sem corpo (sempre igual; acima de 3 links/h por conta, não manda outro), `422 dados_invalidos`, `429 limite_excedido` (10/h por IP) |
+| `POST /sessao/` (login) | `{ emailInstitucional, senha }` (`@aluno.unb.br` ou `@unb.br`, #201) | `200 { apelido, tipo, avisoPrivacidadePendente }`, `401 credenciais_invalidas`, `403 conta_nao_confirmada`, `422 dados_invalidos`, `429 login_bloqueado` (conta) ou `limite_excedido` (60/h por IP) |
+| `GET /sessao/` (quem sou) | — | `200 { apelido, tipo, avisoPrivacidadePendente }`, `401 nao_autenticado` |
+| `DELETE /sessao/` (logout) | — | `204`, `401 nao_autenticado` |
 
-Valores usados: `campus` ∈ `darcy, ceilandia, gama, planaltina, fal`; `refeicao`/`tipo` ∈
-`cafe, almoco, jantar`; `dieta` ∈ `todas, padrao, ovolacto, vegano`; marcadores ∈ `cogumelo,
-leite, mel, pimenta, soja, trigo, amendoim, oleaginosa, ovo, suino`; datas em `AAAA-MM-DD`.
-O token de sessão vai no cabeçalho `Authorization: Token <token>`.
+Qualquer rota logada sem sessão responde `401 { codigo: "nao_autenticado" }`. Toda escrita,
+com ou sem sessão, sem o `X-CSRFToken` certo responde `403 { codigo: "csrf_invalido" }` (não
+desloga). Erro sem `mensagem` (ex.: o `detail` em inglês do DRF) aparece com uma mensagem em
+português pelo status; as telas mostram erros com `mensagemDeErro(falha)`.
+
+Ainda no formato do MVP no simulado (entram no contrato nas tarefas FE-08, FE-09 e FE-E2):
+`GET /cardapio/{campus}/`, `GET /avaliacoes/?campus&data&refeicao`,
+`GET /avaliacoes/resumo/?campus`, `POST /avaliacoes/`, `POST /recuperar-senha/` e
+`POST /redefinir-senha/`. Valores usados: `campus` ∈ `darcy, ceilandia, gama, planaltina,
+fal`; `refeicao`/`tipo` ∈ `cafe, almoco, jantar`; datas em `AAAA-MM-DD`.
 
 Os links enviados por e-mail devem apontar para `/confirmar-email?token=...` e
 `/redefinir-senha?token=...` no frontend.

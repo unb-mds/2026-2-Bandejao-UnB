@@ -2,16 +2,17 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { CANAL_CONTATO } from '@/constants/contato'
+import { CANAL_CONTATO, EMAIL_CONTATO } from '@/constants/contato'
 import CabecalhoFormulario from '@/components/CabecalhoFormulario.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import CampoSenha from '@/components/CampoSenha.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
+import { mensagemDeErro } from '@/services/apiClient'
 
 /**
  * Cadastro em duas etapas (RF01): primeiro o tipo de usuário, depois os
  * campos daquele tipo. Professor e Servidor seguem o mesmo fluxo e viram o
- * mesmo tipo interno ("servidor"). As regras de formato são conferidas pela
+ * mesmo tipo da API ("professor_servidor"). As regras de formato são conferidas pela
  * API; aqui os campos só são formatados (sem espaços, só dígitos).
  */
 const TIPOS = [
@@ -62,23 +63,28 @@ async function criarConta() {
   enviando.value = true
   erro.value = ''
   try {
+    // Nomes do contrato OpenAPI v1. Campos que não se aplicam ficam de fora:
+    // professor/servidor só manda `apelido` depois de um 409.
     const resposta = await auth.cadastrar({
-      tipo: ehAluno.value ? 'estudante' : 'servidor',
-      email: email.value.trim(),
+      tipoUsuario: ehAluno.value ? 'estudante' : 'professor_servidor',
+      emailInstitucional: email.value.trim(),
       senha: senha.value,
-      apelido: mostrarApelido.value ? apelido.value : '',
-      siape: ehServidor.value ? siape.value : '',
-      aceitouPrivacidade: aceitou.value,
+      ...(mostrarApelido.value ? { apelido: apelido.value } : {}),
+      ...(ehServidor.value ? { matriculaSiape: siape.value } : {}),
+      aceitePrivacidade: aceitou.value,
     })
     router.push({
       name: 'confirmar-email',
-      query: { email: resposta.email },
+      query: { email: resposta.emailInstitucional },
       state: { linkSimulado: resposta.linkSimulado ?? null },
     })
   } catch (falha) {
-    erro.value = falha.message
+    erro.value = mensagemDeErro(falha)
     // Apelido extraído do e-mail indisponível: o formulário ganha o campo de apelido (C4 4b).
-    if (falha.codigo === 'apelido_manual') pedirApelido.value = true
+    if (falha.codigo === 'apelido_indisponivel') {
+      pedirApelido.value = true
+      if (!apelido.value && falha.dados.apelidoSugerido) apelido.value = falha.dados.apelidoSugerido
+    }
   } finally {
     enviando.value = false
   }
@@ -86,7 +92,7 @@ async function criarConta() {
 </script>
 
 <template>
-  <div class="tela">
+  <div class="tela tela-formulario">
     <CabecalhoFormulario
       titulo="Criar conta"
       subtitulo="Comunidade da UnB"
@@ -176,7 +182,8 @@ async function criarConta() {
             <p>
               <strong>Seus direitos (LGPD):</strong> a exclusão da conta pode ser solicitada à
               equipe; suas avaliações permanecem de forma anônima. Contato:
-              <a :href="CANAL_CONTATO" target="_blank" rel="noopener">canal do projeto</a>.
+              <a :href="CANAL_CONTATO">{{ EMAIL_CONTATO }}</a
+              >.
             </p>
           </div>
         </div>
@@ -254,7 +261,7 @@ async function criarConta() {
   border-color: var(--verde-escuro);
 }
 .aceite:has(input:focus-visible) .caixa {
-  outline: 2px solid var(--dourado);
+  outline: 3px solid var(--verde-escuro);
   outline-offset: 2px;
 }
 

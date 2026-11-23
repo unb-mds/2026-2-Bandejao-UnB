@@ -32,3 +32,19 @@ export function horarioRefeicao(tipo, separador = ' – ') {
 export function horaInicio(tipo) {
   return formatarHora(REFEICOES[tipo].inicio)
 }
+
+/** "11:00" → "11h00": o formato das mensagens de check-in do backend. */
+const horaCompleta = (hhmm) => {
+  const [h, m] = hhmm.split(':')
+  return `${Number(h)}h${m}`
+}
+
+/**
+ * Mensagem do check-in fora do horário (RF11), igual à do backend:
+ * "O check-in do almoço só vale das 11h00 às 14h30."
+ */
+export function mensagemForaDoHorario(tipo) {
+  const refeicao = REFEICOES[tipo]
+  if (!refeicao) return 'O check-in só vale no horário da refeição.'
+  return `O check-in do ${refeicao.rotuloCurto} só vale das ${horaCompleta(refeicao.inicio)} às ${horaCompleta(refeicao.fim)}.`
+}

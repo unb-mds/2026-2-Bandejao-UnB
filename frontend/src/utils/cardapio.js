@@ -1,6 +1,6 @@
 import { REFEICOES, ORDEM_REFEICOES } from '@/constants/refeicoes'
-import { LINHAS_VISIVEIS } from '@/constants/dietas'
-import { hojeISO, minutosAgora, minutosDoDia } from './datas'
+import { DIETA_PADRAO } from '@/constants/dietas'
+import { hojeISO, inicioDaSemana, minutosAgora, minutosDoDia, somarDias } from './datas'
 
 /**
  * Refeição exibida por padrão (RF07): a que está em andamento; se nenhuma
@@ -28,29 +28,18 @@ export function selecaoPadrao(dias, agora = new Date()) {
 }
 
 /**
- * Aplica os filtros de dieta (RF09) e de marcadores (RF08) às categorias de
- * uma refeição.
- *
- * - Dieta: oculta as categorias de linhas incompatíveis; categorias comuns
- *   ("todas") continuam visíveis.
- * - Marcadores: pratos que contêm algum marcador selecionado são ocultados.
- *   A categoria continua na lista com `pratos` vazio, para a tela exibir
- *   "sem opção compatível".
+ * Dias das abas do cardápio (RF07.1): de segunda a domingo da semana do
+ * calendário; o domingo pertence à semana da segunda anterior. Coincide com a
+ * semana do PDF no backend (`semana_inicio` + 6 dias). Campi sem refeição no
+ * dia respondem com `semServico` e a tela mostra o estado de sem serviço.
  */
-export function filtrarCategorias(categorias, { dieta = 'todos', marcadores = [] } = {}) {
-  const linhas = LINHAS_VISIVEIS[dieta] ?? LINHAS_VISIVEIS.todos
-  return categorias
-    .filter((categoria) => linhas.includes(categoria.dieta))
-    .map((categoria) => ({
-      ...categoria,
-      pratos: categoria.pratos.filter(
-        (prato) => !prato.marcadores.some((m) => marcadores.includes(m)),
-      ),
-    }))
+export function diasDaSemanaVigente(agora = new Date()) {
+  const segunda = inicioDaSemana(agora)
+  return Array.from({ length: 7 }, (_, i) => somarDias(segunda, i))
 }
 
 export function contarFiltrosAtivos(dieta, marcadores) {
-  return (dieta !== 'todos' ? 1 : 0) + marcadores.length
+  return (dieta !== DIETA_PADRAO ? 1 : 0) + marcadores.length
 }
 
 /**

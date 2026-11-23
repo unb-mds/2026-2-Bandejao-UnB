@@ -1,21 +1,41 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { campusValido } from '@/constants/campi'
+import { idDeCampusValido, idDoCampusAntigo } from '@/constants/campi'
 import { usePreferenciasStore } from '@/stores/preferencias'
+import { useAuthStore } from '@/stores/auth'
 
 /**
  * Rotas nomeadas e com lazy-loading (C4 — Estratégia de roteamento).
  *
  * Fluxo do protótipo: Boas-vindas → (Entrar | Continuar sem login) → Campus
- * → Início → Cardápio / Fila / Avaliações. Na raiz, quem já escolheu o
- * campus cai direto no cardápio (RF05, RNF03); na primeira visita, nas
+ * → tela do campus (cardápio e fila). Na raiz, quem já escolheu o campus cai
+ * direto na tela dele (RN04, RF05, RNF03); na primeira visita, nas
  * boas-vindas. Nenhuma rota exige login: ações restritas mostram um convite
  * ao login dentro da própria tela (RF05, RI06).
  */
+function telaDoCampusLembrado(destinoSemCampus, hash = '') {
+  const campusId = usePreferenciasStore().campusId
+  if (!campusId) return { name: destinoSemCampus, params: {} }
+  return { name: 'campus-tela', params: { campusId: String(campusId) }, hash }
+}
+
+function telaDoCampusDoLinkAntigo(to) {
+  const campusId = idDeCampusValido(to.params.campusId) ?? idDoCampusAntigo(to.params.campusId)
+  if (!campusId) {
+    return {
+      name: 'nao-encontrada',
+      params: { pathMatch: to.path.slice(1).split('/') },
+      query: {},
+      hash: '',
+    }
+  }
+  return { name: 'campus-tela', params: { campusId: String(campusId) } }
+}
+
 export const routes = [
   {
     path: '/',
     name: 'raiz',
-    redirect: () => ({ name: usePreferenciasStore().campusId ? 'cardapio' : 'boas-vindas' }),
+    redirect: () => telaDoCampusLembrado('boas-vindas'),
   },
   {
     path: '/boas-vindas',
@@ -26,8 +46,15 @@ export const routes = [
   {
     path: '/campus',
     name: 'campus',
-    component: () => import('@/views/CampusView.vue'),
+    component: () => import('@/components/SeletorCampus.vue'),
     meta: { title: 'Escolha o campus' },
+  },
+  {
+    path: '/campus/:campusId',
+    name: 'campus-tela',
+    component: () => import('@/views/CampusView.vue'),
+    props: true,
+    meta: { title: 'Cardápio e fila' },
   },
   {
     path: '/inicio',
@@ -38,21 +65,12 @@ export const routes = [
   {
     path: '/cardapio',
     name: 'cardapio',
-    component: () => import('@/views/CardapioView.vue'),
-    meta: { title: 'Cardápio', requerCampus: true },
+    redirect: () => telaDoCampusLembrado('campus'),
   },
   {
-    // Link compartilhável do cardápio de um campus: também passa a ser o campus lembrado.
     path: '/cardapio/:campusId',
     name: 'cardapio-campus',
-    component: () => import('@/views/CardapioView.vue'),
-    meta: { title: 'Cardápio' },
-    beforeEnter: (to) => {
-      if (!campusValido(to.params.campusId)) {
-        return { name: 'nao-encontrada', params: { pathMatch: to.path.slice(1).split('/') } }
-      }
-      usePreferenciasStore().escolherCampus(to.params.campusId)
-    },
+    redirect: telaDoCampusDoLinkAntigo,
   },
   {
     path: '/avaliacoes',
@@ -63,8 +81,13 @@ export const routes = [
   {
     path: '/fila',
     name: 'fila',
-    component: () => import('@/views/FilaView.vue'),
-    meta: { title: 'Fila do RU', requerCampus: true },
+    redirect: () => telaDoCampusLembrado('campus', '#fila'),
+  },
+  {
+    path: '/progresso',
+    name: 'progresso',
+    component: () => import('@/views/ProgressoView.vue'),
+    meta: { title: 'Meu progresso' },
   },
   {
     path: '/login',
@@ -104,6 +127,17 @@ export const routes = [
   },
 ]
 
+/**
+ * Na primeira navegação, pergunta ao servidor se há sessão (GET /api/sessao/):
+ * depois de um F5 quem estava logado continua logado (ADR 0007, FE-03).
+ * Não recusa nenhuma rota (sem sessão, o app abre como visitante, RF05), mas
+ * a primeira tela espera a resposta por no máximo 3 s (`carregarSessao`).
+ */
+export async function carregarSessaoAoAbrir() {
+  const auth = useAuthStore()
+  if (!auth.sessaoCarregada) await auth.carregarSessao()
+}
+
 /** Telas que dependem do campus mandam para a escolha de campus na primeira visita. */
 export function exigirCampus(to) {
   if (to.meta.requerCampus && !usePreferenciasStore().campusId) return { name: 'campus' }
@@ -113,12 +147,17 @@ export function atualizarTitulo(to) {
   document.title = to.meta.title ? `${to.meta.title} · Bandejão` : 'Bandejão'
 }
 
+/** Os guardas do app num lugar só: o `router` abaixo e os testes usam a mesma função. */
+export function instalarGuardas(roteador) {
+  roteador.beforeEach(carregarSessaoAoAbrir)
+  roteador.beforeEach(exigirCampus)
+  roteador.afterEach(atualizarTitulo)
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
-
-router.beforeEach(exigirCampus)
-router.afterEach(atualizarTitulo)
+instalarGuardas(router)
 
 export default router

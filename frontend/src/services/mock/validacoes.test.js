@@ -2,23 +2,25 @@ import { describe, it, expect } from 'vitest'
 import {
   analisarEmailEstudante,
   analisarEmailServidor,
-  codigoSemestreAtual,
   validarApelido,
   validarMatriculaEstudante,
   validarSenha,
   validarSiape,
 } from './validacoes'
 
-// 2º semestre de 2026 → código máximo 262
+// 2026 → os 2 primeiros dígitos vão de 10 (2010) a 26. O 3º dígito não é
+// conferido (ADR 0002, L16), como no backend (BE-05, #122).
 const AGORA = new Date(2026, 8, 28)
 
 describe('matrícula de estudante (RF01)', () => {
-  it('calcula o código do semestre corrente', () => {
-    expect(codigoSemestreAtual(AGORA)).toBe(262)
-    expect(codigoSemestreAtual(new Date(2027, 2, 1))).toBe(271)
-  })
-
-  it.each(['231034567', '101987650', '262503918'])('aceita %s', (matricula) => {
+  it.each([
+    '231034567',
+    '101987650',
+    '262503918',
+    '263034567', // ano 26 (o 3º dígito não importa)
+    '233034567',
+    '230034567',
+  ])('aceita %s', (matricula) => {
     expect(validarMatriculaEstudante(matricula, AGORA)).toBeNull()
   })
 
@@ -27,15 +29,23 @@ describe('matrícula de estudante (RF01)', () => {
     ['2310345678', '10 dígitos'],
     ['23103456a', 'letra'],
     ['093034567', 'antes de 2010'],
-    ['263034567', 'semestre futuro'],
     ['271034567', 'ano futuro'],
-    ['233034567', 'semestre 3'],
-    ['230034567', 'semestre 0'],
     ['231123456', 'sequência crescente'],
     ['231654321', 'sequência decrescente'],
     ['231111111', 'dígitos iguais'],
   ])('rejeita %s (%s)', (matricula) => {
     expect(validarMatriculaEstudante(matricula, AGORA)).not.toBeNull()
+  })
+
+  it('prefixo fora do intervalo usa a mensagem do backend', () => {
+    expect(validarMatriculaEstudante('271034567', AGORA)).toBe(
+      'Os 2 primeiros dígitos da matrícula não correspondem a um ano de ingresso válido.',
+    )
+  })
+
+  it('o ano novo é aceito sozinho a partir de 1º de janeiro', () => {
+    expect(validarMatriculaEstudante('271034567', new Date(2026, 11, 31))).not.toBeNull()
+    expect(validarMatriculaEstudante('271034567', new Date(2027, 0, 1))).toBeNull()
   })
 })
 

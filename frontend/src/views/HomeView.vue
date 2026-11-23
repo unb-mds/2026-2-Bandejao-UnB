@@ -9,6 +9,8 @@ import { REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
 import { CANAL_CONTATO } from '@/constants/contato'
 import { dataPorExtenso, diaCurto, hojeISO } from '@/utils/datas'
 import { formatarNota, refeicaoPadrao, resumoRefeicao } from '@/utils/cardapio'
+import { abrirAvisoLocalizacao } from '@/composables/avisoLocalizacao'
+import { AVISO_SAIR_SEM_CONFIRMACAO, useSair } from '@/composables/sair'
 import AppLogo from '@/components/AppLogo.vue'
 import EstrelasNota from '@/components/EstrelasNota.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
@@ -18,11 +20,14 @@ const router = useRouter()
 const auth = useAuthStore()
 const avaliacoes = useAvaliacoesStore()
 const cardapio = useCardapioStore()
+cardapio.carregarCampi()
 const preferencias = usePreferenciasStore()
 
 const agora = new Date()
 const hoje = hojeISO(agora)
 const menuAberto = ref(false)
+const botaoPerfil = ref(null)
+const { semConfirmacao: saidaSemConfirmacao, sair: sairDaConta } = useSair()
 
 const campusId = computed(() => preferencias.campusId)
 const semana = computed(() => cardapio.semana(campusId.value))
@@ -73,17 +78,29 @@ function abrirCardapioDeHoje() {
   router.push({ name: 'cardapio' })
 }
 
+/**
+ * Ponto fixo do RF19: abre o aviso de novo, o passo a passo se o navegador
+ * bloqueou, a confirmação se já está liberada ou a explicação se não há como
+ * usar a localização. O menu fecha ao abrir, então o foco volta ao botão do
+ * perfil quando o aviso fecha. A CampusView tem o mesmo ponto fixo no
+ * cabeçalho.
+ */
+async function usarLocalizacao() {
+  menuAberto.value = false
+  await abrirAvisoLocalizacao()
+  botaoPerfil.value?.focus()
+}
+
 async function sair() {
   menuAberto.value = false
-  await auth.sair()
-  avaliacoes.limparCache()
-  if (tipoHoje.value) avaliacoes.carregar(alvoHoje.value)
+  const resultado = await sairDaConta()
+  if (resultado !== null && tipoHoje.value) avaliacoes.carregar(alvoHoje.value)
 }
 </script>
 
 <template>
   <div class="tela">
-    <header class="cabecalho cabecalho-inicio">
+    <header class="cabecalho cabecalho-inicio fundo-escuro">
       <svg
         class="deco"
         width="100%"
@@ -113,12 +130,13 @@ async function sair() {
           <AppLogo :tamanho="34" />
           <div>
             <span class="nome">bandejão</span>
-            <p class="campus-atual">{{ preferencias.campus?.nome }}</p>
+            <p class="campus-atual">{{ cardapio.buscarCampus(preferencias.campusId)?.nome }}</p>
           </div>
         </div>
 
         <div class="perfil">
           <button
+            ref="botaoPerfil"
             type="button"
             class="avatar"
             :aria-label="`Perfil de ${auth.apelido}`"
@@ -140,9 +158,15 @@ async function sair() {
                   : 'Sem login'
               }}
             </p>
+            <RouterLink :to="{ name: 'progresso' }" class="menu-item" role="menuitem">
+              <IconeSvg nome="estrela" :tamanho="16" /> Meu progresso
+            </RouterLink>
             <RouterLink :to="{ name: 'campus' }" class="menu-item" role="menuitem">
               <IconeSvg nome="mapa" :tamanho="16" /> Trocar campus
             </RouterLink>
+            <button type="button" class="menu-item" role="menuitem" @click="usarLocalizacao">
+              <IconeSvg nome="local" :tamanho="16" /> Usar minha localização
+            </button>
             <button
               v-if="auth.estaAutenticado"
               type="button"
@@ -164,6 +188,15 @@ async function sair() {
     </header>
 
     <main class="conteudo sem-barra pilha-3 cartoes">
+      <p
+        v-if="saidaSemConfirmacao"
+        class="cartao aviso-sair texto-pequeno"
+        role="alert"
+        data-teste="sair-aviso"
+      >
+        {{ AVISO_SAIR_SEM_CONFIRMACAO }}
+      </p>
+
       <!-- Cardápio de hoje -->
       <button type="button" class="cartao cartao-clicavel cartao-hoje" @click="abrirCardapioDeHoje">
         <div class="hoje-topo">
@@ -267,7 +300,7 @@ async function sair() {
 
       <p class="contato">
         Dúvidas ou reclamações?
-        <a :href="CANAL_CONTATO" target="_blank" rel="noopener">Fale com a equipe</a>
+        <a :href="CANAL_CONTATO">Fale com a equipe</a>
       </p>
     </main>
   </div>
@@ -393,6 +426,12 @@ async function sair() {
   line-height: 1.25;
   letter-spacing: -0.5px;
   color: #fff;
+}
+
+.aviso-sair {
+  padding: 12px 16px;
+  line-height: 1.6;
+  color: var(--erro-texto);
 }
 
 .cartoes {

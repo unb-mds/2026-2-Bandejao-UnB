@@ -1,0 +1,2 @@
+# As migrations sao geradas pelo Django (makemigrations): o ruff nao as analisa.
+extend-exclude = ["apps/*/migrations"]
