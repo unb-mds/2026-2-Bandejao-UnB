@@ -9,6 +9,7 @@
 
 - **Qualidade**
   - [Plano de testes](qualidade/plano-de-testes.md)
+  - [Teste de carga (BD-14)](qualidade/teste-de-carga-bd14.md)
 
 - **Arquitetura (C4)**
   - [Níveis 1 e 2 — geral](arquitetura/c4-niveis-1-2.md)
