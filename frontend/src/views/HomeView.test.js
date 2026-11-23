@@ -138,6 +138,19 @@ describe('HomeView: cartão "Cardápio de hoje" pelo GET /api/cardapio/ (#251)',
     expect(cartao.find('.horario').exists()).toBe(false)
   })
 
+  it('sem serviço hoje e a semana do próximo dia sem PDF: "sem refeições hoje", não "não publicado"', async () => {
+    // O backend pula para o próximo dia com serviço, e a semana dele ainda não foi publicada.
+    trocarGet('/cardapio/', () =>
+      Promise.resolve(cardapioDaApi({ data: '2026-10-05', status: 'nao_publicado' })),
+    )
+
+    const wrapper = await montarHome(1)
+    const cartao = wrapper.get('.cartao-hoje')
+
+    expect(cartao.text()).toContain('Não há refeições servidas hoje neste campus.')
+    expect(cartao.text()).not.toContain('Cardápio ainda não publicado.')
+  })
+
   it('erro da API: mostra a mensagem do pedido da refeição', async () => {
     trocarGet('/cardapio/', () =>
       Promise.reject(new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' })),
