@@ -431,23 +431,25 @@ describe('campi (GET /campi/, contrato da BE-08)', () => {
 })
 
 describe('cardápio (RF06, RF07)', () => {
-  it('devolve a semana vigente do campus', async () => {
+  it('a rota da semana do MVP (/cardapio/<campus>/) não existe mais (#251)', async () => {
     const { status, dados } = await get('/cardapio/1/')
-    expect(status).toBe(200)
-    expect(dados.publicado).toBe(true)
-    expect(dados.dias[0].data).toBe('2026-09-28')
-    expect(dados.dias.at(-2).refeicoes.map((r) => r.tipo)).toEqual(['almoco']) // sábado
-    // No mock, o Darcy serve aos domingos (#229).
-    expect(dados.dias.at(-1).data).toBe('2026-10-04')
-    expect(dados.dias.at(-1).refeicoes.map((r) => r.tipo)).toEqual(['cafe', 'almoco', 'jantar'])
+    expect(status).toBe(404)
+    expect(dados.codigo).toBe('nao_encontrado')
   })
 
-  it('no domingo, a semana vigente ainda é a da segunda anterior (#229)', async () => {
+  it('o sábado do Darcy só tem almoço', async () => {
+    const { dados: almoco } = await get('/cardapio/?campus=1&dia=2026-10-03')
+    expect(almoco).toMatchObject({ data: '2026-10-03', refeicao: 'almoco', status: 'publicado' })
+    expect(almoco.categorias.length).toBeGreaterThan(0)
+    const { dados: jantar } = await get('/cardapio/?campus=1&dia=2026-10-03&refeicao=jantar')
+    expect(jantar.categorias).toEqual([])
+  })
+
+  it('no domingo, o Darcy serve (#229)', async () => {
     vi.setSystemTime(new Date(2026, 9, 4, 12, 0))
-    const { dados } = await get('/cardapio/1/')
-    expect(dados.semana.inicio).toBe('2026-09-28')
-    const { dados: refeicao } = await get('/cardapio/?campus=1')
-    expect(refeicao.data).toBe('2026-10-04')
+    const { dados } = await get('/cardapio/?campus=1')
+    expect(dados.data).toBe('2026-10-04')
+    expect(dados.categorias.length).toBeGreaterThan(0)
   })
 
   it('no domingo, campus sem serviço responde semServico no próprio domingo (#229)', async () => {
@@ -459,19 +461,13 @@ describe('cardápio (RF06, RF07)', () => {
 
   it('na virada de domingo para segunda, a semana vigente passa a ser a seguinte (#229)', async () => {
     vi.setSystemTime(new Date(2026, 9, 5, 0, 0))
-    const { dados } = await get('/cardapio/1/')
-    expect(dados.semana.inicio).toBe('2026-10-05')
-    expect(dados.dias[0].data).toBe('2026-10-05')
+    const { dados } = await get('/cardapio/?campus=1')
+    expect(dados.data).toBe('2026-10-05')
   })
 
   it('indica cardápio não publicado', async () => {
-    const { dados } = await get('/cardapio/5/')
-    expect(dados).toMatchObject({ publicado: false, dias: [] })
-  })
-
-  it('campus inexistente é 404', async () => {
-    expect((await get('/cardapio/99/')).status).toBe(404)
-    expect((await get('/cardapio/darcy/')).status).toBe(404)
+    const { dados } = await get('/cardapio/?campus=5')
+    expect(dados).toMatchObject({ status: 'nao_publicado', categorias: [] })
   })
 })
 

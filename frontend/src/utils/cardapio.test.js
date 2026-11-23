@@ -7,25 +7,6 @@ import {
   selecaoPadrao,
 } from './cardapio'
 
-const p = (nome, ...marcadores) => ({ nome, marcadores })
-const CATEGORIAS = [
-  { rotulo: 'Bebidas', dieta: 'todas', pratos: [p('Suco de caju')] },
-  {
-    rotulo: 'Prato Principal — Padrão',
-    dieta: 'padrao',
-    pratos: [p('Bife', 'suino'), p('Frango')],
-  },
-  {
-    rotulo: 'Prato Principal — Ovolactovegetariano',
-    dieta: 'ovolacto',
-    pratos: [p('Omelete', 'ovo', 'leite')],
-  },
-  { rotulo: 'Prato Principal — Vegetariano Estrito', dieta: 'vegano', pratos: [p('Tofu', 'soja')] },
-  { rotulo: 'Guarnição', dieta: 'todas', pratos: [p('Purê', 'leite')] },
-  { rotulo: 'Acompanhamentos', dieta: 'todas', pratos: [p('Arroz'), p('Feijão')] },
-  { rotulo: 'Salada', dieta: 'todas', pratos: [p('Folhas')] },
-]
-
 const aLas = (hhmm) => {
   const [h, m] = hhmm.split(':').map(Number)
   return new Date(2026, 8, 28, h, m)
@@ -72,20 +53,48 @@ describe('selecaoPadrao', () => {
   })
 })
 
-describe('resumoRefeicao', () => {
+describe('resumoRefeicao (formato do GET /api/cardapio/)', () => {
+  const categoria = (nome, ...descricoes) => ({
+    nome,
+    semOpcaoCompativel: false,
+    pratos: descricoes.map((descricao) => ({
+      descricao,
+      marcadores: [],
+      contemMarcadorSelecionado: false,
+    })),
+  })
+
   it('resume prato principal, acompanhamentos e salada', () => {
-    expect(resumoRefeicao(CATEGORIAS)).toEqual([
+    const almoco = [
+      categoria('Bebidas', 'Suco de caju'),
+      categoria('Prato principal', 'Bife', 'Frango'),
+      categoria('Prato principal ovolactovegetariano', 'Omelete'),
+      categoria('Guarnição', 'Purê'),
+      categoria('Acompanhamentos', 'Arroz', 'Feijão'),
+      categoria('Salada', 'Folhas'),
+    ]
+    expect(resumoRefeicao(almoco)).toEqual([
       { rotulo: 'Prato principal', texto: 'Bife, Frango' },
       { rotulo: 'Acompanham.', texto: 'Arroz, Feijão' },
       { rotulo: 'Salada', texto: 'Folhas' },
     ])
   })
 
-  it('no café da manhã usa as primeiras categorias', () => {
+  it('aceita os nomes em maiúsculas e no singular, como nos PDFs', () => {
+    const almoco = [
+      categoria('PRATO PRINCIPAL PADRÃO', 'Bife'),
+      categoria('ACOMPANHAMENTO', 'Arroz'),
+      categoria('SALADAS', 'Folhas'),
+    ]
+    expect(resumoRefeicao(almoco).map((l) => l.texto)).toEqual(['Bife', 'Arroz', 'Folhas'])
+  })
+
+  it('no café da manhã usa as primeiras categorias com pratos', () => {
     const cafe = [
-      { rotulo: 'Bebidas', dieta: 'todas', pratos: [p('Café')] },
-      { rotulo: 'Complemento — Ovolactovegetariano', dieta: 'ovolacto', pratos: [p('Pão')] },
-      { rotulo: 'Fruta', dieta: 'todas', pratos: [p('Mamão')] },
+      categoria('Bebidas', 'Café'),
+      categoria('Vazia'),
+      categoria('Complemento — Ovolactovegetariano', 'Pão'),
+      categoria('Fruta', 'Mamão'),
     ]
     expect(resumoRefeicao(cafe).map((l) => l.rotulo)).toEqual(['Bebidas', 'Complemento', 'Fruta'])
   })

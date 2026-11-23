@@ -46,6 +46,119 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+function trocarGet(trecho, resposta) {
+  const getOriginal = apiClient.get.bind(apiClient)
+  return vi
+    .spyOn(apiClient, 'get')
+    .mockImplementation((caminho, opcoes) =>
+      caminho.startsWith(trecho) ? resposta(caminho) : getOriginal(caminho, opcoes),
+    )
+}
+
+const cardapioDaApi = (troca = {}) => ({
+  campus: 1,
+  data: '2026-10-04',
+  refeicao: 'almoco',
+  refeicaoEncerrada: false,
+  status: 'publicado',
+  avisoSujeitoAAlteracao: 'Cardápio sujeito a alteração.',
+  alergenosIndisponivel: false,
+  filtroMarcadorDesativado: false,
+  semServico: false,
+  categorias: [],
+  ...troca,
+})
+
+const prato = (descricao) => ({ descricao, marcadores: [], contemMarcadorSelecionado: false })
+
+describe('HomeView: cartão "Cardápio de hoje" pelo GET /api/cardapio/ (#251)', () => {
+  it('pede a refeição de hoje com campus e dia, e nunca a rota da semana do MVP', async () => {
+    const get = vi.spyOn(apiClient, 'get')
+
+    await montarHome(1)
+
+    const caminhos = get.mock.calls.map(([caminho]) => caminho)
+    expect(caminhos).toContain('/cardapio/?campus=1&dia=2026-10-04')
+    expect(caminhos.some((caminho) => /^\/cardapio\/\d+\/$/.test(caminho))).toBe(false)
+  })
+
+  it('mostra o resumo da refeição que o backend resolveu, no formato da API', async () => {
+    trocarGet('/cardapio/', () =>
+      Promise.resolve(
+        cardapioDaApi({
+          refeicao: 'jantar',
+          categorias: [
+            { nome: 'Prato principal', semOpcaoCompativel: false, pratos: [prato('Frango')] },
+            { nome: 'Acompanhamentos', semOpcaoCompativel: false, pratos: [prato('Arroz')] },
+            { nome: 'Salada', semOpcaoCompativel: false, pratos: [prato('Alface')] },
+          ],
+        }),
+      ),
+    )
+
+    const wrapper = await montarHome(1)
+    const cartao = wrapper.get('.cartao-hoje')
+
+    expect(cartao.text()).toContain('Jantar')
+    expect(cartao.findAll('.hoje-rotulo').map((rotulo) => rotulo.text())).toEqual([
+      'Prato principal',
+      'Acompanham.',
+      'Salada',
+    ])
+    expect(cartao.findAll('.hoje-texto').map((texto) => texto.text())).toEqual([
+      'Frango',
+      'Arroz',
+      'Alface',
+    ])
+  })
+
+  it('semana não publicada: "Cardápio ainda não publicado."', async () => {
+    const wrapper = await montarHome(5)
+
+    expect(wrapper.get('.cartao-hoje').text()).toContain('Cardápio ainda não publicado.')
+  })
+
+  it('o backend devolve outro dia (o próximo com serviço): não há refeições hoje', async () => {
+    trocarGet('/cardapio/', () =>
+      Promise.resolve(
+        cardapioDaApi({
+          data: '2026-10-05',
+          categorias: [
+            { nome: 'Prato principal', semOpcaoCompativel: false, pratos: [prato('Frango')] },
+          ],
+        }),
+      ),
+    )
+
+    const wrapper = await montarHome(1)
+    const cartao = wrapper.get('.cartao-hoje')
+
+    expect(cartao.text()).toContain('Não há refeições servidas hoje neste campus.')
+    expect(cartao.find('.hoje-linhas').exists()).toBe(false)
+    expect(cartao.find('.horario').exists()).toBe(false)
+  })
+
+  it('erro da API: mostra a mensagem do pedido da refeição', async () => {
+    trocarGet('/cardapio/', () =>
+      Promise.reject(new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' })),
+    )
+
+    const wrapper = await montarHome(1)
+
+    expect(wrapper.get('.cartao-hoje').text()).toContain('Fora do ar.')
+  })
+
+  it('a nota do cartão vem do resumo do dia (GET /api/avaliacoes/resumo/)', async () => {
+    trocarGet('/avaliacoes/resumo/?campus=1&data=', () =>
+      Promise.resolve([{ refeicaoId: 7, tipo: 'almoco', media: 4.4, quantidade: 5 }]),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => expect(wrapper.get('.hoje-nota span').text()).toBe('4,4'))
+  })
+})
+
 describe('HomeView: cartão "Cardápio de hoje" no domingo (#229)', () => {
   it('campus que serve no domingo (Darcy): mostra a refeição de domingo', async () => {
     const wrapper = await montarHome(1)
