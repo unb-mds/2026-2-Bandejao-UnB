@@ -48,10 +48,26 @@ export function contarFiltrosAtivos(dieta, marcadores) {
  * como no café da manhã —, as primeiras categorias da refeição).
  */
 export function resumoRefeicao(categorias) {
-  const buscar = (trecho) =>
-    categorias.find((c) => c.nome.toLowerCase().startsWith(trecho) && c.pratos.length)
+  // Minúsculas e sem acento: os PDFs trazem "PRATO PRINCIPAL PADRÃO" ou "PADRAO".
+  const normalizar = (texto) =>
+    texto
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+  const comPratos = categorias.filter((c) => c.pratos.length)
+  const buscar = (trecho) => comPratos.find((c) => normalizar(c.nome).startsWith(trecho))
+  // O padrão é a categoria sem dieta no nome ("Prato principal") ou com "padrão";
+  // as vegetarianas podem vir antes dela na lista.
+  const pratoPrincipal =
+    comPratos.find((c) => {
+      const nome = normalizar(c.nome)
+      return (
+        nome.startsWith('prato principal') &&
+        (nome.includes('padrao') || nome.trim() === 'prato principal')
+      )
+    }) ?? buscar('prato principal')
   const preferidas = [
-    ['Prato principal', buscar('prato principal')],
+    ['Prato principal', pratoPrincipal],
     ['Acompanham.', buscar('acompanhamento')],
     ['Salada', buscar('salada')],
   ].filter(([, categoria]) => categoria)
