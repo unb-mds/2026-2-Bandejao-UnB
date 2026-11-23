@@ -2,7 +2,6 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { apiClient, mensagemDeErro } from '@/services/apiClient'
 import { DIETA_PADRAO } from '@/constants/dietas'
-import { MENSAGEM_CAMPUS_INEXISTENTE } from '@/constants/campi'
 
 const VALIDADE_TEMPORARIA = 5 * 60 * 1000
 const STATUS_DO_CARDAPIO = ['publicado', 'nao_publicado']
@@ -10,9 +9,7 @@ const STATUS_DO_CARDAPIO = ['publicado', 'nao_publicado']
 const ehCardapio = (resposta) =>
   STATUS_DO_CARDAPIO.includes(resposta?.status) && Array.isArray(resposta.categorias)
 
-const ehCampusInexistente = (falha) =>
-  falha?.codigo === 'campus_nao_encontrado' ||
-  (falha?.status === 400 && falha.message === MENSAGEM_CAMPUS_INEXISTENTE)
+const ehCampusInexistente = (falha) => falha?.codigo === 'campus_nao_encontrado'
 
 const chaveDaRefeicao = ({ campus, dia, refeicao, marcadores = [], dieta = DIETA_PADRAO }) =>
   JSON.stringify([campus, dia ?? null, refeicao ?? null, [...marcadores].sort(), dieta])
