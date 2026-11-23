@@ -29,6 +29,14 @@ def indice(trecho):
     raise AssertionError(f"nenhum passo com {trecho!r}")
 
 
+def passo_chamado(comeco):
+    """O passo pelo nome, e não pelo primeiro `run` que tenha um trecho."""
+    for passo in passos():
+        if passo.get("name", "").startswith(comeco):
+            return passo
+    raise AssertionError(f"nenhum passo chamado {comeco!r}")
+
+
 def test_servico_cria_o_usuario_da_aplicacao_como_na_vm():
     """Como o Compose: a imagem cria o MYSQL_USER com acesso total ao banco,
     e o script reduz os privilégios."""
@@ -65,8 +73,36 @@ def test_banco_de_teste_recebe_os_mesmos_privilegios_do_banco_da_aplicacao():
     """O pytest-django cria o test_<DB_NAME>. O CI dá a ele os privilégios
     que o script deu ao banco da aplicação, copiados do SHOW GRANTS, e não
     uma lista própria, que poderia ser maior que a de produção."""
-    run = passos()[indice("test_")]["run"]
+    run = passo_chamado("Dar ao banco de teste")["run"]
 
     assert "SHOW GRANTS" in run
-    assert "test_" in run
-    assert "ALL PRIVILEGES" not in run.replace('grep -q "ALL PRIVILEGES"', "")
+    # O GRANT usa os privilégios lidos do SHOW GRANTS, e não uma lista escrita
+    # no workflow.
+    assert "GRANT $privilegios ON" in run
+    for privilegio in ("SELECT", "INSERT", "ALL PRIVILEGES"):
+        assert f"GRANT {privilegio}" not in run
+
+
+def test_nome_do_banco_de_teste_vai_escapado_no_grant():
+    """No GRANT, o `_` é curinga: sem o escape, o privilégio valeria para
+    qualquer banco que casasse com o padrão (testXbandejao_ci, por exemplo)."""
+    run = passo_chamado("Dar ao banco de teste")["run"]
+
+    assert "sed 's/_/\\\\_/g'" in run
+    # As crases vêm escapadas dentro das aspas duplas do bash.
+    assert "\\`$banco_de_teste\\`.*" in run
+
+
+def test_senha_de_root_so_nos_passos_que_usam_o_root():
+    """O migrate e o pytest não recebem a senha de root."""
+    job = job_mysql()
+    senha = job["services"]["mysql"]["env"]["MYSQL_ROOT_PASSWORD"]
+
+    assert "MYSQL_ROOT_PASSWORD" not in job["env"]
+    passos_do_root = [p for p in passos() if "-uroot" in p.get("run", "")]
+    assert passos_do_root
+    for passo in passos_do_root:
+        assert passo["env"]["MYSQL_PWD"] == senha, passo["name"]
+    for passo in passos():
+        if "manage.py" in passo.get("run", "") or "pytest" in passo.get("run", ""):
+            assert "MYSQL_PWD" not in passo.get("env", {}), passo.get("name")
