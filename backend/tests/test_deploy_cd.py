@@ -94,7 +94,8 @@ def test_workflow_fixa_a_chave_do_servidor():
 GH_FALSO = """#!/bin/sh
 printf '%s\\n' "$*" >> "$CHAMADAS_GH"
 resposta=$(head -n 1 "$RESPOSTAS_GH")
-sed -i '1d' "$RESPOSTAS_GH"
+tail -n +2 "$RESPOSTAS_GH" > "$RESPOSTAS_GH.resto"
+mv "$RESPOSTAS_GH.resto" "$RESPOSTAS_GH"
 case "$resposta" in
     '' | ERRO) echo "erro da API" >&2; exit 1 ;;
 esac
@@ -102,8 +103,7 @@ echo "$resposta"
 """
 
 precisa_de_bash = pytest.mark.skipif(
-    shutil.which("bash") is None or shutil.which("sed") is None,
-    reason="sem bash ou sed no PATH",
+    shutil.which("bash") is None, reason="sem bash no PATH"
 )
 
 
@@ -195,8 +195,48 @@ def test_espera_ci_erro_do_gh_vira_pendente(esperar_ci):
 def test_espera_ci_cinco_erros_seguidos_do_gh_param(esperar_ci):
     resultado = esperar_ci()  # sem respostas: o gh sempre falha
     assert resultado.returncode == 1
-    assert "falhou 5 vezes seguidas" in resultado.stdout
-    assert len(resultado.chamadas) == 5
+    assert "falhou 5 vezes seguidas para Backend CI" in resultado.stdout
+    # Um contador por workflow: Backend, Frontend, ..., e o 5º do Backend.
+    assert len(resultado.chamadas) == 9
+
+
+@precisa_de_bash
+def test_espera_ci_erros_de_um_so_workflow_tambem_param(esperar_ci):
+    """Um sucesso do Frontend CI não zera o contador do Backend CI."""
+    resultado = esperar_ci(*["ERRO", "completed success"] * 5)
+    assert resultado.returncode == 1
+    assert "falhou 5 vezes seguidas para Backend CI" in resultado.stdout
+    assert len(resultado.chamadas) == 9
+
+
+@precisa_de_bash
+def test_espera_ci_sucesso_zera_o_contador_do_workflow(esperar_ci):
+    """4 erros, um sucesso e mais 4 erros no Backend CI não somam 5 seguidos."""
+    pendente = "null null"
+    respostas = (
+        ["ERRO", pendente] * 4
+        + ["in_progress null", pendente]
+        + ["ERRO", pendente] * 4
+        + ["completed success", "completed success"]
+    )
+    resultado = esperar_ci(*respostas)
+    assert resultado.returncode == 0, resultado.stdout
+    assert len(resultado.chamadas) == len(respostas)
+
+
+def test_espera_pelo_ci_vem_antes_do_deploy_e_sem_escape():
+    """Um `if:` ou um `continue-on-error` na espera faria deploy com o CI
+    vermelho."""
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    job = workflow["jobs"]["deploy"]
+    nomes = [p.get("name") for p in job["steps"]]
+    assert nomes == ["Esperar o CI do commit", "Deploy na VM", "Apagar a chave"]
+    assert "continue-on-error" not in job
+    assert "if" not in job
+    for passo in job["steps"][:2]:
+        assert "continue-on-error" not in passo
+        assert "if" not in passo
+    assert job["steps"][2]["if"] == "always()"
 
 
 # --- deploy/cd/deploy.sh com docker, curl e logger falsos -------------------
@@ -209,10 +249,17 @@ DOCKER_FALSO = """#!/bin/sh
 printf '%s\\n' "$*" >> "$SAIDA_DOCKER"
 case "$*" in
     *mysqldump*) echo "-- dump"; exit "${FALHA_BACKUP:-0}" ;;
-    *"--force-recreate caddy"*) exit "${FALHA_RECRIAR_CADDY:-0}" ;;
+    *"--force-recreate caddy"*)
+        # Recriado, o Caddy passa a ver o Caddyfile do repositório, a não ser
+        # que fique preso ao arquivo antigo ($CADDY_PRESO).
+        if [ -z "${FALHA_RECRIAR_CADDY:-}" ] && [ -z "${CADDY_PRESO:-}" ]; then
+            cp Caddyfile "$CADDY_VISTO"
+        fi
+        exit "${FALHA_RECRIAR_CADDY:-0}" ;;
     *"caddy cat /etc/caddy/Caddyfile"*)
-        # O Caddy de um bind mount preso ao arquivo antigo vê o conteúdo velho.
-        if [ -n "${CADDY_ANTIGO:-}" ]; then echo "antigo"; else cat Caddyfile; fi ;;
+        # O que o container vê: fica em $CADDY_VISTO entre as execuções.
+        if [ -n "${CADDY_FORA:-}" ]; then echo "service caddy is not running" >&2; exit 1; fi
+        cat "$CADDY_VISTO" ;;
     *" up "*)
         if [ -n "${ESPERA_UP:-}" ]; then exec sleep "$ESPERA_UP"; fi
         exit "${FALHA_UP:-0}" ;;
@@ -247,7 +294,9 @@ VARIAVEIS_DOS_FALSOS = (
     "ESPERA_UP",
     "FALHA_UP",
     "FALHA_RECRIAR_CADDY",
-    "CADDY_ANTIGO",
+    "CADDY_PRESO",
+    "CADDY_FORA",
+    "FALHA_MERGE_BASE_NA",
     "CODIGOS_API",
     "FALHA_PRUNE",
     "CODIGO_API",
@@ -286,6 +335,8 @@ class Ambiente:
         self.saida_docker = tmp_path / "docker.txt"
         self.saida_curl = tmp_path / "curl.txt"
         self.saida_logger = tmp_path / "logger.txt"
+        self.caddy_visto = tmp_path / "caddy_visto"
+        self.caddy_visto.write_text("site {}\n", encoding="utf-8")
 
         self.origin = tmp_path / "origin.git"
         subprocess.run(
@@ -338,6 +389,7 @@ class Ambiente:
             SAIDA_DOCKER=str(self.saida_docker),
             SAIDA_CURL=str(self.saida_curl),
             SAIDA_LOGGER=str(self.saida_logger),
+            CADDY_VISTO=str(self.caddy_visto),
             BANDEJAO_REPO=str(self.vm),
             BANDEJAO_LOGS=str(self.logs),
             BANDEJAO_BACKUPS=str(self.backups),
@@ -411,7 +463,9 @@ def test_deploy_normal(amb):
     assert chamou(resultado, "--triggers sh 14m")
     assert chamou(resultado, "up -d --build --wait --wait-timeout 600")
     assert chamou(resultado, "image prune -f")
-    assert not chamou(resultado, "caddy")
+    # O Caddy já vê o Caddyfile do repositório: é só conferido.
+    assert chamou(resultado, "compose exec -T caddy cat /etc/caddy/Caddyfile")
+    assert not chamou(resultado, "--force-recreate")
     assert resultado.curl == [
         "https://exemplo.test/",
         "https://exemplo.test/api/campi/",
@@ -583,36 +637,57 @@ def test_passo_travado_tem_tempo_limite_e_libera_a_trava(amb):
     assert seguinte.returncode == 0, seguinte.log
 
 
+NOVO_CADDYFILE = {"Caddyfile": "site { encode }\n"}
+
+
 @script
 def test_caddyfile_alterado_recria_o_caddy_e_confere_o_conteudo(amb):
     """O bind mount de um arquivo só fica preso ao arquivo antigo: um `caddy
     reload` leria a configuração velha."""
-    resultado = amb.rodar(amb.publicar({"Caddyfile": "site { encode }\n"}))
+    resultado = amb.rodar(amb.publicar(NOVO_CADDYFILE))
     assert resultado.returncode == 0, resultado.log
     assert chamou(resultado, "compose up -d --no-deps --force-recreate caddy")
-    assert chamou(resultado, "compose exec -T caddy cat /etc/caddy/Caddyfile")
     assert not chamou(resultado, "caddy reload")
     assert "Caddy recriado" in resultado.log
+    assert amb.caddy_visto.read_text(encoding="utf-8") == NOVO_CADDYFILE["Caddyfile"]
+
+
+@script
+def test_re_run_depois_de_falha_ainda_recria_o_caddy(amb):
+    """O deploy que mudou o Caddyfile falhou depois do merge; no "Re-run" o
+    commit da VM já é o do deploy, e um `git diff` viria vazio."""
+    novo = amb.publicar(NOVO_CADDYFILE)
+    assert amb.rodar(novo, FALHA_UP=1).returncode == 1
+    resultado = amb.rodar(novo)
+    assert resultado.returncode == 0, resultado.log
+    assert chamou(resultado, "--force-recreate caddy")
+    assert amb.caddy_visto.read_text(encoding="utf-8") == NOVO_CADDYFILE["Caddyfile"]
 
 
 @script
 def test_recriacao_do_caddy_que_falha_e_erro(amb):
-    resultado = amb.rodar(
-        amb.publicar({"Caddyfile": "site { encode }\n"}), FALHA_RECRIAR_CADDY=1
-    )
+    resultado = amb.rodar(amb.publicar(NOVO_CADDYFILE), FALHA_RECRIAR_CADDY=1)
     assert resultado.returncode == 1
-    assert "a recriação do Caddy (Caddyfile novo) falhou" in resultado.log
+    assert "a recriação do Caddy falhou" in resultado.log
     assert "para voltar:" in resultado.log
 
 
 @script
 def test_caddy_que_ainda_ve_o_caddyfile_antigo_e_erro(amb):
-    resultado = amb.rodar(
-        amb.publicar({"Caddyfile": "site { encode }\n"}), CADDY_ANTIGO=1
-    )
+    resultado = amb.rodar(amb.publicar(NOVO_CADDYFILE), CADDY_PRESO=1)
     assert resultado.returncode == 1
-    assert "o Caddy não vê o Caddyfile novo" in resultado.log
+    assert "o Caddy recriado ainda não vê o Caddyfile do repositório" in resultado.log
     assert not (amb.backups / "ultimo-ok.sql.gz").exists()
+
+
+@script
+def test_caddy_fora_do_ar_aponta_os_logs(amb):
+    """Um Caddyfile com erro de sintaxe deixa o Caddy em loop de restart: o
+    `exec` falha, e isso não é "vê o arquivo antigo"."""
+    resultado = amb.rodar(amb.publicar(NOVO_CADDYFILE), CADDY_FORA=1)
+    assert resultado.returncode == 1
+    assert "o Caddy não está no ar depois de recriado" in resultado.log
+    assert "docker compose logs --tail 50 caddy" in resultado.log
 
 
 @script
@@ -646,6 +721,31 @@ def test_backups_acumulados_viram_aviso(amb):
         (amb.backups / f"deploy-2026-01-01-0000{i:02d}-aaaaaaa.sql.gz").write_bytes(b"")
     resultado = amb.rodar(amb.publicar(), FALHA_UP=1)
     assert "AVISO: 21 backups de deploy" in resultado.log
+
+
+@script
+def test_ate_20_backups_acumulados_nao_avisa(amb):
+    amb.backups.mkdir()
+    for i in range(19):
+        (amb.backups / f"deploy-2026-01-01-0000{i:02d}-aaaaaaa.sql.gz").write_bytes(b"")
+    resultado = amb.rodar(amb.publicar(), FALHA_UP=1)
+    assert "backups de deploy em" not in resultado.log
+
+
+@script
+def test_limite_do_mysqldump_e_um_minuto_menor_que_o_do_backup(amb):
+    resultado = amb.rodar(amb.publicar(), BANDEJAO_LIMITE_BACKUP_MIN=5)
+    assert resultado.returncode == 0, resultado.log
+    assert chamou(resultado, "--triggers sh 4m")
+
+
+@script
+@pytest.mark.parametrize("valor", ["1", "0", "15m", "abc", "-3"])
+def test_limite_do_backup_invalido_nao_faz_nada(amb, valor):
+    resultado = amb.rodar(amb.publicar(), BANDEJAO_LIMITE_BACKUP_MIN=valor)
+    assert resultado.returncode == 2
+    assert "BANDEJAO_LIMITE_BACKUP_MIN" in resultado.stderr
+    assert resultado.docker == []
 
 
 @script
@@ -734,10 +834,11 @@ def test_pasta_de_log_que_nao_pode_ser_criada_sai_com_73(amb, tmp_path):
 
 @script
 def test_conexao_que_cai_no_meio_nao_interrompe_o_deploy(amb):
-    """Se o SSH cair durante o `docker compose up`, o script, o `tee` e o
-    docker recebem HUP, e a saída fica sem ninguém lendo. O deploy tem que ir
-    até o fim (o `trap '' HUP PIPE` e o `tee -p`), e não parar entre o código
-    novo e o Compose antigo."""
+    """Se o SSH cair durante o `docker compose up`, o script e o `tee`
+    recebem HUP (o docker, não: o `timeout` o põe noutro grupo de processos),
+    e a saída fica sem ninguém lendo. O deploy tem que ir até o fim (o
+    `trap '' HUP PIPE` e o `tee -p`), e não parar entre o código novo e o
+    Compose antigo."""
     novo = amb.publicar()
     processo = subprocess.Popen(
         ["bash", str(SCRIPT), novo],
@@ -763,3 +864,46 @@ def test_conexao_que_cai_no_meio_nao_interrompe_o_deploy(amb):
     assert status == 0, resultado.log
     assert amb.head_da_vm() == novo
     assert f"fim: {novo} no ar" in resultado.log
+
+
+# `git merge-base --is-ancestor` sai com 128 num erro do git (objeto
+# corrompido, por exemplo). Um `git` que repassa tudo ao de verdade, menos a
+# N-ésima chamada do `merge-base`.
+GIT_FALSO = """#!/bin/sh
+if [ "$1" = merge-base ] && [ -n "${FALHA_MERGE_BASE_NA:-}" ]; then
+    echo x >> "$SAIDA_DOCKER.merge-base"
+    if [ "$(wc -l < "$SAIDA_DOCKER.merge-base")" -eq "$FALHA_MERGE_BASE_NA" ]; then
+        echo "fatal: erro de teste" >&2
+        exit 128
+    fi
+fi
+exec "$GIT_DE_VERDADE" "$@"
+"""
+
+
+@script
+@pytest.mark.parametrize(
+    "chamada",
+    [
+        1,  # o commit está na origin/main?
+        2,  # é mais antigo que o da VM ("pulado")?
+        3,  # vem depois do commit da VM (fast-forward)?
+    ],
+)
+def test_erro_do_merge_base_nao_vira_resposta(amb, chamada):
+    """Na 2ª conferência, um erro que virasse "é ancestral" sairia com 0 sem
+    fazer o deploy."""
+    git_falso = amb.bin / "git"
+    git_falso.write_text(GIT_FALSO, encoding="utf-8", newline="\n")
+    git_falso.chmod(0o755)
+    novo = amb.publicar()
+    resultado = amb.rodar(
+        novo, FALHA_MERGE_BASE_NA=chamada, GIT_DE_VERDADE=shutil.which("git")
+    )
+    assert resultado.returncode == 1
+    assert "falhou (status 128)" in resultado.log
+    assert "pulado" not in resultado.log
+    assert "não está na origin/main" not in resultado.log
+    assert "não é sucessor" not in resultado.log
+    assert resultado.docker == []
+    assert amb.head_da_vm() == amb.inicial
