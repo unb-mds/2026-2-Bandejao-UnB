@@ -206,10 +206,26 @@ describe('cardapioStore: GET /api/cardapio/ já filtrado (ADR 0005)', () => {
 
     expect(cardapio.erroDaRefeicao({ campus: 99 })).toEqual({
       mensagem: 'Não existe campus com esse id.',
-      codigo: 'parametros_invalidos',
+      codigo: 'campus_nao_encontrado',
     })
     expect(cardapio.campusInexistente(99)).toBe(true)
     expect(cardapio.campusInexistente(1)).toBe(false)
+  })
+
+  it('400 com a mensagem antiga de campus inexistente não marca mais o campus (#224)', async () => {
+    const cardapio = useCardapioStore()
+    const { ApiError } = await import('@/services/apiClient')
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(400, {
+        codigo: 'parametros_invalidos',
+        mensagem: 'Não existe campus com esse id.',
+      }),
+    )
+
+    await cardapio.carregarRefeicao({ campus: 7 })
+
+    expect(cardapio.erroDaRefeicao({ campus: 7 })?.codigo).toBe('parametros_invalidos')
+    expect(cardapio.campusInexistente(7)).toBe(false)
   })
 
   it('outro 400 não marca o campus como inexistente', async () => {

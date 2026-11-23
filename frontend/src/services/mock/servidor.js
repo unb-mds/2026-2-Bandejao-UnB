@@ -16,7 +16,8 @@
  * apenas em modo de simulação. O aviso de privacidade e o check-in seguem o
  * contrato da BE-09; como o raio do RU não é publicado, o simulado confirma
  * toda localização, a não ser que `simulacao.definirLocalizacaoConfirmada(false)`.
- * O `GET /cardapio/` segue o contrato da BE-11 (#214), mais o campo
+ * O `GET /cardapio/` segue o contrato da BE-11 (#214), com o 404
+ * `campus_nao_encontrado` depois de todos os 400 (#217), mais o campo
  * `semServico` proposto na revisão da FE-08 (#219); o resumo do dia responde
  * 501, como o backend, depois de `simulacao.definirResumoDoDiaDisponivel(false)`.
  * As avaliações seguem o contrato da BE-13 (FE-09): `POST /avaliacoes/` e
@@ -488,13 +489,9 @@ function filtrarRefeicao(refeicao, { dieta, marcadores }) {
 }
 
 function cardapioFiltrado(parametros, agora) {
-  const campus = idDoCampus(parametros.campus)
   const dieta = parametros.dieta ?? 'sem_filtro'
-  if (/^[1-9]\d*$/.test(parametros.campus ?? '') && !campus) {
-    return parametrosInvalidos(MENSAGEM_CAMPUS_INEXISTENTE)
-  }
   if (
-    !campus ||
+    !/^\d+$/.test(parametros.campus ?? '') ||
     Object.keys(parametros).some((nome) => !PARAMETROS_DO_CARDAPIO.includes(nome)) ||
     !Object.hasOwn(DIETAS_ACEITAS, dieta) ||
     (parametros.refeicao && !REFEICOES[parametros.refeicao]) ||
@@ -507,6 +504,8 @@ function cardapioFiltrado(parametros, agora) {
   if (marcadores.some((nome) => !nome)) return parametrosInvalidos()
   const desconhecido = marcadores.find((nome) => !IDS_MARCADORES.includes(nome))
   if (desconhecido) return parametrosInvalidos(`Marcador desconhecido: ${desconhecido}.`)
+  const campus = idDoCampus(parametros.campus.replace(/^0+(?=\d)/, ''))
+  if (!campus) return erro(404, 'campus_nao_encontrado', MENSAGEM_CAMPUS_INEXISTENTE)
   const hoje = hojeISO(agora)
   const semana = montarCardapioSemana(campus, agora)
   const base = {

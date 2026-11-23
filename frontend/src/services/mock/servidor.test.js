@@ -611,11 +611,18 @@ describe('GET /cardapio/ (contrato da BE-11, ADR 0005)', () => {
     expect(dados.semServico).toBe(false)
   })
 
-  it.each([['%201'], ['01'], ['1.0']])('campus %s: 400, como no backend', async (valor) => {
+  it.each([['%201'], ['1.0']])('campus %s: 400, como no backend', async (valor) => {
     const { status, dados } = await get(`/cardapio/?campus=${valor}`)
 
     expect(status).toBe(400)
     expect(dados.codigo).toBe('parametros_invalidos')
+  })
+
+  it('campus 01: zeros à esquerda valem o campus 1, como no backend', async () => {
+    const { status, dados } = await get('/cardapio/?campus=01')
+
+    expect(status).toBe(200)
+    expect(dados.campus).toBe(1)
   })
 
   it.each([['2026-02-30'], ['2026-13-01'], ['2026-09-31']])(
@@ -627,19 +634,40 @@ describe('GET /cardapio/ (contrato da BE-11, ADR 0005)', () => {
     },
   )
 
-  it('campus inexistente: 400 com a mensagem do backend', async () => {
-    const resposta = await get('/cardapio/?campus=99')
+  it.each([['99'], ['000'], ['0'], ['99999999999999999999']])(
+    'campus só de dígitos que não existe (%s): 404 campus_nao_encontrado, como o backend (#217)',
+    async (campus) => {
+      const resposta = await get(`/cardapio/?campus=${campus}`)
 
-    expect(resposta.status).toBe(400)
-    expect(resposta.dados).toEqual({
-      codigo: 'parametros_invalidos',
-      mensagem: 'Não existe campus com esse id.',
-    })
-  })
+      expect(resposta.status).toBe(404)
+      expect(resposta.dados).toEqual({
+        codigo: 'campus_nao_encontrado',
+        mensagem: 'Não existe campus com esse id.',
+      })
+    },
+  )
+
+  it.each([
+    ['dieta desconhecida', '/cardapio/?campus=99&dieta=todos'],
+    ['refeição desconhecida', '/cardapio/?campus=99&refeicao=lanche'],
+    ['parâmetro fora do contrato', '/cardapio/?campus=99&_=123'],
+    ['dia fora da faixa', '/cardapio/?campus=99&dia=1999-12-31'],
+    ['marcador desconhecido', '/cardapio/?campus=99&marcadores=chocolate'],
+    ['item vazio em marcadores', '/cardapio/?campus=000&marcadores=ovo,'],
+  ])(
+    'campus inexistente e %s: o 400 vem antes do 404, como no backend (#217)',
+    async (_caso, caminho) => {
+      const resposta = await get(caminho)
+
+      expect(resposta.status).toBe(400)
+      expect(resposta.dados.codigo).toBe('parametros_invalidos')
+    },
+  )
 
   it.each([
     ['sem campus', '/cardapio/'],
-    ['campus inexistente', '/cardapio/?campus=99'],
+    ['campus que não é só dígitos', '/cardapio/?campus=darcy'],
+    ['campus com sinal', '/cardapio/?campus=-1'],
     ['dieta desconhecida', '/cardapio/?campus=1&dieta=todos'],
     ['refeição desconhecida', '/cardapio/?campus=1&refeicao=lanche'],
     ['parâmetro fora do contrato', '/cardapio/?campus=1&_=123'],
