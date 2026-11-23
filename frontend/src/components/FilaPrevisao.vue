@@ -4,11 +4,15 @@ import { REFEICOES } from '@/constants/refeicoes'
 import { useFilaStore } from '@/stores/fila'
 import { diaCurto, diaMes, hojeISO } from '@/utils/datas'
 
+// O Stryker não pode mutar o argumento do defineProps: o compilador do Vue
+// recusa a macro com código em volta (FE-17).
+// Stryker disable all
 const props = defineProps({
   campusId: { type: Number, required: true },
   tipoRefeicao: { type: String, required: true },
   data: { type: String, required: true },
 })
+// Stryker restore all
 
 const INTERVALO_DE_REVALIDACAO = 60 * 1000
 

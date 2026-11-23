@@ -27,12 +27,16 @@ import IconeSvg from './IconeSvg.vue'
  *
  * Quem decide raio e horário é sempre o backend.
  */
+// O Stryker não pode mutar o argumento do defineProps: o compilador do Vue
+// recusa a macro com código em volta (FE-17).
+// Stryker disable all
 const props = defineProps({
   /** Id do campus no backend (`GET /api/campi/`). */
   campusId: { type: Number, required: true },
   /** 'cafe' | 'almoco' | 'jantar' */
   tipoRefeicao: { type: String, required: true },
 })
+// Stryker restore all
 
 const auth = useAuthStore()
 const fila = useFilaStore()
