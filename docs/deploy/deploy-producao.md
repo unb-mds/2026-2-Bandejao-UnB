@@ -373,10 +373,14 @@ volumes e não se perdem.
 Se o merge mudou algum arquivo de `deploy/cron/`, reinstale-o como em
 [Tarefas periódicas](#tarefas-periódicas-cron).
 
-Se mudar só o `Caddyfile`, basta recarregar o Caddy:
+Se mudar só o `Caddyfile`, recrie o Caddy. Um `caddy reload` não basta
+depois de um `git pull`: o `Caddyfile` entra por bind mount de um arquivo só,
+preso ao arquivo antigo, e o Git grava um arquivo novo. O reload leria a
+configuração antiga e sairia sem erro.
 
 ```bash
-docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+docker compose up -d --no-deps --force-recreate caddy
+docker compose exec -T caddy cat /etc/caddy/Caddyfile | cmp - Caddyfile && echo "Caddyfile novo no Caddy"
 ```
 
 Se mudar só o `.env`, recrie o container que usa a variável (o `restart` não
@@ -415,8 +419,9 @@ O `bandejao-deploy` (cópia instalada do `deploy/cd/deploy.sh`):
 4. avança a `main` até o commit;
 5. roda `docker compose up -d --build --wait`: as migrations novas rodam na
    subida do backend;
-6. recarrega o Caddy se o `Caddyfile` mudou (ele entra por bind mount, e o
-   `up` não recria o container só por isso);
+6. recria o Caddy se o `Caddyfile` mudou e confere se o container vê o
+   arquivo novo (ver [Atualizar](#atualizar): um `caddy reload` leria o
+   antigo);
 7. confere se `https://bandejaounb.com.br/` (o PWA) e
    `https://bandejaounb.com.br/api/campi/` respondem 200;
 8. só então roda a rotação dos backups: ficam os 10 mais recentes, e o backup
@@ -426,13 +431,35 @@ O `bandejao-deploy` (cópia instalada do `deploy/cd/deploy.sh`):
 Não há rollback automático. Se um passo falhar, o job fica vermelho na aba
 **Actions** e o log mostra o commit anterior e o backup para voltar à mão.
 Como a rotação só roda depois de um deploy que deu certo, novas tentativas
-depois de uma migration que quebrou não apagam o backup de antes dela.
+depois de uma migration que quebrou não apagam o backup de antes dela. Com
+mais de 20 backups de deploy acumulados, o log avisa: confira o disco.
+
+Qual backup restaurar:
+
+- para desfazer o deploy que **acabou de falhar**: o `deploy-....sql.gz` que
+  o log desse deploy mostra (o banco logo antes dele);
+- o `ultimo-ok.sql.gz` é o banco de antes do deploy que **está no ar** (o
+  último que deu certo); serve para voltar uma versão inteira.
 Um deploy atrasado, de um commit mais antigo que o que está no ar, é pulado e
 não volta o site.
 
 Cada passo que pode travar tem tempo limite (`git fetch` 2 min, backup
-15 min, build e subida 30 min, reload do Caddy 1 min): um passo travado não
-segura a trava para sempre. O status 124 no log é tempo esgotado.
+15 min, build e subida 30 min, recriação do Caddy 2 min, `prune` 2 min): um
+passo travado não segura a trava para sempre. O `mysqldump` tem 14 min dentro
+do próprio container, porque o `docker exec` não repassa o sinal do tempo
+limite; se ele ainda ficar rodando, `docker compose exec db pkill mysqldump`.
+
+| Status | Quer dizer |
+|---|---|
+| 0 | No ar (ou um commit mais novo já estava no ar e este foi pulado) |
+| 1 | Um passo falhou; o motivo está no `deploy.log` |
+| 2 | Uso errado ou commit inválido (não chegou a rodar nada) |
+| 73 | Sem escrita na pasta de log, no `deploy.log` ou na trava (o script rodou com `sudo`?) |
+| 75 | Pulado: outro deploy ainda está rodando |
+
+No log, um passo com status 124 passou do tempo limite; com 137, foi
+encerrado com KILL (30 s depois do tempo limite, ou de fora, como um
+`kill -9` ou a falta de memória).
 
 O script não reinstala o cron nem a si mesmo. Se o merge mudar
 `deploy/cron/` ou `deploy/cd/deploy.sh`, o log avisa, e é preciso reinstalar
