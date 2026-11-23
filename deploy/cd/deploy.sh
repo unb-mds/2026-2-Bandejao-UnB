@@ -15,8 +15,8 @@
 #
 # Passos: trava contra deploy duplo, confere a pasta e o commit, faz o backup
 # do banco, avança a `main` até o commit (só fast-forward), sobe o Compose com
-# --build e espera os serviços ficarem prontos, recria o Caddy se o
-# Caddyfile mudou e confere o PWA e a API pela internet. As migrations rodam
+# --build e espera os serviços ficarem prontos, recria o Caddy se ele não vê
+# o Caddyfile do repositório e confere o PWA e a API pela internet. As migrations rodam
 # na subida do backend (entrypoint.sh), por isso o backup vem antes. Não há
 # rollback automático: se algo falhar, o log mostra o commit anterior e o
 # backup para voltar à mão.
@@ -32,10 +32,13 @@
 # Cada passo que pode travar tem tempo limite: o HUP é ignorado (abaixo), e um
 # passo travado seguraria a trava depois de o job do Actions morrer. Os
 # limites podem ser trocados por $BANDEJAO_LIMITE_FETCH (padrão 2m),
-# $BANDEJAO_LIMITE_BACKUP (15m, o cliente do docker; o mysqldump, dentro do
-# container, tem 1 min a menos) e $BANDEJAO_LIMITE_COMPOSE (30m, o build e o
-# --wait juntos). Somados aos fixos (Caddy 2m, prune 2m) e às conferências,
-# o pior caso fica perto de 55 min: o step do workflow tem 70.
+# $BANDEJAO_LIMITE_BACKUP_MIN (15, em minutos inteiros, no mínimo 2: o
+# cliente do docker; o mysqldump, dentro do container, tem 1 min a menos) e
+# $BANDEJAO_LIMITE_COMPOSE (30m, o build e o --wait juntos). Somados aos
+# fixos (Caddy: 1m para conferir, 2m para recriar e 1m para conferir de novo;
+# prune 2m), aos `--kill-after` de 30 s e ao health check (2 URLs x 6
+# tentativas x 20 s), o pior caso fica perto de 59 min: o step do workflow
+# tem 70.
 #
 # É bash, e não sh como o rodar-comando.sh, por causa do pipefail: o status
 # do mysqldump e do script não pode ser perdido no pipe do gzip e do tee.
@@ -51,9 +54,8 @@ logs=${BANDEJAO_LOGS:-/var/log/bandejao}
 backups=${BANDEJAO_BACKUPS:-/home/azureuser/backups}
 url=${BANDEJAO_URL:-https://bandejaounb.com.br}
 limite_fetch=${BANDEJAO_LIMITE_FETCH:-2m}
-limite_backup=${BANDEJAO_LIMITE_BACKUP:-15m}
 limite_compose=${BANDEJAO_LIMITE_COMPOSE:-30m}
-limite_dump=${BANDEJAO_LIMITE_DUMP:-14m}
+limite_backup_min=${BANDEJAO_LIMITE_BACKUP_MIN:-15}
 espera_http=${BANDEJAO_ESPERA_HTTP:-5}
 branch=main
 log=$logs/deploy.log
@@ -113,6 +115,17 @@ conferir_url() {
     return 1
 }
 
+# O Caddy vê o mesmo Caddyfile do repositório? 0 (vê), 1 (vê outro) ou 2 (o
+# `exec` falhou: o Caddy não está no ar, por exemplo num loop de restart por
+# erro de sintaxe no Caddyfile).
+caddy_ve_o_caddyfile() {
+    local visto
+    if ! visto=$(limitado 1m docker compose exec -T caddy cat /etc/caddy/Caddyfile); then
+        return 2
+    fi
+    [[ $visto == "$(<Caddyfile)" ]]
+}
+
 # Depois de um deploy que deu certo: o backup dele vira o ultimo-ok, e só
 # ficam os $manter mais recentes. Uma falha aqui não desfaz o deploy, só avisa.
 guardar_backups() {
@@ -129,13 +142,21 @@ guardar_backups() {
     fi
 }
 
+if [[ ! $limite_backup_min =~ ^[0-9]+$ ]] || ((limite_backup_min < 2)); then
+    echo "BANDEJAO_LIMITE_BACKUP_MIN tem que ser um número inteiro de minutos, no mínimo 2" >&2
+    exit 2
+fi
+# O de dentro do container sempre 1 min menor que o de fora.
+limite_backup=${limite_backup_min}m
+limite_dump=$((limite_backup_min - 1))m
+
 sha=${1:-${SSH_ORIGINAL_COMMAND:-}}
 if [[ ! $sha =~ ^[0-9a-f]{40}$ ]]; then
     echo "uso: bandejao-deploy <commit de 40 caracteres>" >&2
     exit 2
 fi
 
-if ! mkdir -p "$logs" 2>/dev/null; then
+if ! mkdir -p "$logs"; then
     echo "não foi possível criar $logs (o script rodou com sudo?)" >&2
     logger -t bandejao-deploy -p user.err -- "não foi possível criar $logs" 2>/dev/null || true
     exit 73
@@ -265,21 +286,32 @@ corpo() {
     # O Caddyfile entra por bind mount de um arquivo só, preso ao inode do
     # arquivo antigo: o `git merge` grava um arquivo novo, e um `caddy reload`
     # releria o conteúdo antigo. O `up` não recria o Caddy quando só o
-    # Caddyfile muda, então ele é recriado aqui, e o conteúdo é conferido.
-    if ! git diff --quiet "$anterior" "$sha" -- Caddyfile; then
+    # Caddyfile muda. A conferência é pelo conteúdo, e não pelo `git diff`:
+    # num "Re-run" depois de um deploy que falhou no meio, o diff viria vazio
+    # e o Caddy ficaria com a configuração antiga.
+    caddy_ve_o_caddyfile
+    if [[ $? -ne 0 ]]; then
         limitado 2m docker compose up -d --no-deps --force-recreate caddy
         status=$?
         if [[ $status -ne 0 ]]; then
-            falhou "$status" "a recriação do Caddy (Caddyfile novo)"
+            falhou "$status" "a recriação do Caddy"
             msg "$voltar"
             return 1
         fi
-        if ! limitado 1m docker compose exec -T caddy cat /etc/caddy/Caddyfile | cmp -s - Caddyfile; then
-            msg "ERRO: o Caddy não vê o Caddyfile novo"
-            msg "$voltar"
-            return 1
-        fi
-        msg "Caddy recriado (Caddyfile mudou)"
+        caddy_ve_o_caddyfile
+        case $? in
+            0) msg "Caddy recriado (não via o Caddyfile do repositório)" ;;
+            1)
+                msg "ERRO: o Caddy recriado ainda não vê o Caddyfile do repositório"
+                msg "$voltar"
+                return 1
+                ;;
+            *)
+                msg "ERRO: o Caddy não está no ar depois de recriado (Caddyfile com erro? docker compose logs --tail 50 caddy)"
+                msg "$voltar"
+                return 1
+                ;;
+        esac
     fi
     # O PWA (o Caddy não tem healthcheck, então o --wait não o cobre) e a API.
     # As tentativas também cobrem os segundos do Caddy recém-recriado.

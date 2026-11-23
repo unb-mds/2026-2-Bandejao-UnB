@@ -37,22 +37,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           limite=$((SECONDS + 2400))
-          erros_gh=0
+          # Um contador por workflow: um sucesso do outro não zera este.
+          declare -A erros_gh=()
           while :; do
             pendente=0
             for wf in "Backend CI" "Frontend CI"; do
               # O run mais recente do workflow nesse commit, num push na main
               # (um "Re-run" conta). Sem run ainda, o resultado é "null null":
               # pendente. Um erro da API (5xx) não derruba a espera; 5 erros
-              # seguidos (nome de workflow errado, sem permissão) derrubam.
+              # seguidos no mesmo workflow (nome errado, sem permissão)
+              # derrubam.
               if r=$(gh run list -R "$GITHUB_REPOSITORY" --workflow "$wf" \
                 --branch main --commit "$GITHUB_SHA" --event push --limit 1 \
                 --json status,conclusion --jq '.[0] | "\(.status) \(.conclusion)"'); then
-                erros_gh=0
+                erros_gh[$wf]=0
               else
-                erros_gh=$((erros_gh + 1))
-                if [ "$erros_gh" -ge 5 ]; then
-                  echo "::error::gh run list falhou 5 vezes seguidas (último: $wf): sem deploy."
+                erros_gh[$wf]=$((${erros_gh[$wf]:-0} + 1))
+                if [ "${erros_gh[$wf]}" -ge 5 ]; then
+                  echo "::error::gh run list falhou 5 vezes seguidas para $wf: sem deploy."
                   exit 1
                 fi
                 echo "::warning::gh run list falhou para $wf; tentando de novo."
@@ -77,8 +79,8 @@ jobs:
 
       - name: Deploy na VM
         # A soma dos limites do deploy.sh (fetch 2, backup 15, Compose 30,
-        # Caddy 3, prune 2), mais as conferências (até ~4 min) e os KILL de
-        # 30 s: perto de 55 min. Se o step morrer antes, o deploy continua na
+        # Caddy 4, prune 2), mais o health check (até 4 min) e os KILL de
+        # 30 s: perto de 59 min (as contas estão no cabeçalho do script). Se o step morrer antes, o deploy continua na
         # VM e termina no deploy.log.
         timeout-minutes: 70
         env:
