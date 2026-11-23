@@ -23,7 +23,19 @@ SMTP = {
 }
 
 
-def test_check_deploy_passa_sem_avisos(settings):
+# Configurações que o check --deploy confere e que dependem do DEBUG. Elas são
+# calculadas quando o settings.py é importado: com DJANGO_DEBUG=True no .env
+# local, a suíte inteira as herdaria em modo de desenvolvimento.
+PREFIXOS_DE_SEGURANCA = ("SECURE_", "SESSION_COOKIE_", "CSRF_COOKIE_")
+
+
+def test_check_deploy_passa_sem_avisos(settings, carregar_settings):
+    """Com os valores de produção (sem DEBUG e sem o .env local), zero aviso."""
+    producao = carregar_settings()
+    for nome in dir(producao):
+        if nome.startswith(PREFIXOS_DE_SEGURANCA):
+            setattr(settings, nome, getattr(producao, nome))
+    settings.SILENCED_SYSTEM_CHECKS = getattr(producao, "SILENCED_SYSTEM_CHECKS", [])
     settings.DEBUG = False
     settings.SECRET_KEY = CHAVE_DE_PRODUCAO_FALSA
     settings.ALLOWED_HOSTS = ["bandejaounb.com.br"]
