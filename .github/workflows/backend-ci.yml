@@ -38,6 +38,33 @@ jobs:
         cache-dependency-path: backend/requirements-dev.txt
     - run: pip install -r requirements-dev.txt
     - run: pytest --cov=apps --cov-branch --cov-fail-under=70
+    # Meta do RNF06 por módulo crítico (ADR 0013; Plano de Testes, seções 1,
+    # 2 e 5.1): a média de apps/ esconde um módulo fraco atrás dos outros. O
+    # coverage report lê o .coverage que o passo anterior deixou em backend/.
+    # O --omit da linha de comando substitui o do .coveragerc (não soma), por
+    # isso os tests/ e migrations/ repetidos na linha do cardápio sem o leitor.
+    # A tabela de cada módulo vai para o resumo do run (relatório da BE-18).
+    - name: Cobertura por módulo crítico (mínimo 70%)
+      shell: bash
+      run: |
+        falhou=0
+        relatorio() {
+          local titulo="$1"; shift
+          echo "== $titulo"
+          echo "### $titulo" >> "$GITHUB_STEP_SUMMARY"
+          coverage report "$@" --format=markdown >> "$GITHUB_STEP_SUMMARY" || true
+          echo >> "$GITHUB_STEP_SUMMARY"
+          if ! coverage report "$@" --fail-under=70; then
+            echo "::error::Cobertura de $titulo abaixo de 70%."
+            falhou=1
+          fi
+        }
+        for modulo in cadastro cardapio/leitor avaliacao fila gamificacao; do
+          relatorio "$modulo" --include="apps/$modulo/*"
+        done
+        relatorio "cardapio (sem o leitor)" --include="apps/cardapio/*" \
+          --omit="apps/cardapio/leitor/*,*/tests/*,*/migrations/*"
+        exit "$falhou"
 
   seguranca:
     runs-on: ubuntu-latest
