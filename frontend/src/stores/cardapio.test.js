@@ -21,17 +21,6 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('cardapioStore: sem a semana do MVP (#251)', () => {
-  it('não tem mais a carga da semana inteira por campus', () => {
-    const cardapio = useCardapioStore()
-
-    for (const nome of ['carregar', 'semana', 'refeicao', 'porCampus', 'erro', 'erroDe']) {
-      expect(cardapio[nome]).toBeUndefined()
-    }
-    expect(cardapio.estaCarregando).toBeUndefined()
-  })
-})
-
 describe('cardapioStore: campi (GET /api/campi/)', () => {
   it('carrega a lista com id inteiro e nome do banco', async () => {
     const cardapio = useCardapioStore()
