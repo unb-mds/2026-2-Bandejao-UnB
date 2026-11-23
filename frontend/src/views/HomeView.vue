@@ -54,7 +54,8 @@ const mensagemSemResumo = computed(() => {
     return 'Não há refeições servidas hoje neste campus.'
   }
   if (resposta.status !== 'publicado') return 'Cardápio ainda não publicado.'
-  return 'Não há refeições servidas hoje neste campus.'
+  // Servida hoje, mas sem nenhum prato nas categorias.
+  return 'Os pratos desta refeição ainda não foram cadastrados.'
 })
 const notaHoje = computed(() => {
   if (!tipoHoje.value) return null
