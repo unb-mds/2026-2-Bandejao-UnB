@@ -23,6 +23,14 @@ sente. O monitor do site ajuda a separar a causa (por exemplo, o PWA fora e a
 API no ar), mas não entra na conta do RNF02. Assim há um só número, sem somar
 nem comparar dois monitores.
 
+Configuração, para quem precisar recriar os monitores: no da API, o alerta abre
+quando a palavra **não existe** na resposta (*Alert when: keyword does not
+exist*), com a opção de diferenciar maiúsculas e minúsculas ligada; no do
+site, o aviso de certificado só funciona com *Ignore SSL errors* **desmarcado**.
+**Não pause o monitor da API** (nem num deploy planejado): o tempo pausado não
+aparece como queda e some da conta. Se alguém pausar, anote o tempo pausado como
+queda no relatório.
+
 O monitor da API existe por causa do que já aconteceu: o banco de produção
 chegou a ficar sem campi, e a API respondia 200 com `[]`. Um monitor que só
 olha o código HTTP não pegaria isso. O caso está no passo
@@ -43,9 +51,9 @@ depois do `loaddata`.
 
 Quem recebe o e-mail (o dono da conta) **avisa no grupo da equipe** assim que
 o alerta chega, com o monitor, o horário e o motivo que o painel mostra. Se
-outra pessoa precisar agir, ela usa o próprio acesso à VM (ver
-[Infraestrutura](deploy/deploy-producao.md?id=infraestrutura)) e não
-precisa do painel.
+outra pessoa precisar agir, ela usa o próprio acesso à VM e não precisa do
+painel. **Durante o incidente, peça no grupo que ninguém faça merge na `main`**:
+com o deploy automático, um merge vira deploy no meio da correção.
 
 1. Abra o monitor no painel e leia o motivo do incidente (código HTTP, tempo
    esgotado ou "keyword not found").
@@ -58,19 +66,29 @@ precisa do painel.
    docker compose logs --tail 100 backend caddy db
    ```
    (mais comandos em [Ver logs](deploy/deploy-producao.md?id=ver-logs)). O
-   `db` entra porque, se o banco cai, o backend fica `unhealthy` e a causa só
-   aparece no log do `db`.
+   `db` entra porque, se o banco cai, o backend continua `healthy` no
+   `docker compose ps` (o healthcheck só testa a porta do Gunicorn, não fala
+   com o banco) e a API responde erro 500: o estado do banco aparece no `ps` e
+   a causa, no log do `db`. Não descarte o banco só porque o backend aparece
+   `healthy`.
 3. Se um serviço caiu, o `restart: unless-stopped` costuma subir de volta
-   sozinho. Se não subiu, rode `docker compose up -d` (sem `git pull`) e veja
-   `docker compose logs --tail 100 <serviço>`. Se o erro for de configuração
+   sozinho, mas ele só reinicia container que **saiu**. Se não subiu, rode
+   `docker compose up -d` (sem `git pull`) e veja
+   `docker compose logs --tail 100 <serviço>`. Se o container está de pé mas
+   com erro (o backend respondendo 500, por exemplo), ele não é reiniciado
+   sozinho: use `docker compose restart <serviço>`. Se o erro for de configuração
    (`.env`), veja os casos de `--force-recreate` em
    [Atualizar](deploy/deploy-producao.md?id=atualizar). Não siga o resto de
    "Atualizar" no meio de um incidente: ele faz `git pull` e coloca código novo
    em produção.
-4. Se a API responde `[]`, confirme que a tabela de campi está vazia (o log do
-   backend mostra o aviso de tabela vazia, ou `Campus.objects.count()` no
-   shell). Só então rode o `loaddata`, sabendo que ele regrava campi **e
-   marcadores** com os valores da fixture e desfaz ajustes feitos no banco,
+4. Se a API responde `[]`, confirme que a tabela de campi está vazia:
+   ```bash
+   docker compose logs backend | grep "Tabela CAMPUS vazia"
+   docker compose exec backend python manage.py shell -c "from apps.cardapio.models import Campus; print(Campus.objects.count())"
+   ```
+   Se a API traz campi, mas não o `Darcy Ribeiro` (campus renomeado), **não**
+   rode o `loaddata`: troque a palavra do monitor. Só com a tabela vazia rode o
+   `loaddata`, sabendo que ele regrava campi **e marcadores** com os valores da fixture e desfaz ajustes feitos no banco,
    como as coordenadas medidas em campo na BD-06 (ver o aviso no passo
    [3. Subir](deploy/deploy-producao.md?id=_3-subir) do guia de deploy).
 5. Anote o incidente na tabela de incidentes do
@@ -100,12 +118,17 @@ sai errado sem aviso. Anote no relatório qual fuso estava ativo.
 - disponibilidade do período: `(1 − soma dos minutos fora do ar ÷ (750 × dias
   de refeição do período)) × 100`, em %. **É esse o número que se compara com
   a meta de 95%.**
+- **Regra de decisão, sem arredondar:** a meta é atingida se a soma dos minutos
+  que contam for **no máximo 37,5 × dias de refeição**. Assim, um 94,996% não
+  vira "95%" por arredondamento.
+- Um incidente **ainda aberto** no fechamento termina na hora do fechamento.
 
 A meta vale para o **período**, e não dia a dia: um dia com 60 minutos fora do
 ar não reprova o período sozinho. A margem de 5% equivale, em média, a **37,5
 minutos de queda por dia de refeição**. Como a checagem é de 5 em 5 minutos, o
 tempo fora do ar é medido nesse passo, e uma queda curta entre duas checagens
-pode passar despercebida.
+pode passar despercebida, e o início e o fim de cada incidente têm erro de até
+cerca de 5 minutos, **para mais ou para menos**.
 
 O critério dos dias de refeição, o que não conta e onde fica a evidência estão
 no [relatório parcial de disponibilidade](operacao/relatorio-disponibilidade-parcial.md).

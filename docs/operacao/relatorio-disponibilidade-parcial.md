@@ -14,25 +14,28 @@ troque esta linha pela data de fechamento.
 
 - Data de fechamento: `_preencher_`.
 - Quem fechou: `_preencher_`.
-- Monitores usados: `_preencher_` (oficial: API `Keyword on
-  bandejaounb.com.br/api/campi/`; diagnóstico: site `bandejaounb.com.br`).
+- Monitores usados: `_preencher_` (nomes dos monitores no painel).
 - Fuso da conta do UptimeRobot (*Account details → Timezone*): `_preencher_`
-  (deve ser `America/Sao_Paulo`, UTC−3; conferido em 23/11/2026, quando
-  estava em `Sao Paulo (GMT-03:00)`; confira de novo no fechamento).
+  (deve ser `America/Sao_Paulo`, UTC−3; confira no fechamento).
 
 ## Período
 
-- Início da coleta: 21/11/2026 (monitores criados à noite, num sábado).
+- Início da coleta: 21/11/2026. Os monitores foram criados à noite, então esse
+  dia é incompleto e não entra nos dias de refeição.
 - Período do relatório: `_preencher_` a `_preencher_`.
 - Dias de refeição no período: `_preencher_` (lista das datas contadas).
 - Minutos de janela no período: `_preencher_` (750 × dias de refeição).
 
 ### Critério dos dias de refeição
 
-- São os dias em que o RU serve refeição, segundo o calendário do RU da UnB
-  (os dias com cardápio publicado no sistema para o campus).
-- Ficam de fora os sábados, domingos, feriados e recessos em que o RU não
-  serve, mesmo com a coleta ligada. Por isso o dia 21/11 (sábado) não conta.
+- Vale o **RU do campus Darcy Ribeiro** (o mesmo da palavra do monitor): um dia
+  é de refeição se esse RU serve refeição nele, segundo o calendário do RU da
+  UnB. O calendário decide, sem excluir o fim de semana por regra (o sistema
+  prevê serviço no sábado).
+- Ficam de fora os dias em que o RU não serve (domingos, feriados e recessos),
+  mesmo com a coleta ligada, e os dias incompletos de coleta (o 21/11).
+- Uma falha do leitor do PDF **não** tira o dia da conta: o sistema segue no ar
+  com o último cardápio.
 - A lista das datas contadas fica anotada em "Dias de refeição no período".
 
 ### O que conta e o que não conta como queda
@@ -61,12 +64,16 @@ período, e um dia ruim não reprova sozinho.
 
 ## Incidentes
 
-| Monitor | Início | Fim | Duração | No período? | Dentro da janela? | Conta? | Motivo | Ação |
+| Monitor | Início | Fim | Duração | No período? | Conta? | Min na janela (que contam) | Motivo | Ação |
 |---|---|---|---|---|---|---|---|---|
-| `_preencher_` | `_preencher_` | `_preencher_` | `_preencher_` | `_sim / não_` | `_sim / não_` | `_sim / não_` | `_preencher_` | `_preencher_` |
+| `_preencher_` | `_preencher_` | `_preencher_` | `_preencher_` | `_sim / não_` | `_sim / não_` | `_preencher_` | `_preencher_` | `_preencher_` |
 
-Sem incidentes no período: escrever "nenhum incidente registrado" e manter a
-tabela vazia.
+"Min na janela (que contam)" é o número que entra na conta: só os minutos
+entre 7h00 e 19h30 de dias de refeição, e **0** se `Conta?` for "não". Um
+incidente que atravessa os limites da janela conta só a parte de dentro.
+
+Sem incidentes no período: apague a linha `_preencher_` e escreva "nenhum
+incidente registrado".
 
 ## Leitura
 
@@ -77,10 +84,15 @@ tabela vazia.
 
 ## Evidência
 
-- Print do painel do período, anexado ao relatório.
+- Print do painel do período, anexado ao relatório. **Corte o e-mail da
+  conta** antes de anexar: o repositório é público.
 - Exportação do log de incidentes (CSV) feita **no dia do fechamento**, porque
   o histórico do plano gratuito é limitado. Onde o arquivo ficou:
   `_preencher_`.
+- Para não perder dado, guarde o log de incidentes **uma vez por mês** (CSV,
+  ou print da lista de incidentes se o plano gratuito não exportar). Plano B
+  sem CSV: copie cada incidente para a tabela do relatório no mesmo dia em
+  que ele acontece.
 
 ## Como preencher
 
@@ -88,9 +100,14 @@ tabela vazia.
    `America/Sao_Paulo` (UTC−3) e anote isso nos metadados.
 2. No painel, abra cada monitor e consulte o log de incidentes do período
    (início, fim e duração de cada um). Exporte o CSV e anote onde ficou.
-3. Some os minutos do monitor da API que caem entre 7h00 e 19h30 de dias de
-   refeição (horário de Brasília) e preencha as tabelas. O monitor do site
-   fica como diagnóstico.
-4. Calcule `(1 − minutos fora ÷ (750 × dias de refeição)) × 100`, em %.
+3. Para cada incidente do monitor da API com `Conta? = sim`, some os minutos
+   dentro de 7h00 a 19h30 (horário de Brasília) de cada dia de refeição que ele
+   atravessa, cortando nos limites da janela, e anote em "Min na janela (que
+   contam)". Some a coluna e preencha o resumo e a tabela por dia. O monitor do
+   site fica como diagnóstico. Um incidente ainda aberto termina na hora do
+   fechamento.
+4. Calcule `(1 − minutos fora ÷ (750 × dias de refeição)) × 100`, em %. A meta
+   é atingida se os minutos que contam forem **no máximo 37,5 × dias de
+   refeição** (compare por essa regra, sem arredondar o percentual).
 5. Anexe o print do painel do período, para a conferência.
 6. Preencha os metadados e troque a linha "Situação" no topo.
