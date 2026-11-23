@@ -2,7 +2,9 @@
 (Gamificação N4 4a, ADR 0011)."""
 
 from django.db import IntegrityError, transaction
+from django.db.models import Case, Exists, OuterRef, QuerySet, Value, When
 
+from apps.cadastro.models import StatusUsuario
 from apps.cardapio.models import Campus
 from apps.gamificacao.models import PontosSemestreCampus, PontuacaoUsuario
 
@@ -72,6 +74,37 @@ class PontuacaoRepository:
             pontuacao = self.travar_por_conta(conta)
             pontuacao.participa_ranking = participa
             pontuacao.save(update_fields=["participa_ranking", "atualizado_em"])
+
+    def elegiveis(self, campus: Campus, semestre: str) -> QuerySet:
+        """As linhas do ranking do campus no semestre, em ordem (RN12): só
+        quem aderiu, com conta ativa e ao menos 1 ponto, pelos pontos e com
+        desempate por quem pontuou antes (`atualizado_em` mais antigo).
+
+        Devolve a consulta sem corte, para quem chama pôr o `LIMIT`. A forma
+        é a do BD-10 (docs/arquitetura/banco-de-dados/indices-bd10.md): a
+        adesão e a conta ativa num `EXISTS` dentro de um `CASE`, com `alias`,
+        sem join nem `select_related`, e a ordem exatamente
+        `-pontos, atualizado_em`. Só assim o MySQL 8.4 lê o índice do ranking
+        já em ordem, sem ordenar em arquivo temporário.
+        """
+        elegivel = Exists(
+            PontuacaoUsuario.objects.filter(
+                usuario_id=OuterRef("usuario_id"),
+                participa_ranking=True,
+                usuario__status=StatusUsuario.ATIVO,
+            )
+        )
+        return (
+            PontosSemestreCampus.objects.filter(
+                campus=campus, semestre_referencia=semestre, pontos__gte=1
+            )
+            # `alias` e não `annotate`: a subconsulta fica só no WHERE.
+            .alias(
+                elegivel=Case(When(elegivel, then=Value(True)), default=Value(False))
+            )
+            .filter(elegivel=True)
+            .order_by("-pontos", "atualizado_em")
+        )
 
     @staticmethod
     def _ler_com_trava(conta) -> PontuacaoUsuario | None:

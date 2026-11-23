@@ -8,13 +8,12 @@ Os índices conferidos são os do dicionário de dados
 - `PONTOS_SEMESTRE_CAMPUS` (`campus_id`, `semestre_referencia`, `pontos` desc,
   `atualizado_em`): ranking e desempate (RF27.2), Gamificação N4 4c.
 
-O `PrevisaoService` (BE-15) e o `RankingService` (BE-17) ainda não existem.
-As consultas abaixo têm a forma que o Nível 4 descreve para o
-`CheckinRepository.contarPorFaixa`, o `CheckinRepository.temposDeEspera` e o
-`PontuacaoRepository.elegiveis`: quem implementar esses métodos deve manter os
-filtros de igualdade nas colunas do começo do índice e, no ranking, a ordem
-`-pontos, atualizado_em`, ou o plano muda (ver docs/arquitetura/banco-de-dados/
-indices-bd10.md).
+As consultas da previsão abaixo têm a forma que o Nível 4 descreve para o
+`CheckinRepository.contarPorFaixa` e o `CheckinRepository.temposDeEspera`. A
+do ranking é a do próprio `PontuacaoRepository.elegiveis` (BE-17). Quem mexer
+nesses métodos deve manter os filtros de igualdade nas colunas do começo do
+índice e, no ranking, a ordem `-pontos, atualizado_em`, ou o plano muda (ver
+docs/arquitetura/banco-de-dados/indices-bd10.md).
 
 Os dados de teste têm volume suficiente para o otimizador ter escolha: os
 índices de uma coluna das FKs (`campus_id`, `usuario_id`) e o de `data` também
@@ -33,13 +32,15 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth import get_user_model
 from django.db import connection
-from django.db.models import Case, Count, Exists, OuterRef, Value, When
+from django.db.models import Count
 from django.utils import timezone
 
 from apps.cadastro.models import StatusUsuario
 from apps.cardapio.models import Campus, TipoRefeicao
 from apps.fila.models import Checkin
 from apps.gamificacao.models import PontosSemestreCampus, PontuacaoUsuario
+from apps.gamificacao.pontuacao_repository import PontuacaoRepository
+from config.parametros import ParametrosGamificacaoConfig
 
 INDICE_CHECKIN = "checkin_campus_tipo_data_idx"
 INDICE_RANKING = "pontos_semestre_ranking_idx"
@@ -207,9 +208,10 @@ def consulta_tempos_de_espera(campus):
 
 
 def consulta_ranking(campus):
-    """Forma do `PontuacaoRepository.elegiveis` + tamanho do ranking (RF27.2,
-    RN12): só quem aderiu, conta ativa e ao menos 1 ponto no semestre, pelos
-    pontos e desempate por `atualizado_em`, até 10 linhas.
+    """`PontuacaoRepository.elegiveis` + tamanho do ranking, como o
+    `RankingService.top_publico` chama (BE-17, RF27.2, RN12): só quem aderiu,
+    conta ativa e ao menos 1 ponto no semestre, pelos pontos e desempate por
+    `atualizado_em`, até 10 linhas.
 
     A elegibilidade (adesão e conta ativa) fica num `EXISTS` dentro de um
     `CASE`, e não num join. Com join (ou `EXISTS`/`IN` soltos, que o MySQL
@@ -219,22 +221,9 @@ def consulta_ranking(campus):
     join, a leitura começa pelo índice do ranking, já em ordem, e para quando
     acha as 10 linhas. Ver docs/arquitetura/banco-de-dados/indices-bd10.md.
     """
-    elegivel = Exists(
-        PontuacaoUsuario.objects.filter(
-            usuario_id=OuterRef("usuario_id"),
-            participa_ranking=True,
-            usuario__status=StatusUsuario.ATIVO,
-        )
-    )
-    return (
-        PontosSemestreCampus.objects.filter(
-            campus=campus, semestre_referencia="2026.2", pontos__gte=1
-        )
-        # `alias` e não `annotate`: a subconsulta fica só no WHERE.
-        .alias(elegivel=Case(When(elegivel, then=Value(True)), default=Value(False)))
-        .filter(elegivel=True)
-        .order_by("-pontos", "atualizado_em")[:10]
-    )
+    return PontuacaoRepository().elegiveis(campus, "2026.2")[
+        : ParametrosGamificacaoConfig.tamanho_ranking
+    ]
 
 
 def plano(queryset):

@@ -392,6 +392,19 @@ Convite ao cadastro (RF05)."]
   `RankingAdesaoToggle`, a `PosicaoRanking` e a própria Bandeja de Ouro. Para
   o **visitante**, a rota abre normalmente e mostra o `ConviteLogin` (seta
   tracejada), sem redirecionar.
+- **Versão simplificada da FE-12 (#173).** A primeira `ProgressoView` traz só
+  a patente, os pontos totais, quanto falta para a próxima (com uma barra)
+  ou "patente máxima", o `RankingAdesaoToggle` e o `BotaoSair`; a
+  `SequenciaSemana`, a `PosicaoRanking` e o `DistintivoIndicador` ficam
+  para depois. Chega-se a ela pelo item "Meu progresso" do menu da Início.
+  O progresso e a adesão vêm da BE-16 (#237). Se o backend responder 501
+  (defesa contra uma rota sem a regra), a tela mostra "Progresso ainda não
+  disponível", sem erro; o `BotaoSair` continua. O interruptor só aparece com
+  o progresso carregado (não no 501, no primeiro carregamento nem no erro) e,
+  depois de mudar a adesão, continua na tela, desativado, enquanto o
+  progresso recarrega. O aviso do interruptor (`role="switch"`) diz que o
+  apelido e a patente ficam visíveis para todos no ranking do semestre, ainda
+  sem citar a Bandeja de Ouro.
 - **`RankingView` (rota `/ranking/:campusId`) é pública** e mostra o ranking
   **do semestre** do campus escolhido no `SeletorCampus`: até 10 linhas
   (Anexo A) com posição, apelido, patente e, quando houver, a Bandeja de
@@ -423,7 +436,13 @@ Convite ao cadastro (RF05)."]
   sem acrescentar interações (RNF03).
 - **`BotaoSair` fica em "Meu progresso"**, que é a área da conta do
   usuário logado (RF03.3). A dupla pode movê-lo para um menu de conta sem
-  mudar a arquitetura: ele só chama `authStore.sair()`.
+  mudar a arquitetura: ele chama `authStore.sair()`, descarta os comentários
+  guardados e volta à Início. Se o servidor não confirmar a saída, a conta
+  sai deste aparelho, mas a tela fica e avisa que o servidor não confirmou,
+  porque o cookie de sessão pode continuar valendo. Essa lógica fica no
+  composable `useSair`, que o item "Sair da conta" do menu da Início também
+  usa: lá a tela continua na Início, recarrega as avaliações de hoje e mostra
+  o mesmo aviso quando o servidor não confirma.
 
 ---
 
@@ -593,7 +612,17 @@ trata erros (RNF04, ADR 0007)."]
   **Ao mudar a adesão** (`POST`/`DELETE /api/gamificacao/adesao/`), a store
   recarrega o progresso e o ranking e pede ao `avaliacoesStore` que descarte
   os comentários guardados, porque a Bandeja de Ouro de quem desligou some
-  na hora (RF27.1).
+  na hora (RF27.1). Desde a FE-12, o progresso e cada ranking guardam a
+  situação (`carregando`, `carregado`, `indisponivel` no 501 ou `erro`), com
+  a resposta validada contra o OpenAPI. Com pontos novos, o progresso fica
+  marcado como desatualizado (`progressoDesatualizado`) e é pedido de novo na
+  próxima vez que a tela abrir. Ao mudar a adesão, a store grava o novo
+  `participaRanking` assim que o servidor confirma, recarrega o progresso sem
+  voltar a "carregando" (se o recarregamento falhar, mantém o que tinha e o
+  marca como desatualizado) e recarrega só os rankings já abertos; um segundo
+  toque é ignorado enquanto a mudança não termina. Progresso, rankings e o
+  erro da adesão são limpos no logout e no 401, e uma resposta que chega
+  depois disso, ou depois de um pedido mais novo, é descartada.
 - **Pontos recebidos (decisão 7 da #66, RF24.2).** Não há endpoint de
   pontos: as respostas de check-in, de resposta de saída e de avaliação
   trazem o mesmo bloco

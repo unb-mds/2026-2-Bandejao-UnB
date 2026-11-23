@@ -102,6 +102,12 @@ export const routes = [
     meta: { title: 'Ranking' },
   },
   {
+    path: '/progresso',
+    name: 'progresso',
+    component: () => import('@/views/ProgressoView.vue'),
+    meta: { title: 'Meu progresso' },
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('@/views/LoginView.vue'),

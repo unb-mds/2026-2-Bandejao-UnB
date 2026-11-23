@@ -60,6 +60,13 @@ describe('roteamento', () => {
     await vi.waitFor(() => expect(wrapper.find('h1').text()).toBe('Darcy Ribeiro'))
   })
 
+  it('/progresso abre sem login e sem campus escolhido (visitante vê o convite, RF05)', async () => {
+    const { router } = await montarEm('/progresso')
+
+    expect(router.currentRoute.value.name).toBe('progresso')
+    expect(document.title).toContain('Meu progresso')
+  })
+
   it('telas que dependem de campus pedem a escolha do campus antes', async () => {
     const { router } = await montarEm('/inicio')
     expect(router.currentRoute.value.name).toBe('campus')

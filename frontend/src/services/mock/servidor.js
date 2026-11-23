@@ -26,6 +26,12 @@
  * (FE-11) segue o contrato da BE-15 (#236), com uma previsão de exemplo de
  * `./previsao.js`; `simulacao.definirPrevisaoDisponivel(false)` faz ele
  * responder 501, para testar a defesa do front contra um backend sem a rota.
+ * O progresso, a adesão e o ranking (FE-12) seguem o OpenAPI, com 10 pontos
+ * por check-in do simulado e um ranking de exemplo de `./gamificacao.js`. No
+ * backend, o progresso e a adesão respondem desde a BE-16 (#237), e o ranking
+ * desde a BE-17 (#239). Depois de
+ * `simulacao.definirGamificacaoDisponivel(false)`, as três rotas respondem 501
+ * (no ranking, só para um campus que existe), para testar a defesa do front.
  * Recuperação de senha, a semana do cardápio (`/cardapio/<campus>/`) e as
  * listas de avaliação da HomeView (`GET /avaliacoes/` e o resumo da semana)
  * ainda têm o formato do MVP: entram no contrato na FE-E2.
@@ -43,6 +49,7 @@ import { IDS_MARCADORES } from '@/constants/marcadores'
 import { MENSAGEM_CAMPUS_INEXISTENTE } from '@/constants/campi'
 import { APELIDOS_SEMENTE, avaliacoesSemente } from './sementes'
 import { previsaoSimulada } from './previsao'
+import { progressoSimulado, rankingSimulado } from './gamificacao'
 import {
   analisarEmailEstudante,
   analisarEmailServidor,
@@ -80,10 +87,9 @@ const reenviosPorConta = new Map() // id do usuário → [instantes]
 let localizacaoConfirmada = true
 let resumoDoDiaDisponivel = true
 let previsaoDisponivel = true
+let gamificacaoDisponivel = true
 /** `false`: comentários e envio de avaliação respondem 501, como o backend sem a BE-13. */
 let avaliacoesDisponiveis = true
-/** `false`: o ranking responde 501, como o backend sem a BE-17. */
-let rankingDisponivel = true
 
 /** "Cookie HttpOnly" sessionid deste navegador: o JavaScript da página não o lê. */
 let cookieSessao = null
@@ -892,56 +898,30 @@ function previsaoDaFila(parametros, agora) {
   return ok(previsaoSimulada(campus, parametros.refeicao, parametros.data ?? hojeISO(agora)))
 }
 
-// Terceiro item: nome do limite por IP da rota (LIMITES_POR_IP), se houver.
-// ─── Ranking (BE-17) ──────────────────────────────────────────────────────
-
-/**
- * Quem aderiu ao ranking em cada campus, já na ordem dos pontos do semestre.
- * Planaltina e a Fazenda Água Limpa ficam vazias, para a tela de "ninguém no
- * ranking ainda". Os pontos não saem daqui (RI12).
- */
-const RANKING_SEMENTE = {
-  1: [
-    ['lucas_unb', 'LENDA_DO_RU'],
-    ['maria_s', 'MESTRE_DA_FILA'],
-    ['carol_unb', 'MESTRE_DA_FILA'],
-    ['joao_fga', 'VETERANO'],
-    ['ana_bio', 'VETERANO'],
-    ['bia_l', 'VETERANO'],
-    ['thiago_m', 'RATO_DE_RU'],
-    ['cristina_m', 'RATO_DE_RU'],
-    ['pedro_eng', 'RATO_DE_RU'],
-    ['lari_s', 'CALOURO_DE_BANDEJA'],
-  ],
-  2: [
-    ['rafa_fce', 'VETERANO'],
-    ['ana_bio', 'RATO_DE_RU'],
-    ['lari_s', 'CALOURO_DE_BANDEJA'],
-  ],
-  3: [
-    ['joao_fga', 'LENDA_DO_RU'],
-    ['pedro_eng', 'VETERANO'],
-    ['thiago_m', 'RATO_DE_RU'],
-    ['gui_fup', 'CALOURO_DE_BANDEJA'],
-  ],
-  4: [],
-  5: [],
+function progressoDaGamificacao(agora) {
+  const usuario = usuarioDaSessao()
+  if (!usuario) return naoAutenticado()
+  if (!gamificacaoDisponivel) return { status: 501, dados: null }
+  return ok(progressoSimulado(banco.estado, usuario, agora))
 }
 
-/** "2026.2" de agosto a dezembro, "2026.1" de janeiro a julho. */
-const semestreLetivo = (agora) => `${agora.getFullYear()}.${agora.getMonth() >= 7 ? 2 : 1}`
+function mudarAdesao(participar) {
+  const usuario = usuarioDaSessao()
+  if (!usuario) return naoAutenticado()
+  if (!gamificacaoDisponivel) return { status: 501, dados: null }
+  usuario.participaRanking = participar
+  banco.salvar()
+  return ok(null, 204)
+}
 
-/** GET /ranking/{campusId}/ (schema RankingPublico), público. */
-function rankingDoCampus(campusId, agora) {
-  if (!rankingDisponivel) return { status: 501, dados: null }
-  const campus = idDoCampus(campusId)
+function rankingDoCampus(valor) {
+  const campus = idDoCampus(valor)
   if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
-  const linhas = (RANKING_SEMENTE[campus] ?? [])
-    .slice(0, 10)
-    .map(([apelido, patente], i) => ({ posicao: i + 1, apelido, patente }))
-  return ok({ campusId: campus, semestre: semestreLetivo(agora), linhas })
+  if (!gamificacaoDisponivel) return { status: 501, dados: null }
+  return ok(rankingSimulado(banco.estado, campus))
 }
 
+// Terceiro item: nome do limite por IP da rota (LIMITES_POR_IP), se houver.
 const ROTAS = [
   ['GET', /^\/csrf\/$/, () => gravarCsrfSeFaltar()],
   ['POST', /^\/cadastro\/$/, ({ corpo, agora }) => cadastrar(corpo, agora), 'cadastro'],
@@ -974,8 +954,11 @@ const ROTAS = [
   ],
   ['POST', /^\/privacidade\/aceite\/$/, ({ agora }) => registrarAceitePrivacidade(agora)],
   ['POST', /^\/checkins\/$/, ({ corpo, agora }) => registrarCheckin(corpo, agora)],
-  ['GET', /^\/ranking\/([^/]+)\/$/, ({ agora }, [campus]) => rankingDoCampus(campus, agora)],
   ['GET', /^\/fila\/previsao\/$/, ({ parametros, agora }) => previsaoDaFila(parametros, agora)],
+  ['GET', /^\/gamificacao\/progresso\/$/, ({ agora }) => progressoDaGamificacao(agora)],
+  ['POST', /^\/gamificacao\/adesao\/$/, () => mudarAdesao(true)],
+  ['DELETE', /^\/gamificacao\/adesao\/$/, () => mudarAdesao(false)],
+  ['GET', /^\/ranking\/(\d+)\/$/, (_, [campus]) => rankingDoCampus(campus)],
 ]
 
 const ATRASO_MS = import.meta.env.MODE === 'test' ? 0 : 250
@@ -1024,10 +1007,6 @@ export const simulacao = {
   definirLocalizacaoConfirmada(confirmada) {
     localizacaoConfirmada = confirmada
   },
-  /** `false`: GET /ranking/ responde 501, como o backend sem a BE-17. */
-  definirRankingDisponivel(disponivel) {
-    rankingDisponivel = disponivel
-  },
   definirAvaliacoesDisponiveis(disponiveis) {
     avaliacoesDisponiveis = disponiveis
   },
@@ -1036,6 +1015,9 @@ export const simulacao = {
   },
   definirPrevisaoDisponivel(disponivel) {
     previsaoDisponivel = disponivel
+  },
+  definirGamificacaoDisponivel(disponivel) {
+    gamificacaoDisponivel = disponivel
   },
 }
 
@@ -1051,8 +1033,8 @@ export function reiniciarSimulacao() {
   localizacaoConfirmada = true
   resumoDoDiaDisponivel = true
   previsaoDisponivel = true
+  gamificacaoDisponivel = true
   avaliacoesDisponiveis = true
-  rankingDisponivel = true
   cookieSessao = null
   if (typeof document !== 'undefined') {
     document.cookie = 'csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'

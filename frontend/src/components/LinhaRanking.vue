@@ -22,7 +22,9 @@ defineProps({
     <span class="posicao" data-teste="linha-posicao">{{ linha.posicao }}º</span>
     <span class="textos">
       <span class="apelido" data-teste="linha-apelido">{{ linha.apelido }}</span>
-      <span class="patente" data-teste="linha-patente">{{ rotuloPatente(linha.patente) }}</span>
+      <span class="patente" data-teste="linha-patente">{{
+        rotuloPatente(linha.patente) ?? linha.patente
+      }}</span>
     </span>
   </li>
 </template>

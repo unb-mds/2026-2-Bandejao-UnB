@@ -92,7 +92,7 @@ describe('RankingView — lista (RF27.2)', () => {
 
 describe('RankingView — vazio (RF27.2)', () => {
   it('campus sem ninguém no ranking: "Ninguém no ranking ainda", sem lista', async () => {
-    const { wrapper } = await montarEm('/ranking/4')
+    const { wrapper } = await montarEm('/ranking/5')
 
     expect(vazio(wrapper).text()).toContain('Ninguém no ranking ainda')
     expect(linhas(wrapper)).toHaveLength(0)
@@ -106,13 +106,13 @@ describe('RankingView — troca de campus pelo SeletorCampus', () => {
       expect(wrapper.findAll('[data-teste="seletor-campus-opcao"]')).toHaveLength(5),
     )
 
-    const planaltina = wrapper
+    const fazenda = wrapper
       .findAll('[data-teste="seletor-campus-opcao"]')
-      .find((b) => b.text() === 'Planaltina')
-    await planaltina.trigger('click')
+      .find((b) => b.text() === 'Fazenda Água Limpa')
+    await fazenda.trigger('click')
     await flushPromises()
 
-    expect(router.currentRoute.value.fullPath).toBe('/ranking/4')
+    expect(router.currentRoute.value.fullPath).toBe('/ranking/5')
     expect(vazio(wrapper).exists()).toBe(true)
   })
 
@@ -159,7 +159,7 @@ describe('RankingView — rotas e falhas', () => {
   })
 
   it('backend ainda sem o ranking (501): avisa que ainda não está disponível', async () => {
-    simulacao.definirRankingDisponivel(false)
+    simulacao.definirGamificacaoDisponivel(false)
     const { wrapper } = await montarEm('/ranking/1')
 
     expect(wrapper.get('[data-teste="ranking-estado"]').text()).toContain(

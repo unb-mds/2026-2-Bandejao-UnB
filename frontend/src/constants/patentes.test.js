@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { PATENTES, rotuloPatente } from './patentes'
+import { IDS_PATENTES, proximaPatente, rotuloPatente } from './patentes'
 
-/** Patentes do Anexo A (RN11), com os valores que a API devolve. */
-describe('patentes', () => {
-  it('as cinco patentes, na ordem dos limiares do Anexo A', () => {
-    expect(PATENTES.map((p) => p.id)).toEqual([
+describe('patentes (RN11, Anexo A)', () => {
+  it('os ids são os do contrato, em ordem', () => {
+    expect(IDS_PATENTES).toEqual([
       'CALOURO_DE_BANDEJA',
       'RATO_DE_RU',
       'VETERANO',
@@ -15,16 +14,18 @@ describe('patentes', () => {
 
   it.each([
     ['CALOURO_DE_BANDEJA', 'Calouro de Bandeja'],
-    ['RATO_DE_RU', 'Rato de RU'],
-    ['VETERANO', 'Veterano'],
-    ['MESTRE_DA_FILA', 'Mestre da Fila'],
     ['LENDA_DO_RU', 'Lenda do RU'],
-  ])('rotuloPatente(%s) é "%s"', (valor, rotulo) => {
-    expect(rotuloPatente(valor)).toBe(rotulo)
+    ['OUTRA', null],
+  ])('rótulo de %s', (id, rotulo) => {
+    expect(rotuloPatente(id)).toBe(rotulo)
   })
 
-  it('valor desconhecido aparece como veio, sem quebrar a tela', () => {
-    expect(rotuloPatente('NOVA_PATENTE')).toBe('NOVA_PATENTE')
-    expect(rotuloPatente(undefined)).toBe('')
+  it.each([
+    ['CALOURO_DE_BANDEJA', 'RATO_DE_RU'],
+    ['MESTRE_DA_FILA', 'LENDA_DO_RU'],
+    ['LENDA_DO_RU', null],
+    ['OUTRA', null],
+  ])('a próxima de %s é %s', (id, proxima) => {
+    expect(proximaPatente(id)?.id ?? null).toBe(proxima)
   })
 })
