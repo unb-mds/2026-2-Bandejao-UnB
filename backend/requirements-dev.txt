@@ -9,3 +9,6 @@ pip-audit==2.10.1
 # Leitura do workflow de deploy nos testes (test_deploy_cd.py, #240). Já vem
 # com o drf-spectacular e o bandit; fica fixo porque o teste importa direto.
 PyYAML==6.0.3
+# Mutação nos módulos críticos (BE-19, ADR 0013). A configuração fica no
+# setup.cfg, seção [mutmut].
+mutmut==3.8.1

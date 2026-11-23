@@ -600,3 +600,270 @@ describe('gamificacaoStore: progresso, ranking e adesão (FE-12)', () => {
     expect(gamificacao.progresso.dados.participaRanking).toBe(false)
   })
 })
+
+/** Ranking do semestre por campus para a RankingView (FE-13, RF27.2, RI12). */
+describe('gamificacaoStore: ranking para a RankingView (FE-13)', () => {
+  beforeEach(() => reiniciarSimulacao())
+
+  it('carrega o ranking do campus e guarda por campus', async () => {
+    const gamificacao = useGamificacaoStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await gamificacao.carregarRanking(1)
+    const ranking = gamificacao.rankingDoCampus(1)
+
+    expect(get).toHaveBeenCalledWith('/ranking/1/')
+    expect(ranking).toMatchObject({ campusId: 1, semestre: expect.any(String) })
+    expect(ranking.linhas.length).toBeGreaterThan(0)
+    expect(ranking.linhas.length).toBeLessThanOrEqual(10)
+    expect(gamificacao.rankingDoCampus(1)).toEqual(ranking)
+    expect(gamificacao.situacaoDoRanking(1)).toBe('carregado')
+    expect(gamificacao.rankingDoCampus(2)).toBeNull()
+  })
+
+  it('guarda só posição, apelido e patente de cada linha, nunca pontos (RI12)', async () => {
+    vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
+      campusId: 3,
+      semestre: '2026.2',
+      linhas: [{ posicao: 1, apelido: 'ana', patente: 'VETERANO', pontos: 480, email: 'x@y' }],
+    })
+    const gamificacao = useGamificacaoStore()
+
+    await gamificacao.carregarRanking(3)
+    const ranking = gamificacao.rankingDoCampus(3)
+
+    expect(ranking.linhas).toEqual([{ posicao: 1, apelido: 'ana', patente: 'VETERANO' }])
+  })
+
+  it('campus sem ninguém no ranking: linhas vazias, situação "carregado"', async () => {
+    const gamificacao = useGamificacaoStore()
+
+    await gamificacao.carregarRanking(5)
+    const ranking = gamificacao.rankingDoCampus(5)
+
+    expect(ranking.linhas).toEqual([])
+    expect(gamificacao.situacaoDoRanking(5)).toBe('carregado')
+  })
+
+  it('não pede de novo um ranking já carregado, a não ser com forcar', async () => {
+    const gamificacao = useGamificacaoStore()
+    await gamificacao.carregarRanking(1)
+    const get = vi.spyOn(apiClient, 'get')
+
+    await gamificacao.carregarRanking(1)
+    expect(get).not.toHaveBeenCalled()
+
+    await gamificacao.carregarRanking(1, { forcar: true })
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
+  it('404 sem o código campus_nao_encontrado (proxy, rota errada): "erro" e console', async () => {
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(new ApiError(404, {}))
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const gamificacao = useGamificacaoStore()
+
+    await gamificacao.carregarRanking(1)
+
+    expect(gamificacao.situacaoDoRanking(1)).toBe('erro')
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('404 campus_nao_encontrado: situação "nao_encontrado", sem console', async () => {
+    const gamificacao = useGamificacaoStore()
+    const log = vi.spyOn(console, 'error')
+
+    await gamificacao.carregarRanking(999)
+
+    expect(gamificacao.rankingDoCampus(999)).toBeNull()
+
+    expect(gamificacao.situacaoDoRanking(999)).toBe('nao_encontrado')
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('501 (backend ainda sem o ranking): situação "indisponivel", sem console', async () => {
+    simulacao.definirGamificacaoDisponivel(false)
+    const gamificacao = useGamificacaoStore()
+    const log = vi.spyOn(console, 'error')
+
+    await gamificacao.carregarRanking(1)
+
+    expect(gamificacao.rankingDoCampus(1)).toBeNull()
+
+    expect(gamificacao.situacaoDoRanking(1)).toBe('indisponivel')
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('outra falha: situação "erro" com a mensagem da API', async () => {
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }),
+    )
+    const log = vi.spyOn(console, 'error')
+    const gamificacao = useGamificacaoStore()
+
+    await gamificacao.carregarRanking(1)
+
+    expect(gamificacao.rankingDoCampus(1)).toBeNull()
+
+    expect(gamificacao.situacaoDoRanking(1)).toBe('erro')
+    expect(gamificacao.erroDoRanking(1)).toBe('Sem internet.')
+    // Sem rede não é erro do app: nada no console.
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('resposta sem a lista de linhas: "erro" e registro no console', async () => {
+    vi.spyOn(apiClient, 'get').mockResolvedValueOnce({ campusId: 1, semestre: '2026.2' })
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const gamificacao = useGamificacaoStore()
+
+    await gamificacao.carregarRanking(1)
+
+    expect(gamificacao.rankingDoCampus(1)).toBeNull()
+
+    expect(gamificacao.situacaoDoRanking(1)).toBe('erro')
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('uma falha não apaga o ranking que já estava carregado', async () => {
+    const gamificacao = useGamificacaoStore()
+    await gamificacao.carregarRanking(1)
+    const antes = gamificacao.rankingDoCampus(1)
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(new ApiError(503, {}))
+    const log = vi.spyOn(console, 'error')
+
+    await gamificacao.carregarRanking(1, { forcar: true })
+
+    expect(gamificacao.rankingDoCampus(1)).toEqual(antes)
+    // 5xx não é erro do app: nada no console.
+    expect(log).not.toHaveBeenCalled()
+  })
+})
+
+/** Casos da revisão do PR #242. */
+describe('gamificacaoStore: ranking — validação, cache e corridas', () => {
+  beforeEach(() => reiniciarSimulacao())
+
+  const respondendo = (corpo) => vi.spyOn(apiClient, 'get').mockResolvedValueOnce(corpo)
+
+  it.each([
+    ['linha vazia', { campusId: 1, semestre: '2026.2', linhas: [{}] }],
+    ['sem semestre', { campusId: 1, linhas: [] }],
+    ['sem campusId', { semestre: '2026.2', linhas: [] }],
+    [
+      'posição não inteira',
+      {
+        campusId: 1,
+        semestre: '2026.2',
+        linhas: [{ posicao: '1', apelido: 'a', patente: 'VETERANO' }],
+      },
+    ],
+    [
+      'apelido não texto',
+      {
+        campusId: 1,
+        semestre: '2026.2',
+        linhas: [{ posicao: 1, apelido: 7, patente: 'VETERANO' }],
+      },
+    ],
+    [
+      'patente fora do Anexo A',
+      {
+        campusId: 1,
+        semestre: '2026.2',
+        linhas: [{ posicao: 1, apelido: 'a', patente: 'GENERAL' }],
+      },
+    ],
+  ])('resposta fora do contrato (%s): "erro" e console', async (_caso, corpo) => {
+    respondendo(corpo)
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const gamificacao = useGamificacaoStore()
+
+    await gamificacao.carregarRanking(1)
+
+    expect(gamificacao.rankingDoCampus(1)).toBeNull()
+    expect(gamificacao.situacaoDoRanking(1)).toBe('erro')
+    expect(gamificacao.erroDoRanking(1)).toEqual(expect.any(String))
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('erro que não é da API vai para o console uma vez só', async () => {
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(new TypeError('quebrou'))
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const gamificacao = useGamificacaoStore()
+
+    await gamificacao.carregarRanking(1)
+
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('invalidarRanking(campusId): o próximo carregarRanking busca de novo', async () => {
+    const gamificacao = useGamificacaoStore()
+    await gamificacao.carregarRanking(1)
+    const get = vi.spyOn(apiClient, 'get')
+
+    gamificacao.invalidarRanking(1)
+    await gamificacao.carregarRanking(1)
+
+    expect(get).toHaveBeenCalledWith('/ranking/1/')
+  })
+
+  it('invalidarRanking() sem campus vale para todos; o ranking na tela continua até chegar o novo', async () => {
+    const gamificacao = useGamificacaoStore()
+    await gamificacao.carregarRanking(1)
+    await gamificacao.carregarRanking(3)
+
+    gamificacao.invalidarRanking()
+
+    expect(gamificacao.rankingDoCampus(1)).not.toBeNull()
+    const get = vi.spyOn(apiClient, 'get')
+    await gamificacao.carregarRanking(1)
+    await gamificacao.carregarRanking(3)
+    expect(get.mock.calls.map(([caminho]) => caminho)).toEqual(['/ranking/1/', '/ranking/3/'])
+  })
+
+  it('limpar() também invalida os rankings', async () => {
+    const gamificacao = useGamificacaoStore()
+    await gamificacao.carregarRanking(1)
+    const get = vi.spyOn(apiClient, 'get')
+
+    gamificacao.limpar()
+    await gamificacao.carregarRanking(1)
+
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
+  it('duas buscas com forcar no mesmo campus: vale a resposta da mais nova', async () => {
+    const gamificacao = useGamificacaoStore()
+    let responderVelha
+    const get = vi.spyOn(apiClient, 'get')
+    get.mockImplementationOnce(() => new Promise((ok) => (responderVelha = ok)))
+    get.mockResolvedValueOnce({
+      campusId: 1,
+      semestre: '2026.2',
+      linhas: [{ posicao: 1, apelido: 'nova', patente: 'VETERANO' }],
+    })
+
+    const velha = gamificacao.carregarRanking(1, { forcar: true })
+    await gamificacao.carregarRanking(1, { forcar: true })
+    responderVelha({
+      campusId: 1,
+      semestre: '2026.2',
+      linhas: [{ posicao: 1, apelido: 'velha', patente: 'VETERANO' }],
+    })
+    await velha
+
+    expect(gamificacao.rankingDoCampus(1).linhas[0].apelido).toBe('nova')
+    expect(gamificacao.situacaoDoRanking(1)).toBe('carregado')
+  })
+
+  it('404 campus_nao_encontrado apaga um ranking antigo do campus', async () => {
+    const gamificacao = useGamificacaoStore()
+    await gamificacao.carregarRanking(1)
+    vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
+      new ApiError(404, { codigo: 'campus_nao_encontrado' }),
+    )
+
+    await gamificacao.carregarRanking(1, { forcar: true })
+
+    expect(gamificacao.rankingDoCampus(1)).toBeNull()
+  })
+})
