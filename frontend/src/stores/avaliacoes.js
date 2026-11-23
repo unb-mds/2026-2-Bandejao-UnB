@@ -79,7 +79,12 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
     const chave = `${campus}|${data}`
     situacaoDoResumo.value[chave] = 'carregando'
     try {
-      resumoDoDia.value[chave] = await apiClient.get(`/avaliacoes/resumo/?${parametros}`)
+      const resposta = await apiClient.get(`/avaliacoes/resumo/?${parametros}`)
+      // Uma lista por refeição do dia; outra forma quebraria quem faz `.find`.
+      if (!Array.isArray(resposta)) {
+        throw new TypeError('Resposta inesperada de GET /api/avaliacoes/resumo/.')
+      }
+      resumoDoDia.value[chave] = resposta
       situacaoDoResumo.value[chave] = 'carregado'
     } catch (falha) {
       if (falha?.status === 501) {

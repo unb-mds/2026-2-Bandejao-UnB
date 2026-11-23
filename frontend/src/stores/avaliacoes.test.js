@@ -68,6 +68,17 @@ describe('avaliacoesStore (formato do MVP, usado pela HomeView)', () => {
 })
 
 describe('avaliacoesStore: resumo do dia (GET /api/avaliacoes/resumo/)', () => {
+  it('200 que não é lista: não guarda, fica "erro" e registra no console', async () => {
+    vi.spyOn(apiClient, 'get').mockResolvedValueOnce({ media: 4 })
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const avaliacoes = useAvaliacoesStore()
+
+    expect(await avaliacoes.carregarResumoDoDia(1, '2026-09-28')).toBeNull()
+
+    expect(avaliacoes.situacaoDoResumoDoDia(1, '2026-09-28')).toBe('erro')
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
   it('carrega as notas de todas as refeições do dia numa chamada só', async () => {
     const avaliacoes = useAvaliacoesStore()
     const get = vi.spyOn(apiClient, 'get')

@@ -16,7 +16,8 @@
  * apenas em modo de simulação. O aviso de privacidade e o check-in seguem o
  * contrato da BE-09; como o raio do RU não é publicado, o simulado confirma
  * toda localização, a não ser que `simulacao.definirLocalizacaoConfirmada(false)`.
- * O `GET /cardapio/` segue o contrato da BE-11 (#214), mais o campo
+ * O `GET /cardapio/` segue o contrato da BE-11 (#214), com o 404
+ * `campus_nao_encontrado` depois de todos os 400 (#217), mais o campo
  * `semServico` proposto na revisão da FE-08 (#219); o resumo do dia responde
  * 501, como o backend, depois de `simulacao.definirResumoDoDiaDisponivel(false)`.
  * As avaliações seguem o contrato da BE-13 (FE-09): `POST /avaliacoes/` e
@@ -32,15 +33,13 @@
  * desde a BE-17 (#239). Depois de
  * `simulacao.definirGamificacaoDisponivel(false)`, as três rotas respondem 501
  * (no ranking, só para um campus que existe), para testar a defesa do front.
- * Recuperação de senha, a semana do cardápio (`/cardapio/<campus>/`) e as
- * listas de avaliação da HomeView (`GET /avaliacoes/` e o resumo da semana)
- * ainda têm o formato do MVP: entram no contrato na FE-E2.
+ * Recuperação de senha, a lista `GET /avaliacoes/` e o resumo da semana da
+ * HomeView (`GET /avaliacoes/resumo/` só com o campus) ainda têm o formato do
+ * MVP: entram no contrato na FE-E2. A semana do cardápio por campus
+ * (`/cardapio/<campus>/`) não existe mais: a Início usa o `GET /cardapio/`
+ * (#251).
  */
-import {
-  ORDEM_REFEICOES,
-  REFEICOES,
-  mensagemForaDoHorario,
-} from '@/constants/refeicoes'
+import { ORDEM_REFEICOES, REFEICOES, mensagemForaDoHorario } from '@/constants/refeicoes'
 import { refeicaoPadrao } from '@/utils/cardapio'
 import { hojeISO, minutosAgora, minutosDoDia } from '@/utils/datas'
 import { banco, resumoSenha } from './banco'
@@ -442,12 +441,6 @@ function listarCampi() {
   return ok(structuredClone(CAMPI_DO_BANCO))
 }
 
-function obterCardapio(valor, agora) {
-  const campus = idDoCampus(valor)
-  if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
-  return ok(montarCardapioSemana(campus, agora))
-}
-
 const AVISO_SUJEITO_A_ALTERACAO =
   'Cardápio sujeito a alteração. A ausência de marcador não garante que o prato esteja livre do ingrediente.'
 
@@ -496,13 +489,9 @@ function filtrarRefeicao(refeicao, { dieta, marcadores }) {
 }
 
 function cardapioFiltrado(parametros, agora) {
-  const campus = idDoCampus(parametros.campus)
   const dieta = parametros.dieta ?? 'sem_filtro'
-  if (/^[1-9]\d*$/.test(parametros.campus ?? '') && !campus) {
-    return parametrosInvalidos(MENSAGEM_CAMPUS_INEXISTENTE)
-  }
   if (
-    !campus ||
+    !/^\d+$/.test(parametros.campus ?? '') ||
     Object.keys(parametros).some((nome) => !PARAMETROS_DO_CARDAPIO.includes(nome)) ||
     !Object.hasOwn(DIETAS_ACEITAS, dieta) ||
     (parametros.refeicao && !REFEICOES[parametros.refeicao]) ||
@@ -515,6 +504,8 @@ function cardapioFiltrado(parametros, agora) {
   if (marcadores.some((nome) => !nome)) return parametrosInvalidos()
   const desconhecido = marcadores.find((nome) => !IDS_MARCADORES.includes(nome))
   if (desconhecido) return parametrosInvalidos(`Marcador desconhecido: ${desconhecido}.`)
+  const campus = idDoCampus(parametros.campus.replace(/^0+(?=\d)/, ''))
+  if (!campus) return erro(404, 'campus_nao_encontrado', MENSAGEM_CAMPUS_INEXISTENTE)
   const hoje = hojeISO(agora)
   const semana = montarCardapioSemana(campus, agora)
   const base = {
@@ -550,8 +541,7 @@ function cardapioFiltrado(parametros, agora) {
   if (parametros.refeicao && !tipos.includes(parametros.refeicao)) {
     return naoServida(dia.data, parametros.refeicao)
   }
-  const tipo =
-    parametros.refeicao ?? (dia.data === hoje ? refeicaoPadrao(tipos, agora) : tipos[0])
+  const tipo = parametros.refeicao ?? (dia.data === hoje ? refeicaoPadrao(tipos, agora) : tipos[0])
   const refeicao = dia.refeicoes.find((r) => r.tipo === tipo)
   const ultima = tipos.at(-1)
   return ok({
@@ -943,7 +933,6 @@ const ROTAS = [
   ['POST', /^\/redefinir-senha\/$/, ({ corpo, agora }) => redefinirSenha(corpo, agora)],
   ['GET', /^\/campi\/$/, () => listarCampi()],
   ['GET', /^\/cardapio\/$/, ({ parametros, agora }) => cardapioFiltrado(parametros, agora)],
-  ['GET', /^\/cardapio\/([\w-]+)\/$/, ({ agora }, [campus]) => obterCardapio(campus, agora)],
   ['GET', /^\/avaliacoes\/resumo\/$/, ({ parametros, agora }) => resumoSemana(parametros, agora)],
   ['GET', /^\/avaliacoes\/$/, ({ parametros, agora }) => listarAvaliacoes(parametros, agora)],
   ['POST', /^\/avaliacoes\/$/, ({ corpo, agora }) => avaliar(corpo, agora)],
