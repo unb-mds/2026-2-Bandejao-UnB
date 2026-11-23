@@ -441,8 +441,8 @@ Convite ao cadastro (RF05)."]
   sai deste aparelho, mas a tela fica e avisa que o servidor não confirmou,
   porque o cookie de sessão pode continuar valendo. Essa lógica fica no
   composable `useSair`, que o item "Sair da conta" do menu da Início também
-  usa: lá a tela continua na Início, recarrega as avaliações de hoje e mostra
-  o mesmo aviso quando o servidor não confirma.
+  usa: lá a tela continua na Início (a nota do cartão, do resumo do dia, não
+  depende da sessão) e mostra o mesmo aviso quando o servidor não confirma.
 
 ---
 
