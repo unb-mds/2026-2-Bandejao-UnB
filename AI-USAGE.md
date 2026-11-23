@@ -719,3 +719,20 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação local da revisão: SQLite (Python 3.14, com o gunicorn e `EXIGIR_GUNICORN=1`): `pytest` com 2136 aprovados e 11 ignorados, cobertura de `apps` de 98,8%; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` e `spectacular --validate` (contrato sem diff); `check --deploy --fail-level WARNING` com a chave do passo do CI: `no issues (3 silenced)`.
 - Revisão de outra frente (DoD 1.4): pendente.
 - Situação: ajustes da revisão de AlvaroBento12 aplicados; aguardando nova revisão. A #137 só fecha depois da conferência em produção e da BD-08 (#148).
+
+## #251 — Início: "Cardápio de hoje" pelo GET /api/cardapio/
+
+- Issue: [#251](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/251). PR: [#257 — fix: Início mostra o Cardápio de hoje pelo GET /api/cardapio/ (#251)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - o cartão "Cardápio de hoje" da `HomeView` passou a pedir `GET /api/cardapio/?campus=…&dia=hoje`, com as mensagens de sem serviço (`semServico` ou `data` diferente de hoje), de não publicado e de erro (`cardapio.erroDaRefeicao`);
+  - a nota do cartão passou a vir do resumo do dia;
+  - o `resumoRefeicao` passou a ler o formato da API (`nome` e `descricao`);
+  - saíram da `cardapioStore` a carga da semana do MVP e o que só ela usava, e do simulado a rota `/cardapio/<campus>/`;
+  - comentário do topo do simulado e C4 atualizados;
+  - na conferência pedida pela issue, foi visto que os cartões "Avaliações" e "Satisfação da semana" também não batem com o backend (o resumo só com o campus devolve o dia, não a semana), o que ficou registrado no PR para uma issue própria.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `ea269e5` (testes) → `a8d99aa` (código) → `fb88eed` (docs); `8984208` só aplica o Prettier no import do `servidor.js`, que já vinha da `develop`.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 865 testes passando (96,03% de linhas / 92,3% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Situação: aguardando revisão.
