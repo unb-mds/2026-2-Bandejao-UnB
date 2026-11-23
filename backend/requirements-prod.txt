@@ -1,5 +1,8 @@
 # Dependências da imagem de produção (backend/Dockerfile, BD-05).
 -r requirements.txt
-# Mesma versão do CI (requirements-ci-mysql.txt).
+# O job testes-mysql do CI instala este arquivo (requirements-ci-mysql.txt).
 mysqlclient==2.3.1
 gunicorn==27.0.1
+# Banco de fusos do zoneinfo (TIME_ZONE e janela do check-in), sem depender da
+# imagem do Python (BE-10).
+tzdata==2026.6

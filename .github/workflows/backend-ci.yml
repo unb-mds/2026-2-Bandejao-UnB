@@ -103,6 +103,7 @@ jobs:
             backend/requirements.txt
             backend/requirements-dev.txt
             backend/requirements-ci-mysql.txt
+            backend/requirements-prod.txt
 
       - name: Instalar bibliotecas do MySQL
         run: |
@@ -126,9 +127,10 @@ jobs:
       - name: Aplicar migrations do zero
         run: python manage.py migrate --noinput
 
-      # Sem DEBUG, como em produção. Os avisos de HSTS (deixado de fora de
-      # propósito) e de SECURE_SSL_REDIRECT (o Caddy redireciona) não falham;
-      # um erro, sim.
+      # Sem DEBUG, como em produção. O HSTS e os avisos silenciados são da
+      # BE-10; o único aviso aqui é o W009 da chave curta do CI, e o
+      # tests/test_deploy_be10.py confere o zero aviso com uma chave longa. Um
+      # erro falha o passo.
       - name: Conferir o settings de produção
         run: python manage.py check --deploy
 

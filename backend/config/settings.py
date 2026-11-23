@@ -364,6 +364,20 @@ if ATRAS_DE_PROXY:
 else:
     SECURE_PROXY_SSL_HEADER = None
 
+# HTTPS em produção (BE-10, ADR 0012)
+# O Caddy redireciona HTTP para HTTPS antes de a requisição chegar ao
+# Gunicorn, por isso o SECURE_SSL_REDIRECT fica desligado.
+# O HSTS começa em 1 hora: se o certificado falhar nos primeiros dias, o
+# navegador só fica preso ao HTTPS por uma hora. Depois do M2, o .env sobe
+# para um ano (31536000). Sem subdomínios (os de e-mail não são nossos) e sem
+# preload (quase irreversível).
+SECURE_HSTS_SECONDS = config(
+    "SECURE_HSTS_SECONDS", default=0 if DEBUG else 60 * 60, cast=int
+)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+SILENCED_SYSTEM_CHECKS = ["security.W005", "security.W008", "security.W021"]
+
 CSRF_TRUSTED_ORIGINS = config("DJANGO_CSRF_TRUSTED_ORIGINS", default="", cast=lista)
 
 
