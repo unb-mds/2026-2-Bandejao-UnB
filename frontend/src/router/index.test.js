@@ -60,6 +60,13 @@ describe('roteamento', () => {
     await vi.waitFor(() => expect(wrapper.find('h1').text()).toBe('Darcy Ribeiro'))
   })
 
+  it('/progresso abre sem login e sem campus escolhido (visitante vê o convite, RF05)', async () => {
+    const { router } = await montarEm('/progresso')
+
+    expect(router.currentRoute.value.name).toBe('progresso')
+    expect(document.title).toContain('Meu progresso')
+  })
+
   it('telas que dependem de campus pedem a escolha do campus antes', async () => {
     const { router } = await montarEm('/inicio')
     expect(router.currentRoute.value.name).toBe('campus')
@@ -175,10 +182,11 @@ describe('navegação do protótipo', () => {
 
   it('visitante vê convite ao login em vez do formulário de avaliação (RF05)', async () => {
     const { wrapper } = await montarEm('/avaliacoes', { campus: 1 })
-    expect(wrapper.text()).toContain('Avaliação bloqueada')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Entre para avaliar'))
+    expect(wrapper.text()).toMatch(/pontos/)
     expect(wrapper.find('textarea').exists()).toBe(false)
     // Os comentários continuam públicos.
-    expect(wrapper.text()).toContain('lucas_unb')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('lucas_unb'))
   })
 })
 
@@ -270,6 +278,14 @@ describe('sessão ao abrir o app (FE-03, ADR 0007)', () => {
   it('sem sessão, o app abre como visitante', async () => {
     const { wrapper } = await montarEm('/inicio', { campus: 1 })
     expect(wrapper.find('[aria-label="Perfil de Visitante"]').exists()).toBe(true)
+  })
+
+  it('o "Fale com a equipe" da /inicio é o e-mail da equipe, sem abrir nova aba (RNF08)', async () => {
+    const { wrapper } = await montarEm('/inicio', { campus: 1 })
+
+    const contato = wrapper.findAll('a').find((a) => a.text() === 'Fale com a equipe')
+    expect(contato.attributes('href')).toBe('mailto:equipe@bandejaounb.com.br')
+    expect(contato.attributes('target')).toBeUndefined()
   })
 
   it('busca a sessão uma vez só, não a cada navegação', async () => {

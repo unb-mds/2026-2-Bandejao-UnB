@@ -66,7 +66,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Revisão humana: [revisão de Poviovsky](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/132#pullrequestreview-5927752431), aprovada com duas sugestões no registro (o vermelho do commit `test` e esta situação) e observações (`get_object_or_404`, `/api` sem a barra, `path_info`), aplicadas nos ajustes da revisão.
 - Situação: `pt-br` adotado e [registrado na #121](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/121#issuecomment-6929024596); ajustes da revisão aplicados.
 
-
 ## #123 — Limite de taxa no cadastro, no reenvio e no login
 
 - PR: [PR #133](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/133).
@@ -77,7 +76,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Revisão humana: revisão de AlvaroBento12 [Revisão de Álvaro Bento](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/133#issuecomment-6934287007), sem bloqueio, com dois ajustes pedidos (docstring do formato e vaga gasta na falha do SMTP) e cinco sugestões, todas aplicadas nos ajustes da revisão. A sugestão de conferir o retorno do `cache.set` foi aplicada com leitura de volta, porque o `set` do `DatabaseCache` devolve `None` mesmo quando grava. No recheck [recheck](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/133#issuecomment-6937500372), um ajuste: a leitura de volta conferia só se a chave existia, o que não pegava a falha a partir da 2ª gravação da janela (a linha antiga continuava lá). Agora confere se o horário do pedido chegou à lista, com 1 s de folga para pedidos simultâneos; testes no commit 909a8e0 (3 falham antes) e correção em 9cff7e6.
 - Situação: números dos limites conforme a proposta do guia (seção 4.1), a confirmar com o grupo na #123.
 
-
 ## Skills — pr-review-toolkit e uso das skills
 
 - PR: [#151 — Skills: pr-review-toolkit e uso das skills](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/151).
@@ -87,7 +85,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação: caminhos citados no `USO-DAS-SKILLS.md` conferidos no repositório; arquivos do plugin conferem com a versão 1.0.1 instalada.
 - Revisão humana: [revisão de Poviovsky](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/151#pullrequestreview-5942574990), aprovada com ajustes (licença MIT da `c4-architecture`, link do PR e vírgula neste registro, convenção de commit de revisão, pasta `review-status` em minúsculas e aviso da dependência no `SKILLS/README.md`), aplicados nos ajustes da revisão.
 - Situação: ajustes da revisão aplicados; aguardando nova revisão.
-
 
 ## BD-04 — Parâmetros do Anexo A
 
@@ -427,6 +424,20 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação: `npm run test:ci` com 557 testes passando (cobertura de 91,84% de linhas / 85,22% de ramos), `npm run lint:ci` sem achados e `npm run build` sem erro, no PC da autora.
 - Situação: aguardando nova revisão.
 
+## BD-12 — Exclusão de conta
+
+- Issue: [#164](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/164). PR: #225.
+- Ferramenta: Claude (Anthropic).
+- Apoio: `RemoverContaCommand` (transação única), `PontuacaoService.apagar_contadores`, `SessoesDaConta.encerrar_todas`, `ContaRepository.excluir`, migration `0004_remove_status_removido_bd12`, ajuste de `Usuario.is_active` e testes em `backend/apps/cadastro/tests/test_remover_conta.py`.
+- TDD: testes no commit `88831bf`, antes do código.
+- Testes: os quatro efeitos (contadores apagados, check-ins desvinculados, sessões de todos os aparelhos encerradas, linha de `USUARIO` apagada); avaliações mantidas com `usuario` nulo; tokens em cascata; mesma matrícula, e-mail e apelido livres para novo cadastro; outras contas intactas; conta já apagada devolve `False`; rollback em cada etapa; cada colaborador removido do comando faz um teste falhar. Como foi conferido: tirei o `transaction.atomic()` e, um a um, cada colaborador do comando, e rodei a suíte; cada remoção derrubou pelo menos um teste.
+- Ajustes em testes existentes: o status `removido` e `removido_em` saíram, então os parâmetros `REMOVIDO` foram retirados; o teste de migration da BD-03 passou a fixar o esquema de `cadastro` da época (`0003`).
+- Validação local (SQLite): `pytest` sem falhas, `ruff` sem achados nos arquivos alterados, `makemigrations --check` sem mudanças pendentes.
+- Atenção: a BE-14 deve chamar `PontuacaoService.apagar_contadores` se criar novos contadores (a BE-14, #235, já está na `develop`; o `apagar_contadores` apaga `PontosSemestreCampus` e `PontuacaoUsuario` pelo `PontuacaoRepository`).
+- Ajustes da revisão: a migration 0004 recusa seguir (`RuntimeError` com a contagem e até 20 ids) se houver conta com status `removido`, e o texto manda usar `python manage.py remover_conta <id>`, comando novo que chama o `RemoverContaCommand`; `executar` levanta `ValueError` para conta sem pk e devolve `False` (com log "ignorada") para conta que já não existe; o log de sucesso sai por `transaction.on_commit`, só com o id e as contagens; `SESSION_ENGINE` fixado em banco, que é a premissa de o rollback desfazer o fim das sessões; textos que ainda diziam "conta removida" corrigidos; testes de sessão de visitante válida, de pergunta e resposta de saída mantidas, do log (inclusive rollback de `atomic` externo) e da migration de dados.
+- Limite conhecido: o `select_for_update` só garante algo no MySQL; no SQLite é ignorado. A checagem de que nenhum check-in fica sem conta e com hora exata roda nos dois bancos.
+- Situação: aguardando revisão.
+
 ## BE-11 follow-up — 404 `campus_nao_encontrado` e `semServico` no `GET /api/cardapio/`
 
 - Issue: [#217](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/217) (pendências das revisões do #216 e do #219; desbloqueia o "Campus não encontrado" e o "Sem refeições neste dia" da FE-08, #144). PR: [#222 — BE-11 follow-up: 404 `campus_nao_encontrado` e `semServico`](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/222).
@@ -464,3 +475,429 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Fora deste PR: cópia do backup fora da VM (ADR 0012), em issue própria.
 - Revisão humana: Álvaro (primeira revisão respondida; segunda pendente).
 - Situação: aguardando revisão. O #221 (BD-07) já está na `develop`, e a regra do `.gitattributes` e o teste dele cobrem `deploy/`.
+
+## FE-04 — AvisoLocalizacao no App raiz
+
+- Issue: [#102](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/102). PR: [#212 — FE-04: AvisoLocalizacao no App raiz](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/212).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `AvisoLocalizacao` no `App` raiz em duas etapas, num `<dialog>` modal, com o "Agora não" guardado na `preferenciasStore` (`avisoLocalizacaoAdiado`), o "Usar minha localização" no menu da `HomeView` e o passo a passo quando o navegador bloqueou; `services/permissaoLocalizacao.js` (consulta e pedido da permissão, com prazo próprio, casos de pedido dispensado, sem sinal e HTTP sem TLS, e as coordenadas descartadas na hora, RI09); `composables/avisoLocalizacao.js` (abre o aviso de qualquer tela e devolve o desfecho); visual adaptado dos protótipos mobile e desktop do Figma, seguindo a documentação onde eles divergem; correções das duas revisões do #212. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: testes no commit `d20b10b`, antes da implementação (`b6ac75d`); os três arquivos de teste novos falharam antes do código. Na primeira revisão, testes em `16de957` (54 falhando) antes da correção `2b9d143`. No recheck, testes em `HASH_TESTES` (2 falhando) antes da correção `HASH_CORRECAO`.
+- Validação: `npm run test:ci` com 284 testes passando e cobertura de 88,5% das linhas e 80,16% dos ramos; `npm run lint:ci` sem achados; `npm run build` sem erro. Conferência no Chromium (Playwright) em 375 px e 1440 px: o aviso abre como modal, o Tab não sai para a página, o Esc e o fechamento do `<dialog>` pelo navegador valem como "Agora não" e o foco volta ao botão do perfil.
+- Revisão humana: [primeira revisão](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/212#pullrequestreview-5999497191) e [recheck](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/212#pullrequestreview-5999769946) de AlvaroBento12, feitos com apoio do pr-review-toolkit. Todos os itens aplicados; no recheck, as duas sugestões também.
+- Situação: aprovado no recheck ("pode seguir"); as duas sugestões finais aplicadas.
+
+## FE-09 — AvaliacaoWidget ligado à API
+
+- Issue: [#145](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/145). PR: [#NUMERO — FE-09: AvaliacaoWidget ligado à API](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/NUMERO).
+- Ferramenta: Claude (Anthropic).
+- Apoio: `AvaliacaoWidget` ligado ao contrato da BE-13 (`GET /api/refeicoes/{refeicaoId}/avaliacoes/` e `POST /api/avaliacoes/`, com o `refeicaoId` do resumo do dia), edição pelo mesmo envio (upsert), motivos de indisponível (`utils/avaliacao.js`), comentários com apelido e "usuário removido", `ConviteLogin` citando os pontos na avaliação e no check-in, `avaliacoesStore` com as funções novas e servidor simulado no contrato. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- Contrato: o backend ainda responde 501 nas três rotas de avaliação (BE-13, #140, aberta). A tela trata o 501 como "As avaliações ainda não estão disponíveis", e o simulado imita isso com `simulacao.definirAvaliacoesDisponiveis(false)`. O contrato não tem rota de "minha avaliação": ela vem da resposta do POST e, depois de recarregar a página, do comentário com o apelido da sessão.
+- TDD: `HASH_DO_TEST` (testes) → `HASH_DO_FEAT` (código).
+- Validação local: `npm run lint:ci`, `npx vitest run --coverage` (607 testes) e `npm run build`.
+- Revisão humana: pendente.
+- Situação: PR aberto.
+
+## FE-15 — Canal de contato para reclamações
+
+- Issue: [#170](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/170). PR: [#228 — FE-15: canal de contato visível na tela do campus](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/228).
+- Ferramenta: Claude (Anthropic).
+- Apoio: troca do canal de contato das issues do GitHub pelo e-mail `equipe@bandejaounb.com.br` (RNF08, ADR 0012, Visão 9.1 e aviso de privacidade), componente `ContatoEquipe` no rodapé da `CampusView` (visível em qualquer largura e sem login, porque a barra do topo some no celular), "Contato" da `NavegacaoTopo` com `mailto` e o endereço para leitor de tela, e os links da `HomeView` e do cadastro sem abrir nova aba. Também tirou as capturas em 360 px e 1366 px. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `94cfd3a` (testes) → `26f7629` (código).
+- Validação local: `npm run lint:ci`, `npx vitest run --coverage` (651 testes) e `npm run build`. Sem rolagem horizontal em 360 px e 1366 px (largura da página igual à da janela).
+- Revisão humana: pendente.
+- Situação: PR aberto.
+
+## BE-13 — Avaliação
+
+- Issue: [#140](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/140). PR: [#230 — BE-13: avaliação (POST, comentários e resumo do dia)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/230).
+- Ferramenta: Claude (Anthropic).
+- Apoio: testes e implementação de `JanelaAvaliacaoValidator` (refeição do dia corrente já iniciada, início do Anexo A, aberta até 23h59 no horário local), `NotaValidator` (só inteiro de 1 a 5, recusa `true`, `4.0` e `"4"`), `ComentarioValidator` (até 500 caracteres, sem os espaços das pontas, vazio vira nulo), `AvaliacaoRepository` (consultas públicas sem as ocultas, comentários com o apelido numa consulta só e sem ler matrícula/SIAPE nem e-mail, resumo do dia numa consulta agrupada, média sempre `float`), `AvaliacaoPublicaMapper` ("usuário removido" quando o vínculo com a conta é nulo), `AvaliacaoService` (upsert, pontuação na mesma transação, corrida do duplo toque virando edição, edição gravando só nota, comentário e `editada_em`) e as três views. Os helpers de parâmetro do cardápio (`ler_id_do_campus`, `buscar_campus`, `ler_data`, `ParametrosInvalidos`) saíram da `CardapioView` para `apps/cardapio/parametros_consulta.py`, sem mudança de comportamento, para o resumo seguir o mesmo critério de 400 e 404 (#217). Contrato: 400 `dados_invalidos` no `POST /api/avaliacoes/` (`refeicaoId` que não é inteiro, comentário que não é texto ou corpo que não é objeto), `openapi.yaml` regerado. C4 4a: `inserir` e `salvarEdicao` no lugar de `salvar` e a nota da corrida no upsert. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Decisões: a ordem de conferência é janela, nota e comentário (a do N4): com a refeição fechada, o motivo de indisponível vale mais que um erro no formulário. A mensagem do 422 `janela_avaliacao_fechada` diz o motivo (refeição de outro dia ou horário em que a refeição começa, RF15.1). O serviço chama a pontuação também na edição, com a mesma avaliação; quem impede os pontos em dobro é o marcador da Gamificação (ADR 0011, BE-14). "Usuário removido" depende só do vínculo nulo, e não do status `removido`, que a BD-12 (#225) retira. Sem o campo `distintivo` (Bandeja de Ouro fora do escopo).
+- TDD: `c6a7205` (127 testes novos; os arquivos de unidade falham com `ImportError` e os de endpoint com 54 falhas contra o 501) → `abe4b3e`.
+- Sabotagem manual (módulo crítico): 19 alterações (ocultas na lista e no resumo, edição gravando a linha inteira, `IntegrityError` qualquer virando edição, janela sem o dia, abrindo um instante depois e em UTC, nota booleana, limite 499, comentário vazio gravado como texto, sem transação, origem errada na pontuação, edição sem `editada_em`, sem validar a nota, sem "usuário removido", sempre 201, `avaliacaoLiberada` fixo, resumo no dia UTC, parâmetro desconhecido aceito). Na primeira rodada, quatro sobreviveram (edição gravando a linha inteira, origem errada, `avaliacaoLiberada` fixo e resumo no dia UTC); os testes foram reforçados, e as 19 passaram a derrubar ao menos um teste.
+- Validação local (SQLite, Python 3.14): `pytest` com 1757 testes aprovados e 1 ignorado (eram 1630 na `develop` em `e686520`), cobertura de `apps` de 99% e 100% nos módulos novos; `ruff check`, `ruff format --check`, `bandit -lll` e `spectacular --validate --fail-on-warn` aprovados. `testes-mysql` (trava com `select_for_update`, AVG em `Decimal`), `semgrep` e `pip-audit` ficam com o CI.
+- Revisão humana: [revisão de Poviovsky no #230](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/230#pullrequestreview-6012594799), aprovado com sugestões, sob a condição do `testes-mysql` verde no CI. Três sugestões de código, todas aplicadas: `comentario` nulo também no contrato (`allow_null`, `openapi.yaml` regerado), comentário só com caracteres invisíveis (espaços, categoria Unicode `Cf` como U+200B, BOM e ZWJ, e os fillers Hangul) tratado como vazio, e o duplo toque sem marcar a avaliação como editada (as duas respostas saem 201). Duas ficam para issues de acompanhamento, ainda não abertas: paginar os comentários e decidir o que o autor vê quando a avaliação dele está oculta.
+- TDD dos ajustes: `9c0b19a` (`test`, 11 testes falhando) → `1205342` (`fix`). Sabotagem das regras novas: 7 alterações (contrato sem `nullable`, sem a categoria `Cf`, sem os fillers, sem `isspace`, `any` no lugar de `all`, duplo toque marcado como editada, edição normal sem `editada_em`); todas derrubam ao menos um teste.
+- Validação após os ajustes: `pytest` com 1768 testes aprovados e 1 ignorado, cobertura de `apps` de 99%; `ruff check`, `ruff format --check` e `spectacular --validate --fail-on-warn` aprovados. Conflito com a `develop` no `AI-USAGE.md` (entrada da FE-15, #228) resolvido no merge `acaa7ab`, mantendo as duas entradas.
+- Situação: ajustes da revisão aplicados; aguardando o `testes-mysql` do CI e a aprovação.
+
+## FE-10 — gamificacaoStore e PontosAviso
+
+- Issue: [#171](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/171). PR: [#231 — FE-10: gamificacaoStore e PontosAviso](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/231).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `gamificacaoStore` nova, com `registrarPontos` (guarda o último bloco `pontos`; com `total > 0` abre o aviso e marca o progresso como desatualizado; um bloco fora do contrato é ignorado e vai para o console);
+  - `PontosAviso` no `App` raiz: aviso flutuante "+N pontos" ("+1 ponto" quando o total é 1), com uma região `role="status"` só com o texto e o "×" ao lado; some em 4 s ou no "×";
+  - repasse do bloco `pontos` pela `filaStore` e pela `avaliacoesStore`, e o "+N pontos" de dentro do `CheckinBotao` e do `AvaliacaoWidget` retirado, para não aparecer duplicado;
+  - os 10 pontos do check-in (Anexo A) no simulado. O backend real devolve 0 até a BE-14 (#166), e com 0 o aviso não aparece;
+  - nota no C4.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `b6ce8d4` (testes) → `024b1ed` (código).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 701 testes passando (95,16% de linhas / 90,62% de ramos; `gamificacao.js` e `PontosAviso.vue` com 100% de linhas, agora na meta de cobertura) e `npm run build` sem erro. Sem as capturas em 360 px e 1366 px: a localização do PC da autora não funcionou no `npm run dev` para fazer o check-in (combinado com o revisor).
+- Revisão humana: Álvaro Bento revisou o PR #231. Ajustes aplicados, com os testes antes do código:
+  - `gamificacao.js` e `PontosAviso.vue` na meta de cobertura do `vitest.config.js`;
+  - plano de testes atualizado (avaliar mostra o aviso, editar não);
+  - repasse dos pontos protegido por `try/catch` nas duas stores: um bloco ausente, malformado ou uma falha da store não desfaz o check-in ou a avaliação já gravados;
+  - `fila.ultimosPontos` retirado;
+  - os três campos validados como no `openapi.yaml`;
+  - a store limpa no logout e no 401;
+  - testes de dois avisos de mesmo total, aviso aberto antes de montar e bloco ruim depois de um válido;
+  - o "×" fora da região viva;
+  - C4 e comentário do simulado atualizados.
+
+  Os comentários sugeridos no código (JSDoc, `App.vue` e o `76px`) ficaram de fora por serem sugestão.
+- Situação: aguardando nova revisão.
+
+## #205 — Reenvio da confirmação sem 500 que revela conta pendente
+
+- Issue: [#205](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/205), apontada na revisão da BE-20 (#204). PR: [#232 — #205: reenvio responde o mesmo 200 quando dá erro inesperado](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/232).
+- Ferramenta: Claude (Anthropic).
+- Apoio: teste e correção do `ConfirmacaoEmailService.reenviar()`. O trecho que só roda para conta pendente (leitura do limite por conta, no cache em banco, e `enviar_link`) passou a capturar qualquer exceção, registrar no log só o id da conta, o nome da exceção e o arquivo e a linha do último ponto do código do projeto, sem mensagem nem traceback (ADR 0008), e deixar a rota responder o mesmo 200 de conta inexistente (RF02.2). C4 4b: nota "Erro inesperado no reenvio (#205)". O código foi gerado pela IA.
+- Decisões: captura `Exception`, e não só `DatabaseError`, porque qualquer 500 nesse trecho vaza do mesmo jeito, inclusive um bug que só aparece em produção. A BLE001 está ativa no padrão do ruff 0.17.4 (o fixado no `requirements-dev.txt`) e só aceita `except Exception` que registre o traceback, como os `logger.exception` do Leitor de Cardápio. Aqui o traceback não pode ir ao log, então a linha leva `# noqa: BLE001`; sem ele, o `ruff check` falha. Descartados: capturar na view (a busca da conta roda igual para qualquer e-mail e não vaza nada) e `transaction.on_commit(..., robust=True)`, que registra a mensagem e o traceback da exceção e poderia levar o e-mail ao log.
+- TDD: `3d6debd` (`test`, 3 casos falhando com 500: erro de banco no INSERT do token, erro de banco na leitura do limite por conta e `ValueError` na montagem do link) → `a320d4c` (`fix`).
+- Validação local (SQLite, Python 3.14): `pytest` sem `apps/cardapio` (falta o `bs4` no venv local) com 1144 testes aprovados e 1 ignorado; `ruff check`, `ruff format --check` e `bandit -lll` aprovados. `apps/cardapio`, `testes-mysql`, `semgrep` e `pip-audit` ficam com o CI.
+- Revisão humana: [revisão de corinaxc no #232](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/232#issuecomment-7081731700), sem críticos. O ponto importante pedia tirar o `# noqa: BLE001`, por entender que a regra não estava ativa (o padrão do ruff já foi só E4, E7, E9 e F). Conferido no ruff 0.17.4: a regra está ativa, e sem o `noqa` o `ruff check` acusa a linha. Os outros oito `except Exception` passam porque chamam `logger.exception`. O `noqa` ficou, e as frases do C4 e deste registro foram corrigidas para dizer o motivo certo. As três sugestões foram aplicadas: teste do erro depois de o e-mail sair (o link chega, a resposta não muda e a vaga não é contada), arquivo e linha do último ponto do código do projeto no log, e comentário do `except` em duas linhas.
+- TDD dos ajustes: `41446a9` (`test`, 4 testes falhando: os três casos sem o local do erro no log e o caso novo) → `3a20853` (`fix`). Conflito com a `develop` no `AI-USAGE.md` (entrada da FE-10, #231) resolvido no merge `26db3a3`, mantendo as duas entradas.
+- Validação após os ajustes: `pytest` sem `apps/cardapio` com 1145 testes aprovados e 1 ignorado; `ruff check`, `ruff format --check` e `bandit -lll` aprovados.
+- Situação: ajustes da revisão aplicados; aguardando o CI e a aprovação.
+
+## BE-14 — Pontuação
+
+- Issue: [#166](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/166). PR: [#235 — BE-14: pontuação de check-in e avaliação](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/235).
+- Ferramenta: Claude (Anthropic).
+- Apoio: testes e implementação da regra dos pontos em `PontuacaoService.registrar_contribuicao`, seguindo o guia da BE-14: `PontuacaoRepository` (trava por conta com `select_for_update`, criação da linha faltando num savepoint com o `IntegrityError` do UNIQUE virando nova leitura com trava, soma do semestre carregando e salvando para o `auto_now` do desempate), `OrigemContribuicaoRepository` (marcador `pontos_concedidos_em` lido do banco, mesma refeição por campus + tipo + data, avaliação oculta fora), `PontuacaoPolicy` (só o tipo, RI11) e `SemestreResolver` (RN12, datas pelo construtor nos testes). `ParametrosGamificacaoConfig` ganhou `semestre_inicial = "2026.2"` e o término de 2026.2 em 14/12/2026. `TipoContribuicao`, `RefeicaoRef` e `ResultadoPontuacao` foram para `gamificacao/contribuicao.py` para evitar import circular com a política e o repositório; Fila e Avaliação continuam importando de `pontuacao_service`. C4 4a: `avaliacaoOculta`, `semestreInicial`, `somarPontosSemestre` sem `agora` e as notas da avaliação oculta e do semestre sem data. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Decisões (grupo, 22/11/2026): semestre sem data configurada é `"2026.2"`; término de 2026.2 em 14/12/2026; avaliação ocultada não pontua e os pontos concedidos antes da ocultação ficam; este PR entra antes do #225 (BD-12), que faz o rebase. `apagar_contadores` não entra aqui (é do #225). Sem `bonusSemana` no contrato (sequência é a BE-E6). No check-in que libera a avaliação, os dois pontos são da mesma refeição, então o total e a linha do semestre são gravados uma vez só.
+- TDD: `test` (os arquivos de unidade falham com `ImportError`; endpoints, integração e config com 6 falhas) → `feat`.
+- Sabotagem manual (módulo crítico): 18 alterações (sem "uma vez só", oculta pontuando, avaliação sem check-in, check-in sem liberar, liberação ignorando o campus, liberando oculta, check-in de outra conta, check-in ignorando o tipo, sem marcar, `.update()` sem `auto_now`, semestre fixo, término exclusivo, semestre seguinte errado, semestre vazio errado, saída valendo 10, `avaliacaoLiberada` zerado, sem trava e sem savepoint). As 16 primeiras derrubam testes no SQLite; as duas da trava e do savepoint, só os testes de concorrência no banco MySQL/MariaDB, como esperado.
+- Validação local: SQLite (Python 3.13): `pytest` com 1814 testes aprovados e 6 ignorados (eram 1766 e 3 na `develop` em `1f893c7`; os 3 novos ignorados são os de concorrência), cobertura de `apps` de 99% e 100% nos módulos novos; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` (nenhuma migration nova) e `spectacular --validate --fail-on-warn` (`openapi.yaml` idêntico ao gerado, sem mudança no contrato). MariaDB 10.11 com READ COMMITTED: testes de gamificação, fila, avaliação e config (363) aprovados, inclusive os 3 de concorrência. MySQL 8.4 (Docker, Python 3.15): os 3 testes de concorrência aprovados. `testes-mysql` (MySQL 8.4), `semgrep` e `pip-audit` ficam com o CI.
+- Revisão humana: Álvaro Bento revisou o PR #235 (com o PR Review Toolkit do Claude Code; o deadlock foi conferido à mão). Ajustes aplicados, com os testes antes do código:
+  - deadlock entre editar a avaliação e fazer check-in na mesma refeição (a edição travava a avaliação e depois a conta; o check-in, a conta e depois a avaliação): o `AvaliacaoService` passa a travar a conta antes, com o novo `PontuacaoService.travar_conta`. Reproduzido no MariaDB (erro 1213) pelos services de verdade antes da correção;
+  - `marcar_pontuada` devolve se marcou; sem marcar, a pontuação levanta `OrigemContribuicaoNaoEncontradaError` e não concede nada (um `origem_id` inexistente ou de outro tipo pontuava a cada chamada);
+  - testes de rollback com a pontuação real no check-in (com avaliação para liberar) e na avaliação: não sobra registro, marcador nem ponto;
+  - testes de concorrência com a sobreposição forçada dentro do serviço (sem a trava, o check-in duplo agora falha sempre) e o caso de duas avaliações ao mesmo tempo depois do check-in;
+  - sanidade dos rótulos e da ordem dos semestres na config, teste do término de 2026.2 só pela chave, cópia das datas no `SemestreResolver`, política cobrindo todo `TipoContribuicao`, pergunta de saída que não libera a avaliação, `RefeicaoRef.tipo_refeicao` como `TipoRefeicao`;
+  - docstrings (passo 3, semestre seguinte, `semestre_inicial` sem prazo de validade, valores dos pontos só na `PontuacaoPolicy`) e C4: `travarConta` e a nota do deadlock no 4a e no C4 da Avaliação, `marcarPontuada` devolvendo `bool`, `avaliacaoOculta` no 4b e `semestreInicial` nos quatro diagramas.
+
+  O check-in não trava a conta antes: a pontuação que roda nele escreve na avaliação, mas a que roda na avaliação só lê o `Checkin`, então não há ciclo desse lado.
+- TDD da revisão: `test` (deadlock com erro 1213 no MariaDB; trava, origem inexistente, cópia das datas e política vermelhos no SQLite) → `fix`. Sabotagem dos ajustes: sem `travar_conta` (deadlock de volta), sem `select_for_update` (o check-in duplo falha nas 3 rodadas) e sem o `raise` do marcador (4 testes falham).
+- Validação após a revisão: SQLite (Python 3.13): `pytest` com 1828 aprovados e 8 ignorados (os 5 de concorrência), cobertura de `apps` de 99% e 100% nos módulos da pontuação; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` e `spectacular --validate --fail-on-warn` (contrato sem mudança). MariaDB 10.11 com READ COMMITTED: gamificação, fila, avaliação e config (381) aprovados, inclusive os 5 de concorrência.
+- Situação: ajustes da revisão aplicados; aguardando o `testes-mysql` do CI e a nova revisão.
+
+## BE-15 — Previsão de pico
+
+- Issue: [#167](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/167). PR: [#236 — BE-15: previsão da fila (GET /api/fila/previsao/)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/236).
+- Ferramenta: Claude (Anthropic).
+- Apoio: testes e implementação dos seis passos do Nível 4c da Fila, uma classe por passo: `JanelaHistoricoResolver` (4 semanas anteriores no mesmo dia da semana, sem o próprio dia), `FaixaHorarioGenerator` (faixas de 15 min cobrindo o horário do Anexo A, última faixa cortada no fim da refeição), `CheckinRepository.contar_por_faixa` com `ContagemDia` (uma consulta agrupada, na forma conferida pela BD-10; só os dias com dados; o check-in do minuto final na última faixa), `SuficienciaDadosValidator` (3 dias distintos), `MediaPorFaixaCalculator` (média só nos dias com dados, faixa vazia conta como zero, em `Fraction`) e `ClassificadorNivelFila` (cortes de 25/50/75%, `NivelFila`). O `PrevisaoService` monta a `PrevisaoPico`; no empate, todas as faixas com a maior média são longas e pico. A `PrevisaoView` sai do 501 com os mesmos 400 `parametros_invalidos` e 404 `campus_nao_encontrado` do cardápio e do resumo das avaliações (#217). Contrato: descrição do endpoint detalhada e `nivel` como enum (`NivelEnum`), `openapi.yaml` regerado. C4 4c: tipos `Fraction` e a nota dos detalhes da BE-15. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Decisões: o dia pedido não entra na janela (a refeição de hoje pode estar em andamento), e a janela só usa dias que já passaram; médias em fração exata, para o corte de 75% e o empate não dependerem de arredondamento; `status` continua texto no contrato (um `ChoiceField` geraria um `StatusEnum` genérico no schema). Sem `esperaEstimadaMin` (passo 7, BE-E1).
+- TDD: `e1596ce` (78 testes novos; os arquivos de unidade falham com `ImportError` e os de endpoint contra o 501) → `2114507`.
+- Sabotagem manual (módulo crítico): 18 alterações (janela incluindo o dia e com 5 semanas, última faixa sem corte, mínimo exclusivo, dia só com zeros contando, média em `float`, cortes inclusivos, faixa mais cheia moderada, pico aproximado, máxima errada, minuto final fora, faixas sobrepostas, dias sem dados na média, contagem sobrescrita, sem filtro de campus, data padrão em UTC, parâmetro repetido aceito, e uma equivalente, só de comentário). Na primeira rodada, a contagem sobrescrita sobreviveu; ganhou o teste das 14h15 com as 14h30, e as 17 não equivalentes passaram a derrubar ao menos um teste. Cada rodada com `timeout 60` e limite de memória, para uma mutação em loop contar como morta.
+- Validação local (SQLite, Python 3.14): `pytest` com 1912 testes aprovados e 6 ignorados (eram 1834 na `develop` em `f2f8920`), cobertura de `apps` de 99% e 100% nos módulos novos; `ruff check`, `ruff format --check`, `bandit -lll` e `spectacular --validate --fail-on-warn` aprovados. `testes-mysql` (inclusive o `EXPLAIN` da BD-10), `semgrep` e `pip-audit` ficam com o CI.
+- Revisão humana: [revisão de Poviovsky no #236](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/236#issuecomment-7084263068), com uma mudança pedida e três sugestões. Ajustes:
+  - bloqueio: o preenchimento do número e dos hashes deste PR (`ca3edef` e `baeb8e3`) tinha trocado também os marcadores da entrada da FE-09, que é de outro PR; a entrada da FE-09 voltou a ser a da `develop` (`334e07a`);
+  - data futura: a janela passa a usar só os dias que já passaram. Pedida a quarta seguinte, a primeira data da janela seria hoje, com a refeição talvez em andamento. O "hoje" de Brasília é calculado uma vez na view e passado ao `PrevisaoService` e ao `JanelaHistoricoResolver`, como o `agora` do check-in; `help_text` de `data`, descrição do endpoint e C4 4c atualizados, `openapi.yaml` regerado;
+  - especificação SDD da issue #167 atualizada com o contrato final;
+  - a conversão repetida para `Fraction` no classificador ficou, como o revisor sugeriu: ela deixa o método aceitar `int`.
+- TDD da revisão: `e1c4703` (`test`, 29 falhas) → ``8649b2f``. Sabotagem da regra nova: janela com `<=`, sem o filtro e "hoje" em UTC; as três derrubam ao menos um teste.
+- Validação após a revisão: testes da fila e do contrato (275) aprovados localmente (SQLite, Python 3.14); `ruff check`, `ruff format --check` e `spectacular --validate --fail-on-warn` aprovados. A suíte completa e o `testes-mysql` ficam com o CI.
+- Situação: ajustes da revisão aplicados; aguardando a nova revisão.
+
+## FE-11 — FilaPrevisao na tela do campus
+
+- Issue: [#172](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/172). PR: [#234 — FE-11: FilaPrevisao na tela do campus](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/234).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `FilaPrevisao` nova na seção da fila: chama `GET /api/fila/previsao/` com o campus, a refeição e o dia escolhidos no cardápio, sem login, e mostra as faixas de 15 minutos com o nível de cada uma;
+  - pico em destaque em todas as faixas com `ehPico`, com o resumo "Pico previsto" ou "Picos previstos" no empate, e "Dados insuficientes" sem faixas nem valor de reserva (RF13, RN06);
+  - estados de carregando, erro com "Tentar novamente" (menos no 400 e no 404) e um 501, como defesa contra um backend sem a rota, como "Previsão fora do ar no momento";
+  - a previsão da refeição encerrada sai junto com o check-in (RN05);
+  - `carregarPrevisao` na `filaStore`, com cache por campus, refeição e dia, o mesmo pedido saindo uma vez só e a resposta validada;
+  - o cartão "Em breve" e a legenda repetida saíram da `FilaView`, e o "Como vai funcionar?" virou "Como funciona?", com o texto no presente;
+  - previsão de exemplo no simulado (almoço com 3 picos empatados, café com 1, Fazenda Água Limpa com dados insuficientes), com as validações do contrato e o 501 simulável;
+  - nota no C4.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `16654a4` (testes) → `d93139b` (código).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 778 testes passando (95,38% de linhas / 91,11% de ramos) e `npm run build` sem erro; layout conferido em 360 px e 1366 px no DevTools, com as capturas no PR.
+- Revisão humana: Álvaro Bento revisou o PR #234. Ajustes aplicados, com os testes antes do código:
+  - uma resposta `disponivel` sem pico, ou `dados_insuficientes` com faixas, vira erro;
+  - a lista de faixas virou um grid único, que encolhe em 360 px;
+  - os três trechos contraditórios do C4 foram corrigidos;
+  - a previsão carregada e a "indisponível" valem 5 minutos, como o cardápio;
+  - testes de corrida com `forcar`, "Tentar novamente" por status, RN05 às 16h, no limite de 19h30/19h31 e com o relógio virando, e dia passado sem previsão;
+  - os estados ficam numa região `aria-live`, com a lista fora dela;
+  - o erro de resposta inválida leva a chave e o corpo;
+  - os cabeçalhos da `filaStore` e do simulado foram atualizados, e as props novas da `FilaView` passaram a ser obrigatórias;
+  - a RN06 entrou na rastreabilidade.
+
+  Os comentários novos sugeridos no código ficaram de fora por serem sugestão.
+
+  Na segunda revisão, depois da BE-15 (#236) entrar na develop, os ajustes foram:
+  - os textos que tratavam a BE-15 como futura (cabeçalhos da `filaStore` e do simulado, C4) foram atualizados, e o 501 ficou só como defesa;
+  - com a tela parada, a `FilaPrevisao` confere a validade a cada minuto e, enquanto revalida, mantém as faixas antigas;
+  - um `@supports` cobre os navegadores sem `subgrid`.
+
+  Na terceira conferência, a revalidação passou a rodar em segundo plano: não passa pelo "Carregando…", não insiste num erro (para isso há o "Tentar novamente") e, se falhar, mantém a previsão antiga e tenta de novo no minuto seguinte. Há testes de rede fora e de falha da revalidação.
+- Situação: aguardando nova revisão.
+
+## BE-16 — Progresso e adesão
+
+- Issue: [#168](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/168). PR: [#237](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/237)
+- Ferramenta: Claude (Anthropic).
+- Apoio: testes e implementação seguindo o guia da BE-16: `Patente` (`StrEnum` na ordem dos limiares), `PatenteResolver` (`patente` e `falta_para_proxima` com `bisect_right`, limiares lidos da `ParametrosGamificacaoConfig` e conferidos no construtor: um por patente, o primeiro 0, crescentes), `Progresso` (só os 7 campos do contrato) e `ProgressoService.montar(conta, hoje)` (só leitura, sem trava e sem criar linha; sem `PontuacaoUsuario`, zero ponto e sem adesão). `PontuacaoRepository.alterar_adesao` abre a própria transação, reaproveita `travar_por_conta` (cria a linha que falta e mantém a ordem de travas da BE-14) e grava só `participa_ranking` e `atualizado_em`, sem tocar na `PontosSemestreCampus`. `ProgressoView` e `RankingAdesaoView` saem do 501 (200 e 204). Contrato: `help_text` de `sequencia` e `diasNaSemana` e `openapi.yaml` regerado (só descrição). C4 4c: notas do `Progresso` desta Release e dos campos de sequência. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Decisões (grupo, 22/11/2026): os campos de sequência ficam no contrato, com `sequencia` = `sequencia_atual`, `diasNaSemana` = 0 e `minimoDias` da config até a BE-E6. Sem posição, Bandeja de Ouro nem `distintivo` (backlog, seção 3, item 6). A linha que falta é criada na adesão, nunca no `GET`. O 401 sem sessão não foi duplicado nos testes novos (já coberto por `test_acesso_contrato.py` e `test_csrf_rotas_reais.py`).
+- TDD: `test` (os arquivos de unidade falham com `ImportError`; adesão e endpoints com 20 falhas contra o 501) → `feat` → `docs`.
+- Sabotagem manual (módulo crítico): 6 alterações (`<=` virando `<` no limiar, limiares fixos no código, falta da patente errada, `save()` sem `update_fields` na adesão, gravar a linha do semestre na adesão, criar linha no `GET`). Todas derrubam ao menos um teste no SQLite.
+- Validação local: SQLite (Python 3.13): `pytest` com 1977 testes aprovados e 8 ignorados (eram 1917 na `develop` em `e651805`), cobertura de `apps` de 99% e 100% nos módulos novos e nos alterados; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` (nenhuma migration nova) e `spectacular --validate --fail-on-warn` (diff do `openapi.yaml` só de descrição). `testes-mysql`, `semgrep` e `pip-audit` ficam com o CI.
+- Revisão humana: pendente (revisão de outra frente, DoD 1.4).
+- Situação: aguardando revisão.
+
+## BE-17 — Ranking por campus
+
+- Issue: [#185](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/185). PR: [#239](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/239)
+- Ferramenta: Claude (Anthropic), pelo Claude Code.
+- Apoio: testes e implementação do `GET /api/ranking/{campusId}/`: `PontuacaoRepository.elegiveis` (na forma do BD-10: `EXISTS` dentro de `CASE`, com `alias`, sem join, ordem `-pontos, atualizado_em`, sem corte), `RankingService` (`semestre_corrente` pelo `SemestreResolver`; `top_publico` com o `LIMIT` do `tamanho_ranking` no banco e as contas numa segunda consulta, por `in_bulk` com a pontuação junto), `LinhaRanking`/`LinhaRankingPublica` e `RankingPublicoMapper` (posição, apelido e patente dos pontos totais, sem pontos nem `distintivo`). A `RankingView` sai do 501 e usa o `buscar_campus` (404 `campus_nao_encontrado`). O `test_indices_bd10.py` passa a chamar o próprio `elegiveis`. Docs: nota da Release no C4 4c e texto do `indices-bd10.md`. O código foi gerado pela IA; os commits foram feitos pelo Claude Code a pedido do autor do PR.
+- Decisões: sem `distintivo`, `classificacao` e `posicaoDe` nesta Release (backlog, seção 3, item 6); a patente é a dos pontos totais, os pontos do semestre só ordenam; conta pendente ou removida também fica de fora (filtro por `status = ativo`). Contrato sem mudança: o `openapi.yaml` da BE-03 já tinha a resposta (`test_contrato_openapi` verde).
+- TDD: `test` (os três arquivos novos falham com `ImportError` antes do código) → `feat` → `docs`.
+- Sabotagem manual (módulo crítico): 9 alterações (sem filtro de adesão, sem filtro de conta ativa, aceitar zero ponto, desempate invertido, desempate por id, sem corte, sem `select_related`, posição a partir de 0, patente pelos pontos do semestre). Todas derrubam ao menos um teste no SQLite.
+- Validação local: SQLite (Python 3.14): `apps/gamificacao` e os testes de contrato, de índices (BD-10) e de CSRF com 260 aprovados e 5 ignorados; `ruff check` e `ruff format --check`. A suíte completa, o `testes-mysql` (com o EXPLAIN do BD-10 no MySQL), `semgrep` e `pip-audit` ficam com o CI.
+- Revisão humana: pendente (revisão de outra frente, DoD 1.4).
+- Situação: aguardando revisão.
+
+## FE-12 — ProgressoView (Meu progresso)
+
+- Issue: [#173](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/173). PR: [#238 — FE-12: ProgressoView (Meu progresso)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/238).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `ProgressoView` nova em `/progresso`, na versão simplificada da issue: patente, pontos totais e "Faltam N pontos para X" com barra, ou "Você chegou à patente máxima";
+  - `RankingAdesaoToggle`: interruptor (`role="switch"`) com o aviso de que o apelido e a patente ficam visíveis para todos no ranking do semestre;
+  - `BotaoSair`, que encerra a sessão e volta para a Início;
+  - visitante vê o `ConviteLogin`, sem redirecionar e sem pedir o progresso;
+  - `gamificacaoStore` com progresso, ranking por campus e adesão: as respostas são validadas contra o OpenAPI, o mesmo pedido sai uma vez só e a mudança de adesão recarrega o progresso e os rankings abertos e limpa os comentários guardados;
+  - `constants/patentes.js` com as 5 patentes e os limiares do Anexo A;
+  - item "Meu progresso" no menu da Início;
+  - progresso, adesão e ranking de exemplo no simulado, com o 501 simulável;
+  - nota no C4.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `7b1944a` (testes) → `acb70f9` (código) → `b48a39d` (docs).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 829 testes passando (95,57% de linhas / 91,24% de ramos) e `npm run build` sem erro; layout conferido em 360 px e 1366 px no DevTools, com as capturas no PR.
+- Dependência: quando o PR foi aberto, a BE-16 (#168) ainda respondia 501, e a tela mostrava "Progresso ainda não disponível", sem erro.
+- Revisão humana: Álvaro Bento revisou o PR #238. Ajustes aplicados, com os testes antes do código (`bc8bb4a` → `e17655d` → `202f402` → `c3637a6`):
+  - com o 204 da adesão, o `participaRanking` muda na hora e o progresso recarrega sem voltar a "carregando", então o interruptor não some; se o recarregamento falhar, o novo estado fica e o progresso é pedido de novo na próxima abertura;
+  - o `limpar()` descarta o pedido de progresso em andamento, os rankings e os pedidos de ranking, e uma resposta que chega depois do logout ou de um pedido mais novo é descartada;
+  - o erro de uma mudança de adesão feita antes de um 401 não passa para a próxima sessão;
+  - o aviso do interruptor fala só do ranking do semestre, e o título virou "Participar do ranking";
+  - se o servidor não confirmar a saída, o `BotaoSair` fica na tela e avisa (`role="alert"`) que o servidor não confirmou;
+  - o `campusId` do ranking é convertido para número;
+  - o `patenteDosPontos` passou para o simulado;
+  - o C4 foi corrigido, e os comentários sugeridos entraram (origem dos limiares, JSDoc da store e notas do simulado);
+  - testes novos de corrida, 401, ranking fora do contrato, 501 do ranking, falha ao sair, falha ao desligar e limiares da barra.
+- Validação após a revisão: `npm run lint:ci` sem achados, `npm run test:ci` com 858 testes passando (95,73% de linhas / 91,45% de ramos) e `npm run build` sem erro.
+- Depois que a BE-16 (#237) entrou na `develop`, o conflito do `AI-USAGE.md` foi resolvido e os textos que a tratavam como futura (cabeçalhos da store e do simulado, nomes de testes, C4 e descrição do PR) foram atualizados: o progresso e a adesão já respondem 200 e 204, e o 501 ficou como defesa; o ranking continua em 501 no backend.
+- Na segunda revisão, Álvaro Bento confirmou os ajustes e deixou uma pendência: o `sair()` da `HomeView` ainda redirecionava sem avisar quando o servidor não confirmava. Em vez de abrir outra issue, a correção entrou neste PR (`669f43a` testes → `ae3c022` código → `2634371` C4): a lógica de sair foi para o composable `useSair`, usado pelo `BotaoSair` e pelo item "Sair da conta" do menu da Início. Na Início, a tela continua onde está, recarrega as avaliações de hoje e mostra o mesmo aviso (`role="alert"`) quando o servidor não confirma. O `BotaoSair` não entrou direto no menu porque o menu fecha ao clicar, e o aviso sumiria junto.
+- Validação após a segunda revisão: `npm run lint:ci` sem achados, `npm run test:ci` com 864 testes passando (96,09% de linhas / 92,22% de ramos) e `npm run build` sem erro.
+- Na terceira revisão, Álvaro Bento pediu três ajustes: resolver o novo conflito do `AI-USAGE.md` (a BE-17, #239, entrou na `develop`), atualizar os textos que ainda diziam que o ranking responde 501 (JSDoc do `estadoDaFalha`, cabeçalho do simulado e descrição do PR; agora as três rotas respondem e o 501 vale só como defesa) e corrigir a formatação do JSDoc do `useSair` apontada pelo Prettier.
+- Situação: ajustes da terceira revisão aplicados; aguardando o merge.
+
+## #240 — Deploy automático (CD)
+
+- Issue: [#240](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/240). PR: [#241](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/241)
+- Ferramenta: Claude (Anthropic).
+- Apoio: desenho do CD e código gerado pela IA: `.github/workflows/deploy.yml` (push na `main`, espera o Backend CI e o Frontend CI do mesmo commit, SSH com a chave do servidor fixada em secret, `concurrency` sem cancelar), `deploy/cd/deploy.sh` (instalado como `/usr/local/bin/bandejao-deploy`: trava, confere branch, mudanças locais e commit na `origin/main`, backup do banco antes das migrations, fast-forward, `docker compose up -d --build --wait` e conferência de `/api/campi/`; pula um commit mais antigo que o que está no ar) e a seção "Deploy automático (CD)" do `deploy-producao.md`. Configuração na VM e no GitHub feita pelo autor, guiada passo a passo no chat. Os commits foram aplicados pelo autor do PR.
+- Decisões (autor, 22/11/2026): o deploy dispara pela `main`, sem aprovação manual; a chave do GitHub fica presa ao script por `command=...,restrict` no `authorized_keys`; sem rollback automático (as migrations rodam na subida do backend), com o backup e o commit anterior no log.
+- Validação local: o script rodou contra repositórios git locais, com o `docker` e o `curl` simulados: deploy normal, commit atrasado (pulado), re-run do mesmo commit, commit fora da `main`, mudança local, trava ocupada (status 75), falha do Compose (mostra como voltar) e branch errada.
+- Validação na VM (22/11/2026): a chave do deploy não roda outro comando (`whoami` respondeu com o uso do script); com um commit real, o script rodou e parou em "a VM está na branch 'develop'", sem mudar nada.
+- Ajustes da revisão de eusojj ([CHANGES_REQUESTED em 22/11](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/241)), código gerado pela IA: reload do Caddy quando o `Caddyfile` muda (bind mount); rotação dos backups só depois de um deploy que deu certo, com `ultimo-ok.sql.gz` fora da rotação e falha da rotação no log; tempo limite em cada passo (`fetch`, backup, Compose, reload, prune), com mensagem própria para o status 124; conferência do fast-forward antes do backup; commit inexistente separado de "fora da `main`"; falha do `git status` e do `prune` no log; health check exigindo 200 no PWA e na API; log e trava testados antes do `flock` (status 73), com o "outro deploy rodando" também no syslog. Workflow: `--branch main` e nova tentativa quando o `gh` falha, limite por step (41 e 58 min, job em 100) e `ConnectTimeout=30`. Guia: passo 5 (troca da VM para a `main`), texto da VM no futuro até a release, `fetch` no deploy à mão, variables em vez de secrets e nota em "Cuidados" (merge na `main` é deploy). O item 14 (ADR de CD e "Require approvals" na ADR 0015) ficou para discussão do grupo.
+- Testes dos ajustes: `backend/tests/test_deploy_cd.py` (40 testes), com `docker`, `curl` e `logger` falsos e repositórios git de verdade: os cenários do teste local de antes, mais `Caddyfile` alterado, reload que falha, passo travado (tempo limite libera a trava), rotação sem apagar o backup de antes da migration, PWA ou API com 301/502/sem resposta, trava ocupada e log ou trava sem escrita; e leitura do workflow (gatilho, environment, `vars.`, sem `${{ }}` no `run:`). Sabotagem: contra o `deploy.sh` anterior, 18 dos testes do script falham. Validação local: `test_deploy_cd.py` e `test_cron_producao.py` (89 aprovados), `ruff check` e `ruff format --check`; a suíte completa, o `testes-mysql`, o `semgrep` e o `pip-audit` ficam com o CI.
+- Ajustes da segunda revisão de eusojj (CHANGES_REQUESTED em 22/11, 23:10), código gerado pela IA: o Caddy passa a ser recriado (`up -d --no-deps --force-recreate caddy`) quando o `Caddyfile` muda, com conferência do conteúdo visto pelo container (`cat | cmp`), porque o bind mount de um arquivo só fica preso ao arquivo antigo e o `caddy reload` leria a configuração velha; o mesmo vale para a instrução à mão em "Atualizar". Tempos: step de deploy em 70 min, job em 115, prune em 2 min. Sugestões: `mysqldump` com `timeout` dentro do container (14 min), `pkill` na mensagem de erro do backup; 5 erros seguidos do `gh` param a espera; AVISO com mais de 20 backups de deploy; guia com qual backup restaurar e tabela dos status (0, 1, 2, 73, 75; 124 e 137); `mkdir` da pasta de log sai com 73; erro do `git merge-base` (128) separado de "não é ancestral"; 137 descrito também como KILL de fora.
+- Testes da segunda revisão: `test_deploy_cd.py` passou a 54 testes: espera pelo CI rodando o `run:` do workflow no bash com `gh` e `sleep` falsos (verde, vermelho, cancelado, pendente, erro do `gh` e 5 erros seguidos), conexão que cai no meio (HUP no grupo de processos e saída fechada durante o `compose up`), permissão `600` do backup e `700` da pasta, nova tentativa do health check (502 e 000 antes do 200), Caddy recriado, recriação que falha e Caddy que ainda vê o arquivo antigo, backups acumulados, pasta de log que não pode ser criada, `cancel-in-progress: false` e leitura do workflow como YAML; o `sleep` do teste da trava não fica mais órfão. Sabotagem: sem o `trap '' HUP PIPE`, o teste da conexão falha; contra o `deploy.sh` da rodada anterior, 6 testes falham; contra o workflow anterior, o teste dos 5 erros do `gh` falha. Validação local: `test_deploy_cd.py` (54) e `test_cron_producao.py` (49) aprovados, `ruff check` e `ruff format --check`; a suíte completa e o `testes-mysql` ficam com o CI. Na VM (22/11): o container do `db` (`mysql:8.4`) tem o `timeout` do GNU coreutils (`/usr/bin/timeout`).
+- Ajustes da terceira revisão de eusojj (APPROVED em 23/11, com sugestões), código gerado pela IA: a conferência do Caddy passa a ser pelo conteúdo que o container vê, e não pelo `git diff` (num "Re-run" depois de uma falha no meio, o diff vinha vazio e o Caddy ficava com a configuração antiga); a falha do `exec` (Caddy fora do ar, por exemplo por erro de sintaxe) aparece separada de "vê o arquivo antigo", com o `docker compose logs --tail 50 caddy`; contador de erros do `gh` por workflow (`declare -A`); limite do backup em minutos inteiros (`BANDEJAO_LIMITE_BACKUP_MIN`, padrão 15), com o do `mysqldump` sempre 1 min menor; o `mkdir` da pasta de log mostra o motivo da falha; comentários do pior caso acertados (~59 min); `PyYAML==6.0.3` fixado no `requirements-dev.txt`. O `caddy validate` antes da recriação não foi feito: a conferência depois da recriação já pega o Caddy que não sobe.
+- Testes da terceira revisão: `test_deploy_cd.py` passou a 69 testes: re-run depois de falha ainda recria o Caddy, Caddy preso ao arquivo antigo, Caddy fora do ar, o `merge-base` com 128 em cada uma das três conferências (`git` falso que repassa ao de verdade), ordem dos steps sem `if`/`continue-on-error`, erros de um só workflow do `gh`, sucesso zerando o contador, limite de 20 backups (`-gt`), limite do backup calculado e inválido; o `gh` falso não usa mais `sed -i` (roda no macOS) e a docstring do SIGHUP foi corrigida. Sabotagem: contra o `deploy.sh` da segunda rodada, 11 testes falham (Caddy e limite do backup); contra o da primeira, os 3 do `merge-base`; contra o workflow da segunda, os 2 do contador do `gh`; com `continue-on-error` na espera, o teste da ordem dos steps. Validação local: `test_deploy_cd.py` e `test_cron_producao.py` (118 aprovados), `ruff check` e `ruff format --check`; a suíte completa e o `testes-mysql` ficam com o CI.
+- Pendente: reinstalar o `/usr/local/bin/bandejao-deploy` na VM com a versão nova depois do merge; primeiro deploy pelo workflow, depois da release `develop` → `main` e da troca da VM para a `main`.
+- Revisão humana: [revisões de eusojj](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/241): mudanças pedidas em duas rodadas e aprovação na terceira (23/11), com sugestões aplicadas depois.
+- Situação: aprovado; ajustes das sugestões da aprovação aguardando o CI. Conflito do `AI-USAGE.md` com a `develop` (entradas da BE-17, #239, e da FE-12, #238) resolvido no merge da `develop`, mantendo as entradas na ordem em que entraram.
+
+## BE-10 — Deploy do M2 (HSTS e log sem token)
+
+- Issue: [#137](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/137). PR: [#247](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/247)
+- Ferramenta: Claude (Anthropic). O guia ("o que falta para fechar o deploy do M2") e o protótipo testado numa cópia da `develop` em `9adb85a` foram feitos com o Claude Code em 22/11/2026; a implementação final, a partir do guia, foi feita com o Claude.
+- Apoio: `SECURE_HSTS_SECONDS` vindo do `.env` (padrão 3600 sem `DEBUG` e 0 com `DEBUG`), sem subdomínios e sem preload; `SILENCED_SYSTEM_CHECKS` só com `security.W005`, `W008` e `W021`; `config/log_gunicorn.py` (`LogDeAcessoSemToken`, que põe o `MascaraTokenDoPath` no logger `gunicorn.access`); `entrypoint.sh` com `--logger-class` e `--access-logformat` sem o `%(f)s` (Referer); `tzdata==2026.6` no `requirements-prod.txt`; `requirements-ci-mysql.txt` incluindo o `requirements-prod.txt` (o job `testes-mysql` instala e audita o `gunicorn` e o `tzdata`); `cache-dependency-path` e comentário do `check --deploy` no `backend-ci.yml`; `.env.example` e `deploy-producao.md` (tabela do `.env`, "Conferir" e "Ver logs"). O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Decisões (guia da BE-10, 22/11/2026): HSTS no Django, e não no `Caddyfile` (cabeçalho duplicado); começar em 1 hora e subir para 1 ano no `.env` da VM depois do M2 estável (frente de banco, fora do PR); `SECURE_SSL_REDIRECT` desligado (o Caddy já redireciona com 308); o CI continua com `check --deploy` sem `--fail-level WARNING` por causa do W009 da chave curta, e o zero aviso fica com o `test_check_deploy_passa_sem_avisos`; log de acesso mantido, sem o Referer e com o token mascarado. Nenhuma rota, migration ou mudança em `apps/`, no `Dockerfile`, no Compose ou no `Caddyfile`.
+- TDD: `test` (`tests/test_deploy_be10.py`: 7 falhas pelo motivo previsto no guia — `SystemCheckError` com W004 e W008, `AttributeError` nos três de HSTS, lista de avisos vazia, `tzdata` faltando e `entrypoint.sh` sem o logger; o do log ignorado sem o gunicorn e com `ModuleNotFoundError` com ele) → `test` (correção: `check --deploy` independente do `.env` local) → `feat` → `docs`.
+- Validação local: SQLite (Python 3.14): `pytest` com 2084 testes aprovados e 11 ignorados (eram 2073 na `develop` em `9adb85a`), cobertura de `apps` de 98,8%, com o gunicorn instalado (o teste do log passou, e não ficou ignorado); `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` (nenhuma migration), `spectacular --validate --fail-on-warn` (contrato sem diff) e `pip-audit` (dev, `gunicorn` e `tzdata`) sem achados. `check --deploy --fail-level WARNING` com chave longa: `no issues (3 silenced)`; com a chave do CI, só o W009. Gunicorn rodado com a linha do `entrypoint.sh`: `POST /api/confirmar-email/***/` no log, zero ocorrências do token e do e-mail do Referer, e `Strict-Transport-Security: max-age=3600` com `X-Forwarded-Proto: https`. O `docker build` foi conferido na VM em 22/11 (guia); a subida com o MySQL fica para o deploy.
+- Revisão humana: o autor aplicou os commits e rodou os testes no Windows (venv do projeto). Ao rodar os testes do `feat`, achou uma falha no `test_check_deploy_passa_sem_avisos` com o `DJANGO_DEBUG=True` do `.env` local: o teste herdava o HSTS e os cookies do modo de desenvolvimento. O teste passou a carregar os valores de produção sem o `.env` (commit `test(deploy): check --deploy independente do .env local`).
+- Ajustes da revisão de AlvaroBento12 (23/11, feita com o pr-review-toolkit), código gerado pela IA: base do PR trocada da `main` para a `develop`, com o merge da `main` substituído por um merge da `develop` (a `main` dispara o deploy automático); filtro do token também no log de erros do Gunicorn (`Error handling request <método> <uri>`), com guarda contra filtro duplicado no reload (SIGHUP); regex da máscara aceitando barras repetidas e maiúsculas; `SECURE_HSTS_SECONDS` negativo derruba a subida (`ImproperlyConfigured`); `check --deploy --fail-level WARNING` no CI, com uma chave longa só nesse passo (substitui a decisão de deixar o CI sem `--fail-level`); `EXIGIR_GUNICORN=1` no job `testes-mysql`, para a falta do gunicorn ser erro e não um pulo; comentários corrigidos (o `Referer` da página `/confirmar-email` leva `?token=` ou `?email=`, em modos diferentes da página, e não os dois juntos; um motivo por aviso silenciado; "depois do M2" trocado por "depois de alguns dias de HTTPS estável"; docstrings do `log_gunicorn.py` e do `config/logs.py`); `SECURE_HSTS_SECONDS` fora do bloco de e-mail no `.env.example` e no `deploy-producao.md`; atualização do HSTS na ADR 0012.
+- Testes da revisão: o teste do log passou a ser ponta a ponta (`Logger.access()` do Gunicorn, com os argumentos lidos da linha do `exec gunicorn` do `entrypoint.sh` e um Referer com token e e-mail) e substitui os testes de texto do `entrypoint.sh`; novos testes do log de erros, do reload, do HSTS atrás do Caddy (`X-Forwarded-Proto` com o `SECURE_PROXY_SSL_HEADER` de produção), do HSTS negativo, da máscara parametrizada (6 formatos de path) e do workflow (`EXIGIR_GUNICORN` e `--fail-level WARNING`). Antes da correção, 7 falharam pelo motivo esperado. Sabotagem: `%(f)s` ou `%({referer}i)s` de volta no formato, `--logger-class` tirado e `ATRAS_DE_PROXY_HTTPS` desligado sem `DEBUG` derrubam ao menos um teste; sem o gunicorn, os 4 testes do Gunicorn são ignorados e, com `EXIGIR_GUNICORN=1`, dão erro.
+- Validação local da revisão: SQLite (Python 3.14, com o gunicorn e `EXIGIR_GUNICORN=1`): `pytest` com 2136 aprovados e 11 ignorados, cobertura de `apps` de 98,8%; `ruff check`, `ruff format --check`, `bandit -lll`, `makemigrations --check` e `spectacular --validate` (contrato sem diff); `check --deploy --fail-level WARNING` com a chave do passo do CI: `no issues (3 silenced)`.
+- Revisão de outra frente (DoD 1.4): pendente.
+- Situação: ajustes da revisão de AlvaroBento12 aplicados; aguardando nova revisão. A #137 só fecha depois da conferência em produção e da BD-08 (#148).
+
+## FE-13 — RankingView
+
+- Issue: [#174](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/174). PR: [#242 — FE-13: RankingView](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/242).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - `RankingView` em `/ranking/:campusId` e `/ranking` (pública), `LinhaRanking` (posição, apelido e patente, sem pontos), `RankingVazio` e a variante `compacto` do `SeletorCampus`;
+  - o ranking guardado só com os campos públicos (RI12) e o `GET /ranking/{campusId}/` no servidor simulado;
+  - link "Ranking do campus" no menu da Início e as capturas em 360 px e 1366 px.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- Junção com a FE-12 (#238): a FE-12 entrou na `develop` com um `carregarRanking` e um `constants/patentes.js` próprios. A FE-13 passou a usar os dela (`rankingDe`, recarga do ranking ao mudar a adesão e o ranking de exemplo do simulado), com `rankingDoCampus`, `situacaoDoRanking` e `erroDoRanking` por cima, sem duas versões da mesma regra.
+- Contrato: conferido contra o backend real da BE-17 (#239), rodando o Django local com SQLite e dados de teste: 10 linhas sem pontos e sem quem não aderiu, lista vazia num campus sem ninguém e 404 `campus_nao_encontrado` para um id inexistente. O tratamento do 501 fica como defesa, como na FE-11.
+- TDD: `b3e4935` (testes) → `e721ab4` (código); na revisão, testes → correções.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 929 testes passando e `npm run build` sem erro. Sem rolagem horizontal em 360 px e 1366 px, com as capturas no PR.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/242#issuecomment-7088818035). Ajustes aplicados:
+  - só o 404 com `campus_nao_encontrado` vira "Campus não encontrado"; os outros 4xx vão para o erro, com registro no console;
+  - a mensagem de erro não se repete na tela;
+  - uma falha com o ranking já na tela mostra um aviso com "Tentar de novo", sem tirar a lista, e `invalidarRanking` marca o ranking para buscar de novo;
+  - `role="status"` no "Campus não encontrado";
+  - testes de pontos na resposta (RI12), id mal formado sem chamar a API, troca rápida de campus com respostas fora de ordem e `aria-pressed` do seletor compacto;
+  - a validação da resposta e a corrida entre pedidos já vieram com a FE-12;
+  - branch atualizada com a `develop` e a tela conferida contra o backend real da BE-17.
+- Segunda revisão (AlvaroBento12): ajustes aplicados:
+  - o merge da `develop` tinha apagado o deploy automático da #240 (`deploy.yml`, `deploy.sh`, os testes do CD, a seção do guia de deploy, o PyYAML e a entrada da #240 neste arquivo). O erro foi da IA: o patch do merge foi gerado com uma `develop` mais antiga que a usada no `git merge`. A branch foi atualizada de novo, agora com o commit da `develop` fixado nos comandos, e o PR só acrescenta arquivos do `frontend/` e esta entrada;
+  - a tela não fica mais presa em "Carregando ranking…" depois do `limpar()` (logout ou 401): a `RankingView` busca de novo quando o ranking some ou fica `'desatualizado'`, o que também dá uso ao `invalidarRanking`;
+  - o `SeletorCampus` compacto separa "carregando" de "lista vazia" e mostra a mensagem do erro;
+  - testes: patente `RATO_DE_RU` → "Rato de RU", "Tentar de novo" do aviso atualizando a lista, lista mantida com a situação `'carregando'` ou `'desatualizado'`, erro do seletor compacto, escolha a partir de `/ranking` sem lembrar o campus, e rede e 5xx sem nada no console.
+- Situação: aguardando nova revisão.
+
+## #209 — CI MySQL com o usuário restrito do banco
+
+- Issue: [#209](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/209) (pendência aceita na revisão do #203, BD-05). PR: [#246 — ci(banco): job MySQL com o usuário restrito de produção (#209)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/246).
+- Ferramenta: Claude (Anthropic).
+- Apoio: job `testes-mysql` do `.github/workflows/backend-ci.yml` (o serviço cria o `app_ci`, o `db/init/10-usuarios.sh` roda no container antes de qualquer `manage.py`, o `SHOW GRANTS` é conferido como no guia de deploy e o banco de teste recebe os privilégios copiados do banco da aplicação), testes em `backend/tests/test_ci_usuario_restrito.py` e `backend/tests/test_banco_ci.py`.
+- TDD: testes em `d7b0e34`, antes do ajuste do workflow (`46804d7`). O teste que confere a conexão roda no MySQL do CI: com o `root`, falharia.
+- Validação no CI do #246: `SHOW GRANTS` do `app_ci` igual ao de produção (`USAGE` global e os 9 privilégios no `bandejao_ci`); `testes-mysql` com todos os testes aprovados e nenhum pulado, como `app_ci` (2090 no primeiro CI; 2130 no último, depois que o #225 da BD-12 entrou na `develop`, com a migration `0004_remove_status_removido_bd12` aplicada pelo `app_ci`).
+- Prova de que pega privilégio a mais (critério da issue, à parte, sem commit no PR): PR descartável #248, com uma migration que cria um `TRIGGER` no MySQL. A primeira tentativa falhou por outro motivo (o `schema_editor.execute` recusa DDL dentro da transação da `RunPython` no MySQL) e foi corrigida para usar um cursor direto. Na segunda, o `migrate` parou com `OperationalError (1419, 'You do not have the SUPER privilege and binary logging is enabled ...')`: o usuário restrito não cria o trigger, e com o `root` a migration passaria. O #248 foi fechado sem merge e a branch, apagada.
+- Validação local: os testes do workflow passando; o `sed` do escape do `_` não pôde ser conferido no terminal local (o shell desta sessão tira uma barra), e foi conferido pelo CI, que criou e usou o `test_bandejao_ci`.
+- Revisão humana: [aprovação de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/246#pullrequestreview-6016317741), com quatro sugestões.
+- Sugestões aplicadas (TDD: testes antes do ajuste): o teste do banco de teste acha o passo pelo nome, confere o GRANT com os privilégios lidos e o escape do `_` (uma mutação local sem o escape faz o teste falhar); a contagem de testes deste registro; a senha de root saiu do `env` do job e ficou só nos dois passos que usam o root; o checkbox de critérios na descrição do PR.
+- Fora do escopo, apontado na aprovação: o `GRANT` final do `10-usuarios.sh` usa o nome do banco sem escapar o `_`, então em produção os privilégios valem para qualquer banco que case com o padrão. Fica para uma issue própria.
+- Situação: aprovado; sugestões aplicadas, aguardando o merge.
+
+## FE-14 — PWA instalável
+
+- Issue: [#188](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/188). PR: [#260 — FE-14: PWA instalável](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/260).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - conferência da instalabilidade no Chromium (`Page.getInstallabilityErrors` e `Page.getAppManifest`, no desktop e num celular emulado), que já não tinha erros antes do PR;
+  - manifest com `id`, o ícone maskable separado do `any` e duas `screenshots` (`narrow` e `wide`) tiradas do app;
+  - `icone-180.png` e as metas do iPhone no `index.html`, e o aviso no console quando o service worker não registra;
+  - testes do registro, do manifest, dos ícones, das metas e do próprio `sw.js`.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- Observações: o Lighthouse 12 em diante não tem mais a categoria PWA; a conferência equivalente é o "Installability" do DevTools. Uma página já visitada abre offline, mas uma rota nunca aberta não, o que fica fora do escopo de "instalável". A instalação em Android, iPhone e Chrome/Edge do desktop depende do deploy.
+- TDD: `e322da6` (testes) → `7a9d008` (código).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 951 testes passando (96,38% de linhas / 92,67% de ramos) e `npm run build` sem erro.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/260#issuecomment-7106595531). Ajustes aplicados:
+  - o link do PR neste registro (#259 → #260);
+  - o teste de "não é GET" usa um caminho fora da API, para não passar só pela regra do `/api/`;
+  - testes novos do `sw.js`: resposta 404/500 fora do cache, `clients.claim()` na ativação, os arquivos guardados na instalação existindo no build e o nome do cache tirado do próprio `sw.js`. Conferido sabotando o `sw.js` (sem a checagem de GET, cacheando resposta de erro, sem o `claim`, com um essencial que não existe): cada mudança derruba um teste;
+  - os testes do `sw.js` e do manifest rodam no ambiente `node`, com o caminho a partir do `import.meta.url`, e funcionam rodando de qualquer pasta;
+  - o teste do ícone do iPhone confere também que o PNG não tem transparência;
+  - branch atualizada com a `develop`, com as entradas da #209 e da FE-14.
+- Situação: aguardando nova revisão.
+
+## BE-19 — Mutação no CI do backend
+
+- Issue: [#186](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/186). PR: [#255](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/255). PR de prova: [#254](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/254), fechado sem merge (vermelho com 16,7%, verde com 100%, cerca de 9 min de job).
+- Ferramenta: Claude (Anthropic). O guia da BE-19 e o protótipo testado numa cópia da `develop` em `0043c26` foram feitos em 23/11/2026; a implementação final, a partir do guia, foi feita com o Claude.
+- Apoio: `mutmut==3.8.1` no `requirements-dev.txt`; seção `[mutmut]` no `backend/setup.cfg` (módulos críticos, `do_not_mutate`, `also_copy` com o settings, o `conftest.py`, o `pytest.ini` e o `manage.py`, e só os testes de `apps/`); `backend/mutants/` no `.gitignore` e no `.dockerignore`; `backend/scripts/mutacao_incremental.py` (arquivos alterados → curingas do nome dos mutantes, curingas de cada módulo para a rodada semanal e escore pela fórmula do Plano de Testes 5.1); job `mutacao` no `backend-ci.yml`; workflow `backend-mutacao-semanal.yml` (matriz por módulo e um job que junta os escores); Plano de Testes 5.1 e 5.4. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Decisões (guia da BE-19, 23/11/2026): `mutmut` 3.x com filtro por curinga do nome dos mutantes (a 3.x não tem modo incremental); detecção dos arquivos dentro do job, sem `paths:` no `on:`; teste alterado roda a mutação do módulo de mesmo nome; `no_tests` conta contra e `timeout` conta como morto; a meta vale para cada módulo na rodada semanal.
+- Divergências do guia, avisadas ao grupo: (1) o teste alterado também procura o módulo de mesmo nome nos subpacotes do app (`test_cardapio_downloader.py` → `apps/cardapio/leitor/cardapio_downloader.py`), em vez de cair no cardápio inteiro; (2) o `schedule` e o `workflow_dispatch` só valem para o workflow da branch padrão (a `main`), então a rodada agendada faz o checkout da `develop`, e, até a release, a rodada é disparada com push na branch `mutacao/base-inteira`; (3) o PR de prova sugerido no guia (tirar as asserções do `test_patente_resolver.py`) não fica vermelho, porque os testes do progresso e do ranking também matam os mutantes do `PatenteResolver` (escore de 76,9%, igual ao de antes); o PR de prova usa um módulo novo (`apps/gamificacao/prova_mutacao.py`) coberto só por um teste sem asserção. Simulado na máquina: 2 mortos de 12 (16,7%, saída 1) sem as asserções e 12 de 12 (100%) com elas, cerca de 12 a 14 min cada em 2 núcleos.
+- TDD: `test` (`tests/test_mutacao_incremental.py`, 49 testes, todos falhando sem o script) → `feat`/`ci` → `docs`.
+- Validação local (Python 3.14, 2 núcleos): `mutmut run "apps.gamificacao.*"` passou das fases "stats" e "clean tests" e deu 329 mortos de 356 (92,4%) em 29 min; o `test_cardapio_downloader.py` passa dentro de `mutants/` (a pasta `fixtures/` do app vai junto na cópia); o JSON de uma rodada filtrada conta certo os mortos e sobreviventes, com o `total` em 5.240; `ruff check`, `ruff format --check`, `pytest tests` (478 aprovados) e `pip-audit -r requirements-dev.txt` sem achados. O Semgrep fica com o CI.
+- Revisão de outra frente (DoD 1.4): AlvaroBento12, em 23/11/2026, também com o Claude (PR review toolkit). Correções, também feitas com o Claude, em TDD (40 testes novos, 32 falhando antes da correção):
+  - **o gate não fica mais verde sem medir:** o `escore` sai com 2 (e não 0) para JSON sem `killed`/`survived`, com tipo errado ou truncado, para zero mutantes avaliados e para rodada interrompida (o `mutmut` imprime `Stopping...` e sai com 0); o job também falha se o log tiver `Stopping...`. Diverge do guia (seção 5.3: "se avaliados == 0, verde"): o "nada a testar" já é decidido antes, no job, então zero avaliados no passo de escore é defeito;
+  - **mudança na configuração da mutação** (`setup.cfg`, `conftest.py`, `pytest.ini`, `config/`, `requirements-dev.txt`, o script, o `backend-ci.yml`) roda a mutação no `patente_resolver.py` (alvo fixo de 39 mutantes);
+  - **"nothing matches":** novo comando `conferir`, que compara os curingas com `mutmut results --all true` (o `--all` do 3.8.1 exige valor), avisa cada curinga que não casou e falha se nenhum mutante tiver nome em `apps.*` (formato mudou);
+  - **tempo:** os testes genéricos do cardápio mutam o cardápio sem o leitor, e os que têm `leitor` no nome mutam só o leitor; `timeout-minutes` do job de 60 para 90; o PR de release (`develop` → `main`) pula o job; `concurrency` com `cancel-in-progress` no job do PR e sem cancelar no semanal;
+  - **semanal:** erro se o módulo não tiver curinga; o job do escore falha se algum job de módulo não terminou bem;
+  - **shell:** `shell: bash` (com `pipefail`), `mapfile` no lugar do `xargs` (o código de saída é o do `mutmut`), `if-no-files-found: warn`;
+  - **escore com duas casas truncadas** em conta inteira (49,999% aparece como 49,99%), mínimo descrito como "do conjunto" no PR e "de cada módulo" no semanal; testes que comparam a matriz e os rótulos do YAML com o script; comentários e Plano de Testes corrigidos; o `openapi.yaml` saiu do `also_copy`, porque nenhum teste de `apps/` lê o arquivo.
+  - Validado na máquina, com o passo do YAML rodando de verdade: PR que só mexe no `pontuacao_policy.py` → "nothing matches", aviso e verde, em 16 min; PR que mexe no `setup.cfg` → 30 de 39 (76,92%), verde, em 2 min com as estatísticas em cache. `pytest tests` com 518 aprovados, `ruff`, `actionlint` e `shellcheck` sem achados.
+  - Ficaram para depois do merge: pôr o `mutacao` nos checks obrigatórios da `develop` e da `main` e atualizar a ADR 0015, que descreve a proteção como ela está; e uma issue para tirar o gatilho `push` em `mutacao/base-inteira` depois da release.
+- Re-revisão de AlvaroBento12, em 23/11/2026 (também com o Claude), e correções, também com o Claude, em TDD (29 testes novos, 20 falhando antes da correção):
+  - **`Stopping...`:** o `grep -q '^Stopping\.\.\.'` nunca casava, porque a mensagem cai na mesma linha física da barra de progresso, depois de um `\r`; agora é `grep -qF 'Stopping...'` nos dois workflows. Conferido com um SIGINT de verdade numa rodada do `apps.fila.*`: `grep -c '^Stopping'` deu 0, `grep -cF` deu 1, e o passo falhou;
+  - **canário:** o `conferir` sai com 2 se o alvo fixo da configuração não gerar mutantes, e, com `--depois-de-rodar`, se algum mutante dos curingas ficou `not checked` depois de uma saída 0 (rodada parcial). Conferido na máquina: sem os mutantes do `patente_resolver.py`, o passo do YAML terminou com o erro do alvo fixo e saída 2;
+  - **gatilhos:** `manage.py`, `requirements.txt`, `apps/__init__.py` e `apps/conftest.py` disparam o alvo fixo; arquivos de dados dos apps críticos (fixtures, PDFs, páginas do RU) disparam a mutação do leitor ou do app;
+  - **release:** só o PR da `develop` para a `main` pula o job; um hotfix para a `main` roda;
+  - **JSON:** todos os campos que o 3.8.1 grava são obrigatórios;
+  - **testes:** cardápio genérico com dois arquivos, `alvos` com git real para o `setup.cfg` e o workflow, contagem do `conferir`, "em cada módulo" e "no conjunto" no resumo, artefatos da matriz contra os caminhos do escore e as guardas dos dois workflows conferidas no YAML.
+  - `pytest tests` com 547 aprovados; `ruff`, `actionlint` e `shellcheck` sem achados.
+- Situação: correções da re-revisão no PR; aguardando o CI e a aprovação.
+
+## #251 — Início: "Cardápio de hoje" pelo GET /api/cardapio/
+
+- Issue: [#251](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/251). PR: [#257 — fix: Início mostra o Cardápio de hoje pelo GET /api/cardapio/ (#251)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - o cartão "Cardápio de hoje" da `HomeView` passou a pedir `GET /api/cardapio/?campus=…&dia=hoje`, com as mensagens de sem serviço (`semServico` ou `data` diferente de hoje), de não publicado e de erro (`cardapio.erroDaRefeicao`);
+  - a nota do cartão passou a vir do resumo do dia;
+  - o `resumoRefeicao` passou a ler o formato da API (`nome` e `descricao`);
+  - saíram da `cardapioStore` a carga da semana do MVP e o que só ela usava, e do simulado a rota `/cardapio/<campus>/`;
+  - comentário do topo do simulado e C4 atualizados;
+  - na conferência pedida pela issue, foi visto que os cartões "Avaliações" e "Satisfação da semana" também não batem com o backend (o resumo só com o campus devolve o dia, não a semana), o que ficou registrado no PR para uma issue própria.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `ea269e5` (testes) → `a8d99aa` (código) → `fb88eed` (docs); `8984208` aplica o Prettier no import do `servidor.js`, que já vinha da `develop`, e junta numa linha o `const tipo` do `cardapioFiltrado`.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 865 testes passando (96,03% de linhas / 92,3% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257#issuecomment-7105339071). Ajustes subidos por Alana Cristyna Feitosa Dias, também com o Claude, em commits atômicos (teste antes da correção):
+  - C4: o "Sair da conta" da Início não recarrega mais as avaliações;
+  - o README e o comentário do `cardapios.js` não citam mais a rota da semana do MVP;
+  - o cartão confere o dia antes do `status`: sem serviço hoje e a semana do próximo dia sem PDF mostra "sem refeições hoje", não "não publicado";
+  - refeição de hoje publicada mas sem pratos: "Os pratos desta refeição ainda não foram cadastrados.", sem a mensagem contraditória;
+  - teste de troca de campus com a tela aberta;
+  - o resumo do dia só guarda uma lista (um 200 em outro formato derrubava o cartão);
+  - o "Prato principal" do cartão prefere o padrão, mesmo com o vegetariano antes na lista;
+  - testes da nota com o dia e a refeição exatos, com a guarda sem serviço e com a falha do resumo; saiu o teste da `cardapioStore` por nome de membro;
+  - branch atualizada com a `develop`.
+
+  Validação: `npm run lint:ci` sem achados, `npm run test:ci` com 962 testes passando (96,36% de linhas / 92,75% de ramos) e `npm run build` sem erro.
+- Situação: aguardando nova revisão.
+
+## #224 — Mock do GET /api/cardapio/ com o 404 campus_nao_encontrado
+
+- Issue: [#224](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/224). PR: [#258 — fix: mock do GET /api/cardapio/ com o 404 campus_nao_encontrado do backend (#224)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/258).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - o simulado do `GET /cardapio/` passou a responder 404 `campus_nao_encontrado` ("Não existe campus com esse id.") para campus só de dígitos que não existe, inclusive `000`, e a conferir o campus depois de todos os 400, como o backend (#217, #222);
+  - `campus=01` passou a valer o campus 1, como no `ler_id_do_campus` do backend; o teste antigo do simulado esperava 400 para esse caso;
+  - o `ehCampusInexistente` da `cardapioStore` passou a olhar só o código `campus_nao_encontrado` (item opcional da issue).
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `6e6e095` (testes) → `69743aa` (código); `a14f07c` só aplica o Prettier no import do `servidor.js`, que já vinha da `develop` (o mesmo ajuste do #257).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 875 testes passando (96,09% de linhas / 92,21% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Situação: aguardando revisão.
+
+## #262 — Tirar o gatilho `push` em `mutacao/base-inteira`
+
+- Issue: [#262](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/262). PR: [#266](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/266). Relacionadas: BE-19 ([#186](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/186), PR [#255](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/255)).
+- Ferramenta: Claude (Anthropic), em 23/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Pré-condição conferida: a release [#263](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/263) levou o `backend-mutacao-semanal.yml` para a `main` (igual ao da `develop`), e o workflow aparece ativo na aba Actions; a branch `mutacao/base-inteira` já não existe no GitHub.
+- Mudança: sem o gatilho `push` em `mutacao/base-inteira` e sem o comentário "Até a release..." no `backend-mutacao-semanal.yml` (o comentário do `checkout` deixou de citar o push); sem o parágrafo correspondente no Plano de Testes, seção 5.4.
+- Situação: aguardando o CI e a revisão de outra frente (DoD 1.4). Depois do merge (e da próxima release, para a `main`), falta disparar a rodada pelo "Run workflow" e pôr o link do run na issue.
+
+## BD-14 — Teste de carga do cardápio e da previsão
+
+- Issue: [#184](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/184). PR: [#244 — feat(banco): teste de carga do cardápio e da previsão (BD-14)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/244).
+- Ferramenta: Claude (Anthropic).
+- Apoio: pacote `backend/carga/` (`dados`, `cenario`, `avaliar` e `locustfile`), `requirements-carga.txt` (Locust 2.46.7), workflow `.github/workflows/carga.yml`, testes em `backend/tests/test_carga_bd14.py` e o resultado em `docs/qualidade/teste-de-carga-bd14.md`, ligado no plano de testes e no menu da documentação.
+- TDD: testes em `da6a380`, antes do código (`f7c00b0`); os do modo informativo em `4d21af5`, antes da varredura (`6dfe075`).
+- Como foi medido: sem Docker na máquina local, a carga roda no GitHub Actions, com o backend como em produção (Gunicorn com 3 workers e 30 s de timeout, sem `DEBUG`, MySQL 8.4), dados populados por `carga.dados` (semana publicada nos 5 campi e 84.000 check-ins sem conta) e 5 minutos por rodada, com cada usuário fazendo um pedido a cada 3 a 7 s.
+- Resultado, em três varreduras: p95 dentro de 3 s com 500 usuários (0,08, 0,16 e 0,19 s); com 1.000, no limite (1,8 e 1,7 s, e 3,2 s na terceira); acima com 1.500 (4,2, 7,5 e 5,2 s) e 2.000 (6,4, 9,6 e 11 s, e 6,9 s numa rodada isolada). A terceira já contava a resposta vazia como falha e deu 0 falhas. Nenhuma falha. O servidor satura entre 120 e 180 pedidos/s, conforme o runner, com fila nos workers do Gunicorn; as consultas por pedido são poucas (8 no cardápio e 2 na previsão).
+- Decisão: registrar o resultado e avisar o DOC, como manda o backlog quando a meta não é atingida. O cache das respostas, que mexe na BE-11 e na BE-15, ficou como sugestão no documento.
+- Limites registrados: runner com 4 vCPUs (a VM tem 2), sem o Caddy e o HTTPS, sem `304` do `ETag`, e a premissa de um pedido a cada 3 a 7 s por usuário.
+- Validação local: `pytest` com 2024 testes aprovados e 8 pulados antes da varredura, cobertura de 99%; os testes da carga passando (21 na época; 49 casos depois da revisão); `ruff check` e `ruff format --check` sem achados.
+- Ajuste depois do fluxo novo de deploy (CD pela `main`, #241): a carga saiu do push e do PR de release (`develop` → `main`) e roda só à mão e no PR para a `develop` quando o próprio teste muda; no CI, todas as rodadas ficam informativas (job verde), com o veredito no resumo do job e no documento. Testes dos gatilhos e do `--informativo` lendo o `carga.yml` (`2836b96`, antes do ajuste `0ce223b`).
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/244#pullrequestreview-6016262729), sem bug grave na aplicação, com cinco mudanças antes do merge e sugestões.
+- Ajustes da revisão (TDD: testes e o CSV real do Locust em `142face`, antes do código):
+  - `carga.dados` só grava com `CARGA_CONFIRMO_BANCO_DESCARTAVEL=1` (definida só no `carga.yml`) e recusa banco com check-in, refeição ou fonte de cardápio; `carga/` e `requirements-carga.txt` no `backend/.dockerignore`; as contagens não mudam na recusa;
+  - o `--informativo` não falha por desempenho, mas falha quando a carga não mediu (endpoint sem requisição, mais da metade com falha), para uma task quebrada não sair verde;
+  - o `locustfile` conta como falha a resposta 200 sem o conteúdo completo (`nao_publicado`, `dados_insuficientes`), pela função `cenario.resposta_valida`, com teste;
+  - `concurrency` no `carga.yml`, log de erros do Gunicorn no artefato e textos alinhados ao comportamento (docstrings, mensagem do informativo, "p95 sem medida", aprovação com falhas, pratos por categoria, janela pela `ParametrosFilaConfig`);
+  - testes novos: p95 `N/A` com requisições, fronteira de 1% de falhas (90 e 91 de 9000), p95 ruim sem `--informativo` e o CSV real gerado pelo Locust 2.46.7 (`tests/fixtures`);
+  - documento: limites (log de acesso, rampa nas estatísticas, respostas vazias como falha desde a revisão), como as consultas foram contadas e a proteção contra a produção.
+- Sugestão não aplicada: `--reset-stats`. As medições do documento incluem a rampa; trocar agora mudaria o método no meio do registro, então a rampa ficou anotada nos limites.
+- Situação: aprovado no recheck, aguardando o merge; DOC a ser avisado.

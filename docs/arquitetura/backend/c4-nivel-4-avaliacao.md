@@ -63,7 +63,8 @@ classDiagram
   class ComentarioMuitoLongoError
   class AvaliacaoRepository {
     +buscarPorContaERefeicao(conta: Conta, refeicao: Refeicao) Avaliacao
-    +salvar(avaliacao: Avaliacao) Avaliacao
+    +inserir(avaliacao: Avaliacao) Avaliacao
+    +salvarEdicao(avaliacao: Avaliacao) Avaliacao
     +listarPorRefeicao(refeicao: Refeicao) list~Avaliacao~
     +mediaEQuantidade(refeicao: Refeicao) ResumoAvaliacoes
     +resumosDoDia(campus: Campus, data: date) list~ResumoRefeicao~
@@ -91,6 +92,7 @@ classDiagram
   }
   class PontuacaoService {
     <<App Gamificação>>
+    +travarConta(conta: Conta) void
     +registrarContribuicao(conta: Conta, tipo: TipoContribuicao, origemId: int, refeicao: RefeicaoRef) ResultadoPontuacao
   }
   class ResultadoPontuacao {
@@ -107,7 +109,7 @@ classDiagram
   ComentarioValidator ..> ComentarioMuitoLongoError : lança se > 500 caracteres
   AvaliacaoService --> AvaliacaoRepository : busca existente (upsert) / salva
   AvaliacaoService --> Avaliacao : cria ou edita
-  AvaliacaoService --> PontuacaoService : registra contribuição (mesma transação)
+  AvaliacaoService --> PontuacaoService : trava a conta e registra contribuição (mesma transação)
   AvaliacaoService --> AvaliacaoRegistrada : devolve
   AvaliacaoRegistrada --> ResultadoPontuacao : tem
   AvaliacaoRepository ..> Avaliacao : grava/lê
@@ -126,11 +128,26 @@ classDiagram
   já rejeitaria uma nova tentativa de avaliar por outro motivo. Por isso
   não existe uma regra de edição separada da regra de criação neste
   desenho: as duas dependem da mesma validação de janela.
+- **Corrida no upsert e campos que a edição não grava (BE-13).** Duas
+  requisições simultâneas da primeira avaliação (duplo toque) passam juntas
+  pela busca; a segunda bate no UNIQUE (conta, refeição) em `inserir` e
+  atualiza nota e comentário da que a primeira gravou, sem preencher
+  `editadaEm`: a pessoa avaliou uma vez só, e as duas respostas saem como
+  criação (201). A edição trava a linha
+  (`select_for_update`) e `salvarEdicao` grava só nota, comentário e
+  `editadaEm`: `pontosConcedidosEm` (Gamificação) e `oculta` (equipe) nunca
+  são regravados com um valor lido antes.
 - **Depois do upsert, o `AvaliacaoService` chama a pontuação**
   (`PontuacaoService.registrarContribuicao(conta, AVALIACAO, avaliacao.id,
   refeicao)`, da Gamificação), na **mesma `transaction.atomic()`** que grava
   a avaliação. Se a pontuação falhar, a avaliação não é gravada, e o usuário
   pode tentar de novo.
+- **A trava da conta vem antes da trava da avaliação (revisão da BE-14).**
+  A transação começa com `PontuacaoService.travarConta(conta)` e só depois
+  busca a avaliação com `select_for_update`. O check-in da mesma refeição
+  trava a conta e depois marca a avaliação feita antes; na ordem inversa,
+  editar a avaliação durante o check-in daria deadlock (erro 1213). Ver a
+  nota de `travarConta` no Nível 4a da Gamificação.
 - **Quem decide se a avaliação pontua é o `PontuacaoService`, não este
   componente.** A RN09 só dá pontos à avaliação quando a refeição passa a
   ter, para o usuário, uma avaliação **e** um check-in confirmado, o que vier
@@ -192,7 +209,8 @@ classDiagram
   }
   class AvaliacaoRepository {
     +buscarPorContaERefeicao(conta: Conta, refeicao: Refeicao) Avaliacao
-    +salvar(avaliacao: Avaliacao) Avaliacao
+    +inserir(avaliacao: Avaliacao) Avaliacao
+    +salvarEdicao(avaliacao: Avaliacao) Avaliacao
     +listarPorRefeicao(refeicao: Refeicao) list~Avaliacao~
     +mediaEQuantidade(refeicao: Refeicao) ResumoAvaliacoes
     +resumosDoDia(campus: Campus, data: date) list~ResumoRefeicao~

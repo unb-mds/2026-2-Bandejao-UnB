@@ -1,2 +1,4 @@
 -r requirements-dev.txt
-mysqlclient==2.3.1
+# O job testes-mysql instala e audita as dependências da imagem de produção
+# (mysqlclient, gunicorn, tzdata) com o pin de um lugar só (BE-10).
+-r requirements-prod.txt

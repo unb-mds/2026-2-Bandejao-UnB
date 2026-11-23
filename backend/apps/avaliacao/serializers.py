@@ -17,8 +17,9 @@ class AvaliacaoEntradaSerializer(serializers.Serializer):
     comentario = serializers.CharField(
         required=False,
         allow_blank=True,
+        allow_null=True,
         max_length=500,
-        help_text="Opcional, até 500 caracteres.",
+        help_text="Opcional, até 500 caracteres. Vazio ou null: sem comentário.",
     )
 
 

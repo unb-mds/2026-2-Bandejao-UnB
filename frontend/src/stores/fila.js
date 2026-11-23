@@ -2,17 +2,26 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { ApiError, apiClient, mensagemDeErro } from '@/services/apiClient'
 import { idDeCampusValido } from '@/constants/campi'
+import { repassarPontos } from '@/stores/gamificacao'
 import { mensagemForaDoHorario } from '@/constants/refeicoes'
 
 /**
- * Fila do RU (front 3b): por enquanto, o check-in do fluxo 4a (RF11, RF12).
- * A previsão (FE-11) e a pergunta de saída pendente (BE-E1) entram aqui
- * depois.
+ * Fila do RU (front 3b): o check-in do fluxo 4a (RF11, RF12) e a previsão
+ * por faixa (`GET /api/fila/previsao/`, RF13, FE-11). A pergunta de saída
+ * pendente (BE-E1) entra aqui depois.
  *
  * **Nunca guarda coordenadas (RI09).** Elas chegam a `confirmarCheckin` só
  * como argumento, vão no corpo do `POST /api/checkins/` e somem com a
- * chamada, em qualquer desfecho. O estado só tem o check-in como o backend o
- * devolve (sem coordenadas) e o bloco `pontos`.
+ * chamada, em qualquer desfecho. O estado tem `enviandoCheckin`, o último
+ * check-in como o backend o devolve (sem coordenadas) e as previsões; o
+ * bloco `pontos` vai para a `gamificacaoStore`.
+ *
+ * A previsão carregada e a "indisponível" (501, defesa contra um backend sem
+ * a rota) valem por 5 minutos, como o cardápio; a `FilaPrevisao` confere a
+ * validade a cada minuto, em segundo plano: não passa pelo "Carregando…",
+ * não insiste num erro (para isso há o "Tentar novamente") e, se falhar,
+ * mantém a previsão antiga e tenta de novo no minuto seguinte. O erro não
+ * fica guardado.
  */
 
 // 400 dados_invalidos só acontece se o próprio PWA montar o corpo errado (por
@@ -35,6 +44,28 @@ const MENSAGENS_RECUSA = {
     falha.dados?.mensagem || mensagemForaDoHorario(tipoRefeicao),
 }
 
+const NIVEIS_DA_FILA = ['vazia', 'curta', 'moderada', 'longa']
+const STATUS_DA_PREVISAO = ['disponivel', 'dados_insuficientes']
+const ehHora = (valor) => typeof valor === 'string' && /^\d{2}:\d{2}(:\d{2})?$/.test(valor)
+
+const ehFaixa = (faixa) =>
+  ehHora(faixa?.inicio) &&
+  ehHora(faixa.fim) &&
+  NIVEIS_DA_FILA.includes(faixa.nivel) &&
+  typeof faixa.ehPico === 'boolean'
+
+const VALIDADE_DA_PREVISAO = 5 * 60 * 1000
+
+const ehPrevisao = (resposta) =>
+  STATUS_DA_PREVISAO.includes(resposta?.status) &&
+  Array.isArray(resposta.faixas) &&
+  resposta.faixas.every(ehFaixa) &&
+  (resposta.status === 'dados_insuficientes'
+    ? resposta.faixas.length === 0
+    : resposta.faixas.some((faixa) => faixa.ehPico))
+
+const chaveDaPrevisao = ({ campus, refeicao, data }) => `${campus}|${refeicao}|${data}`
+
 /** Só o que o contrato define em `Checkin`: id, campus, tipoRefeicao e data. */
 const copiarCheckin = ({ id, campus, tipoRefeicao, data }) => ({ id, campus, tipoRefeicao, data })
 
@@ -42,11 +73,74 @@ export const useFilaStore = defineStore('fila', () => {
   const enviandoCheckin = ref(false)
   /** @type {import('vue').Ref<{ id: number, campus: number, tipoRefeicao: string, data: string } | null>} */
   const ultimoCheckin = ref(null)
-  /**
-   * Último bloco `pontos` do check-in.
-   * TODO(FE-10): repassar à gamificacaoStore com registrarPontos(pontos) (RF24.2).
-   */
-  const ultimosPontos = ref(null)
+  const previsoes = ref({})
+  const pedidosDePrevisao = new Map()
+
+  function estadoDaPrevisao(pedido) {
+    return previsoes.value[chaveDaPrevisao(pedido)] ?? null
+  }
+
+  function carregarPrevisao(pedido, { forcar = false, emSegundoPlano = false } = {}) {
+    const chave = chaveDaPrevisao(pedido)
+    const atual = previsoes.value[chave]
+    if (emSegundoPlano && atual?.situacao === 'erro') return Promise.resolve(atual)
+    const aindaVale =
+      ['carregado', 'indisponivel'].includes(atual?.situacao) && Date.now() < atual.expiraEm
+    if (!forcar && aindaVale) return Promise.resolve(atual)
+    if (!forcar && pedidosDePrevisao.has(chave)) return pedidosDePrevisao.get(chave)
+    const parametros = new URLSearchParams({
+      campus: String(pedido.campus),
+      refeicao: pedido.refeicao,
+      data: pedido.data,
+    })
+    if (!emSegundoPlano) previsoes.value[chave] = { ...atual, situacao: 'carregando', erro: null }
+    const promessa = apiClient
+      .get(`/fila/previsao/?${parametros}`)
+      .then((resposta) => {
+        if (!ehPrevisao(resposta)) {
+          throw new Error(`Resposta inesperada de GET /api/fila/previsao/ (${chave}).`, {
+            cause: resposta,
+          })
+        }
+        return {
+          situacao: 'carregado',
+          previsao: resposta,
+          erro: null,
+          expiraEm: Date.now() + VALIDADE_DA_PREVISAO,
+        }
+      })
+      .catch((falha) => {
+        if (falha?.status === 501) {
+          return {
+            situacao: 'indisponivel',
+            previsao: null,
+            erro: null,
+            expiraEm: Date.now() + VALIDADE_DA_PREVISAO,
+          }
+        }
+        return {
+          situacao: 'erro',
+          previsao: null,
+          erro: {
+            mensagem: mensagemDeErro(falha),
+            codigo: falha?.codigo ?? null,
+            status: falha?.status ?? null,
+          },
+        }
+      })
+      .then((estado) => {
+        const manterAntiga =
+          emSegundoPlano && estado.situacao === 'erro' && atual?.situacao === 'carregado'
+        const final = manterAntiga ? atual : estado
+        if (pedidosDePrevisao.get(chave) === promessa) {
+          previsoes.value[chave] = final
+          pedidosDePrevisao.delete(chave)
+        }
+        return final
+      })
+    pedidosDePrevisao.set(chave, promessa)
+    return promessa
+  }
 
   /**
    * POST /api/checkins/ com `{ campus, tipoRefeicao, coordenadas }`.
@@ -100,11 +194,18 @@ export const useFilaStore = defineStore('fila', () => {
       }
     }
     ultimoCheckin.value = copiarCheckin(resposta.checkin)
-    ultimosPontos.value = { ...resposta.pontos }
-    return { desfecho: 'confirmado', checkin: ultimoCheckin.value, pontos: ultimosPontos.value }
+    repassarPontos(resposta.pontos, 'do check-in')
+    return { desfecho: 'confirmado', checkin: ultimoCheckin.value, pontos: resposta.pontos ?? null }
   }
 
-  return { enviandoCheckin, ultimoCheckin, ultimosPontos, confirmarCheckin }
+  return {
+    enviandoCheckin,
+    ultimoCheckin,
+    previsoes,
+    estadoDaPrevisao,
+    carregarPrevisao,
+    confirmarCheckin,
+  }
 })
 
 function desfechoDaFalha(falha, { idDoCampus, tipoRefeicao }) {
