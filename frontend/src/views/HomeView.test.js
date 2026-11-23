@@ -179,6 +179,30 @@ describe('HomeView: cartão "Cardápio de hoje" pelo GET /api/cardapio/ (#251)',
     expect(wrapper.get('.cartao-hoje').text()).toContain('Fora do ar.')
   })
 
+  it('resumo do dia fora do formato: o cardápio continua no cartão, sem a nota', async () => {
+    trocarGet('/avaliacoes/resumo/?campus=1&data=', () => Promise.resolve({ media: 4.4 }))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const wrapper = await montarHome(1)
+    const cartao = wrapper.get('.cartao-hoje')
+
+    expect(cartao.find('.hoje-linhas').exists()).toBe(true)
+    expect(cartao.find('.hoje-nota').exists()).toBe(false)
+  })
+
+  it('falha no resumo do dia: o cardápio continua no cartão, sem a nota', async () => {
+    trocarGet('/avaliacoes/resumo/?campus=1&data=', () =>
+      Promise.reject(new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' })),
+    )
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const wrapper = await montarHome(1)
+    const cartao = wrapper.get('.cartao-hoje')
+
+    expect(cartao.find('.hoje-linhas').exists()).toBe(true)
+    expect(cartao.find('.hoje-nota').exists()).toBe(false)
+  })
+
   it('a nota do cartão vem do resumo do dia (GET /api/avaliacoes/resumo/)', async () => {
     trocarGet('/avaliacoes/resumo/?campus=1&data=', () =>
       Promise.resolve([{ refeicaoId: 7, tipo: 'almoco', media: 4.4, quantidade: 5 }]),
