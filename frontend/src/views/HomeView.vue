@@ -164,6 +164,13 @@ async function sair() {
             <RouterLink :to="{ name: 'campus' }" class="menu-item" role="menuitem">
               <IconeSvg nome="mapa" :tamanho="16" /> Trocar campus
             </RouterLink>
+            <RouterLink
+              :to="{ name: 'ranking-campus', params: { campusId: String(campusId) } }"
+              class="menu-item"
+              role="menuitem"
+            >
+              <IconeSvg nome="estrela" :tamanho="16" /> Ranking do campus
+            </RouterLink>
             <button type="button" class="menu-item" role="menuitem" @click="usarLocalizacao">
               <IconeSvg nome="local" :tamanho="16" /> Usar minha localização
             </button>

@@ -1270,3 +1270,55 @@ describe('gamificação: progresso, adesão e ranking (contrato do OpenAPI, FE-1
     expect((await get('/ranking/1/')).status).toBe(501)
   })
 })
+
+describe('GET /ranking/{campusId}/: formato do RankingPublico (FE-13)', () => {
+  it('é público e segue o schema RankingPublico', async () => {
+    const { status, dados } = await get('/ranking/1/')
+
+    expect(status).toBe(200)
+    expect(Object.keys(dados).sort()).toEqual(['campusId', 'linhas', 'semestre'])
+    expect(dados.campusId).toBe(1)
+    expect(dados.semestre).toMatch(/^\d{4}\.[12]$/)
+    for (const linha of dados.linhas) {
+      expect(Object.keys(linha).sort()).toEqual(['apelido', 'patente', 'posicao'])
+    }
+  })
+
+  it('até 10 linhas, em ordem de posição, começando em 1', async () => {
+    const { dados } = await get('/ranking/1/')
+
+    expect(dados.linhas.length).toBeGreaterThan(0)
+    expect(dados.linhas.length).toBeLessThanOrEqual(10)
+    expect(dados.linhas.map((l) => l.posicao)).toEqual(dados.linhas.map((_l, i) => i + 1))
+  })
+
+  it('patentes com os valores do contrato', async () => {
+    const { dados } = await get('/ranking/1/')
+    const validas = [
+      'CALOURO_DE_BANDEJA',
+      'RATO_DE_RU',
+      'VETERANO',
+      'MESTRE_DA_FILA',
+      'LENDA_DO_RU',
+    ]
+
+    for (const linha of dados.linhas) expect(validas).toContain(linha.patente)
+  })
+
+  it('campus sem ninguém no ranking: linhas vazias', async () => {
+    expect((await get('/ranking/5/')).dados.linhas).toEqual([])
+  })
+
+  it('campus inexistente: 404 campus_nao_encontrado', async () => {
+    const resposta = await get('/ranking/999/')
+
+    expect(resposta.status).toBe(404)
+    expect(resposta.dados.codigo).toBe('campus_nao_encontrado')
+  })
+
+  it('definirGamificacaoDisponivel(false): 501, como um backend sem a rota', async () => {
+    simulacao.definirGamificacaoDisponivel(false)
+
+    expect((await get('/ranking/1/')).status).toBe(501)
+  })
+})

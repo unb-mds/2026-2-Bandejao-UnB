@@ -64,6 +64,11 @@ jobs:
           MYSQL_ROOT_PASSWORD: senha-ci-descartavel
           MYSQL_ROOT_HOST: "%"
           MYSQL_DATABASE: bandejao_ci
+          # Como na VM (docker-compose.yml): a imagem cria o usuário da
+          # aplicação com acesso total ao banco, e o db/init/10-usuarios.sh
+          # reduz os privilégios (#209).
+          MYSQL_USER: app_ci
+          MYSQL_PASSWORD: senha-app-ci-descartavel
         ports:
           - 3306:3306
         options: >-
@@ -80,8 +85,11 @@ jobs:
       EXIGIR_GUNICORN: "1"
       DB_ENGINE: mysql
       DB_NAME: bandejao_ci
-      DB_USER: root
-      DB_PASSWORD: senha-ci-descartavel
+      # O usuário restrito, e não o root: uma migration que precise de um
+      # privilégio fora da lista do 10-usuarios.sh falha aqui, e não só no
+      # deploy (#209).
+      DB_USER: app_ci
+      DB_PASSWORD: senha-app-ci-descartavel
       DB_HOST: 127.0.0.1
       DB_PORT: "3306"
       # Sem DEBUG, o settings exige o endereço do PWA, o SMTP e o remetente
@@ -112,6 +120,60 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y default-libmysqlclient-dev build-essential pkg-config
+
+      # O mesmo script da primeira subida da VM, rodado dentro do container do
+      # serviço (ele usa o cliente mysql pelo socket, como na imagem). O
+      # MYSQL_DATABASE, o MYSQL_USER e a senha de root já estão no ambiente
+      # do container; o usuário da equipe só existe aqui.
+      - name: Criar os usuários como em produção (db/init/10-usuarios.sh)
+        run: |
+          docker cp ../db/init/10-usuarios.sh "${{ job.services.mysql.id }}":/tmp/10-usuarios.sh
+          docker exec \
+            -e DB_EQUIPE_USER=equipe_ci \
+            -e DB_EQUIPE_PASSWORD=senha-equipe-ci-descartavel \
+            "${{ job.services.mysql.id }}" sh /tmp/10-usuarios.sh
+
+      # O passo obrigatório do guia de deploy, aqui também: o usuário da
+      # aplicação não pode ter ALL PRIVILEGES nem privilégio global.
+      - name: Conferir as permissões do usuário da aplicação (SHOW GRANTS)
+        env:
+          # A senha de root só nos passos que usam o root, e não no migrate
+          # nem no pytest. É a mesma do serviço mysql, acima.
+          MYSQL_PWD: senha-ci-descartavel
+        run: |
+          permissoes=$(mysql -h "$DB_HOST" -P "$DB_PORT" -uroot -N \
+            -e "SHOW GRANTS FOR '$DB_USER'@'%'")
+          echo "$permissoes"
+          if echo "$permissoes" | grep -q "ALL PRIVILEGES"; then
+            echo "::error::$DB_USER com ALL PRIVILEGES: o 10-usuarios.sh não reduziu os privilégios."
+            exit 1
+          fi
+          if echo "$permissoes" | grep -v "GRANT USAGE" | grep -q " ON \*\.\* "; then
+            echo "::error::$DB_USER com privilégio global (ON *.*)."
+            exit 1
+          fi
+          echo "$permissoes" | grep -q "ON \`$DB_NAME\`" \
+            || { echo "::error::$DB_USER sem privilégio no $DB_NAME."; exit 1; }
+
+      # O pytest-django cria o banco test_<DB_NAME>. Ele recebe exatamente os
+      # privilégios que o script deu ao banco da aplicação, copiados do SHOW
+      # GRANTS, e não uma lista própria, que poderia ser maior que a de
+      # produção. Só no CI: na VM não existe banco de teste.
+      - name: Dar ao banco de teste os mesmos privilégios (test_${{ env.DB_NAME }})
+        env:
+          # A senha de root só nos passos que usam o root, e não no migrate
+          # nem no pytest. É a mesma do serviço mysql, acima.
+          MYSQL_PWD: senha-ci-descartavel
+        run: |
+          linha=$(mysql -h "$DB_HOST" -P "$DB_PORT" -uroot -N \
+            -e "SHOW GRANTS FOR '$DB_USER'@'%'" | grep "ON \`$DB_NAME\`")
+          privilegios=$(echo "$linha" | sed -E 's/^GRANT (.*) ON .*/\1/')
+          echo "Privilégios copiados: $privilegios"
+          # O "_" é curinga no nome do banco do GRANT: escapado, vale só o
+          # test_<DB_NAME>.
+          banco_de_teste=$(echo "test_$DB_NAME" | sed 's/_/\\_/g')
+          mysql -h "$DB_HOST" -P "$DB_PORT" -uroot \
+            -e "GRANT $privilegios ON \`$banco_de_teste\`.* TO '$DB_USER'@'%'"
 
       - name: Instalar dependências Python
         run: python -m pip install -r requirements-ci-mysql.txt
@@ -149,3 +211,144 @@ jobs:
       - name: EXPLAIN dos índices (BD-10)
         if: ${{ !cancelled() && steps.testes_mysql.outcome != 'skipped' }}
         run: python -m pytest tests/test_indices_bd10.py -s -q --no-cov
+
+  # Mutação incremental (BE-19, ADR 0013, decisão 6): só os arquivos dos
+  # módulos críticos alterados no PR, falhando abaixo de 50%. A base inteira
+  # roda toda semana (backend-mutacao-semanal.yml).
+  #
+  # Sem filtro `paths:` no `on:`: um check obrigatório que não roda fica
+  # "pendente" e trava o merge. A escolha dos arquivos fica dentro do job, e
+  # um PR que não toca em módulo crítico nem na configuração da mutação
+  # termina verde sem rodar o mutmut ("bloqueia o merge: sim, quando roda",
+  # Plano de Testes 5.1).
+  #
+  # Só nos PRs. No push não há base para comparar. O PR de release
+  # (develop -> main) pula o job: o diff dele é o da release inteira, e a
+  # rodada semanal já mede a base. Um hotfix para a main (outra branch de
+  # origem) roda normalmente. Um job pulado pelo `if:` conta como verde para
+  # os checks obrigatórios.
+  mutacao:
+    if: >-
+      github.event_name == 'pull_request'
+      && (github.base_ref == 'develop' || github.head_ref != 'develop')
+    runs-on: ubuntu-latest
+    # Um PR que mexe num teste genérico do leitor muta o leitor inteiro
+    # (cerca de 2.200 mutantes, com os testes mais lentos da suíte).
+    timeout-minutes: 90
+    # Um push novo no PR cancela a rodada anterior, que já ficou velha.
+    concurrency:
+      group: mutacao-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: backend
+        # Com `shell: bash` explícito, o GitHub roda com `-eo pipefail`: uma
+        # falha no meio de um pipe derruba o passo.
+        shell: bash
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        # O git diff com a base precisa do histórico.
+        fetch-depth: 0
+    - uses: actions/setup-python@v6
+      with:
+        python-version: "3.14"
+        cache: pip
+        cache-dependency-path: backend/requirements-dev.txt
+
+    # Converte os arquivos críticos alterados (e os testes alterados) em
+    # curingas do nome dos mutantes. Mudança na configuração da mutação
+    # (setup.cfg, conftest.py, pytest.ini, config/, requirements-dev.txt, o
+    # script ou este workflow) roda a mutação num alvo fixo. O script só usa a
+    # biblioteca padrão e roda antes do pip install: sem alvo, o job acaba
+    # aqui.
+    - name: Arquivos críticos alterados
+      id: alvo
+      env:
+        BASE: origin/${{ github.base_ref }}
+      run: |
+        python scripts/mutacao_incremental.py alvos "$BASE" > alvos.txt
+        if [ -s alvos.txt ]; then
+          echo "Curingas do mutmut:"
+          cat alvos.txt
+          echo "rodar=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "Nenhum arquivo de módulo crítico nem da configuração da mutação alterado: nada a testar."
+          echo "Mutação: nenhum arquivo de módulo crítico nem da configuração da mutação alterado, nada a testar." >> "$GITHUB_STEP_SUMMARY"
+          echo "rodar=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - if: steps.alvo.outputs.rodar == 'true'
+      run: pip install -r requirements-dev.txt
+
+    # A saída do mutmut é uma barra de progresso que reescreve a linha: vai
+    # inteira para o mutmut.log (artefato), e o log do passo mostra só o fim.
+    #
+    # Se nenhum curinga casa com mutante, o mutmut sai com "nothing matches".
+    # Isso é "nada a testar" (um arquivo em que o mutmut não acha o que mutar,
+    # como o pontuacao_policy.py) só se os nomes dos mutantes ainda tiverem o
+    # formato esperado e se o alvo fixo da configuração gerou mutantes: o
+    # `conferir` falha o job nos dois casos. Ele também avisa cada curinga que
+    # não casou com nenhum mutante.
+    - name: Rodar o mutmut nos arquivos alterados
+      id: mutmut
+      if: steps.alvo.outputs.rodar == 'true'
+      run: |
+        mapfile -t alvos < alvos.txt
+        set +e
+        mutmut run --max-children 4 "${alvos[@]}" > mutmut.log 2>&1
+        codigo=$?
+        set -e
+        # Tira as linhas da barra de progresso e deixa só a última.
+        tr '\r' '\n' < mutmut.log | awk '
+          /^[^ ]+ [0-9]+\/[0-9]+  / { progresso = $0; next }
+          /^[^ ]+ [A-Z][A-Za-z ]*$/ { next }
+          NF { print }
+          END { if (progresso) print "Progresso final: " progresso }' | tail -n 100
+        # Interrompido (cancelamento ou tempo esgotado), o mutmut imprime
+        # "Stopping..." e sai com 0: o resultado seria de uma amostra. Sem `^`:
+        # a mensagem cai na mesma linha física da barra de progresso, depois
+        # de um \r. ("Stopping early, because..." não tem os três pontos.)
+        if grep -qF 'Stopping...' mutmut.log; then
+          echo "::error::A rodada do mutmut foi interrompida."
+          exit 1
+        fi
+        if [ "$codigo" -ne 0 ]; then
+          if grep -q "Filtered for specific mutants, but nothing matches" mutmut.log; then
+            mutmut results --all true > mutmut-results-todos.txt
+            python scripts/mutacao_incremental.py conferir alvos.txt mutmut-results-todos.txt
+            echo "Nenhum dos arquivos alterados gera mutante: nada a testar."
+            echo "Mutação: os arquivos alterados não geram mutantes, nada a testar." >> "$GITHUB_STEP_SUMMARY"
+            echo "nada=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::error::O mutmut saiu com $codigo (log completo no artefato mutacao)."
+          exit "$codigo"
+        fi
+        # Com --depois-de-rodar, falha também se algum mutante dos curingas
+        # ficou "not checked" (rodada parcial com saída 0).
+        mutmut results --all true > mutmut-results-todos.txt
+        python scripts/mutacao_incremental.py conferir --depois-de-rodar alvos.txt mutmut-results-todos.txt
+        mutmut export-cicd-stats
+        # Sobreviventes e sem teste (sem os "not checked", que ficaram fora
+        # desta rodada, e sem os mortos).
+        grep -v -e ': not checked$' -e ': killed$' mutmut-results-todos.txt > mutmut-results.txt || true
+        echo "nada=false" >> "$GITHUB_OUTPUT"
+
+    # Escore = (mortos + timeout) / avaliados, sem os não rodados (o `total`
+    # do JSON conta todos os mutantes, inclusive os que ficaram de fora do
+    # modo incremental). A fórmula está no script e no Plano de Testes 5.1.
+    - name: Escore de mutação (mínimo 50%)
+      if: steps.mutmut.outputs.nada == 'false'
+      run: python scripts/mutacao_incremental.py escore --minimo 50
+
+    - name: Publicar o relatório da mutação
+      if: ${{ always() && steps.alvo.outputs.rodar == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: mutacao
+        path: |
+          backend/mutmut.log
+          backend/mutmut-results.txt
+          backend/mutants/mutmut-cicd-stats.json
+        if-no-files-found: warn
