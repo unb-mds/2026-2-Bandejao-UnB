@@ -828,6 +828,18 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - na conferência pedida pela issue, foi visto que os cartões "Avaliações" e "Satisfação da semana" também não batem com o backend (o resumo só com o campus devolve o dia, não a semana), o que ficou registrado no PR para uma issue própria.
 
   Os patches foram gerados pela IA e aplicados e commitados pela autora.
-- TDD: `ea269e5` (testes) → `a8d99aa` (código) → `fb88eed` (docs); `8984208` só aplica o Prettier no import do `servidor.js`, que já vinha da `develop`.
+- TDD: `ea269e5` (testes) → `a8d99aa` (código) → `fb88eed` (docs); `8984208` aplica o Prettier no import do `servidor.js`, que já vinha da `develop`, e junta numa linha o `const tipo` do `cardapioFiltrado`.
 - Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 865 testes passando (96,03% de linhas / 92,3% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
-- Situação: aguardando revisão.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257#issuecomment-7105339071). Ajustes subidos por Alana Cristyna Feitosa Dias, também com o Claude, em commits atômicos (teste antes da correção):
+  - C4: o "Sair da conta" da Início não recarrega mais as avaliações;
+  - o README e o comentário do `cardapios.js` não citam mais a rota da semana do MVP;
+  - o cartão confere o dia antes do `status`: sem serviço hoje e a semana do próximo dia sem PDF mostra "sem refeições hoje", não "não publicado";
+  - refeição de hoje publicada mas sem pratos: "Os pratos desta refeição ainda não foram cadastrados.", sem a mensagem contraditória;
+  - teste de troca de campus com a tela aberta;
+  - o resumo do dia só guarda uma lista (um 200 em outro formato derrubava o cartão);
+  - o "Prato principal" do cartão prefere o padrão, mesmo com o vegetariano antes na lista;
+  - testes da nota com o dia e a refeição exatos, com a guarda sem serviço e com a falha do resumo; saiu o teste da `cardapioStore` por nome de membro;
+  - branch atualizada com a `develop`.
+
+  Validação: `npm run lint:ci` sem achados, `npm run test:ci` com 962 testes passando (96,36% de linhas / 92,75% de ramos) e `npm run build` sem erro.
+- Situação: aguardando nova revisão.
