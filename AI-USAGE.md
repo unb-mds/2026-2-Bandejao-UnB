@@ -815,6 +815,36 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - `pytest tests` com 547 aprovados; `ruff`, `actionlint` e `shellcheck` sem achados.
 - Situação: correções da re-revisão no PR; aguardando o CI e a aprovação.
 
+<<<<<<< HEAD
+## #251 — Início: "Cardápio de hoje" pelo GET /api/cardapio/
+
+- Issue: [#251](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/251). PR: [#257 — fix: Início mostra o Cardápio de hoje pelo GET /api/cardapio/ (#251)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257).
+- Ferramenta: Claude (Anthropic).
+- Apoio:
+  - o cartão "Cardápio de hoje" da `HomeView` passou a pedir `GET /api/cardapio/?campus=…&dia=hoje`, com as mensagens de sem serviço (`semServico` ou `data` diferente de hoje), de não publicado e de erro (`cardapio.erroDaRefeicao`);
+  - a nota do cartão passou a vir do resumo do dia;
+  - o `resumoRefeicao` passou a ler o formato da API (`nome` e `descricao`);
+  - saíram da `cardapioStore` a carga da semana do MVP e o que só ela usava, e do simulado a rota `/cardapio/<campus>/`;
+  - comentário do topo do simulado e C4 atualizados;
+  - na conferência pedida pela issue, foi visto que os cartões "Avaliações" e "Satisfação da semana" também não batem com o backend (o resumo só com o campus devolve o dia, não a semana), o que ficou registrado no PR para uma issue própria.
+
+  Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: `ea269e5` (testes) → `a8d99aa` (código) → `fb88eed` (docs); `8984208` aplica o Prettier no import do `servidor.js`, que já vinha da `develop`, e junta numa linha o `const tipo` do `cardapioFiltrado`.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 865 testes passando (96,03% de linhas / 92,3% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257#issuecomment-7105339071). Ajustes subidos por Alana Cristyna Feitosa Dias, também com o Claude, em commits atômicos (teste antes da correção):
+  - C4: o "Sair da conta" da Início não recarrega mais as avaliações;
+  - o README e o comentário do `cardapios.js` não citam mais a rota da semana do MVP;
+  - o cartão confere o dia antes do `status`: sem serviço hoje e a semana do próximo dia sem PDF mostra "sem refeições hoje", não "não publicado";
+  - refeição de hoje publicada mas sem pratos: "Os pratos desta refeição ainda não foram cadastrados.", sem a mensagem contraditória;
+  - teste de troca de campus com a tela aberta;
+  - o resumo do dia só guarda uma lista (um 200 em outro formato derrubava o cartão);
+  - o "Prato principal" do cartão prefere o padrão, mesmo com o vegetariano antes na lista;
+  - testes da nota com o dia e a refeição exatos, com a guarda sem serviço e com a falha do resumo; saiu o teste da `cardapioStore` por nome de membro;
+  - branch atualizada com a `develop`.
+
+  Validação: `npm run lint:ci` sem achados, `npm run test:ci` com 962 testes passando (96,36% de linhas / 92,75% de ramos) e `npm run build` sem erro.
+- Situação: aguardando nova revisão.
+=======
 ## #224 — Mock do GET /api/cardapio/ com o 404 campus_nao_encontrado
 
 - Issue: [#224](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/224). PR: [#258 — fix: mock do GET /api/cardapio/ com o 404 campus_nao_encontrado do backend (#224)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/258).
@@ -828,3 +858,4 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - TDD: `6e6e095` (testes) → `69743aa` (código); `a14f07c` só aplica o Prettier no import do `servidor.js`, que já vinha da `develop` (o mesmo ajuste do #257).
 - Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 875 testes passando (96,09% de linhas / 92,21% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
 - Situação: aguardando revisão.
+>>>>>>> origin/develop

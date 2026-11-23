@@ -33,9 +33,11 @@
  * desde a BE-17 (#239). Depois de
  * `simulacao.definirGamificacaoDisponivel(false)`, as três rotas respondem 501
  * (no ranking, só para um campus que existe), para testar a defesa do front.
- * Recuperação de senha, a semana do cardápio (`/cardapio/<campus>/`) e as
- * listas de avaliação da HomeView (`GET /avaliacoes/` e o resumo da semana)
- * ainda têm o formato do MVP: entram no contrato na FE-E2.
+ * Recuperação de senha, a lista `GET /avaliacoes/` e o resumo da semana da
+ * HomeView (`GET /avaliacoes/resumo/` só com o campus) ainda têm o formato do
+ * MVP: entram no contrato na FE-E2. A semana do cardápio por campus
+ * (`/cardapio/<campus>/`) não existe mais: a Início usa o `GET /cardapio/`
+ * (#251).
  */
 import { ORDEM_REFEICOES, REFEICOES, mensagemForaDoHorario } from '@/constants/refeicoes'
 import { refeicaoPadrao } from '@/utils/cardapio'
@@ -437,12 +439,6 @@ function redefinirSenha({ token = '', senha = '' }, agora) {
 
 function listarCampi() {
   return ok(structuredClone(CAMPI_DO_BANCO))
-}
-
-function obterCardapio(valor, agora) {
-  const campus = idDoCampus(valor)
-  if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
-  return ok(montarCardapioSemana(campus, agora))
 }
 
 const AVISO_SUJEITO_A_ALTERACAO =
@@ -937,7 +933,6 @@ const ROTAS = [
   ['POST', /^\/redefinir-senha\/$/, ({ corpo, agora }) => redefinirSenha(corpo, agora)],
   ['GET', /^\/campi\/$/, () => listarCampi()],
   ['GET', /^\/cardapio\/$/, ({ parametros, agora }) => cardapioFiltrado(parametros, agora)],
-  ['GET', /^\/cardapio\/([\w-]+)\/$/, ({ agora }, [campus]) => obterCardapio(campus, agora)],
   ['GET', /^\/avaliacoes\/resumo\/$/, ({ parametros, agora }) => resumoSemana(parametros, agora)],
   ['GET', /^\/avaliacoes\/$/, ({ parametros, agora }) => listarAvaliacoes(parametros, agora)],
   ['POST', /^\/avaliacoes\/$/, ({ corpo, agora }) => avaliar(corpo, agora)],
