@@ -1,0 +1,3 @@
+# Ferramenta do teste de carga (BD-14, #184), fora das dependências da
+# aplicação: só o workflow carga.yml instala.
+locust==2.46.7
