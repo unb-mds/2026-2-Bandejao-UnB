@@ -6,8 +6,9 @@ Locust, o Gunicorn e o MySQL. Aqui ficam testadas as partes em Python do
 pacote `carga/`:
 
 - `dados`: popula um banco vazio com o volume do teste;
-- `cenario`: os pedidos que cada usuário simulado faz;
-- `avaliar`: lê o CSV do Locust e compara o p95 com a meta.
+- `cenario`: os pedidos que cada usuário simulado faz e a conferência do
+  corpo das respostas;
+- `avaliar`: lê o CSV do Locust e compara o p95 e as falhas com a meta.
 """
 
 from datetime import timedelta
@@ -19,7 +20,14 @@ from django.core.management import call_command
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.cardapio.models import Campus, FonteCardapio, Prato, Refeicao
+from apps.cardapio.models import (
+    Campus,
+    FonteCardapio,
+    Prato,
+    Refeicao,
+    StatusLeitura,
+    TipoRefeicao,
+)
 from apps.fila.models import Checkin
 from carga import avaliar, cenario, dados
 from config.parametros import ParametrosFilaConfig
@@ -35,10 +43,30 @@ CABECALHO = (
 # --- dados ------------------------------------------------------------------
 
 
+RAIZ = Path(__file__).resolve().parents[2]
+CSV_REAL = (
+    Path(__file__).resolve().parent / "fixtures" / "carga_stats_locust_2_46_7.csv"
+)
+
+
 @pytest.fixture
-def campi(db):
+def banco_descartavel(monkeypatch):
+    """A confirmação que o carga.yml dá; sem ela, o popular recusa."""
+    monkeypatch.setenv(dados.CONFIRMACAO, "1")
+
+
+@pytest.fixture
+def campi(db, banco_descartavel):
     call_command("loaddata", "campi", "marcadores", verbosity=0)
     return list(Campus.objects.order_by("pk"))
+
+
+def contagens():
+    return (
+        Checkin.objects.count(),
+        Refeicao.objects.count(),
+        FonteCardapio.objects.count(),
+    )
 
 
 def test_popular_cria_a_semana_publicada_e_as_refeicoes(campi):
@@ -99,12 +127,73 @@ def test_popular_e_deterministico(campi):
 def test_popular_recusa_banco_com_checkins(campi):
     """Proteção: nunca popular o banco de produção, que já tem check-ins."""
     dados.popular(timezone.localdate(), checkins_por_refeicao=1)
+    antes = contagens()
 
     with pytest.raises(dados.BancoNaoVazioError):
         dados.popular(timezone.localdate(), checkins_por_refeicao=1)
 
+    assert contagens() == antes
 
-def test_popular_exige_os_campi_da_fixture(db):
+
+@pytest.mark.parametrize("modelo", ["refeicao", "fonte"])
+def test_popular_recusa_banco_com_cardapio_mesmo_sem_checkins(campi, modelo):
+    """A produção logo depois do deploy: cardápio lido e nenhum check-in."""
+    campus = campi[0]
+    if modelo == "refeicao":
+        Refeicao.objects.create(
+            campus=campus,
+            data=timezone.localdate(),
+            tipo=TipoRefeicao.ALMOCO,
+            horario_inicio=dados.HORARIOS[TipoRefeicao.ALMOCO][0],
+            horario_fim=dados.HORARIOS[TipoRefeicao.ALMOCO][1],
+            status_leitura=StatusLeitura.OK,
+            fonte_pdf_url="https://ru.unb.br/real.pdf",
+        )
+    else:
+        FonteCardapio.objects.create(
+            campus=campus,
+            semana_inicio=timezone.localdate(),
+            url="https://ru.unb.br/real.pdf",
+            sha256="1" * 64,
+            verificado_em=timezone.now(),
+        )
+    antes = contagens()
+
+    with pytest.raises(dados.BancoNaoVazioError):
+        dados.popular(timezone.localdate(), checkins_por_refeicao=1)
+
+    assert contagens() == antes
+
+
+def test_popular_exige_a_confirmacao_de_banco_descartavel(campi, monkeypatch):
+    """Reforço: só o carga.yml define a variável; um `docker compose exec` na
+    VM, sem ela, não grava nada."""
+    monkeypatch.delenv(dados.CONFIRMACAO)
+
+    with pytest.raises(dados.BancoNaoDescartavelError):
+        dados.popular(timezone.localdate(), checkins_por_refeicao=1)
+
+    assert contagens() == (0, 0, 0)
+
+
+@pytest.mark.parametrize("valor", ["", "0", "sim", "true"])
+def test_confirmacao_so_vale_com_1(campi, monkeypatch, valor):
+    monkeypatch.setenv(dados.CONFIRMACAO, valor)
+
+    with pytest.raises(dados.BancoNaoDescartavelError):
+        dados.popular(timezone.localdate(), checkins_por_refeicao=1)
+
+
+def test_carga_fica_fora_da_imagem_do_backend():
+    """O pacote não vai para a imagem de produção (backend/.dockerignore)."""
+    linhas = (RAIZ / "backend" / ".dockerignore").read_text(encoding="utf-8")
+    entradas = {linha.strip() for linha in linhas.splitlines()}
+
+    assert "carga/" in entradas
+    assert "requirements-carga.txt" in entradas
+
+
+def test_popular_exige_os_campi_da_fixture(db, banco_descartavel):
     with pytest.raises(dados.SemCampiError):
         dados.popular(timezone.localdate(), checkins_por_refeicao=1)
 
@@ -155,6 +244,24 @@ def test_cenario_agrupa_as_estatisticas_por_endpoint():
 def test_cenario_pesa_mais_o_cardapio():
     """O cardápio é a tela de entrada do PWA; a previsão é aberta menos."""
     assert cenario.PESO_CARDAPIO > cenario.PESO_PREVISAO > 0
+
+
+@pytest.mark.parametrize(
+    ("nome", "corpo", "valido"),
+    [
+        (cenario.NOME_CARDAPIO, {"status": "publicado"}, True),
+        (cenario.NOME_CARDAPIO, {"status": "nao_publicado"}, False),
+        (cenario.NOME_PREVISAO, {"status": "disponivel"}, True),
+        (cenario.NOME_PREVISAO, {"status": "dados_insuficientes"}, False),
+        (cenario.NOME_PREVISAO, {}, False),
+        (cenario.NOME_CARDAPIO, None, False),
+    ],
+)
+def test_resposta_vazia_conta_como_falha(nome, corpo, valido):
+    """`nao_publicado` e `dados_insuficientes` voltam 200 e são mais baratos:
+    contados como sucesso, derrubariam o p95 (dia que vira no meio da
+    rodada, um campus sem dados)."""
+    assert cenario.resposta_valida(nome, corpo) is valido
 
 
 # --- avaliar ----------------------------------------------------------------
@@ -234,6 +341,45 @@ def test_reprova_sem_um_dos_endpoints(tmp_path):
     assert any(cenario.NOME_PREVISAO in motivo for motivo in resultado.motivos)
 
 
+def test_p95_n_a_com_requisicoes_reprova_como_sem_medida(tmp_path):
+    """Exercita o ramo `p95_ms is None` com requisições medidas."""
+    arquivo = csv_de_estatisticas(tmp_path, LINHAS_BOAS)
+    arquivo.write_text(
+        arquivo.read_text(encoding="utf-8").replace(",1200,", ",N/A,"),
+        encoding="utf-8",
+    )
+
+    resultado = avaliar.avaliar(avaliar.ler_estatisticas(arquivo))
+
+    assert resultado.linhas[cenario.NOME_PREVISAO].requisicoes == 3000
+    assert not resultado.aprovado
+    assert f"{cenario.NOME_PREVISAO}: p95 sem medida" in resultado.motivos
+
+
+@pytest.mark.parametrize(("falhas", "aprovado"), [(90, True), (91, False)])
+def test_fronteira_de_1_por_cento_de_falhas(tmp_path, falhas, aprovado):
+    linhas = [*LINHAS_BOAS]
+    linhas[0] = ("GET", cenario.NOME_CARDAPIO, 9000, falhas, 800)
+
+    resultado = avaliar.avaliar(
+        avaliar.ler_estatisticas(csv_de_estatisticas(tmp_path, linhas))
+    )
+
+    assert resultado.aprovado is aprovado
+
+
+def test_le_o_csv_real_do_locust():
+    """CSV gerado pelo Locust 2.46.7 (tests/fixtures), e não escrito à mão:
+    pega mudança de coluna numa versão nova."""
+    linhas = avaliar.ler_estatisticas(CSV_REAL)
+
+    assert set(linhas) == {cenario.NOME_CARDAPIO, cenario.NOME_PREVISAO, "Aggregated"}
+    for linha in linhas.values():
+        assert linha.requisicoes > 0
+        assert linha.p95_ms is not None
+    assert avaliar.avaliar(linhas).aprovado
+
+
 def test_le_n_a_como_sem_medida(tmp_path):
     arquivo = csv_de_estatisticas(tmp_path, LINHAS_BOAS)
     texto = arquivo.read_text(encoding="utf-8").replace(
@@ -260,9 +406,19 @@ def test_resumo_em_markdown_tem_a_tabela_e_o_veredito(tmp_path):
     assert "800" in texto
     assert "3000" in texto
     assert "Aprovado" in texto
+    # A aprovação vale para o p95 e para as falhas.
+    assert "falhas" in texto.split("Aprovado")[1]
 
 
-@pytest.mark.parametrize(("linhas", "codigo"), [(LINHAS_BOAS, 0), ([], 1)])
+P95_RUIM = [
+    ("GET", cenario.NOME_CARDAPIO, 9000, 0, 6900),
+    *LINHAS_BOAS[1:],
+]
+
+
+@pytest.mark.parametrize(
+    ("linhas", "codigo"), [(LINHAS_BOAS, 0), ([], 1), (P95_RUIM, 1)]
+)
 def test_main_devolve_o_codigo_de_saida(tmp_path, capsys, linhas, codigo):
     arquivo = csv_de_estatisticas(tmp_path, linhas)
 
@@ -270,17 +426,37 @@ def test_main_devolve_o_codigo_de_saida(tmp_path, capsys, linhas, codigo):
     assert "| Endpoint |" in capsys.readouterr().out
 
 
-def test_modo_informativo_sempre_sai_com_zero(tmp_path, capsys):
-    """Na varredura (500, 1.000, 1.500 usuários), as rodadas abaixo da meta
-    só medem a capacidade: quem decide o veredito é a de 2.000."""
-    linhas = [*LINHAS_BOAS]
-    linhas[0] = ("GET", cenario.NOME_CARDAPIO, 9000, 0, 6900)
-    arquivo = csv_de_estatisticas(tmp_path, linhas)
+def test_modo_informativo_nao_falha_por_desempenho(tmp_path, capsys):
+    """No CI, o p95 acima da meta não derruba o job: o veredito fica no
+    resumo do job e no documento."""
+    arquivo = csv_de_estatisticas(tmp_path, P95_RUIM)
 
     assert avaliar.main([str(arquivo), "--informativo"]) == 0
     saida = capsys.readouterr().out
     assert "Reprovado" in saida
-    assert "informativ" in saida
+    assert "Informativo no CI" in saida
+    assert "não decide" not in saida
+
+
+@pytest.mark.parametrize(
+    "linhas",
+    [
+        [],
+        [LINHAS_BOAS[0], LINHAS_BOAS[2]],
+        [
+            ("GET", cenario.NOME_CARDAPIO, 9000, 4501, 50),
+            *LINHAS_BOAS[1:],
+        ],
+    ],
+    ids=["sem-requisicoes", "sem-um-endpoint", "mais-da-metade-com-falha"],
+)
+def test_modo_informativo_falha_quando_a_carga_nao_rodou(tmp_path, capsys, linhas):
+    """Uma task quebrada no locustfile ou no cenario deixa o CSV sem linhas
+    (ou cheio de falhas): isso não pode sair verde, nem no informativo."""
+    arquivo = csv_de_estatisticas(tmp_path, linhas)
+
+    assert avaliar.main([str(arquivo), "--informativo"]) == 1
+    assert "carga não mediu" in capsys.readouterr().out
 
 
 def test_resumo_mostra_os_usuarios_da_rodada(tmp_path, capsys, monkeypatch):
@@ -322,6 +498,35 @@ def test_carga_so_roda_no_pr_quando_o_proprio_teste_muda():
         "backend/requirements-carga.txt",
         ".github/workflows/carga.yml",
     }
+
+
+def test_carga_cancela_a_rodada_anterior_do_mesmo_pr():
+    conteudo, _ = carregar_workflow()
+
+    assert conteudo["concurrency"]["cancel-in-progress"] is True
+    assert "github.ref" in conteudo["concurrency"]["group"]
+
+
+def passo(trecho):
+    conteudo, _ = carregar_workflow()
+    return next(
+        p for p in conteudo["jobs"]["carga"]["steps"] if trecho in p.get("run", "")
+    )
+
+
+def test_so_o_carga_yml_confirma_o_banco_descartavel():
+    preparar = passo("carga.dados")
+
+    assert preparar["env"][dados.CONFIRMACAO] == "1"
+
+
+def test_gunicorn_guarda_os_erros_no_artefato():
+    """WORKER TIMEOUT e erros 500 vão para o artefato, e não somem com o
+    --daemon."""
+    gunicorn = passo("gunicorn config.wsgi")["run"]
+
+    assert "--error-logfile resultado/" in gunicorn
+    assert "--capture-output" in gunicorn
 
 
 def test_todas_as_rodadas_sao_informativas_no_ci():
