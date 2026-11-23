@@ -145,10 +145,44 @@ def test_apoio_do_leitor_aponta_para_o_leitor(mi, backend):
 def test_teste_generico_do_cardapio_nao_muta_o_leitor(mi, backend):
     # O leitor tem quase metade dos mutantes da base: um PR de endpoint do
     # cardápio não pode estourar o tempo do job por causa dele.
-    criar(backend, "apps/cardapio/tests/test_cardapio_endpoint.py")
+    criar(
+        backend,
+        "apps/cardapio/views.py",
+        "apps/cardapio/tests/test_cardapio_endpoint.py",
+    )
     assert mi.curingas(["apps/cardapio/tests/test_cardapio_endpoint.py"], backend) == [
-        "apps.cardapio.filtro_dieta_service.*"
+        "apps.cardapio.filtro_dieta_service.*",
+        "apps.cardapio.views.*",
     ]
+
+
+def test_teste_do_cardapio_com_modulo_de_mesmo_nome_nao_muta_o_resto(mi, backend):
+    criar(backend, "apps/cardapio/views.py")
+    assert mi.curingas(
+        ["apps/cardapio/tests/test_filtro_dieta_service.py"], backend
+    ) == ["apps.cardapio.filtro_dieta_service.*"]
+
+
+@pytest.mark.parametrize(
+    ("caminho", "esperado"),
+    [
+        # PDFs e páginas reais que os testes do leitor leem.
+        (
+            "apps/cardapio/tests/fixtures/cardapios/Gama-Semana-01.pdf",
+            ["apps.cardapio.leitor.*"],
+        ),
+        (
+            "apps/cardapio/tests/fixtures/pagina_ru/cardapio.html",
+            ["apps.cardapio.leitor.*"],
+        ),
+        # Fixtures do Django do app (campi, marcadores): o app inteiro.
+        ("apps/cardapio/fixtures/campi.json", ["apps.cardapio.*"]),
+        ("apps/fila/tests/dados.json", ["apps.fila.*"]),
+    ],
+)
+def test_arquivo_de_dados_dos_testes_roda_a_mutacao(mi, backend, caminho, esperado):
+    # Mudar um fixture muda o comportamento dos testes, sem tocar em .py.
+    assert mi.curingas([caminho], backend) == esperado
 
 
 def test_teste_apagado_ainda_roda_a_mutacao_do_modulo(mi, backend):
@@ -169,9 +203,8 @@ def test_teste_apagado_ainda_roda_a_mutacao_do_modulo(mi, backend):
         "apps/fila/__init__.py",
         "apps/fila/tests/__init__.py",
         "tests/test_estrutura.py",
-        "apps/__init__.py",
         "apps/fila/README.md",
-        "apps/cardapio/fixtures/campi.json",
+        "apps/cardapio/fixtures/README.md",
     ],
 )
 def test_arquivo_fora_da_mutacao_nao_gera_curinga(mi, backend, caminho):
@@ -226,6 +259,10 @@ def test_curinga_do_app_inteiro_engole_os_do_mesmo_app(mi, backend):
         "backend/requirements-dev.txt",
         "backend/scripts/mutacao_incremental.py",
         "backend/config/settings.py",
+        "backend/manage.py",
+        "backend/requirements.txt",
+        "backend/apps/__init__.py",
+        "backend/apps/conftest.py",
         ".github/workflows/backend-ci.yml",
     ],
 )
@@ -353,6 +390,26 @@ def test_comando_alvos_imprime_um_curinga_por_linha(repositorio):
         check=True,
     )
     assert resultado.stdout == "apps.fila.checkin_service.*\n"
+
+
+@pytest.mark.parametrize(
+    "caminho", ["backend/setup.cfg", ".github/workflows/backend-ci.yml"]
+)
+def test_comando_alvos_com_mudanca_na_configuracao_roda_o_alvo_fixo(
+    mi, repositorio, caminho
+):
+    git(repositorio, "checkout", "-q", "-b", "configuracao", "develop")
+    criar(repositorio, caminho)
+    git(repositorio, "add", ".")
+    git(repositorio, "commit", "-q", "-m", "configuração")
+    resultado = subprocess.run(
+        [sys.executable, str(SCRIPT), "alvos", "develop"],
+        cwd=repositorio / "backend",
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert resultado.stdout == f"{mi.ALVO_DA_CONFIGURACAO}\n"
 
 
 def test_comando_alvos_sem_mudanca_no_backend_imprime_nada(repositorio):
@@ -636,6 +693,46 @@ def test_resumo_do_pr_fala_em_minimo_do_agregado(tmp_path):
     rodar_escore(tmp_path, env_extra={"GITHUB_STEP_SUMMARY": str(resumo)})
     texto = resumo.read_text(encoding="utf-8")
     assert "em cada módulo" not in texto
+    assert "no conjunto dos mutantes" in texto
+
+
+def test_resumo_semanal_fala_em_minimo_de_cada_modulo(tmp_path):
+    a = gravar(tmp_path, "a/stats.json", stats(killed=90, survived=10))
+    b = gravar(tmp_path, "b/stats.json", stats(killed=6, survived=4))
+    resumo = tmp_path / "resumo.md"
+    rodar_escore(
+        tmp_path,
+        f"fila={a}",
+        f"cadastro={b}",
+        env_extra={"GITHUB_STEP_SUMMARY": str(resumo)},
+    )
+    assert "em cada módulo" in resumo.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "campo",
+    [
+        "killed",
+        "survived",
+        "timeout",
+        "no_tests",
+        "suspicious",
+        "segfault",
+        "skipped",
+        "check_was_interrupted_by_user",
+        "total",
+    ],
+)
+def test_comando_escore_sem_um_campo_do_mutmut_e_erro(tmp_path, campo):
+    # Um upgrade que renomeie um campo não pode zerá-lo em silêncio: sem o
+    # no_tests o escore subiria, e sem o check_was_interrupted_by_user a
+    # detecção de interrupção desligaria.
+    dados = stats(killed=9, survived=1)
+    del dados[campo]
+    gravar(tmp_path, "mutants/mutmut-cicd-stats.json", dados)
+    resultado = rodar_escore(tmp_path, "--minimo", "50")
+    assert resultado.returncode == 2
+    assert campo in resultado.stderr
 
 
 # --- Conferência dos curingas -------------------------------------------------
@@ -668,6 +765,66 @@ def test_conferir_todos_os_curingas_casam(tmp_path):
     )
     assert resultado.returncode == 0
     assert "::warning::" not in resultado.stdout
+    assert "apps.gamificacao.patente_resolver.*: 2 mutantes" in resultado.stdout
+    assert "apps.fila.checkin_service.*: 1 mutantes" in resultado.stdout
+
+
+def test_conferir_falha_se_o_alvo_fixo_nao_gerar_mutantes(tmp_path, mi):
+    # O alvo fixo sempre gera mutantes: é o canário da configuração. Se um PR
+    # de configuração tirar o patente_resolver.py da mutação, o "nothing
+    # matches" não pode virar verde.
+    resultados = "    apps.fila.checkin_service.x_registrar__mutmut_1: not checked\n"
+    resultado = rodar_conferir(tmp_path, [mi.ALVO_DA_CONFIGURACAO], resultados)
+    assert resultado.returncode == 2
+    assert "::error::" in resultado.stdout
+
+
+@pytest.mark.parametrize(
+    ("resultados", "saida"),
+    [
+        (
+            (
+                "    apps.gamificacao.patente_resolver.x_patente__mutmut_1: killed\n"
+                "    apps.gamificacao.patente_resolver.x_patente__mutmut_2: survived\n"
+                "    apps.fila.checkin_service.x_registrar__mutmut_1: not checked\n"
+            ),
+            0,
+        ),
+        (
+            (
+                "    apps.gamificacao.patente_resolver.x_patente__mutmut_1: killed\n"
+                "    apps.gamificacao.patente_resolver.x_patente__mutmut_2: not checked\n"
+            ),
+            2,
+        ),
+    ],
+    ids=["todos-rodados", "um-nao-rodado"],
+)
+def test_conferir_depois_de_rodar_exige_todos_os_mutantes_rodados(
+    tmp_path, resultados, saida
+):
+    # Rodada parcial com saída 0 (fork server que caiu, interrupção): os
+    # mutantes que sobraram ficam "not checked", e o JSON não tem esse campo.
+    # Os "not checked" fora dos curingas são os que não entraram na rodada.
+    (tmp_path / "alvos.txt").write_text(
+        "apps.gamificacao.patente_resolver.*\n", encoding="utf-8"
+    )
+    (tmp_path / "resultados.txt").write_text(resultados, encoding="utf-8")
+    resultado = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "conferir",
+            "--depois-de-rodar",
+            "alvos.txt",
+            "resultados.txt",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert resultado.returncode == saida
 
 
 def test_conferir_avisa_o_curinga_que_nao_casou(tmp_path):
@@ -719,3 +876,56 @@ def test_escore_semanal_le_os_seis_modulos(mi):
     comando = next(p["run"] for p in passos if "escore --minimo" in p.get("run", ""))
     rotulos = re.findall(r"(\S+)=relatorios/", comando)
     assert sorted(rotulos) == sorted(mi.MODULOS)
+
+
+def test_artefatos_da_matriz_batem_com_os_caminhos_do_escore(mi):
+    # Um erro de digitação aqui só apareceria horas depois, no fim da rodada.
+    workflow = carregar_yaml("backend-mutacao-semanal.yml")
+    job = workflow["jobs"]["mutacao"]
+    envio = next(p for p in job["steps"] if "upload-artifact" in p.get("uses", ""))
+    assert envio["with"]["name"] == "mutacao-${{ matrix.artefato }}"
+    passos = workflow["jobs"]["escore"]["steps"]
+    comando = next(p["run"] for p in passos if "escore --minimo" in p.get("run", ""))
+    caminhos = dict(re.findall(r"(\S+)=relatorios/mutacao-([^/]+)/", comando))
+    for item in job["strategy"]["matrix"]["include"]:
+        assert caminhos[item["modulo"]] == item["artefato"]
+
+
+def passo_do_mutmut(workflow, job):
+    passos = carregar_yaml(workflow)["jobs"][job]["steps"]
+    return next(
+        p["run"] for p in passos if "mutmut run --max-children" in p.get("run", "")
+    )
+
+
+@pytest.mark.parametrize(
+    ("workflow", "job"),
+    [("backend-ci.yml", "mutacao"), ("backend-mutacao-semanal.yml", "mutacao")],
+)
+def test_passo_do_mutmut_tem_as_guardas(workflow, job):
+    comando = passo_do_mutmut(workflow, job)
+    # O "Stopping..." cai na mesma linha física da barra de progresso (depois
+    # de um \r): um grep com ^ nunca casaria.
+    assert "grep -qF 'Stopping...' mutmut.log" in comando
+    assert "conferir --depois-de-rodar" in comando
+
+
+def test_passo_do_pr_confere_os_curingas_no_nothing_matches():
+    comando = passo_do_mutmut("backend-ci.yml", "mutacao")
+    trecho = comando.split("nothing matches", 1)[1]
+    assert "conferir alvos.txt" in trecho.split("exit 0", 1)[0]
+
+
+def test_rodada_semanal_tem_as_guardas():
+    workflow = carregar_yaml("backend-mutacao-semanal.yml")
+    passos = workflow["jobs"]["mutacao"]["steps"]
+    curingas = next(p["run"] for p in passos if "modulo" in p.get("run", ""))
+    assert "[ ! -s alvos.txt ]" in curingas
+    nomes = [p.get("name") for p in workflow["jobs"]["escore"]["steps"]]
+    assert "Todos os módulos terminaram" in nomes
+
+
+def test_job_do_pr_so_pula_o_pr_de_release():
+    workflow = carregar_yaml("backend-ci.yml")
+    condicao = workflow["jobs"]["mutacao"]["if"]
+    assert "github.head_ref != 'develop'" in condicao
