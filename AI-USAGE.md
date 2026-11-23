@@ -429,10 +429,12 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BD-09 — Monitor de disponibilidade
 
-- Issue: BD-09 do backlog. PR: [#226](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/226).
+- Issue: [#149](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/149). PR: [#226 — docs(operacao): monitor de disponibilidade (BD-09)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/226).
 - Ferramenta: Claude (Anthropic).
 - Apoio: texto do guia `docs/operacao/monitor-disponibilidade.md` (monitores, alertas, o que fazer ao receber um alerta, método de cálculo da disponibilidade na janela de 7h às 19h30), modelo do relatório parcial e links no menu lateral e no guia de deploy. O texto foi gerado pela IA e revisado, commitado e aplicado pelo autor.
 - Feito pelo autor, sem a IA: criação da conta e dos dois monitores no UptimeRobot (site e `/api/campi/` com a palavra `Darcy Ribeiro`, a cada 5 minutos, com alerta por e-mail) e conferência de que os dois ficaram `Up`.
 - Validação: monitores ativos e em `Up` no painel; a página `/api/campi/` foi aberta no navegador para escolher a palavra. Não há código nem testes nesta entrega.
-- Fora deste PR: o relatório parcial segue com os campos em branco até haver dias de refeição completos.
+- Ajustes da revisão (Álvaro): o passo 3 do alerta deixou de mandar seguir "Atualizar" (que faz `git pull` e coloca código novo no meio do incidente) e passou a `docker compose up -d` sem `git pull`; o passo do `loaddata` avisa que ele regrava campi e marcadores; o monitor da API virou a medida oficial do RNF02 (o do site ficou como diagnóstico), para haver um só número e não o "pior dos dois"; o guia e o relatório mandam conferir o fuso da conta do UptimeRobot (America/Sao_Paulo); a meta é avaliada no período, e os 37,5 min por dia são uma média; o relatório ganhou metadados, critério dos dias de refeição, regra do que conta como queda e evidência (CSV exportado no fechamento); o alerta diz a quem avisar (grupo da equipe), como entrar na VM e o `cd` do repositório; e as sugestões menores (log do `db`, falso incidente se o nome do campus mudar, fórmulas em %, links por seção).
+- Decisões a confirmar com o grupo: o monitor da API como medida oficial; o critério dos dias de refeição (calendário do RU); deploy planejado conta como queda e falso positivo confirmado não conta.
+- Fora deste PR: o relatório parcial segue com os campos em branco até haver dias de refeição completos. A issue #149 fecha depois que o relatório for preenchido.
 - Situação: aguardando revisão.
