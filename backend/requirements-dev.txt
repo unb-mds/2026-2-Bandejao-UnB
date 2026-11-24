@@ -2,6 +2,10 @@
 pytest==9.2.0
 pytest-django==4.14.0
 pytest-cov==7.1.0
+# O passo de cobertura por módulo (BE-18) usa o --format=markdown e o código
+# de saída do coverage report quando não há dados; fica fixo para não mudar
+# de um run para outro.
+coverage==7.17.5
 pytest-env==1.8.5
 ruff==0.17.4
 bandit==1.9.4

@@ -19,6 +19,11 @@ npm run build      # build de produção em dist/
 npm run lint:ci    # oxlint + eslint sem corrigir nada; aviso também reprova
 npm run test:ci    # testes com cobertura (relatório em coverage/index.html)
 npm audit --audit-level=high
+
+# Mutação (StrykerJS, FE-17). Demorado: a base inteira leva dezenas de minutos.
+npm run mutacao                                      # todos os arquivos críticos
+npm run mutacao -- --mutate src/stores/fila.js       # um arquivo só
+# Relatório em reports/mutation/mutation.html
 ```
 
 ### Backend simulado × API real
@@ -45,19 +50,49 @@ O Vite encaminha `/api` para `http://localhost:8000`, então PWA e API ficam na 
 e o cookie de sessão funciona sem CORS (ADR 0007). Não mude `VITE_API_URL` para outra origem:
 o `apiClient` usa `credentials: 'same-origin'`.
 
+### Testes de ponta a ponta (Playwright, FE-18)
+
+Os fluxos do usuário rodam num navegador de verdade, contra o PWA de produção, a API e o MySQL
+no Docker (`e2e/docker-compose.yml`), no celular (360×800) e no desktop (1366×768). Precisa do
+Docker e do Chromium do Playwright:
+
+```sh
+npx playwright install --with-deps chromium   # uma vez (com as bibliotecas do sistema)
+npm run e2e:subir                 # builda e sobe PWA, API, MySQL e Mailpit (localhost:8080)
+npm run e2e                       # limpa o banco, carrega as fixtures e roda os testes
+npm run e2e -- --project celular  # só um projeto
+npm run e2e:descer                # derruba tudo e apaga os volumes
+```
+
+O relógio do backend do e2e começa na segunda-feira, 23/11/2026, ao meio-dia (horário de
+Brasília), a cada subida do container, e anda dali em diante, para o check-in e a avaliação
+valerem a qualquer hora. O `npm run e2e` recria o backend antes de rodar, então o relógio volta
+ao meio-dia a cada rodada; com a pilha no ar há mais de 2h30, o healthcheck do backend acusa
+que o relógio saiu do almoço. Os e-mails ficam no Mailpit
+(http://localhost:8025). As fixtures e como foram geradas estão em `e2e/dados/README.md`; o
+funcionamento completo, no Plano de Testes (3.5 e 5.3).
+
 ### CI do front
 
-O `.github/workflows/frontend-ci.yml` roda em todo PR, com quatro portas (Plano de Testes 5.2):
+O `.github/workflows/frontend-ci.yml` roda em todo PR, com cinco portas (Plano de Testes 5.2):
 
 | Job | O que reprova |
 |---|---|
 | `lint (front)` | Qualquer erro ou aviso do Oxlint ou do ESLint, incluindo teste sem `expect` (`vitest/expect-expect`) e `v-html` |
-| `testes (front)` | Teste falhando, ou menos de 70% de linhas em algum arquivo crítico (`coverage.thresholds` no `vitest.config.js`) |
+| `testes (front)` | Teste falhando, ou menos de 70% de linhas em algum arquivo crítico (`coverage.thresholds` no `vitest.config.js`, montado a partir do `ARQUIVOS_CRITICOS` do `scripts/mutacao.mjs`). A tabela por módulo sai no resumo do run, e o relatório HTML no artefato `cobertura-front` |
 | `build (front)` | Erro no `vite build`, ou o servidor simulado dentro do `dist/` |
 | `seguranca (front)` | Dependência com vulnerabilidade alta ou crítica (`npm audit`) e achado de severidade ERROR no Semgrep |
+| `mutacao (front)` | Escore de mutação abaixo de 50% nos arquivos críticos alterados no PR. O job roda em todo PR, mas só chama o Stryker quando o PR mexe em algum arquivo crítico, num teste que chegue a um deles ou na configuração da mutação |
 
-Arquivo crítico novo (por exemplo, a `filaStore`) entra na lista do `coverage.thresholds` no
-mesmo PR que o cria.
+Arquivo crítico novo (por exemplo, uma store de um extra) entra no `MODULOS` do
+`scripts/mutacao.mjs` no mesmo PR que o cria: a mutação e o `coverage.thresholds` do
+`vitest.config.js` usam essa lista. A base inteira passa pela mutação toda semana
+(`frontend-mutacao-semanal.yml`).
+
+Se o Stryker quebrar no dry run de um componente `.vue` com "`defineProps()` ... cannot reference
+locally declared variables", envolva o `defineProps` com `// Stryker disable all` e
+`// Stryker restore all`, como no `CheckinBotao.vue`: o Stryker envolve os valores em chamadas
+declaradas no próprio script, e o `defineProps`, içado para fora do `setup()`, não pode usá-las.
 
 ## O que está implementado (MVP)
 
