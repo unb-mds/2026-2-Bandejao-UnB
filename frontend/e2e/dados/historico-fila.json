@@ -1,0 +1,2270 @@
+[
+  {
+    "model": "fila.checkin",
+    "pk": 1,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:00:00Z",
+      "faixa_inicio": "11:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 2,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:01:00Z",
+      "faixa_inicio": "11:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 3,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:15:00Z",
+      "faixa_inicio": "11:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 4,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:16:00Z",
+      "faixa_inicio": "11:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 5,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:17:00Z",
+      "faixa_inicio": "11:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 6,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:30:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 7,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:31:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 8,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:32:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 9,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:33:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 10,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:34:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 11,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:45:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 12,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:46:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 13,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:47:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 14,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:48:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 15,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:49:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 16,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:50:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 17,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:51:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 18,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T14:52:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 19,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:00:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 20,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:01:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 21,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:02:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 22,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:03:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 23,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:04:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 24,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:05:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 25,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:06:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 26,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:07:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 27,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:08:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 28,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:09:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 29,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:10:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 30,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:11:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 31,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:15:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 32,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:16:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 33,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:17:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 34,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:18:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 35,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:19:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 36,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:20:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 37,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:21:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 38,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:22:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 39,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:23:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 40,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:30:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 41,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:31:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 42,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:32:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 43,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:33:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 44,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:34:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 45,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:35:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 46,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:45:00Z",
+      "faixa_inicio": "12:45:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 47,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:46:00Z",
+      "faixa_inicio": "12:45:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 48,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:47:00Z",
+      "faixa_inicio": "12:45:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 49,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T15:48:00Z",
+      "faixa_inicio": "12:45:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 50,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T16:00:00Z",
+      "faixa_inicio": "13:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 51,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T16:01:00Z",
+      "faixa_inicio": "13:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 52,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T16:02:00Z",
+      "faixa_inicio": "13:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 53,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T16:15:00Z",
+      "faixa_inicio": "13:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 54,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-02",
+      "registrado_em": "2026-11-02T16:16:00Z",
+      "faixa_inicio": "13:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 55,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:00:00Z",
+      "faixa_inicio": "11:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 56,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:01:00Z",
+      "faixa_inicio": "11:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 57,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:15:00Z",
+      "faixa_inicio": "11:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 58,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:16:00Z",
+      "faixa_inicio": "11:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 59,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:17:00Z",
+      "faixa_inicio": "11:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 60,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:30:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 61,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:31:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 62,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:32:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 63,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:33:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 64,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:34:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 65,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:45:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 66,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:46:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 67,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:47:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 68,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:48:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 69,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:49:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 70,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:50:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 71,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:51:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 72,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T14:52:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 73,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:00:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 74,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:01:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 75,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:02:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 76,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:03:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 77,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:04:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 78,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:05:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 79,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:06:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 80,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:07:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 81,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:08:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 82,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:09:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 83,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:10:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 84,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:11:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 85,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:15:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 86,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:16:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 87,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:17:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 88,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:18:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 89,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:19:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 90,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:20:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 91,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:21:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 92,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:22:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 93,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:23:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 94,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:30:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 95,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:31:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 96,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:32:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 97,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:33:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 98,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:34:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 99,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:35:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 100,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:45:00Z",
+      "faixa_inicio": "12:45:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 101,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:46:00Z",
+      "faixa_inicio": "12:45:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 102,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:47:00Z",
+      "faixa_inicio": "12:45:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 103,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T15:48:00Z",
+      "faixa_inicio": "12:45:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 104,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T16:00:00Z",
+      "faixa_inicio": "13:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 105,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T16:01:00Z",
+      "faixa_inicio": "13:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 106,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T16:02:00Z",
+      "faixa_inicio": "13:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 107,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T16:15:00Z",
+      "faixa_inicio": "13:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 108,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-09",
+      "registrado_em": "2026-11-09T16:16:00Z",
+      "faixa_inicio": "13:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 109,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:00:00Z",
+      "faixa_inicio": "11:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 110,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:01:00Z",
+      "faixa_inicio": "11:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 111,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:15:00Z",
+      "faixa_inicio": "11:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 112,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:16:00Z",
+      "faixa_inicio": "11:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 113,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:17:00Z",
+      "faixa_inicio": "11:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 114,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:30:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 115,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:31:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 116,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:32:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 117,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:33:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 118,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:34:00Z",
+      "faixa_inicio": "11:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 119,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:45:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 120,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:46:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 121,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:47:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 122,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:48:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 123,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:49:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 124,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:50:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 125,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:51:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 126,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T14:52:00Z",
+      "faixa_inicio": "11:45:00",
+      "tempo_espera_min": "12.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 127,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:00:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 128,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:01:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 129,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:02:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 130,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:03:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 131,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:04:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 132,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:05:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 133,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:06:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 134,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:07:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 135,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:08:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 136,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:09:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 137,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:10:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 138,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:11:00Z",
+      "faixa_inicio": "12:00:00",
+      "tempo_espera_min": "18.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 139,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:15:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 140,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:16:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 141,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:17:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 142,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:18:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 143,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:19:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 144,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:20:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 145,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:21:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 146,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:22:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 147,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:23:00Z",
+      "faixa_inicio": "12:15:00",
+      "tempo_espera_min": "15.0",
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 148,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:30:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 149,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:31:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 150,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:32:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 151,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:33:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 152,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:34:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 153,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:35:00Z",
+      "faixa_inicio": "12:30:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 154,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:45:00Z",
+      "faixa_inicio": "12:45:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 155,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:46:00Z",
+      "faixa_inicio": "12:45:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 156,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:47:00Z",
+      "faixa_inicio": "12:45:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 157,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T15:48:00Z",
+      "faixa_inicio": "12:45:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 158,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T16:00:00Z",
+      "faixa_inicio": "13:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 159,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T16:01:00Z",
+      "faixa_inicio": "13:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 160,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T16:02:00Z",
+      "faixa_inicio": "13:00:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 161,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T16:15:00Z",
+      "faixa_inicio": "13:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  },
+  {
+    "model": "fila.checkin",
+    "pk": 162,
+    "fields": {
+      "usuario": null,
+      "campus": 3,
+      "tipo_refeicao": "almoco",
+      "data": "2026-11-16",
+      "registrado_em": "2026-11-16T16:16:00Z",
+      "faixa_inicio": "13:15:00",
+      "tempo_espera_min": null,
+      "pontos_concedidos_em": null
+    }
+  }
+]

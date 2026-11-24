@@ -33,8 +33,8 @@ São os do RNF06, no que entrou na R2. São eles que precisam cumprir as metas d
 | Leitura do cardápio (com os ícones) | `apps/cardapio/leitor` | — |
 | Exposição do cardápio e filtros | `apps/cardapio` (serviços de consulta e filtros) | `stores/cardapio.js`, `utils/cardapio.js` |
 | Avaliação | `apps/avaliacao` | `stores/avaliacoes.js` |
-| Fila (check-in, previsão) | `apps/fila` | `filaStore`, `CheckinBotao`, `FilaPrevisao` |
-| Gamificação (pontos, patente, ranking) | `apps/gamificacao` | `gamificacaoStore` |
+| Fila (check-in, previsão) | `apps/fila` | `filaStore`, `services/leituraPosicao.js`, `CheckinBotao`, `FilaPrevisao` |
+| Gamificação (pontos, patente, ranking) | `apps/gamificacao` | `gamificacaoStore`, `PontosAviso` |
 | Comunicação com a API | — | `services/apiClient.js` |
 
 Se um extra entrar (EXTRA 1, 3 ou 7), o módulo dele entra nesta tabela no mesmo PR.
@@ -99,8 +99,12 @@ Um navegador de verdade fazendo os fluxos do usuário, com PWA, API e banco roda
 | Avaliar → aviso "+N pontos" (`PontosAviso`); editar → sem aviso | M3 |
 | Previsão de pico, progresso e ranking | M4 |
 
-- **Ferramenta:** Playwright (a pasta `frontend/e2e/` já está excluída do vitest).
-- **Quando:** todo PR para a `develop` que mexe no back ou no front, e de novo na `main`. Os testes manuais em produção (BD-08, QA-04, QA-09) continuam e não substituem estes.
+- **Ferramenta:** Playwright (`@playwright/test`, só o Chromium), com dois projetos: celular (360×800, toque) e desktop (1366×768), conforme a FE-20. A pasta `frontend/e2e/` fica fora do Vitest.
+- **Quando:** todo PR (job `ponta-a-ponta`, seção 5.3) e todo push na `develop` e na `main`. Os testes manuais em produção (BD-08, QA-04, QA-09) continuam e não substituem estes.
+- **Onde rodam:** `frontend/e2e/docker-compose.yml` sobe o PWA de produção no Caddy, a API no Gunicorn e o MySQL 8.4, com as imagens de produção, mais o Mailpit (SMTP de teste). Diferenças para produção: HTTP em `localhost:8080`, cookies sem o flag `Secure`, e-mail no Mailpit e o relógio do backend começando na segunda-feira, 23/11/2026, às 12h de Brasília (libfaketime), a cada subida do container, e andando dali em diante. É o que deixa o check-in e a avaliação dentro do horário do almoço a qualquer hora do dia; o `globalSetup` recria o backend antes de cada rodada, para o relógio voltar ao meio-dia, e o healthcheck do backend confere que ele está no almoço de 23/11 (o que também prova que a libfaketime carregou). O navegador usa o mesmo instante (`page.clock`) e o fuso de Brasília.
+- **Dados:** as fixtures da BD-03 (campi e marcadores) e as de `frontend/e2e/dados/`: o cardápio da semana de 23/11 do Gama, gerado pelo leitor de PDF de verdade a partir do PDF de teste do backend; oito contas confirmadas, uma por teste e por projeto (celular e desktop) nos fluxos M2 a M4; e o histórico do almoço do Gama nas três segundas anteriores, para a previsão de pico. Antes de cada rodada, o `globalSetup` limpa o banco e o cache e carrega tudo de novo. O cache guarda os contadores do limite de taxa: com `ATRAS_DE_PROXY_HTTPS=False`, todo pedido conta como o IP do Caddy, e o limite de login estouraria em poucas rodadas seguidas.
+- **Contas:** o M1 cria a conta pela tela e lê o link de confirmação na API do Mailpit. Os outros fluxos entram com as contas da fixture, para não depender do e-mail: o M2 com uma conta que aceitou uma versão antiga do aviso de privacidade (o aviso aparece antes do GPS) e outra para o check-in recusado longe do RU, o M3 com uma conta que já fez check-in no almoço (a avaliação só pontua assim, RN09) e o M4 com uma conta de 160 pontos que ainda não participa do ranking.
+- **Localização:** a do RU do Gama, pelas permissões e pela geolocalização do contexto do Playwright. Nos fluxos sem GPS, o aviso de localização (RF19) é respondido com "Agora não", como a pessoa faria.
 
 ### 3.6 Segurança
 
@@ -277,16 +281,30 @@ Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR par
 | `seguranca` | Semgrep e `npm audit --audit-level=high` | Sim |
 | `mutacao` | StrykerJS incremental nos arquivos críticos alterados; falha abaixo de 50% | Sim, quando roda |
 
+**Como o job `mutacao (front)` funciona (FE-17):**
+
+- **Configuração:** `frontend/stryker.config.mjs` (StrykerJS 10 com `@stryker-mutator/vitest-runner`, cobertura por teste). Os arquivos mutados são os módulos críticos da seção 2, listados no `MODULOS` do `frontend/scripts/mutacao.mjs`: `auth` (`stores/auth.js`, guardas do `router`), `cardapio` (`stores/cardapio.js`, `utils/cardapio.js`), `avaliacao` (`stores/avaliacoes.js`), `fila` (`stores/fila.js`, `services/leituraPosicao.js`, `CheckinBotao`, `FilaPrevisao`), `gamificacao` (`stores/gamificacao.js`, `PontosAviso`) e `api` (`services/apiClient.js`). Há teste que confere um sentido só: todo arquivo com meta de cobertura no `vitest.config.js` também está nessa lista (a mutação pode ter arquivos sem meta de cobertura, como os dois componentes da fila). As validações do cadastro ficam na `CadastroView` e são cobertas pelos testes do fluxo da conta, não pela mutação da view inteira.
+- **Arquivos escolhidos:** `node scripts/mutacao.mjs alvos origin/<base>` lista os arquivos do `git diff --name-only origin/<base>...HEAD` e devolve os críticos alterados, que vão para o `--mutate` do Stryker. Um **teste alterado** conta para o arquivo crítico de mesmo nome, cortando o nome no primeiro ponto (`x.test.js` e `x.propriedades.test.js` apontam para `x.js` ou `x.vue`). **Sem correspondência por nome**, o teste conta para os arquivos críticos que ele importa, direta ou indiretamente, seguindo também o `import()` dinâmico das rotas: um teste de tela, que monta o `App` com o roteador, chega à base inteira (como o app inteiro no backend). Uma **mudança na configuração da mutação** (`stryker.config.mjs`, `vitest.config.js`, `vite.config.js`, `package.json`, `package-lock.json`, o script, o `frontend-ci.yml` ou o servidor simulado em `src/services/mock/`, que os testes de todas as stores críticas usam, como os fixtures no backend; um `setupFiles` do Vitest, se for criado, entra nessa lista) sem nenhum arquivo crítico alterado muta um alvo fixo, o `utils/cardapio.js`; com outro alvo no PR, o alvo fixo não entra, para não diluir o escore do que mudou. Arquivo crítico apagado no PR não vira alvo.
+- **Nada a testar:** sem nenhum desses arquivos alterado, o job roda e termina verde sem chamar o Stryker (sem filtro `paths:`, para o check obrigatório não ficar pendente). O PR de release (`develop` → `main`) pula o job, como no backend.
+- **Escore:** `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`, como o Stryker calcula. `CompileError`, `RuntimeError`, `Ignored` e `Pending` ficam fora da conta. No PR, a meta vale para o conjunto dos mutantes rodados: o `thresholds.break: 50` do `stryker.config.mjs` compara o valor exato, e o `scripts/mutacao.mjs escore` repete a conta no resumo do run, mostrando duas casas truncadas (o veredito é o mesmo).
+- **Quando o job falha sem medir:** o step de escore roda sempre que o Stryker rodou, mesmo sem relatório. Relatório ausente ou ilegível, nenhum mutante avaliado, `--minimo` inválido ou (na rodada semanal) módulo crítico fora do relatório saem com 2 e reprovam o job, em vez de ficar verde sem ter medido.
+- **Componentes `.vue`:** o Stryker envolve os valores em chamadas `stryMutAct_*`/`stryCov_*`, declaradas no próprio script, e o `defineProps`, içado para fora do `setup()`, não pode referenciar variáveis locais. Por isso o argumento do `defineProps` fica entre `// Stryker disable all` e `// Stryker restore all`.
+- **Relatório:** o resumo sai na página do run, e o HTML e o JSON do Stryker ficam no artefato `mutacao-front`.
+- **Na máquina:** `cd frontend`, `npm run mutacao -- --mutate src/stores/fila.js` (um arquivo) ou `npm run mutacao` (a base inteira, dezenas de minutos), e o relatório em `reports/mutation/mutation.html`.
+
 ### 5.3 `e2e.yml` (FE-18)
 
 | Job | Comandos | Bloqueia o merge |
 |---|---|---|
-| `ponta-a-ponta` | Sobe PWA, API e banco com `docker compose`, carrega as fixtures (BD-03) e roda o Playwright | Sim, a partir do M2 |
+| `ponta-a-ponta` | Sobe PWA, API e banco com o `frontend/e2e/docker-compose.yml`, carrega as fixtures (BD-03 e as do e2e) e roda o Playwright no celular e no desktop | Sim, a partir do M2 |
+
+**Como o job `ponta-a-ponta` funciona (FE-18):** `.github/workflows/e2e.yml`, em todo PR (sem filtro `paths:`) e no push na `develop` e na `main`. Builda as imagens de produção do backend e do PWA, espera os healthchecks do MySQL, do Gunicorn e do Caddy (`docker compose up --wait`) e roda `npx playwright test`. Em falha, o log da pilha sai no próprio job e o relatório do Playwright, com o trace do teste que falhou, fica no artefato `e2e-relatorio`. Não há segunda tentativa: o banco só é limpo uma vez por rodada, e uma tentativa nova do M2, do M3 ou do M4 falharia pelo que a primeira gravou (check-in feito, avaliação enviada, adesão ligada), escondendo a causa real.
 
 ### 5.4 Rodadas agendadas
 
 - **Toda semana** (e antes de 22/11): mutação na base inteira, back e front, para pegar o escore de quem não mexeu em módulo crítico recentemente.
   - **Back:** `.github/workflows/backend-mutacao-semanal.yml`, aos domingos às 06:00 UTC (03:00 em Brasília), na `develop`; à mão, pelo `workflow_dispatch`, na branch escolhida. Um job por módulo crítico (`cadastro`, `cardapio/leitor`, `cardapio` sem o leitor, `avaliacao`, `fila`, `gamificacao`), com até 5 horas cada, para a base inteira (cerca de 5.240 mutantes, quase metade no leitor) não passar do limite de 6 horas de um job do GitHub. Um último job junta os seis resultados e falha se **algum** módulo ficar abaixo de 50%, se faltar o resultado de algum ou se algum job de módulo não terminou bem (quebrou, passou do tempo ou foi cancelado), porque um resultado parcial não vale. Mesma fórmula do escore do job `mutacao`.
+  - **Front:** `.github/workflows/frontend-mutacao-semanal.yml`, aos domingos às 07:00 UTC (04:00 em Brasília), na `develop`; à mão, pelo `workflow_dispatch`, na branch escolhida. Um job só com todos os arquivos críticos (perto de 2 mil mutantes, dezenas de minutos), e o `scripts/mutacao.mjs escore --por-modulo` reprova a rodada se **algum** módulo crítico ficar abaixo de 50%, mesmo com o geral acima, ou se algum módulo faltar no relatório.
 - **Antes da entrega:** o commit da entrega precisa ter todos os workflows verdes (porta da Release 2).
 
 ---

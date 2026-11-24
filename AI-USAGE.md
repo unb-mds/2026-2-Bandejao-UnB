@@ -866,6 +866,16 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Mudança: sem o gatilho `push` em `mutacao/base-inteira` e sem o comentário "Até a release..." no `backend-mutacao-semanal.yml` (o comentário do `checkout` deixou de citar o push); sem o parágrafo correspondente no Plano de Testes, seção 5.4.
 - Situação: aguardando o CI e a revisão de outra frente (DoD 1.4). Depois do merge (e da próxima release, para a `main`), falta disparar a rodada pelo "Run workflow" e pôr o link do run na issue.
 
+## FE-17 — Mutação no CI do front
+
+- Issue: [#189](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/189). PR: [#270 — FE-17: Mutação no CI do front](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/270).
+- Ferramenta: Claude (Anthropic).
+- Apoio: configuração do StrykerJS com o `vitest-runner` (`frontend/stryker.config.mjs`); `frontend/scripts/mutacao.mjs` (arquivos críticos alterados no PR e escore por módulo, no molde do `mutacao_incremental.py` da BE-19); job `mutacao (front)` no `frontend-ci.yml`; rodada semanal (`frontend-mutacao-semanal.yml`); `fast-check` com o primeiro teste de propriedades do front; ajuste do `defineProps` no `CheckinBotao` e na `FilaPrevisao`; Plano de Testes (5.2 e 5.4) e README do front; PR de prova. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: os testes do `scripts/mutacao.mjs` vieram num commit anterior ao script e falhavam sem ele.
+- Validação: rodada local na base inteira com 1.680 mutantes em 22 min e escore geral de 84,68% (api 83,53%, auth 80,56%, avaliacao 87,71%, cardapio 88,28%, fila 81,42%, gamificacao 89,50%); `npm run test:ci` com 1.001 testes passando; `npm run lint:ci` sem achados; `npm run build` sem erro; `npm audit --audit-level=high` limpo. Lint e testes conferidos em cada commit. [PR de prova](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/271): escore de 4% com o teste sem asserção real (job vermelho) e 100% depois da correção (job verde).
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/270#issuecomment-7112564355), com quatro ajustes (teste sem correspondência por nome e servidor simulado sem disparar a mutação, `--minimo` inválido aprovando, linha de comando sem testes, `hashFiles` pulando o escore) e sugestões; todos aplicados nos commits de ajuste da revisão, com os testes antes da correção.
+- Situação: ajustes da revisão aplicados; aguardando o recheck.
+
 ## BD-14 — Teste de carga do cardápio e da previsão
 
 - Issue: [#184](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/184). PR: [#244 — feat(banco): teste de carga do cardápio e da previsão (BD-14)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/244).
@@ -888,6 +898,17 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - documento: limites (log de acesso, rampa nas estatísticas, respostas vazias como falha desde a revisão), como as consultas foram contadas e a proteção contra a produção.
 - Sugestão não aplicada: `--reset-stats`. As medições do documento incluem a rampa; trocar agora mudaria o método no meio do registro, então a rampa ficou anotada nos limites.
 - Situação: aprovado no recheck, aguardando o merge; DOC a ser avisado.
+
+## FE-18 — Testes de ponta a ponta com Playwright
+
+- Issue: [#190](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/190). PR: [#277 — FE-18: Testes de ponta a ponta com Playwright](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/277).
+- Ferramenta: Claude (Anthropic).
+- Apoio: pilha Docker dos testes (`frontend/e2e/docker-compose.yml`, com o relógio do backend começando no almoço pela libfaketime a cada subida e o Mailpit como SMTP), fixtures do e2e (cardápio gerado pelo leitor de PDF de verdade, contas e histórico da fila), configuração do Playwright com os projetos de celular e desktop, os quatro fluxos (M1 a M4), o workflow `e2e.yml` e a documentação (Plano de Testes 3.5 e 5.3, README do front). Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: não se aplica. Os testes de ponta a ponta cobrem funcionalidades que já existem; cada fluxo foi escrito contra a pilha real e ajustado até passar, e as falhas encontradas no caminho eram dos testes (fuso do navegador, aviso de localização, regra de pontos da avaliação), não do app.
+- Validação: a pilha inteira subiu localmente com o Docker, e `npx playwright test` passou com 8 testes (4 fluxos × 2 projetos) em cerca de 10 s, em seis rodadas seguidas, inclusive uma do zero (`down -v`, `up` e o `globalSetup` carregando as fixtures). `npm run lint:ci` sem achados e os 1.024 testes do Vitest passando.
+- Ajustes da [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/277#issuecomment-7119275671), código gerado pela IA: sem segunda tentativa no CI e com o trace da falha; o `globalSetup` recria o backend (o relógio volta ao meio-dia a cada rodada) e o healthcheck confere que o relógio está no almoço de 23/11, o que prova que a libfaketime carregou; ausência no ranking conferida só depois de a tela carregar; motivo real da limpeza do cache (`NUM_PROXIES` 0); testes novos de check-in recusado longe do RU (com duas contas novas), login antes de confirmar o e-mail, pontos no `/progresso`, edição depois de recarregar e o alerta "Contém"; Mailpit com `toBeOK` e caixa limpa a cada rodada; resposta automática ao aviso de localização desligada no M2; portas só em `127.0.0.1`; libfaketime e imagem do Debian fixas, baixadas só uma vez por volume (sobrescrever a biblioteca carregada derrubava o backend); healthcheck do Caddy; e os textos. Validação depois dos ajustes: 10 testes (5 por projeto) passando em rodadas seguidas, `npm run lint:ci` limpo.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/277#issuecomment-7119275671); ajustes aplicados.
+- Situação: ajustes da revisão aplicados; aguardando o recheck.
 
 ## BE-18 — Portas finais do backend e contrato OpenAPI final
 
