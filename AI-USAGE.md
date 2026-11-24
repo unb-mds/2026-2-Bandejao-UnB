@@ -66,7 +66,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Revisão humana: [revisão de Poviovsky](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/132#pullrequestreview-5927752431), aprovada com duas sugestões no registro (o vermelho do commit `test` e esta situação) e observações (`get_object_or_404`, `/api` sem a barra, `path_info`), aplicadas nos ajustes da revisão.
 - Situação: `pt-br` adotado e [registrado na #121](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/121#issuecomment-6929024596); ajustes da revisão aplicados.
 
-
 ## #123 — Limite de taxa no cadastro, no reenvio e no login
 
 - PR: [PR #133](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/133).
@@ -77,7 +76,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Revisão humana: revisão de AlvaroBento12 [Revisão de Álvaro Bento](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/133#issuecomment-6934287007), sem bloqueio, com dois ajustes pedidos (docstring do formato e vaga gasta na falha do SMTP) e cinco sugestões, todas aplicadas nos ajustes da revisão. A sugestão de conferir o retorno do `cache.set` foi aplicada com leitura de volta, porque o `set` do `DatabaseCache` devolve `None` mesmo quando grava. No recheck [recheck](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/133#issuecomment-6937500372), um ajuste: a leitura de volta conferia só se a chave existia, o que não pegava a falha a partir da 2ª gravação da janela (a linha antiga continuava lá). Agora confere se o horário do pedido chegou à lista, com 1 s de folga para pedidos simultâneos; testes no commit 909a8e0 (3 falham antes) e correção em 9cff7e6.
 - Situação: números dos limites conforme a proposta do guia (seção 4.1), a confirmar com o grupo na #123.
 
-
 ## Skills — pr-review-toolkit e uso das skills
 
 - PR: [#151 — Skills: pr-review-toolkit e uso das skills](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/151).
@@ -87,7 +85,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação: caminhos citados no `USO-DAS-SKILLS.md` conferidos no repositório; arquivos do plugin conferem com a versão 1.0.1 instalada.
 - Revisão humana: [revisão de Poviovsky](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/151#pullrequestreview-5942574990), aprovada com ajustes (licença MIT da `c4-architecture`, link do PR e vírgula neste registro, convenção de commit de revisão, pasta `review-status` em minúsculas e aviso da dependência no `SKILLS/README.md`), aplicados nos ajustes da revisão.
 - Situação: ajustes da revisão aplicados; aguardando nova revisão.
-
 
 ## BD-04 — Parâmetros do Anexo A
 
@@ -898,6 +895,21 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - documento: limites (log de acesso, rampa nas estatísticas, respostas vazias como falha desde a revisão), como as consultas foram contadas e a proteção contra a produção.
 - Sugestão não aplicada: `--reset-stats`. As medições do documento incluem a rampa; trocar agora mudaria o método no meio do registro, então a rampa ficou anotada nos limites.
 - Situação: aprovado no recheck, aguardando o merge; DOC a ser avisado.
+
+## BD-09 — Monitor de disponibilidade
+
+- Issue: [#149](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/149). PR: [#226 — docs(operacao): monitor de disponibilidade (BD-09)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/226).
+- Ferramenta: Claude (Anthropic).
+- Apoio: texto do guia `docs/operacao/monitor-disponibilidade.md` (monitores, alertas, o que fazer ao receber um alerta, método de cálculo da disponibilidade na janela de 7h às 19h30), modelo do relatório parcial e links no menu lateral e no guia de deploy. O texto foi gerado pela IA e revisado, commitado e aplicado pelo autor.
+- Feito pelo autor, sem a IA: criação da conta e dos dois monitores no UptimeRobot (site e `/api/campi/` com a palavra `Darcy Ribeiro`, a cada 5 minutos, com alerta por e-mail) e conferência de que os dois ficaram `Up`.
+- Validação: monitores ativos e em `Up` no painel; a página `/api/campi/` foi aberta no navegador para escolher a palavra. Não há código nem testes nesta entrega.
+- Ajustes da revisão (Álvaro): o passo 3 do alerta deixou de mandar seguir "Atualizar" (que faz `git pull` e coloca código novo no meio do incidente) e passou a `docker compose up -d` sem `git pull`; o passo do `loaddata` avisa que ele regrava campi e marcadores; o monitor da API virou a medida oficial do RNF02 (o do site ficou como diagnóstico), para haver um só número e não o "pior dos dois"; o guia e o relatório mandam conferir o fuso da conta do UptimeRobot (America/Sao_Paulo); a meta é avaliada no período, e os 37,5 min por dia são uma média; o relatório ganhou metadados, critério dos dias de refeição, regra do que conta como queda e evidência (CSV exportado no fechamento); o alerta diz a quem avisar (grupo da equipe), como entrar na VM e o `cd` do repositório; e as sugestões menores (log do `db`, falso incidente se o nome do campus mudar, fórmulas em %, links por seção).
+- Ajustes da segunda revisão (Josué): o roteiro de alerta deixou de dizer que o backend fica `unhealthy` com o banco fora (o healthcheck só testa a porta do Gunicorn: o `ps` mostra `healthy` e a API dá 500) e cita `docker compose restart <serviço>` para container de pé com erro; o critério dos dias de refeição passou a valer para o RU do Darcy Ribeiro, com o calendário decidindo e sem excluir o fim de semana por regra (o 21/11 é dia incompleto de coleta); o modelo do relatório ganhou a coluna "Min na janela (que contam)" e o passo 3 foi reescrito; e as sugestões: não pausar o monitor da API, guardar o log de incidentes todo mês (com plano B), comandos do passo 4 e aviso de campus renomeado, regra de decisão sem arredondar (≤ 37,5 min × dias de refeição), incidente aberto no fechamento, erro de ±5 min, configuração do monitor de palavra-chave, e detalhes do modelo (print sem o e-mail da conta, linha `_preencher_`, link duplicado, pedir no grupo que ninguém faça merge na `main` durante o incidente).
+- Ajustes da terceira revisão (Álvaro): o critério dos dias de refeição passou a dizer que o Darcy serve aos domingos (#229) e que domingo com refeição conta; o passo 3 do alerta manda reiniciar o `db`, e não o backend, quando a causa do 500 é o banco; o texto sobre os campi vazios aponta para o passo 3. Subir (o motivo) e para a entrada do PR #211 no AI-USAGE (o caso em produção, em 20/11); uma nota diz que os links entre pastas seguem o formato do docsify e dão 404 abertos direto pelo GitHub; e a descrição do PR passou a seguir o template, com `Refs #149`.
+- Decisões a confirmar com o grupo: o monitor da API como medida oficial; o critério dos dias de refeição (calendário do RU); deploy planejado conta como queda e falso positivo confirmado não conta.
+- Fora deste PR: o relatório parcial segue com os campos em branco até haver dias de refeição completos. A issue #149 fecha depois que o relatório for preenchido.
+- Revisão humana: revisões de Álvaro e de Josué no [PR #226](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/226), todas respondidas.
+- Situação: aguardando nova aprovação.
 
 ## FE-18 — Testes de ponta a ponta com Playwright
 
