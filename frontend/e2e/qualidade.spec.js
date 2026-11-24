@@ -12,7 +12,10 @@ import { contaDoFluxo, entrar } from './apoio/contas'
 const PRATO_DO_GAMA = 'Silveirinha de carne'
 
 const cardapioDoGama = (page) =>
-  page.getByRole('region', { name: 'Cardápio' }).getByText(PRATO_DO_GAMA)
+  page
+    .getByRole('region', { name: 'Cardápio' })
+    .getByRole('listitem')
+    .filter({ hasText: PRATO_DO_GAMA })
 
 // Cada toque é conferido pela tela que ele abre: um passo a mais ou a menos
 // falha no passo certo. O aviso de localização (RF19) conta como interação
@@ -175,7 +178,7 @@ test.describe('RNF03 e FE-20: nenhuma tela passa da largura da janela', () => {
       ...TELAS_SEM_LOGIN.filter(({ rota }) =>
         [`/campus/${GAMA.id}`, '/inicio', '/avaliacoes', `/ranking/${GAMA.id}`].includes(rota),
       ),
-      { rota: '/progresso', pronta: (page) => page.getByText(conta.apelido) },
+      { rota: '/progresso', pronta: (page) => page.getByRole('banner').getByText(conta.apelido) },
     ]
     for (const { rota, pronta } of telas) {
       await page.goto(rota)

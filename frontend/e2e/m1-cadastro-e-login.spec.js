@@ -50,7 +50,8 @@ test('cadastro de aluno, confirmação pelo link do e-mail, login e logout', asy
 
   await expect(page).not.toHaveURL(/\/login/)
   await page.goto('/progresso')
-  await expect(page.getByText(apelido)).toBeVisible()
+  // No cabeçalho da tela: no desktop, a lateral também mostra o apelido.
+  await expect(page.getByRole('banner').getByText(apelido)).toBeVisible()
 
   // Logout (RF03.3): volta às boas-vindas, e a sessão acabou no servidor.
   await page.getByRole('button', { name: 'Sair da conta' }).click()
@@ -58,5 +59,6 @@ test('cadastro de aluno, confirmação pelo link do e-mail, login e logout', asy
   await expect(page.getByRole('link', { name: 'Entrar na conta' })).toBeVisible()
   await page.goto('/progresso')
   await expect(page.getByText('Entre para ver seu progresso')).toBeVisible()
-  await expect(page.getByText(apelido)).toBeHidden()
+  await expect(page.getByRole('banner').getByText(apelido)).toBeHidden()
+  await expect(page.getByText(apelido)).toHaveCount(0)
 })

@@ -2,6 +2,10 @@ import { test, expect, GAMA } from './apoio/teste'
 import { contaDoFluxo, entrar } from './apoio/contas'
 
 /** A lista do ranking ou o estado vazio: o ranking do campus terminou de carregar. */
+// O apelido na lista do ranking: no desktop, a lateral também mostra o
+// apelido de quem entrou (FE-23).
+const naLista = (page, apelido) => page.locator('[data-teste="ranking-lista"]').getByText(apelido)
+
 const rankingCarregado = (page) =>
   page.locator('[data-teste="ranking-lista"]').or(page.getByText('Ninguém no ranking ainda'))
 
@@ -31,7 +35,7 @@ test('previsão da fila, patente no progresso e entrada no ranking', async ({ pa
   // com um erro, o apelido também não apareceria.
   await page.goto(`/ranking/${GAMA.id}`)
   await expect(rankingCarregado(page)).toBeVisible()
-  await expect(page.getByText(conta.apelido)).toBeHidden()
+  await expect(naLista(page, conta.apelido)).toBeHidden()
 
   // Só aparece no ranking quem escolhe participar (RF26.2, RI12).
   await page.goto('/progresso')
@@ -46,5 +50,5 @@ test('previsão da fila, patente no progresso e entrada no ranking', async ({ pa
     'aria-pressed',
     'true',
   )
-  await expect(page.getByText(conta.apelido)).toBeVisible()
+  await expect(naLista(page, conta.apelido)).toBeVisible()
 })
