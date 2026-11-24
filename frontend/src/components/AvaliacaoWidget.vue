@@ -276,9 +276,10 @@ async function enviar() {
 </script>
 
 <template>
-  <section class="pilha-4" aria-label="Avaliações da refeição">
+  <section class="widget-avaliacao pilha-4" aria-label="Avaliações da refeição">
     <div class="cartao resumo" data-teste="avaliacao-resumo">
       <template v-if="resumo?.quantidade">
+        <p class="sobretitulo resumo-rotulo" aria-hidden="true">Média geral</p>
         <EstrelasNota :valor="resumo.media" :tamanho="15" />
         <span class="resumo-nota" data-teste="avaliacao-media">{{
           formatarNota(resumo.media)
@@ -707,5 +708,68 @@ async function enviar() {
 
 .enviada-titulo:focus {
   outline: none;
+}
+
+.resumo-rotulo {
+  display: none;
+}
+
+/* Desktop (FE-23, protótipo desktop): o resumo e a avaliação lado a lado,
+   os comentários embaixo, na largura toda. */
+@media (min-width: 1024px) {
+  .widget-avaliacao {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .widget-avaliacao > * {
+    grid-column: 1 / -1;
+    margin-top: 0 !important;
+  }
+  .widget-avaliacao > .resumo {
+    grid-column: 1;
+    align-self: stretch;
+  }
+  .widget-avaliacao > .resumo + * {
+    grid-column: 2;
+    align-self: stretch;
+  }
+  .widget-avaliacao > .cartao,
+  .widget-avaliacao > .resumo + * {
+    padding: 28px;
+    border-radius: var(--raio-xl);
+    box-shadow: 0 8px 22px var(--sombra-cartao);
+  }
+  /* Resumo: a média grande, como no protótipo. */
+  .widget-avaliacao > .resumo {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 6px;
+  }
+  .resumo-rotulo {
+    display: block;
+    margin: 0;
+  }
+  .resumo-nota {
+    order: -1;
+    font: 900 64px / 0.95 var(--fonte-titulo);
+    letter-spacing: -0.06em;
+    color: var(--verde-escuro);
+  }
+  .resumo-rotulo {
+    order: -2;
+  }
+  .widget-avaliacao > .titulo-secao {
+    margin-top: 16px !important;
+    font-size: 22px;
+    letter-spacing: -0.03em;
+  }
+  .widget-avaliacao > .comentario-item {
+    padding: 18px 24px;
+    border-radius: 18px;
+  }
 }
 </style>
