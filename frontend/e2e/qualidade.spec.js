@@ -45,7 +45,7 @@ test.describe('RNF03: interações até o cardápio na primeira visita', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0)
   })
 
-  // Bug aberto (#ISSUE_BOAS_VINDAS): a Release 2 conta 2 interações sem
+  // Bug aberto (#301): a Release 2 conta 2 interações sem
   // permissão ("Agora não" e o campus), mas a boas-vindas pede o
   // "Continuar sem login" no meio. Quando for corrigido, este teste passa a
   // passar, o test.fail() acusa, e o checklist precisa ser atualizado.

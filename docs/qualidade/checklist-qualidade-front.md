@@ -97,6 +97,6 @@ Preencher com o número da versão, quem conferiu e a data. Problema encontrado 
 
 | Achado | Requisito | Situação |
 |---|---|---|
-| Bug 1. Sem permitir a localização, a primeira visita leva 3 interações até o cardápio, e a Release 2 prevê 2 ("Continuar sem login" a mais) | RNF03 | #ISSUE_BOAS_VINDAS |
-| Bug 2. Cores e raios fora dos tokens do guia de estilo | RF17 | #ISSUE_TOKENS |
+| Bug 1. Sem permitir a localização, a primeira visita leva 3 interações até o cardápio, e a Release 2 prevê 2 ("Continuar sem login" a mais) | RNF03 | #301 |
+| Bug 2. Cores e raios fora dos tokens do guia de estilo | RF17 | #302 |
 | Pendência 1. Com a localização permitida, 4 interações até o cardápio, porque a detecção do campus não foi feita | RNF03, RF20.1 | EXTRA 3 (FE-E3), sem issue nesta release |
