@@ -12,12 +12,12 @@ O plano de ensino trata a cobertura como **piso, não como prova de qualidade**.
 
 | Métrica | Meta | Onde | Como se confere |
 |---|---|---|---|
-| Cobertura de linhas | **≥ 70%** | Módulos críticos (seção 2) | `coverage.py` (back) e `@vitest/coverage-v8` (front), com o CI falhando abaixo da meta |
+| Cobertura de linhas | **≥ 70%** | Módulos críticos (seção 2), cada um | `coverage.py` (back) e `@vitest/coverage-v8` (front), com o CI falhando abaixo da meta. No back, o CI mede linhas e ramos juntos (`--cov-branch`), com duas casas decimais, sem arredondar a meta para cima |
 | Escore de mutação | **≥ 50%** | Módulos críticos | `mutmut` (back) e StrykerJS (front) |
 | Teste de sabotagem | **100%** dos módulos críticos | Módulos críticos | Defeito proposital em cada módulo; a suíte tem que quebrar. Registro na seção 6 |
 | Achados críticos/altos em SAST | **0 em aberto** | Todo o código e as dependências | `bandit`, Semgrep, `pip-audit` e `npm audit` |
 
-A cobertura de ramos (branches) também sai no relatório, para orientar a revisão, mas não bloqueia o PR.
+A cobertura de ramos (branches) também sai no relatório, para orientar a revisão. No back, ela entra no percentual que bloqueia o PR: com `--cov-branch`, o `coverage.py` soma linhas e ramos num número só, que costuma ficar abaixo do de linhas. Se um módulo ficar entre os dois (linhas ≥ 70% e o combinado abaixo), o relatório registra os dois.
 
 **Porta de qualidade da entrega:** a nota da Release 2 só é lançada com o software implantado e acessível, o **CI verde no commit da entrega** e **nenhuma vulnerabilidade crítica ou alta** em aberto (plano de ensino, Condições de Aprovação).
 
@@ -31,10 +31,10 @@ São os do RNF06, no que entrou na R2. São eles que precisam cumprir as metas d
 |---|---|---|
 | Cadastro e autenticação | `apps/cadastro` | `stores/auth.js`, validações do cadastro, guardas do `router` |
 | Leitura do cardápio (com os ícones) | `apps/cardapio/leitor` | — |
-| Exposição do cardápio e filtros | `apps/cardapio` (serviços de consulta e filtros) | `stores/cardapio.js`, `utils/cardapio.js` |
+| Exposição do cardápio e filtros | `apps/cardapio` sem o leitor (serviços de consulta e filtros, e também views, serializers, models e comandos: a cobertura e a mutação medem o app inteiro menos o `leitor/`) | `stores/cardapio.js`, `utils/cardapio.js` |
 | Avaliação | `apps/avaliacao` | `stores/avaliacoes.js` |
-| Fila (check-in, previsão) | `apps/fila` | `filaStore`, `CheckinBotao`, `FilaPrevisao` |
-| Gamificação (pontos, patente, ranking) | `apps/gamificacao` | `gamificacaoStore` |
+| Fila (check-in, previsão) | `apps/fila` | `filaStore`, `services/leituraPosicao.js`, `CheckinBotao`, `FilaPrevisao` |
+| Gamificação (pontos, patente, ranking) | `apps/gamificacao` | `gamificacaoStore`, `PontosAviso` |
 | Comunicação com a API | — | `services/apiClient.js` |
 
 Se um extra entrar (EXTRA 1, 3 ou 7), o módulo dele entra nesta tabela no mesmo PR.
@@ -99,8 +99,12 @@ Um navegador de verdade fazendo os fluxos do usuário, com PWA, API e banco roda
 | Avaliar → aviso "+N pontos" (`PontosAviso`); editar → sem aviso | M3 |
 | Previsão de pico, progresso e ranking | M4 |
 
-- **Ferramenta:** Playwright (a pasta `frontend/e2e/` já está excluída do vitest).
-- **Quando:** todo PR para a `develop` que mexe no back ou no front, e de novo na `main`. Os testes manuais em produção (BD-08, QA-04, QA-09) continuam e não substituem estes.
+- **Ferramenta:** Playwright (`@playwright/test`, só o Chromium), com dois projetos: celular (360×800, toque) e desktop (1366×768), conforme a FE-20. A pasta `frontend/e2e/` fica fora do Vitest.
+- **Quando:** todo PR (job `ponta-a-ponta`, seção 5.3) e todo push na `develop` e na `main`. Os testes manuais em produção (BD-08, QA-04, QA-09) continuam e não substituem estes.
+- **Onde rodam:** `frontend/e2e/docker-compose.yml` sobe o PWA de produção no Caddy, a API no Gunicorn e o MySQL 8.4, com as imagens de produção, mais o Mailpit (SMTP de teste). Diferenças para produção: HTTP em `localhost:8080`, cookies sem o flag `Secure`, e-mail no Mailpit e o relógio do backend começando na segunda-feira, 23/11/2026, às 12h de Brasília (libfaketime), a cada subida do container, e andando dali em diante. É o que deixa o check-in e a avaliação dentro do horário do almoço a qualquer hora do dia; o `globalSetup` recria o backend antes de cada rodada, para o relógio voltar ao meio-dia, e o healthcheck do backend confere que ele está no almoço de 23/11 (o que também prova que a libfaketime carregou). O navegador usa o mesmo instante (`page.clock`) e o fuso de Brasília.
+- **Dados:** as fixtures da BD-03 (campi e marcadores) e as de `frontend/e2e/dados/`: o cardápio da semana de 23/11 do Gama, gerado pelo leitor de PDF de verdade a partir do PDF de teste do backend; oito contas confirmadas, uma por teste e por projeto (celular e desktop) nos fluxos M2 a M4; e o histórico do almoço do Gama nas três segundas anteriores, para a previsão de pico. Antes de cada rodada, o `globalSetup` limpa o banco e o cache e carrega tudo de novo. O cache guarda os contadores do limite de taxa: com `ATRAS_DE_PROXY_HTTPS=False`, todo pedido conta como o IP do Caddy, e o limite de login estouraria em poucas rodadas seguidas.
+- **Contas:** o M1 cria a conta pela tela e lê o link de confirmação na API do Mailpit. Os outros fluxos entram com as contas da fixture, para não depender do e-mail: o M2 com uma conta que aceitou uma versão antiga do aviso de privacidade (o aviso aparece antes do GPS) e outra para o check-in recusado longe do RU, o M3 com uma conta que já fez check-in no almoço (a avaliação só pontua assim, RN09) e o M4 com uma conta de 160 pontos que ainda não participa do ranking.
+- **Localização:** a do RU do Gama, pelas permissões e pela geolocalização do contexto do Playwright. Nos fluxos sem GPS, o aviso de localização (RF19) é respondido com "Agora não", como a pessoa faria.
 
 ### 3.6 Segurança
 
@@ -224,15 +228,15 @@ O link do PR de prova vermelho fica na descrição do PR que cria cada porta (BE
 
 Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR para a `develop` e para a `main`. A proteção da branch exige todos os jobs verdes para mesclar.
 
-### 5.1 `backend-ci.yml` (BE-02, BD-02, BE-19)
+### 5.1 `backend-ci.yml` (BE-02, BD-02, BE-19, BE-18)
 
 | Job | Comandos | Bloqueia o merge |
 |---|---|---|
 | `lint` | `ruff check .` e `ruff format --check .` | Sim |
-| `testes` | `pytest --cov --cov-branch` com SQLite; depois `coverage report --include=<módulos críticos> --fail-under=70` | Sim |
+| `testes` | `pytest --cov=apps --cov-branch --cov-fail-under=70` com SQLite; depois `coverage report --include=<módulo> --fail-under=70` para **cada** módulo crítico da seção 2 (o `cardapio` sem o leitor, com `--omit`), com a tabela de cada um no resumo do run (BE-18). O passo mede os seis e só depois falha; ele roda se o `pytest` passou | Sim |
 | `testes-mysql` | Mesma suíte com MySQL 8.4 `utf8mb4`, collation `utf8mb4_0900_ai_ci` e isolamento explícito READ COMMITTED (BD-02). Executado em todos os PRs para `develop` e `main`, inclusive os que não alteram migrations | Sim, obrigatório na `develop` |
 | `contrato` | `manage.py spectacular --validate` e comparação com o contrato do repositório | Sim |
-| `seguranca` | `bandit -r apps -lll` (falha em severidade alta), Semgrep, `pip-audit` | Sim |
+| `seguranca` | `bandit -r apps config -lll` (falha em severidade alta), Semgrep, `pip-audit` | Sim |
 | `mutacao` | `mutmut run` nos arquivos críticos alterados; falha abaixo de 50% | Sim, quando roda |
 
 **Como o job `mutacao` funciona (BE-19):**
@@ -267,26 +271,49 @@ Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR par
 
 **Decisão sobre collation (BD-02):** o banco de testes MySQL mantém `utf8mb4_0900_ai_ci`, que ignora diferenças de acentos e maiúsculas/minúsculas nas comparações. Assim, `"Açúcar"` e `"acucar"` são considerados iguais: inserir ambos em `Marcador.nome`, que possui restrição de unicidade, provoca `IntegrityError` no MySQL. No SQLite, com a comparação padrão desse campo, os dois valores podem coexistir. Essa diferença entre os bancos é conhecida e fica documentada; a collation do MySQL é mantida.
 
-### 5.2 `frontend-ci.yml` (FE-02, FE-17)
+### 5.2 `frontend-ci.yml` (FE-02, FE-17, FE-19)
 
 | Job | Comandos | Bloqueia o merge |
 |---|---|---|
 | `lint` | ESLint e Oxlint **sem `--fix`** (novo script `lint:ci`; o `lint` atual corrige sozinho e esconderia o erro no CI) | Sim |
-| `testes` | `vitest run --coverage`, com `coverage.thresholds` de 70% de linhas nos arquivos críticos | Sim |
+| `testes` | `vitest run --coverage`, com `coverage.thresholds` de 70% de linhas em **cada** arquivo crítico (a mesma lista da mutação); depois `node scripts/cobertura.mjs resumo`, com a tabela por módulo no resumo do run (FE-19) | Sim |
 | `build` | `vite build` | Sim |
 | `seguranca` | Semgrep e `npm audit --audit-level=high` | Sim |
 | `mutacao` | StrykerJS incremental nos arquivos críticos alterados; falha abaixo de 50% | Sim, quando roda |
+
+**Como o job `mutacao (front)` funciona (FE-17):**
+
+- **Configuração:** `frontend/stryker.config.mjs` (StrykerJS 10 com `@stryker-mutator/vitest-runner`, cobertura por teste). Os arquivos mutados são os módulos críticos da seção 2, listados no `MODULOS` do `frontend/scripts/mutacao.mjs`: `auth` (`stores/auth.js`, guardas do `router`), `cardapio` (`stores/cardapio.js`, `utils/cardapio.js`), `avaliacao` (`stores/avaliacoes.js`), `fila` (`stores/fila.js`, `services/leituraPosicao.js`, `CheckinBotao`, `FilaPrevisao`), `gamificacao` (`stores/gamificacao.js`, `PontosAviso`) e `api` (`services/apiClient.js`). Há teste que confere os dois sentidos: todo arquivo com meta de cobertura no `vitest.config.js` também é mutado, e todo arquivo mutado também tem meta de 70% de linhas (FE-19). O `vitest.config.js` monta as metas a partir da mesma lista (`ARQUIVOS_CRITICOS`), então as duas portas não divergem. As validações do cadastro ficam na `CadastroView` e são cobertas pelos testes do fluxo da conta, não pela mutação da view inteira.
+- **Arquivos escolhidos:** `node scripts/mutacao.mjs alvos origin/<base>` lista os arquivos do `git diff --name-only origin/<base>...HEAD` e devolve os críticos alterados, que vão para o `--mutate` do Stryker. Um **teste alterado** conta para o arquivo crítico de mesmo nome, cortando o nome no primeiro ponto (`x.test.js` e `x.propriedades.test.js` apontam para `x.js` ou `x.vue`). **Sem correspondência por nome**, o teste conta para os arquivos críticos que ele importa, direta ou indiretamente, seguindo também o `import()` dinâmico das rotas: um teste de tela, que monta o `App` com o roteador, chega à base inteira (como o app inteiro no backend). Uma **mudança na configuração da mutação** (`stryker.config.mjs`, `vitest.config.js`, `vite.config.js`, `package.json`, `package-lock.json`, o script, o `frontend-ci.yml` ou o servidor simulado em `src/services/mock/`, que os testes de todas as stores críticas usam, como os fixtures no backend; um `setupFiles` do Vitest, se for criado, entra nessa lista) sem nenhum arquivo crítico alterado muta um alvo fixo, o `utils/cardapio.js`; com outro alvo no PR, o alvo fixo não entra, para não diluir o escore do que mudou. Arquivo crítico apagado no PR não vira alvo.
+- **Nada a testar:** sem nenhum desses arquivos alterado, o job roda e termina verde sem chamar o Stryker (sem filtro `paths:`, para o check obrigatório não ficar pendente). O PR de release (`develop` → `main`) pula o job, como no backend.
+- **Escore:** `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`, como o Stryker calcula. `CompileError`, `RuntimeError`, `Ignored` e `Pending` ficam fora da conta. No PR, a meta vale para o conjunto dos mutantes rodados: o `thresholds.break: 50` do `stryker.config.mjs` compara o valor exato, e o `scripts/mutacao.mjs escore` repete a conta no resumo do run, mostrando duas casas truncadas (o veredito é o mesmo).
+- **Quando o job falha sem medir:** o step de escore roda sempre que o Stryker rodou, mesmo sem relatório. Relatório ausente ou ilegível, nenhum mutante avaliado, `--minimo` inválido ou (na rodada semanal) módulo crítico fora do relatório saem com 2 e reprovam o job, em vez de ficar verde sem ter medido.
+- **Componentes `.vue`:** o Stryker envolve os valores em chamadas `stryMutAct_*`/`stryCov_*`, declaradas no próprio script, e o `defineProps`, içado para fora do `setup()`, não pode referenciar variáveis locais. Por isso o argumento do `defineProps` fica entre `// Stryker disable all` e `// Stryker restore all`.
+- **Relatório:** o resumo sai na página do run, e o HTML e o JSON do Stryker ficam no artefato `mutacao-front`.
+- **Na máquina:** `cd frontend`, `npm run mutacao -- --mutate src/stores/fila.js` (um arquivo) ou `npm run mutacao` (a base inteira, dezenas de minutos), e o relatório em `reports/mutation/mutation.html`.
+
+**Como o passo de cobertura funciona (FE-19):**
+
+- **Meta:** 70% de linhas em cada arquivo crítico da seção 2, não na média do front: um arquivo fraco não se esconde atrás dos outros. A lista de metas vem do `ARQUIVOS_CRITICOS` do `scripts/mutacao.mjs`, e o valor do `MINIMO_COBERTURA` do `scripts/cobertura.mjs`, usado pelo `vitest.config.js` e pelo workflow.
+- **Relatório:** `scripts/cobertura.mjs resumo coverage/coverage-summary.json` lê o `coverage-summary.json` e escreve, no resumo do run, a tabela de cada arquivo crítico (módulo, linhas cobertas e porcentagem com duas casas truncadas) e a linha do conjunto. O HTML completo fica no artefato `cobertura-front`. O Vitest já reprova abaixo da meta, e o script repete a conta sobre o mesmo relatório para o veredito e a tabela saírem do mesmo número.
+- **Quando o passo falha sem medir:** relatório ausente, ilegível ou com formato errado, arquivo crítico fora do relatório, sem nenhuma linha (0 de 0 não prova nada) ou com linhas malformadas, e `--minimo` inválido saem com 2, e o passo reprova em vez de ficar verde sem ter medido. Abaixo da meta, sai com 1. Com arquivo ausente e arquivo abaixo ao mesmo tempo, sai com 2. O motivo sai no resumo do run (**Não medido** ou **Abaixo de 70%**, com o arquivo) e como anotação `::error::`.
+- **O que só o script pega:** uma chave do `coverage.thresholds` que não casa com nenhum arquivo é avaliada pelo Vitest sobre 0 de 0 linhas e conta como 100%, sem aviso. Arquivo crítico ausente reprova pelo script (saída 2), não pelo Vitest.
+- **SAST:** sem mudança de ferramenta. O job `seguranca (front)` (`npm audit --audit-level=high` e Semgrep com severidade ERROR) é o relatório da meta de 0 achados críticos ou altos; o resultado de cada rodada fica no log do job.
+- **Na máquina:** `cd frontend`, `npm run test:ci` e depois `node scripts/cobertura.mjs resumo coverage/coverage-summary.json`.
 
 ### 5.3 `e2e.yml` (FE-18)
 
 | Job | Comandos | Bloqueia o merge |
 |---|---|---|
-| `ponta-a-ponta` | Sobe PWA, API e banco com `docker compose`, carrega as fixtures (BD-03) e roda o Playwright | Sim, a partir do M2 |
+| `ponta-a-ponta` | Sobe PWA, API e banco com o `frontend/e2e/docker-compose.yml`, carrega as fixtures (BD-03 e as do e2e) e roda o Playwright no celular e no desktop | Sim, a partir do M2 |
+
+**Como o job `ponta-a-ponta` funciona (FE-18):** `.github/workflows/e2e.yml`, em todo PR (sem filtro `paths:`) e no push na `develop` e na `main`. Builda as imagens de produção do backend e do PWA, espera os healthchecks do MySQL, do Gunicorn e do Caddy (`docker compose up --wait`) e roda `npx playwright test`. Em falha, o log da pilha sai no próprio job e o relatório do Playwright, com o trace do teste que falhou, fica no artefato `e2e-relatorio`. Não há segunda tentativa: o banco só é limpo uma vez por rodada, e uma tentativa nova do M2, do M3 ou do M4 falharia pelo que a primeira gravou (check-in feito, avaliação enviada, adesão ligada), escondendo a causa real.
 
 ### 5.4 Rodadas agendadas
 
 - **Toda semana** (e antes de 22/11): mutação na base inteira, back e front, para pegar o escore de quem não mexeu em módulo crítico recentemente.
   - **Back:** `.github/workflows/backend-mutacao-semanal.yml`, aos domingos às 06:00 UTC (03:00 em Brasília), na `develop`; à mão, pelo `workflow_dispatch`, na branch escolhida. Um job por módulo crítico (`cadastro`, `cardapio/leitor`, `cardapio` sem o leitor, `avaliacao`, `fila`, `gamificacao`), com até 5 horas cada, para a base inteira (cerca de 5.240 mutantes, quase metade no leitor) não passar do limite de 6 horas de um job do GitHub. Um último job junta os seis resultados e falha se **algum** módulo ficar abaixo de 50%, se faltar o resultado de algum ou se algum job de módulo não terminou bem (quebrou, passou do tempo ou foi cancelado), porque um resultado parcial não vale. Mesma fórmula do escore do job `mutacao`.
+  - **Front:** `.github/workflows/frontend-mutacao-semanal.yml`, aos domingos às 07:00 UTC (04:00 em Brasília), na `develop`; à mão, pelo `workflow_dispatch`, na branch escolhida. Um job só com todos os arquivos críticos (perto de 2 mil mutantes, dezenas de minutos), e o `scripts/mutacao.mjs escore --por-modulo` reprova a rodada se **algum** módulo crítico ficar abaixo de 50%, mesmo com o geral acima, ou se algum módulo faltar no relatório.
 - **Antes da entrega:** o commit da entrega precisa ter todos os workflows verdes (porta da Release 2).
 
 ---

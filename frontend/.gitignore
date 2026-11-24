@@ -37,3 +37,13 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Stryker (mutação, FE-17)
+.stryker-tmp
+reports/
+
+# Playwright (testes de ponta a ponta, FE-18)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
