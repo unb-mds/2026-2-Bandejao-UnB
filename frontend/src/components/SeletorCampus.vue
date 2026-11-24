@@ -74,17 +74,26 @@ function escolher(id) {
     </template>
   </div>
 
-  <div v-else class="tela">
+  <div v-else class="tela tela-campus">
     <header class="cabecalho cabecalho-campus fundo-escuro">
       <div class="marca">
         <AppLogo :tamanho="36" />
         <span class="nome">bandejão</span>
       </div>
+      <p class="sobretitulo so-desktop">Antes de começar</p>
       <h1 class="titulo-tela">Qual campus<br />você frequenta?</h1>
       <p class="subtitulo-tela subtitulo">Pode trocar depois a qualquer momento</p>
+      <!-- Desktop (FE-23): os passos do protótipo, só como indicação visual. -->
+      <ol class="passos so-desktop" aria-hidden="true">
+        <li class="passo--feito"><span>1</span> Conta ou visitante</li>
+        <li class="passo--atual"><span>2</span> Escolher campus</li>
+        <li><span>3</span> Acessar o Bandejão</li>
+      </ol>
     </header>
 
     <div class="conteudo sem-barra">
+      <p class="sobretitulo so-desktop">Selecione uma unidade</p>
+      <p class="titulo-lista so-desktop" aria-hidden="true">Qual campus você quer consultar?</p>
       <p
         v-if="cardapio.carregandoCampi || (!cardapio.campiCarregados && !cardapio.erroCampi)"
         class="estado"
@@ -228,5 +237,104 @@ function escolher(id) {
 
 .estado .botao-pequeno {
   margin-top: 12px;
+}
+
+/* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
+.so-desktop {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .tela-campus {
+    display: grid;
+    grid-template-columns: minmax(360px, 464px) minmax(0, 1fr);
+    height: 100%;
+  }
+  .cabecalho-campus {
+    justify-content: flex-start;
+    padding: clamp(32px, 4vw, 58px) clamp(32px, 5vw, 68px);
+  }
+  .cabecalho-campus .marca {
+    margin-bottom: auto;
+  }
+  .so-desktop {
+    display: block;
+  }
+  .cabecalho-campus .sobretitulo {
+    margin-top: 48px;
+  }
+  .cabecalho-campus .titulo-tela {
+    font-size: clamp(44px, 4.4vw, 64px);
+    line-height: 0.98;
+    letter-spacing: -0.06em;
+  }
+  .cabecalho-campus .subtitulo {
+    margin-top: 22px;
+    font-size: 12px;
+  }
+  .passos {
+    display: flex;
+    gap: 0;
+    margin-top: auto;
+    padding-top: 40px;
+    list-style: none;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--branco-35);
+  }
+  .passos li {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .passos span {
+    display: grid;
+    place-items: center;
+    width: 23px;
+    height: 23px;
+    border: 1px solid var(--branco-20);
+    border-radius: 50%;
+  }
+  .passos .passo--feito,
+  .passos .passo--atual {
+    color: #fff;
+  }
+  .passo--feito span {
+    border-color: var(--dourado);
+    color: var(--verde-escuro);
+    background: var(--dourado);
+  }
+  .passo--atual span {
+    border-color: var(--dourado);
+    color: var(--dourado);
+  }
+
+  .tela-campus .conteudo {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px clamp(40px, 7vw, 96px);
+  }
+  .titulo-lista {
+    margin-bottom: 26px;
+    font: 900 clamp(26px, 2.4vw, 34px) / 1.1 var(--fonte-titulo);
+    letter-spacing: -0.04em;
+    color: var(--verde-escuro);
+  }
+  .lista {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    max-width: 720px;
+    padding: 0;
+  }
+  .lista > * + * {
+    margin-top: 0;
+  }
+  .campus {
+    min-height: 78px;
+    border-radius: 16px;
+  }
 }
 </style>
