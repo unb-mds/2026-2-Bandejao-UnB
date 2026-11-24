@@ -1,6 +1,9 @@
-# Caddy dos testes de ponta a ponta (FE-18): as mesmas regras do Caddyfile de
-# produção (PWA e API no mesmo endereço, ADR 0007), mas em HTTP na porta 80
-# do container, sem pedir certificado.
+# Caddy dos testes de ponta a ponta (FE-18): o mesmo roteamento do Caddyfile
+# de produção (PWA e API no mesmo endereço, ADR 0007; /api e /admin para o
+# backend e o resto para o build do PWA), em HTTP na porta 80 do container,
+# sem pedir certificado. Ficam de fora o que não muda os fluxos testados: os
+# cabeçalhos de segurança, a compressão, o cache longo dos /assets e o
+# /static/ do admin.
 {
 	auto_https off
 }

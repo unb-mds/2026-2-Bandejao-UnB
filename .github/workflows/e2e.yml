@@ -63,7 +63,7 @@ jobs:
           path: |
             frontend/playwright-report/
             frontend/test-results/
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
       - name: Derrubar a pilha
         if: ${{ always() }}

@@ -57,7 +57,7 @@ no Docker (`e2e/docker-compose.yml`), no celular (360×800) e no desktop (1366×
 Docker e do Chromium do Playwright:
 
 ```sh
-npx playwright install chromium   # uma vez
+npx playwright install --with-deps chromium   # uma vez (com as bibliotecas do sistema)
 npm run e2e:subir                 # builda e sobe PWA, API, MySQL e Mailpit (localhost:8080)
 npm run e2e                       # limpa o banco, carrega as fixtures e roda os testes
 npm run e2e -- --project celular  # só um projeto
