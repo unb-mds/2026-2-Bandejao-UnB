@@ -960,7 +960,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## #286 — Cores e raios pelos tokens do guia de estilo (RF17)
 
-- Issue: [#286](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/286). PR: a abrir. Relacionada: FE-16 ([#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192), PR [#287](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287)).
+- Issue: [#286](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/286). PR: [#290](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/290). Relacionada: FE-16 ([#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192), PR [#287](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287)).
 - Ferramenta: Claude (Anthropic), em 24/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
 - Apoio:
   - tokens novos no `base.css`: `--branco`, `--fundo-dialogo`, `--sombra-cartao`, `--sombra-flutuante`, `--sombra-menu`, `--sombra-destaque`, `--sombra-logo`, `--raio-xs` (6 px) e `--raio-2xs` (2 px);
