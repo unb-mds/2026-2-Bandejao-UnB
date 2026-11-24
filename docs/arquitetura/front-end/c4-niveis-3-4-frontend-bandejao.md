@@ -672,7 +672,7 @@ formaliza os padrões nele observados e os estende para a Release 2:
 
 | Rota | View | Observação |
 |---|---|---|
-| `/` | — (redireciona) | Resolve o campus pela RN04 e vai para `/campus/:campusId`; na primeira visita, para as boas-vindas, que levam ao seletor |
+| `/` | — (redireciona) | Resolve o campus pela RN04 e vai para `/campus/:campusId`; na primeira visita, para as boas-vindas, que têm o "Entrar na conta" e a escolha do campus (sem a localização, 2 interações até o cardápio: "Agora não" e o campus, RNF03, #285) |
 | `/campus` | `SeletorCampus` | Quando a RN04 não resolve nenhum campus; destino do "Trocar" da tela do campus |
 | `/campus/:campusId` | `CampusView` | Tela do campus (RF20). Destino do login (RF03.4) |
 | `/cardapio`, `/fila` | — (redireciona) | Rotas do MVP mantidas para links antigos: vão para a tela do campus lembrado (`/fila` com `#fila`) ou, sem campus, para `/campus` |
