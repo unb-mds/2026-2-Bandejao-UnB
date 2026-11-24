@@ -19,11 +19,12 @@
  * O `GET /cardapio/` segue o contrato da BE-11 (#214), com o 404
  * `campus_nao_encontrado` depois de todos os 400 (#217), mais o campo
  * `semServico` proposto na revisão da FE-08 (#219); o resumo do dia responde
- * 501, como o backend, depois de `simulacao.definirResumoDoDiaDisponivel(false)`.
+ * 501, para testar a defesa do front contra um backend sem a rota, depois de
+ * `simulacao.definirResumoDoDiaDisponivel(false)`.
  * As avaliações seguem o contrato da BE-13 (FE-09): `POST /avaliacoes/` e
  * `GET /refeicoes/{refeicaoId}/avaliacoes/`, com o `refeicaoId` do resumo do
- * dia; as duas respondem 501, como o backend hoje, depois de
- * `simulacao.definirAvaliacoesDisponiveis(false)`. O `GET /fila/previsao/`
+ * dia; as duas respondem 501, para testar a defesa do front contra um backend
+ * sem a BE-13, depois de `simulacao.definirAvaliacoesDisponiveis(false)`. O `GET /fila/previsao/`
  * (FE-11) segue o contrato da BE-15 (#236), com uma previsão de exemplo de
  * `./previsao.js`; `simulacao.definirPrevisaoDisponivel(false)` faz ele
  * responder 501, para testar a defesa do front contra um backend sem a rota.

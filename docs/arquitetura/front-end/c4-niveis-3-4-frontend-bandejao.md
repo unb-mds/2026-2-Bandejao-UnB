@@ -766,8 +766,8 @@ dieta e os marcadores vão com os nomes do backend (`sem_filtro`,
 abrir o app. O filtro no cliente saiu: os pratos com marcador selecionado
 continuam na tela, sinalizados (`contemMarcadorSelecionado`), e a categoria
 sem opção mostra o aviso (`semOpcaoCompativel`, RF08). O `SeletorRefeicao`
-mostra a nota de cada refeição pelo resumo do dia; enquanto o resumo
-responde 501, mostra café, almoço e jantar sem nota, e uma refeição que o
+mostra a nota de cada refeição pelo resumo do dia; se o resumo responder
+501 (um backend sem a rota), mostra café, almoço e jantar sem nota, e uma refeição que o
 dia não serve aparece como "Esta refeição não é servida neste dia". O dia
 sem serviço vem pelo campo `semServico` (proposto ao backend na revisão do
 PR #219; o simulado já o manda) ou por uma `data` diferente do dia pedido. Um
@@ -782,8 +782,8 @@ resumo do dia, e o `GET /api/avaliacoes/resumo/` só com o campus devolve o
 dia corrente. A `avaliacoesStore` pede o resumo de cada dia da semana
 (segunda a domingo) e junta a média, ponderada pela quantidade, e a
 quantidade; se um dia falhar, os cartões dizem que não foi possível carregar
-as avaliações da semana (#259). O resumo da semana e a lista
-`GET /api/avaliacoes/` do MVP saíram da store e do simulado.
+as avaliações da semana (#259). O formato de semana do MVP (o resumo da
+semana) e a lista `GET /api/avaliacoes/` saíram da store e do simulado.
 
 O `apiClient` é o único ponto que conhece a URL base da API, envia o
 cookie de sessão e o cabeçalho CSRF nas escritas, e trata erros de forma

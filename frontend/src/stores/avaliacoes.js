@@ -37,8 +37,8 @@ const FALHAS_DO_ENVIO = {
  *
  * O resumo do dia dá o `refeicaoId` de cada refeição;
  * `GET /api/refeicoes/{refeicaoId}/avaliacoes/` dá a média, a quantidade e os
- * comentários; `POST /api/avaliacoes/` cria ou edita (upsert). Enquanto o
- * backend responde 501 nessas rotas, a situação fica 'indisponivel', sem erro.
+ * comentários; `POST /api/avaliacoes/` cria ou edita (upsert). Se um backend
+ * sem essas rotas responder 501, a situação fica 'indisponivel', sem erro.
  *
  * O contrato não tem "minha avaliação": ela vem da resposta do POST e, depois
  * de recarregar a página, do comentário com o apelido da sessão (o apelido é
@@ -118,6 +118,10 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
    *
    * Qualquer dia que falhe, ou que venha fora do formato, faz a semana toda
    * virar 'erro': um resumo parcial passaria por "menos avaliações".
+   *
+   * Cada pedido começa do zero: não mantém o resumo da recarga anterior, e se
+   * falhar vira 'erro' (decisão da revisão do PR #288). Manter o número antigo
+   * esconderia a falha; a tela mostra "carregando…" a cada volta à Início.
    * Devolve o resumo, ou null se falhou.
    */
   async function carregarResumoDaSemana(campus, agora = new Date()) {
