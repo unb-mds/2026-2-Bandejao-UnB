@@ -5,10 +5,10 @@ import { usePreferenciasStore } from '@/stores/preferencias'
 import AppLogo from '@/components/AppLogo.vue'
 
 /**
- * Primeira visita: entrar na conta ou escolher o campus aqui mesmo. Sem o
- * passo "Continuar sem login", quem não permite a localização chega ao
- * cardápio em 2 interações, "Agora não" e o campus (RNF03 da Release 2,
- * #285). A escolha fica lembrada no aparelho (RN04), como no seletor.
+ * Primeira visita: entrar na conta ou escolher o campus aqui mesmo. Quem
+ * não permite a localização chega ao cardápio em 2 interações, "Agora não" e
+ * o campus (RNF03 da Release 2, #285). A escolha fica lembrada no aparelho
+ * (RN04), como no seletor.
  */
 const router = useRouter()
 const cardapio = useCardapioStore()
@@ -75,34 +75,37 @@ function escolher(id) {
       <p id="boas-vindas-campus" class="chamada-campus">
         Ou escolha o campus para ver o cardápio sem login
       </p>
-      <p
-        v-if="cardapio.carregandoCampi || (!cardapio.campiCarregados && !cardapio.erroCampi)"
-        class="nota"
-        role="status"
-      >
-        Carregando campi…
-      </p>
-      <div v-else-if="cardapio.erroCampi && !cardapio.campi.length" class="nota" role="alert">
-        <p>Não foi possível carregar os campi. {{ cardapio.erroCampi }}</p>
-        <button
-          type="button"
-          class="botao-pequeno tentar"
-          @click="cardapio.carregarCampi({ forcar: true })"
+      <!-- Altura reservada: com os campi carregados, o "Entrar na conta" não sobe sob o dedo. -->
+      <div class="area-campi">
+        <p
+          v-if="cardapio.carregandoCampi || (!cardapio.campiCarregados && !cardapio.erroCampi)"
+          class="nota"
+          role="status"
         >
-          Tentar novamente
-        </button>
-      </div>
-      <p v-else-if="!cardapio.campi.length" class="nota">Nenhum campus disponível no momento.</p>
-      <div v-else class="campi" role="group" aria-labelledby="boas-vindas-campus">
-        <button
-          v-for="campus in cardapio.campi"
-          :key="campus.id"
-          type="button"
-          class="botao visitante"
-          @click="escolher(campus.id)"
-        >
-          {{ campus.nome }}
-        </button>
+          Carregando campi…
+        </p>
+        <div v-else-if="cardapio.erroCampi && !cardapio.campi.length" class="nota" role="alert">
+          <p>Não foi possível carregar os campi. {{ cardapio.erroCampi }}</p>
+          <button
+            type="button"
+            class="botao-pequeno tentar"
+            @click="cardapio.carregarCampi({ forcar: true })"
+          >
+            Tentar novamente
+          </button>
+        </div>
+        <p v-else-if="!cardapio.campi.length" class="nota">Nenhum campus disponível no momento.</p>
+        <div v-else class="campi" role="group" aria-labelledby="boas-vindas-campus">
+          <button
+            v-for="campus in cardapio.campi"
+            :key="campus.id"
+            type="button"
+            class="botao visitante"
+            @click="escolher(campus.id)"
+          >
+            {{ campus.nome }}
+          </button>
+        </div>
       </div>
       <p class="nota">Visitantes podem consultar o cardápio e as avaliações</p>
     </div>
@@ -115,7 +118,9 @@ function escolher(id) {
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow: hidden;
+  /* Em paisagem (360 px de altura) a grade não cabe: a tela rola, em vez de cortar. */
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--verde-escuro);
 }
 
@@ -133,7 +138,7 @@ function escolher(id) {
 }
 
 .marca {
-  flex: 1;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -165,14 +170,20 @@ function escolher(id) {
 }
 
 .acoes {
+  flex-shrink: 0;
   padding: 0 24px 48px;
+}
+
+/* 3 fileiras de campi (5 campi em 2 colunas) e as 2 lacunas de 8 px. */
+.area-campi {
+  min-height: 150px;
 }
 
 .chamada-campus {
   padding-top: 8px;
   font-size: 13px;
   text-align: center;
-  color: var(--branco-45);
+  color: var(--branco-70);
 }
 
 .campi {
@@ -193,10 +204,11 @@ function escolher(id) {
 .nota {
   font-size: 12px;
   text-align: center;
-  color: var(--branco-25);
+  color: var(--branco-70);
 }
 
 .tentar {
   margin-top: 8px;
+  border: 1.5px solid var(--branco-70);
 }
 </style>
