@@ -4,6 +4,7 @@ import {
   formatarNota,
   refeicaoPadrao,
   resumoRefeicao,
+  destaqueDaRefeicao,
   selecaoPadrao,
 } from './cardapio'
 
@@ -179,5 +180,92 @@ describe('selecaoPadrao no domingo', () => {
       { data: '2026-10-04', refeicoes: [{ tipo: 'cafe' }, { tipo: 'almoco' }, { tipo: 'jantar' }] },
     ]
     expect(selecaoPadrao(semana, domingo)).toEqual({ data: '2026-10-04', refeicao: 'almoco' })
+  })
+})
+
+describe('destaqueDaRefeicao (destaque do cardápio no desktop, FE-23)', () => {
+  const prato = (descricao, contemMarcadorSelecionado = false) => ({
+    descricao,
+    marcadores: contemMarcadorSelecionado ? ['ovo'] : [],
+    contemMarcadorSelecionado,
+  })
+  const categoria = (nome, ...pratos) => ({
+    nome,
+    pratos: pratos.map((p) => (typeof p === 'string' ? prato(p) : p)),
+    semOpcaoCompativel: pratos.length > 0 && pratos.every((p) => p.contemMarcadorSelecionado),
+  })
+  const almoco = (...principais) => [
+    categoria('Bebidas', 'Suco de caju'),
+    ...principais,
+    categoria('Acompanhamentos', 'Arroz', 'Feijão'),
+    categoria('Salada', 'Folhas'),
+  ]
+
+  it('destaca o primeiro prato do principal padrão, com acompanhamentos e salada no resumo', () => {
+    const categorias = almoco(
+      categoria('Prato principal — Ovolactovegetariano', 'Omelete'),
+      categoria('Prato principal — Padrão', 'Bife', 'Frango'),
+    )
+
+    expect(destaqueDaRefeicao(categorias)).toEqual({
+      prato: 'Bife',
+      resumo: 'Arroz, Feijão · Folhas',
+    })
+  })
+
+  it('pula o prato que contém um marcador evitado (RF08)', () => {
+    const categorias = almoco(
+      categoria('Prato principal — Padrão', prato('Almôndegas', true), 'Frango'),
+    )
+
+    expect(destaqueDaRefeicao(categorias).prato).toBe('Frango')
+  })
+
+  it('sem opção compatível no padrão, destaca a de outra linha', () => {
+    const categorias = almoco(
+      categoria('Prato principal — Padrão', prato('Almôndegas', true)),
+      categoria('Prato principal — Vegetariano estrito', 'Tofu'),
+    )
+
+    expect(destaqueDaRefeicao(categorias).prato).toBe('Tofu')
+  })
+
+  it('nenhum prato principal compatível: sem destaque', () => {
+    const categorias = almoco(
+      categoria('Prato principal — Padrão', prato('Almôndegas', true)),
+      categoria('Prato principal — Ovolactovegetariano', prato('Omelete', true)),
+    )
+
+    expect(destaqueDaRefeicao(categorias)).toBeNull()
+  })
+
+  it('o resumo também deixa de fora os pratos com marcador evitado', () => {
+    const categorias = [
+      categoria('Prato principal', 'Bife'),
+      categoria('Acompanhamentos', 'Arroz', prato('Farofa', true)),
+      categoria('Salada', prato('Maionese', true)),
+    ]
+
+    expect(destaqueDaRefeicao(categorias)).toEqual({ prato: 'Bife', resumo: 'Arroz' })
+  })
+
+  it('alérgenos indisponíveis e algum marcador evitado: sem destaque, para não sugerir um prato sem saber', () => {
+    const categorias = almoco(categoria('Prato principal', 'Bife'))
+
+    expect(destaqueDaRefeicao(categorias, { semAlergenos: true, evitando: true })).toBeNull()
+    expect(destaqueDaRefeicao(categorias, { semAlergenos: true, evitando: false }).prato).toBe(
+      'Bife',
+    )
+  })
+
+  it('refeição sem prato principal (café da manhã): destaca a primeira categoria com prato', () => {
+    const cafe = [categoria('Bebidas', 'Café com leite'), categoria('Fruta', 'Mamão')]
+
+    expect(destaqueDaRefeicao(cafe)).toEqual({ prato: 'Café com leite', resumo: '' })
+  })
+
+  it('sem pratos: sem destaque', () => {
+    expect(destaqueDaRefeicao([])).toBeNull()
+    expect(destaqueDaRefeicao([categoria('Prato principal')])).toBeNull()
   })
 })
