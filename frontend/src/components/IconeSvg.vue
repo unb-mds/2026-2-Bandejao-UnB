@@ -51,6 +51,10 @@ defineProps({
       <circle cx="12" cy="12" r="10" />
       <polyline points="12,6 12,12 16,14" />
     </template>
+    <template v-else-if="nome === 'trofeu'">
+      <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z" />
+      <path d="M7 6H4a3 3 0 003 4M17 6h3a3 3 0 01-3 4" />
+    </template>
     <template v-else-if="nome === 'usuario'">
       <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
       <circle cx="12" cy="7" r="4" />

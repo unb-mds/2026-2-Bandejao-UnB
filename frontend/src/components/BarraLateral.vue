@@ -1,10 +1,10 @@
 <script setup>
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
-import { useSair } from '@/composables/sair'
+import { AVISO_SAIR_SEM_CONFIRMACAO, useSair } from '@/composables/sair'
 import { CANAL_CONTATO, EMAIL_CONTATO } from '@/constants/contato'
 import { ITENS_NAVEGACAO_TOPO, itemAtivo } from '@/constants/navegacao'
 import AppLogo from './AppLogo.vue'
@@ -15,11 +15,16 @@ import IconeSvg from './IconeSvg.vue'
  * lugar da `NavegacaoTopo`. Leva aos mesmos destinos, mostra o campus atual
  * (RN04) e a conta, e tem o canal de contato (RNF08).
  */
+// O Ranking (RF27) só tinha atalho no menu do perfil da Início, que some no
+// desktop: aqui ele entra na navegação.
+const ITENS = [...ITENS_NAVEGACAO_TOPO, { rotulo: 'Ranking', rota: 'ranking', icone: 'trofeu' }]
+
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const cardapio = useCardapioStore()
 const preferencias = usePreferenciasStore()
-const { sair, saindo } = useSair()
+const { sair, saindo, semConfirmacao } = useSair()
 cardapio.carregarCampi()
 
 const ativo = (item) => itemAtivo(item, route.name, { marcarInicio: true })
@@ -27,6 +32,18 @@ const campus = computed(() =>
   preferencias.campusId ? cardapio.buscarCampus(preferencias.campusId) : null,
 )
 const inicial = computed(() => auth.apelido.charAt(0).toUpperCase())
+// Com campus escolhido mas a lista dos campi fora do ar, não há nome para
+// mostrar: o atalho continua levando à troca, sem dizer "Escolher".
+const textoDoCampus = computed(() => {
+  if (campus.value) return campus.value.nome
+  return preferencias.campusId ? 'Trocar campus' : 'Escolher campus'
+})
+
+// Como o BotaoSair (RF03.3): volta à raiz quando o servidor confirma; senão,
+// avisa que a sessão pode continuar ativa no servidor.
+async function sairDaConta() {
+  if (await sair()) await router.push({ name: 'raiz' })
+}
 </script>
 
 <template>
@@ -42,7 +59,7 @@ const inicial = computed(() => auth.apelido.charAt(0).toUpperCase())
     <nav aria-label="Navegação principal">
       <p class="rotulo-lateral" aria-hidden="true">Navegação</p>
       <RouterLink
-        v-for="item in ITENS_NAVEGACAO_TOPO"
+        v-for="item in ITENS"
         :key="item.rotulo"
         :to="{ name: item.rota }"
         class="item"
@@ -70,7 +87,7 @@ const inicial = computed(() => auth.apelido.charAt(0).toUpperCase())
       <span class="atalho-icone"><IconeSvg nome="local" :tamanho="17" /></span>
       <span class="atalho-texto">
         <small>Campus atual</small>
-        <strong>{{ campus?.nome ?? 'Escolher campus' }}</strong>
+        <strong>{{ textoDoCampus }}</strong>
       </span>
       <IconeSvg nome="chevron" :tamanho="15" />
     </RouterLink>
@@ -87,9 +104,18 @@ const inicial = computed(() => auth.apelido.charAt(0).toUpperCase())
       <IconeSvg nome="chevron" :tamanho="15" />
     </RouterLink>
 
-    <button v-if="auth.estaAutenticado" type="button" class="sair" :disabled="saindo" @click="sair">
-      <IconeSvg nome="sair" :tamanho="17" /> Sair da conta
+    <button
+      v-if="auth.estaAutenticado"
+      type="button"
+      class="sair"
+      :disabled="saindo"
+      @click="sairDaConta"
+    >
+      <IconeSvg nome="sair" :tamanho="17" /> {{ saindo ? 'Saindo…' : 'Sair da conta' }}
     </button>
+    <p v-if="semConfirmacao" class="aviso-sair" role="alert" data-teste="sair-aviso-lateral">
+      {{ AVISO_SAIR_SEM_CONFIRMACAO }}
+    </p>
   </aside>
 </template>
 
@@ -104,7 +130,8 @@ const inicial = computed(() => auth.apelido.charAt(0).toUpperCase())
     display: flex;
     flex-direction: column;
     height: 100%;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding: 28px 20px 18px;
     color: #fff;
     background: var(--verde-escuro);
@@ -304,5 +331,17 @@ nav {
 }
 .sair:hover:not(:disabled) {
   color: #fff;
+}
+
+.aviso-sair {
+  position: relative;
+  z-index: 1;
+  margin: 8px 6px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--erro-texto);
+  background: var(--erro-fundo);
 }
 </style>
