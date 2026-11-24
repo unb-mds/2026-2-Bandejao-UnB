@@ -83,8 +83,8 @@ O sistema inteiro implantado, conferido contra os requisitos **não funcionais**
 |---|---|---|
 | RNF01 — 3 s no p95 com 2.000 usuários | Teste de carga do cardápio e da previsão ([resultado](teste-de-carga-bd14.md)) | BD-14 |
 | RNF02 — 95% de disponibilidade | Monitor das 7h às 19h30 | BD-09 |
-| RNF03 — 3 interações, 360 px | Checklist em celular real | FE-16, QA-07 |
-| RNF05 — navegadores e PWA instalável | Chrome, Firefox, Edge e Safari; Lighthouse | FE-14, QA-07 |
+| RNF03 — 3 interações, 360 px | [Checklist de qualidade do front](checklist-qualidade-front.md), com coluna para celular e desktop, e os testes de ponta a ponta `qualidade.spec.js` (seção 3.5) | FE-16, QA-07 |
+| RNF05 — navegadores e PWA instalável | Chrome, Firefox, Edge e Safari, no [checklist](checklist-qualidade-front.md); Lighthouse | FE-14, FE-16, QA-07 |
 | RNF07 — retenção de 4 semanas | Teste com registros de 5 semanas | BD-11 |
 
 ### 3.5 Ponta a ponta (End-to-End)
@@ -98,12 +98,13 @@ Um navegador de verdade fazendo os fluxos do usuário, com PWA, API e banco roda
 | Tela do campus → cardápio → filtro de dieta e de marcador | M3 |
 | Avaliar → aviso "+N pontos" (`PontosAviso`); editar → sem aviso | M3 |
 | Previsão de pico, progresso e ranking | M4 |
+| Primeira visita até o cardápio em até 3 interações e nenhuma tela rolando para o lado, sem e com login (RNF03, FE-20, FE-16) | Final |
 
 - **Ferramenta:** Playwright (`@playwright/test`, só o Chromium), com dois projetos: celular (360×800, toque) e desktop (1366×768), conforme a FE-20. A pasta `frontend/e2e/` fica fora do Vitest.
 - **Quando:** todo PR (job `ponta-a-ponta`, seção 5.3) e todo push na `develop` e na `main`. Os testes manuais em produção (BD-08, QA-04, QA-09) continuam e não substituem estes.
 - **Onde rodam:** `frontend/e2e/docker-compose.yml` sobe o PWA de produção no Caddy, a API no Gunicorn e o MySQL 8.4, com as imagens de produção, mais o Mailpit (SMTP de teste). Diferenças para produção: HTTP em `localhost:8080`, cookies sem o flag `Secure`, e-mail no Mailpit e o relógio do backend começando na segunda-feira, 23/11/2026, às 12h de Brasília (libfaketime), a cada subida do container, e andando dali em diante. É o que deixa o check-in e a avaliação dentro do horário do almoço a qualquer hora do dia; o `globalSetup` recria o backend antes de cada rodada, para o relógio voltar ao meio-dia, e o healthcheck do backend confere que ele está no almoço de 23/11 (o que também prova que a libfaketime carregou). O navegador usa o mesmo instante (`page.clock`) e o fuso de Brasília.
 - **Dados:** as fixtures da BD-03 (campi e marcadores) e as de `frontend/e2e/dados/`: o cardápio da semana de 23/11 do Gama, gerado pelo leitor de PDF de verdade a partir do PDF de teste do backend; oito contas confirmadas, uma por teste e por projeto (celular e desktop) nos fluxos M2 a M4; e o histórico do almoço do Gama nas três segundas anteriores, para a previsão de pico. Antes de cada rodada, o `globalSetup` limpa o banco e o cache e carrega tudo de novo. O cache guarda os contadores do limite de taxa: com `ATRAS_DE_PROXY_HTTPS=False`, todo pedido conta como o IP do Caddy, e o limite de login estouraria em poucas rodadas seguidas.
-- **Contas:** o M1 cria a conta pela tela e lê o link de confirmação na API do Mailpit. Os outros fluxos entram com as contas da fixture, para não depender do e-mail: o M2 com uma conta que aceitou uma versão antiga do aviso de privacidade (o aviso aparece antes do GPS) e outra para o check-in recusado longe do RU, o M3 com uma conta que já fez check-in no almoço (a avaliação só pontua assim, RN09) e o M4 com uma conta de 160 pontos que ainda não participa do ranking.
+- **Contas:** o M1 cria a conta pela tela e lê o link de confirmação na API do Mailpit. Os outros fluxos entram com as contas da fixture, para não depender do e-mail: o M2 com uma conta que aceitou uma versão antiga do aviso de privacidade (o aviso aparece antes do GPS) e outra para o check-in recusado longe do RU, o M3 com uma conta que já fez check-in no almoço (a avaliação só pontua assim, RN09) e o M4 com uma conta de 160 pontos que ainda não participa do ranking. O teste de qualidade da FE-16 entra com a conta do M4 só para abrir as telas, sem mudar pontos nem a adesão.
 - **Localização:** a do RU do Gama, pelas permissões e pela geolocalização do contexto do Playwright. Nos fluxos sem GPS, o aviso de localização (RF19) é respondido com "Agora não", como a pessoa faria.
 
 ### 3.6 Segurança
