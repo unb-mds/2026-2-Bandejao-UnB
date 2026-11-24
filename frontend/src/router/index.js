@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 /**
  * Rotas nomeadas e com lazy-loading (C4 — Estratégia de roteamento).
  *
- * Fluxo do protótipo: Boas-vindas (Entrar | escolha do campus, #285) → tela
+ * Fluxo da primeira visita: Boas-vindas (Entrar | escolha do campus, #285) → tela
  * do campus (cardápio e fila). Na raiz, quem já escolheu o campus cai
  * direto na tela dele (RN04, RF05, RNF03); na primeira visita, nas
  * boas-vindas. Nenhuma rota exige login: ações restritas mostram um convite
