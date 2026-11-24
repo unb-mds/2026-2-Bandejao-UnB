@@ -143,6 +143,14 @@ function tentarNovamente() {
         <span class="faixa-pico"><span v-if="faixa.ehPico" class="selo-pico">Pico</span></span>
       </li>
     </ol>
+    <!-- No desktop (FE-23) as faixas viram colunas e o nível fica só na cor:
+         a legenda diz o que cada cor é. Cada faixa já tem o nível em texto
+         para leitores de tela, então a legenda fica fora da árvore. -->
+    <ul v-if="faixas.length" class="legenda" aria-hidden="true" data-teste="previsao-legenda">
+      <li v-for="(rotulo, nivel) in ROTULOS_DOS_NIVEIS" :key="nivel">
+        <span class="legenda-cor" :class="`faixa-barra--${nivel}`" />{{ rotulo }}
+      </li>
+    </ul>
   </section>
 </template>
 
@@ -261,7 +269,8 @@ function tentarNovamente() {
   }
 }
 
-.faixa-inicio {
+.faixa-inicio,
+.legenda {
   display: none;
 }
 
@@ -313,11 +322,31 @@ function tentarNovamente() {
   .faixa-inicio {
     display: block;
     order: 2;
-    font-size: 8px;
+    font-size: 11px;
     font-weight: 600;
     text-align: center;
     white-space: nowrap;
-    color: var(--texto-claro);
+    color: var(--texto-suave);
+  }
+  .legenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin-top: 14px;
+    list-style: none;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--texto-suave);
+  }
+  .legenda li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legenda-cor {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
   }
   .faixa-hora,
   .faixa-nivel {
