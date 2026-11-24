@@ -32,6 +32,8 @@ test('visitante filtra o cardápio e, depois de entrar, avalia o almoço', async
   await expect(filtros).toBeHidden()
   await expect(cardapio).toContainText('Evitando: Trigo/Glúten')
   await expect(categoria('GUARNIÇÃO')).toContainText(SEM_OPCAO)
+  await expect(categoria('GUARNIÇÃO')).toContainText('Contém:')
+  await expect(categoria('GUARNIÇÃO')).toContainText('Trigo/Glúten')
   await expect(categoria('PRATO PRINCIPAL PADRÃO')).not.toContainText(SEM_OPCAO)
 
   // Dieta (RF09): vegetariano estrito deixa de fora o prato principal padrão.
@@ -70,4 +72,12 @@ test('visitante filtra o cardápio e, depois de entrar, avalia o almoço', async
   // O aviso abriria na mesma resposta do POST: a avaliacoesStore repassa o
   // bloco de pontos antes de a tela mostrar "Avaliação atualizada!".
   await expect(page.locator('[data-teste="pontos-aviso"]')).toHaveCount(0)
+
+  // A edição foi gravada: continua depois de recarregar.
+  await page.reload()
+  await expect(avaliacoes).toContainText('Sua nota: 5 estrelas')
+
+  // Só os 5 pontos da avaliação: o check-in da fixture veio sem pontos.
+  await page.goto('/progresso')
+  await expect(page.getByText('5 pontos', { exact: true })).toBeVisible()
 })
