@@ -229,10 +229,10 @@ Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR par
 | Job | Comandos | Bloqueia o merge |
 |---|---|---|
 | `lint` | `ruff check .` e `ruff format --check .` | Sim |
-| `testes` | `pytest --cov --cov-branch` com SQLite; depois `coverage report --include=<módulos críticos> --fail-under=70` | Sim |
+| `testes` | `pytest --cov=apps --cov-branch --cov-fail-under=70` com SQLite; depois `coverage report --include=<módulo> --fail-under=70` para **cada** módulo crítico da seção 2 (o `cardapio` sem o leitor, com `--omit`), com a tabela de cada um no resumo do run (BE-18). O job só falha depois de medir os seis | Sim |
 | `testes-mysql` | Mesma suíte com MySQL 8.4 `utf8mb4`, collation `utf8mb4_0900_ai_ci` e isolamento explícito READ COMMITTED (BD-02). Executado em todos os PRs para `develop` e `main`, inclusive os que não alteram migrations | Sim, obrigatório na `develop` |
 | `contrato` | `manage.py spectacular --validate` e comparação com o contrato do repositório | Sim |
-| `seguranca` | `bandit -r apps -lll` (falha em severidade alta), Semgrep, `pip-audit` | Sim |
+| `seguranca` | `bandit -r apps config -lll` (falha em severidade alta), Semgrep, `pip-audit` | Sim |
 | `mutacao` | `mutmut run` nos arquivos críticos alterados; falha abaixo de 50% | Sim, quando roda |
 
 **Como o job `mutacao` funciona (BE-19):**
