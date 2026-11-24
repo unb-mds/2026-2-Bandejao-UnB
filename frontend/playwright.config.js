@@ -13,14 +13,18 @@ export default defineConfig({
   // Cada fluxo usa contas e dados próprios, então os projetos rodam juntos.
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 1 : 0,
+  // Sem segunda tentativa: o banco só é limpo uma vez por rodada, então uma
+  // tentativa nova do M2, do M3 ou do M4 falharia pelo que a primeira gravou
+  // (check-in feito, avaliação enviada, adesão ligada), e não pela causa real.
+  retries: 0,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: process.env.E2E_URL ?? 'http://localhost:8080',
-    // O relógio do backend está parado no almoço de Brasília (docker-compose).
+    // O relógio do backend começa no almoço de Brasília (docker-compose).
     timezoneId: 'America/Sao_Paulo',
     locale: 'pt-BR',
-    trace: 'on-first-retry',
+    // O trace da tentativa que falhou (no CI, no artefato e2e-relatorio).
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
   projects: [

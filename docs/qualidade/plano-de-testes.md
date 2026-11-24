@@ -298,7 +298,7 @@ Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR par
 |---|---|---|
 | `ponta-a-ponta` | Sobe PWA, API e banco com o `frontend/e2e/docker-compose.yml`, carrega as fixtures (BD-03 e as do e2e) e roda o Playwright no celular e no desktop | Sim, a partir do M2 |
 
-**Como o job `ponta-a-ponta` funciona (FE-18):** `.github/workflows/e2e.yml`, em todo PR (sem filtro `paths:`) e no push na `develop` e na `main`. Builda as imagens de produção do backend e do PWA, espera os healthchecks do MySQL, do Gunicorn e do Caddy (`docker compose up --wait`) e roda `npx playwright test`. Em falha, o log da pilha sai no próprio job e o relatório do Playwright (com o trace da segunda tentativa) fica no artefato `e2e-relatorio`. No CI, cada teste tem uma segunda tentativa.
+**Como o job `ponta-a-ponta` funciona (FE-18):** `.github/workflows/e2e.yml`, em todo PR (sem filtro `paths:`) e no push na `develop` e na `main`. Builda as imagens de produção do backend e do PWA, espera os healthchecks do MySQL, do Gunicorn e do Caddy (`docker compose up --wait`) e roda `npx playwright test`. Em falha, o log da pilha sai no próprio job e o relatório do Playwright, com o trace do teste que falhou, fica no artefato `e2e-relatorio`. Não há segunda tentativa: o banco só é limpo uma vez por rodada, e uma tentativa nova do M2, do M3 ou do M4 falharia pelo que a primeira gravou (check-in feito, avaliação enviada, adesão ligada), escondendo a causa real.
 
 ### 5.4 Rodadas agendadas
 
