@@ -10,16 +10,23 @@ export const AGORA = new Date('2026-11-23T15:00:00Z')
 /** Gama: o campus com o cardápio e o histórico da fila nas fixtures do e2e. */
 export const GAMA = { id: 3, nome: 'Gama', ru: { latitude: -15.989493, longitude: -48.044024 } }
 
+/** O RU do Darcy Ribeiro, a uns 30 km do Gama: longe do raio de confirmação. */
+export const LONGE_DO_GAMA = { latitude: -15.764203, longitude: -47.870251 }
+
 export const test = base.extend({
-  page: async ({ page }, usar) => {
+  // Nos fluxos sem GPS, o AvisoLocalizacao (RF19) cobre a tela no primeiro
+  // acesso, e a pessoa responde "Agora não". Com a permissão concedida (M2),
+  // o aviso não pode aparecer: o fluxo desliga esta resposta automática, e
+  // um aviso indevido trava o teste.
+  responderAvisoLocalizacao: [true, { option: true }],
+  page: async ({ page, responderAvisoLocalizacao }, usar) => {
     await page.clock.install({ time: AGORA })
-    // No primeiro acesso sem permissão de localização, o AvisoLocalizacao
-    // (RF19) cobre a tela. Nos fluxos que não usam o GPS, a pessoa responde
-    // "Agora não", como faria no app.
-    const aviso = page.getByRole('dialog', { name: 'Usar sua localização?' })
-    await page.addLocatorHandler(aviso, async () => {
-      await aviso.getByRole('button', { name: 'Agora não' }).click()
-    })
+    if (responderAvisoLocalizacao) {
+      const aviso = page.getByRole('dialog', { name: 'Usar sua localização?' })
+      await page.addLocatorHandler(aviso, async () => {
+        await aviso.getByRole('button', { name: 'Agora não' }).click()
+      })
+    }
     await usar(page)
   },
 })

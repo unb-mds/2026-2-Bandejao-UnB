@@ -9,11 +9,13 @@ const CONTAS = {
   checkin: { celular: '260000101', desktop: '260000102' },
   avaliacao: { celular: '260000103', desktop: '260000104' },
   progresso: { celular: '260000105', desktop: '260000106' },
+  longe: { celular: '260000107', desktop: '260000108' },
 }
 const APELIDOS = {
   checkin: { celular: 'e2e_checkin_cel', desktop: 'e2e_checkin_desk' },
   avaliacao: { celular: 'e2e_aval_cel', desktop: 'e2e_aval_desk' },
   progresso: { celular: 'e2e_prog_cel', desktop: 'e2e_prog_desk' },
+  longe: { celular: 'e2e_longe_cel', desktop: 'e2e_longe_desk' },
 }
 
 /** Conta da fixture para o fluxo, no projeto (celular ou desktop) do teste. */

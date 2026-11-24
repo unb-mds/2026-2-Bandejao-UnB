@@ -126,6 +126,48 @@
     }
   },
   {
+    "model": "cadastro.usuario",
+    "pk": 107,
+    "fields": {
+      "last_login": null,
+      "tipo_usuario": "estudante",
+      "matricula_siape": "260000107",
+      "apelido": "e2e_longe_cel",
+      "apelido_normalizado": "e2e_longe_cel",
+      "email_institucional": "260000107@aluno.unb.br",
+      "password": "pbkdf2_sha256$1500000$5Wo8GhLzr485LLLoiVsZCh$vsggL+55ScD8rqrsmyaTDAE0hj4K5eo8BlfXYS2JJZU=",
+      "email_confirmado": true,
+      "status": "ativo",
+      "aceite_privacidade_em": "2026-11-01T13:00:00Z",
+      "versao_aviso_aceita": "2026-11-14",
+      "criado_em": "2026-11-01T13:00:00Z",
+      "tentativas_login_falhas": 0,
+      "primeira_falha_login_em": null,
+      "bloqueado_ate": null
+    }
+  },
+  {
+    "model": "cadastro.usuario",
+    "pk": 108,
+    "fields": {
+      "last_login": null,
+      "tipo_usuario": "estudante",
+      "matricula_siape": "260000108",
+      "apelido": "e2e_longe_desk",
+      "apelido_normalizado": "e2e_longe_desk",
+      "email_institucional": "260000108@aluno.unb.br",
+      "password": "pbkdf2_sha256$1500000$1WHJzcqLgL1wl0YuWPZWif$nDc+VJxO3m+UVaysc+1RCy97Mg6gK71BXZwq2c6+Ziw=",
+      "email_confirmado": true,
+      "status": "ativo",
+      "aceite_privacidade_em": "2026-11-01T13:00:00Z",
+      "versao_aviso_aceita": "2026-11-14",
+      "criado_em": "2026-11-01T13:00:00Z",
+      "tentativas_login_falhas": 0,
+      "primeira_falha_login_em": null,
+      "bloqueado_ate": null
+    }
+  },
+  {
     "model": "gamificacao.pontuacaousuario",
     "pk": 1,
     "fields": {
