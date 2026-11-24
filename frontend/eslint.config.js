@@ -29,9 +29,9 @@ export default defineConfig([
   },
 
   {
-    // Scripts do CI (mutação): rodam no Node.
+    // Scripts do CI (mutação) e testes de ponta a ponta (Playwright): rodam no Node.
     name: 'app/scripts-node',
-    files: ['scripts/**/*.{js,mjs}', '*.config.{js,mjs}'],
+    files: ['scripts/**/*.{js,mjs}', 'e2e/**/*.js', '*.config.{js,mjs}'],
     languageOptions: {
       globals: {
         ...globals.node,
