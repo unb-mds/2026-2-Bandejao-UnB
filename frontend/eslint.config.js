@@ -12,12 +12,29 @@ export default defineConfig([
     files: ['**/*.{vue,js,mjs,jsx}'],
   },
 
-  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
+  globalIgnores([
+    '**/dist/**',
+    '**/dist-ssr/**',
+    '**/coverage/**',
+    '.stryker-tmp/**',
+    'reports/**',
+  ]),
 
   {
     languageOptions: {
       globals: {
         ...globals.browser,
+      },
+    },
+  },
+
+  {
+    // Scripts do CI (mutação): rodam no Node.
+    name: 'app/scripts-node',
+    files: ['scripts/**/*.{js,mjs}', '*.config.{js,mjs}'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
       },
     },
   },
@@ -29,7 +46,7 @@ export default defineConfig([
     // Os testes ficam ao lado do código (`*.test.js`): o padrão `__tests__/` do
     // modelo do Vite não pegava nenhum, e as regras do Vitest não rodavam.
     ...pluginVitest.configs.recommended,
-    files: ['src/**/*.test.js', 'src/**/__tests__/*'],
+    files: ['src/**/*.test.js', 'src/**/__tests__/*', 'scripts/**/*.test.js'],
     rules: {
       ...pluginVitest.configs.recommended.rules,
       // Teste sem asserção passa sem testar nada (Plano de Testes, checklist da IA).
