@@ -16,7 +16,10 @@
 > de operação (até **2.000 usuários simultâneos**), medido do lado do servidor
 > em pelo menos 95% das requisições.
 >
-> — RNF01, Documento de Requisitos
+> — RNF01, Documento de Requisitos, na época do teste
+
+Depois deste resultado, o RNF01 foi revisto para até **500 usuários
+simultâneos**, com a ressalva de que o número foi medido no runner de 4 vCPUs.
 
 ## Resultado
 

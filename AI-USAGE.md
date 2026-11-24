@@ -898,3 +898,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - documento: limites (log de acesso, rampa nas estatísticas, respostas vazias como falha desde a revisão), como as consultas foram contadas e a proteção contra a produção.
 - Sugestão não aplicada: `--reset-stats`. As medições do documento incluem a rampa; trocar agora mudaria o método no meio do registro, então a rampa ficou anotada nos limites.
 - Situação: aprovado no recheck, aguardando o merge; DOC a ser avisado.
+
+## RNF01 revisto para 500 usuários simultâneos
+
+- Relacionadas: BD-14 ([#184](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/184), PR [#244](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/244)), que mediu o RNF01 e não chegou à meta de 2.000 usuários.
+- Ferramenta: Claude (Anthropic), em 23/11/2026.
+- Apoio: conferência dos números da BD-14 contra o relatório (`docs/qualidade/teste-de-carga-bd14.md`), busca de onde o "2.000" aparecia na documentação e redação das trocas: RNF01 e justificativa no Documento de Requisitos, tabela de metas do Documento de Visão, tabela do Plano de Testes e uma nota no relatório da BD-14 avisando que o número foi revisto.
+- Decisão humana: fechar em 500 usuários (passou nas três varreduras; 1.000 falhou numa), com a ressalva de que o número foi medido no runner de 4 vCPUs e a VM tem 2, sem pedir nova rodada antes da Release 2.
+- Fora da mudança: a linha da BD-14 no backlog continua com a meta de 2.000, porque descreve a tarefa como foi pedida; as medições do relatório da BD-14 também não mudam.
+- Validação: `git diff --check` sem achados; `git grep "2.000 usu"` em `docs/` só acha o backlog e as medições do relatório.
+- Situação: aguardando o CI e a revisão.
