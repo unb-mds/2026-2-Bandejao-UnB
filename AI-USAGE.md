@@ -957,3 +957,12 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - **resumo e mensagens do passo:** se a tabela markdown falhar, o resumo diz que não há tabela; o `::error::` separa "abaixo de 70%", "sem dados" (módulo renomeado) e outra falha do `coverage report` (por exemplo, "No source for code", que apareceu no teste na máquina com um `.coverage` velho);
   - `coverage==7.17.5` fixo; Plano de Testes com linhas e ramos juntos no back, o escopo do `cardapio` sem o leitor, "passo" no lugar de "job" e a BE-18 no título da 5.1.
 - Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12 e a revisão do contrato pelo FE.
+
+## BD-13 — Roteiro de moderação
+
+- Issue: BD-13 (o número entra quando a issue for fechada). PR: a abrir.
+- Ferramenta: Claude (Anthropic).
+- Apoio: texto de `docs/operacao/roteiro-de-moderacao.md` (cinco operações em SQL com checagem, transação e verificação: ocultar avaliação, suspender e reativar conta, excluir conta pelo `remover_conta`, corrigir pontos nas duas tabelas e matrícula contestada), entrada no menu lateral e esta seção. O texto foi gerado pela IA a partir do modelo de dados do código e dos ADRs 0004, 0007 e 0008, e revisado e aplicado pelo autor.
+- Feito pelo autor, sem a IA: execução de cada operação uma vez na VM de produção, dentro de transação e terminando em `ROLLBACK`, e conferência dos acessos (`authorized_keys` e `mysql.user`) para a tabela "Quem tem acesso".
+- Validação: cada `SELECT` e `UPDATE` do roteiro foi rodado na VM; a exclusão de conta foi ensaiada só em ambiente de teste, porque não tem desfazer. Não há código nem testes nesta entrega.
+- Situação: aguardando revisão.
