@@ -81,7 +81,7 @@ function escolher(id) {
         <span class="nome">bandejão</span>
       </div>
       <p class="sobretitulo so-desktop">Antes de começar</p>
-      <h1 class="titulo-tela">Qual campus<br />você frequenta?</h1>
+      <h1 class="titulo-tela">Qual campus <br />você frequenta?</h1>
       <p class="subtitulo-tela subtitulo">Pode trocar depois a qualquer momento</p>
       <!-- Desktop (FE-23): os passos do protótipo, só como indicação visual. -->
       <ol class="passos so-desktop" aria-hidden="true">

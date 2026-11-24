@@ -73,6 +73,40 @@
   }
 }
 
+/* Escolha do campus com a lateral (campus já escolhido, vindo de "Trocar",
+   FE-23): vira uma tela interna comum, sem o lado verde nem os passos. As
+   classes são do SeletorCampus; a regra fica aqui porque depende do App. */
+@media (min-width: 1024px) {
+  .app.app--lateral .tela-campus {
+    display: flex;
+    flex-direction: column;
+  }
+  .app.app--lateral .cabecalho-campus {
+    justify-content: center;
+    padding: 22px clamp(28px, 4vw, 62px);
+  }
+  .app.app--lateral .cabecalho-campus .marca,
+  .app.app--lateral .cabecalho-campus .sobretitulo,
+  .app.app--lateral .tela-campus .conteudo > .so-desktop,
+  .app.app--lateral .passos {
+    display: none;
+  }
+  .app.app--lateral .cabecalho-campus .titulo-tela {
+    font-size: clamp(28px, 2.5vw, 37px);
+    line-height: 1;
+  }
+  .app.app--lateral .cabecalho-campus .titulo-tela br {
+    display: none;
+  }
+  .app.app--lateral .cabecalho-campus .subtitulo {
+    margin-top: 8px;
+  }
+  .app.app--lateral .tela-campus .conteudo {
+    justify-content: flex-start;
+    padding: 27px clamp(28px, 4vw, 62px) 50px;
+  }
+}
+
 /* Rótulo pequeno em maiúsculas acima dos títulos (o "eyebrow" do protótipo). */
 .sobretitulo {
   margin: 0 0 8px;
