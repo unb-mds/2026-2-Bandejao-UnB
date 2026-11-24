@@ -50,6 +50,25 @@ O Vite encaminha `/api` para `http://localhost:8000`, então PWA e API ficam na 
 e o cookie de sessão funciona sem CORS (ADR 0007). Não mude `VITE_API_URL` para outra origem:
 o `apiClient` usa `credentials: 'same-origin'`.
 
+### Testes de ponta a ponta (Playwright, FE-18)
+
+Os fluxos do usuário rodam num navegador de verdade, contra o PWA de produção, a API e o MySQL
+no Docker (`e2e/docker-compose.yml`), no celular (360×800) e no desktop (1366×768). Precisa do
+Docker e do Chromium do Playwright:
+
+```sh
+npx playwright install chromium   # uma vez
+npm run e2e:subir                 # builda e sobe PWA, API, MySQL e Mailpit (localhost:8080)
+npm run e2e                       # limpa o banco, carrega as fixtures e roda os testes
+npm run e2e -- --project celular  # só um projeto
+npm run e2e:descer                # derruba tudo e apaga os volumes
+```
+
+O backend do e2e tem o relógio parado na segunda-feira, 23/11/2026, ao meio-dia (horário de
+Brasília), para o check-in e a avaliação valerem a qualquer hora. Os e-mails ficam no Mailpit
+(http://localhost:8025). As fixtures e como foram geradas estão em `e2e/dados/README.md`; o
+funcionamento completo, no Plano de Testes (3.5 e 5.3).
+
 ### CI do front
 
 O `.github/workflows/frontend-ci.yml` roda em todo PR, com cinco portas (Plano de Testes 5.2):

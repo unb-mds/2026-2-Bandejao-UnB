@@ -898,3 +898,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - documento: limites (log de acesso, rampa nas estatísticas, respostas vazias como falha desde a revisão), como as consultas foram contadas e a proteção contra a produção.
 - Sugestão não aplicada: `--reset-stats`. As medições do documento incluem a rampa; trocar agora mudaria o método no meio do registro, então a rampa ficou anotada nos limites.
 - Situação: aprovado no recheck, aguardando o merge; DOC a ser avisado.
+
+## FE-18 — Testes de ponta a ponta com Playwright
+
+- Issue: [#190](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/190). PR: [#NÚMERO — FE-18: Testes de ponta a ponta com Playwright](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/NÚMERO).
+- Ferramenta: Claude (Anthropic).
+- Apoio: pilha Docker dos testes (`frontend/e2e/docker-compose.yml`, com o relógio do backend parado no almoço pela libfaketime e o Mailpit como SMTP), fixtures do e2e (cardápio gerado pelo leitor de PDF de verdade, contas e histórico da fila), configuração do Playwright com os projetos de celular e desktop, os quatro fluxos (M1 a M4), o workflow `e2e.yml` e a documentação (Plano de Testes 3.5 e 5.3, README do front). Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: não se aplica. Os testes de ponta a ponta cobrem funcionalidades que já existem; cada fluxo foi escrito contra a pilha real e ajustado até passar, e as falhas encontradas no caminho eram dos testes (fuso do navegador, aviso de localização, regra de pontos da avaliação), não do app.
+- Validação: a pilha inteira subiu localmente com o Docker, e `npx playwright test` passou com 8 testes (4 fluxos × 2 projetos) em cerca de 10 s, em seis rodadas seguidas, inclusive uma do zero (`down -v`, `up` e o `globalSetup` carregando as fixtures). `npm run lint:ci` sem achados e os 1.024 testes do Vitest passando.
+- Revisão humana: aguardando a revisão de outra frente no PR.
+- Situação: PR aberto.
