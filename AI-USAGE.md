@@ -957,3 +957,18 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - **resumo e mensagens do passo:** se a tabela markdown falhar, o resumo diz que não há tabela; o `::error::` separa "abaixo de 70%", "sem dados" (módulo renomeado) e outra falha do `coverage report` (por exemplo, "No source for code", que apareceu no teste na máquina com um `.coverage` velho);
   - `coverage==7.17.5` fixo; Plano de Testes com linhas e ramos juntos no back, o escopo do `cardapio` sem o leitor, "passo" no lugar de "job" e a BE-18 no título da 5.1.
 - Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12 e a revisão do contrato pelo FE.
+
+## #286 — Cores e raios pelos tokens do guia de estilo (RF17)
+
+- Issue: [#286](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/286). PR: a abrir. Relacionada: FE-16 ([#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192), PR [#287](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287)).
+- Ferramenta: Claude (Anthropic), em 24/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Apoio:
+  - tokens novos no `base.css`: `--branco`, `--fundo-dialogo`, `--sombra-cartao`, `--sombra-flutuante`, `--sombra-menu`, `--sombra-destaque`, `--sombra-logo`, `--raio-xs` (6 px) e `--raio-2xs` (2 px);
+  - o `#fff` dos 18 arquivos virou `var(--branco)` (também no `cor` do `IconeSvg`, que vai para o `style`); as 9 cores `rgb()`/`rgba()` viraram tokens, e a `ProgressoView` passou a usar o `--branco-75`; a `.caixa` da `CadastroView` usa o `--raio-xs`, e as barras do gráfico da `HomeView`, o `--raio-2xs`;
+  - teste-guarda `src/assets/guiaDeEstilo.test.js`: lê do disco todos os `.vue` e `.css` de `src/` (menos o `base.css` e o `AppLogo`) e falha com qualquer cor hexadecimal ou `rgb()`/`rgba()` solta e com raio fora dos tokens (aceita o círculo, 50%, e a pílula, 999px). Os arquivos são lidos com `node:fs` porque o `?raw` de um `.css` chega vazio no Vitest.
+- Mudança visual: duas, pequenas. O fundo escurecido da gaveta de filtros (`FiltroCardapio`) passou do preto a 50% para o `--fundo-dialogo` do aviso de localização (verde-escuro a 55%), e as duas sombras quase iguais do aviso no desktop (0,14 e 0,15) ficaram numa só. O resto mantém os valores.
+- Fora do escopo: os traços `stroke="white"` das linhas decorativas da `BoasVindasView` e da `HomeView` são atributos de SVG (o `var()` não vale ali sem passar para o `style`) e continuam como estão; o 50% e o 999px continuam escritos direto.
+- TDD: `aca31c4` (teste, 8 falhando: 33 brancos, 9 `rgb()`/`rgba()` e 2 raios, os números da issue) → código no commit seguinte.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 1.071 testes passando (96,36% de linhas / 92,74% de ramos) e `npm run build` sem erro.
+- Fica para o PR da FE-16 (#287): o bug 2 da seção 3 do checklist pode ser marcado como corrigido.
+- Situação: aguardando o PR e a revisão de outra frente (DoD 1.4).
