@@ -64,6 +64,11 @@ describe('lista dos arquivos críticos', () => {
     expect(comMeta.filter((arquivo) => !ARQUIVOS_CRITICOS.includes(arquivo))).toEqual([])
   })
 
+  it('todo arquivo mutado também tem meta de 70% de linhas no vitest.config.js (FE-19)', () => {
+    const metas = configDoVitest.test.coverage.thresholds
+    expect(ARQUIVOS_CRITICOS.filter((arquivo) => metas[arquivo]?.lines !== 70)).toEqual([])
+  })
+
   it('o alvo fixo da configuração é um arquivo crítico', () => {
     expect(ARQUIVOS_CRITICOS).toContain(ALVO_DA_CONFIGURACAO)
   })
