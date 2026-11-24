@@ -972,11 +972,11 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BD-13 — Roteiro de moderação
 
-- Issue: BD-13 (o número entra quando a issue for fechada). PR: a abrir.
-- Ferramenta: Claude (Anthropic).
-- Apoio: texto de `docs/operacao/roteiro-de-moderacao.md` (cinco operações em SQL com checagem, transação e verificação: ocultar avaliação, suspender e reativar conta, excluir conta pelo `remover_conta`, corrigir pontos nas duas tabelas e matrícula contestada), entrada no menu lateral e esta seção. O texto foi gerado pela IA a partir do modelo de dados do código e dos ADRs 0004, 0007 e 0008, e revisado e aplicado pelo autor.
-- Feito pelo autor, sem a IA: execução de cada operação uma vez na VM de produção, dentro de transação e terminando em `ROLLBACK`, e conferência dos acessos (`authorized_keys` e `mysql.user`) para a tabela "Quem tem acesso".
-- Validação: cada `SELECT` e `UPDATE` do roteiro foi rodado na VM; a exclusão de conta foi ensaiada só em ambiente de teste, porque não tem desfazer. Não há código nem testes nesta entrega.
+- Issue: [#165](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/165). PR: [#284](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/284).
+- Ferramenta: Claude (Anthropic), em 24/11/2026.
+- Apoio: texto de `docs/operacao/roteiro-de-moderacao.md` (cinco operações em SQL com checagem, transação e verificação: ocultar avaliação, suspender e reativar conta, excluir conta pelo `remover_conta` com backup manual antes, corrigir pontos nas duas tabelas e matrícula contestada), entrada no menu lateral (`docs/_sidebar.md`) e esta seção. O texto foi gerado pela IA a partir do modelo de dados do código e dos ADRs 0004, 0007 e 0008, e revisado e aplicado pelo autor. A revisão do Álvaro no PR #284 (blocos sem `COMMIT`, backup antes da exclusão, avaliações do titular, `WHERE` da operação 4, links e tabela de acesso) também foi aplicada com apoio da IA.
+- Feito pelo autor, sem a IA: execução das operações 1, 2, 4 e 5 na VM de produção, dentro de transação e terminando em `ROLLBACK`; criação do usuário `luis` com o papel `equipe_moderacao` e conferência dos acessos (`authorized_keys` e `mysql.user`) para a tabela "Quem tem acesso".
+- Validação: ensaio em produção em 24/11/2026, sempre dentro de transação e terminando em `ROLLBACK`. Exceções: a operação 3 (exclusão de conta) não foi ensaiada, de propósito, porque não tem desfazer; na operação 1 a produção não tem avaliações, então o ensaio criou uma dentro da transação, ocultou e desfez; na operação 4 só foi ensaiado o `UPDATE` de `gamificacao_pontuacaousuario` (recusado pelo `CHECK` ao passar de zero), porque `gamificacao_pontossemestrecampus` está vazia em produção; a operação 5 só tem `SELECT` e rodou sem erro. Depois da revisão, o comando de backup manual e o bloco que apaga as avaliações da conta (esse terminando em `ROLLBACK`) foram rodados uma vez na VM, também em 24/11/2026. Não há código nem testes nesta entrega.
 - Situação: aguardando revisão.
 
 ## FE-16 — Checklist de qualidade no celular e no desktop
