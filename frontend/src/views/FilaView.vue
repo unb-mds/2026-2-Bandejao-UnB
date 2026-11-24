@@ -32,11 +32,7 @@ defineProps({
       <p id="titulo-checkin" class="titulo-secao pequeno">
         Check-in · {{ REFEICOES[tipoRefeicao].rotulo }}
       </p>
-      <CheckinBotao
-        v-if="campusConfirmado"
-        :campus-id="campusId"
-        :tipo-refeicao="tipoRefeicao"
-      />
+      <CheckinBotao v-if="campusConfirmado" :campus-id="campusId" :tipo-refeicao="tipoRefeicao" />
       <p v-else class="texto-pequeno aguardando-campus" data-teste="checkin-aguardando-campus">
         O check-in fica disponível assim que a lista de campi carregar.
       </p>
@@ -82,5 +78,33 @@ defineProps({
 .explicacao {
   line-height: 1.6;
   color: var(--texto-suave);
+}
+
+/* Desktop (FE-23): o check-in e o "Como funciona?" lado a lado, embaixo da previsão. */
+@media (min-width: 1024px) {
+  .secao-fila {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 32px;
+    padding: 0;
+  }
+  .secao-fila > * {
+    grid-column: 1 / -1;
+    margin-top: 0 !important;
+  }
+  .secao-fila > section:not(:first-of-type),
+  .como-funciona {
+    grid-column: auto;
+  }
+  .titulo-fila {
+    font-size: 22px;
+    letter-spacing: -0.03em;
+  }
+  .como-funciona {
+    align-self: start;
+    padding: 20px;
+    border-radius: 18px;
+  }
 }
 </style>

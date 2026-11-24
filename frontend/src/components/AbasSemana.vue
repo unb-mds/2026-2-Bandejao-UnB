@@ -67,4 +67,40 @@ const emit = defineEmits(['escolher'])
 .dia--ativo .dia-data {
   color: var(--verde-escuro);
 }
+
+/* Desktop (FE-23): pílula clara sobre o creme, com o dia escolhido em verde. */
+@media (min-width: 1024px) {
+  .dias {
+    justify-self: start;
+    gap: 2px;
+    padding: 4px;
+    border: 1px solid var(--borda);
+    border-radius: 13px;
+    background: var(--cartao);
+  }
+  .dia {
+    flex: 0 0 auto;
+    min-width: 61px;
+    padding: 7px 11px;
+    border-radius: 9px;
+    background: transparent;
+  }
+  .dia-semana {
+    font-size: 8px;
+    color: var(--texto-claro);
+  }
+  .dia-data {
+    font-size: 11px;
+    color: var(--texto-claro);
+  }
+  .dia--ativo {
+    background: var(--verde-escuro);
+  }
+  .dia--ativo .dia-semana {
+    color: var(--branco-60);
+  }
+  .dia--ativo .dia-data {
+    color: #fff;
+  }
+}
 </style>

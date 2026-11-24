@@ -89,7 +89,11 @@ function tentarNovamente() {
         Carregando previsão…
       </p>
 
-      <div v-else-if="situacao === 'indisponivel'" class="estado" data-teste="previsao-indisponivel">
+      <div
+        v-else-if="situacao === 'indisponivel'"
+        class="estado"
+        data-teste="previsao-indisponivel"
+      >
         <p class="estado-titulo">Previsão fora do ar no momento</p>
         <p class="texto-pequeno">
           Não foi possível calcular a previsão agora. Tente de novo daqui a alguns minutos.
@@ -133,6 +137,7 @@ function tentarNovamente() {
         data-teste="previsao-faixa"
       >
         <span class="faixa-hora">{{ intervalo(faixa) }}</span>
+        <span class="faixa-inicio" aria-hidden="true">{{ hora(faixa.inicio) }}</span>
         <span class="faixa-barra" :class="`faixa-barra--${faixa.nivel}`" aria-hidden="true" />
         <span class="faixa-nivel">{{ ROTULOS_DOS_NIVEIS[faixa.nivel] }}</span>
         <span class="faixa-pico"><span v-if="faixa.ehPico" class="selo-pico">Pico</span></span>
@@ -253,6 +258,80 @@ function tentarNovamente() {
     gap: 6px;
     padding: 6px;
     font-size: 12px;
+  }
+}
+
+.faixa-inicio {
+  display: none;
+}
+
+/* Desktop (FE-23, protótipo desktop): as faixas viram colunas, como o gráfico
+   "Movimento" do protótipo. O nível continua escrito em cada faixa, para
+   leitores de tela, mas fica fora da vista. */
+@media (min-width: 1024px) {
+  .previsao {
+    padding: 30px;
+    border-radius: var(--raio-xl);
+  }
+  .faixas {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    height: 240px;
+    margin-top: 18px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--borda);
+  }
+  .faixa {
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
+    padding: 0;
+    background: transparent;
+  }
+  .faixa-barra {
+    order: 1;
+    width: 100%;
+    border-radius: 6px 6px 3px 3px;
+  }
+  .faixa-barra--vazia {
+    height: 22%;
+  }
+  .faixa-barra--curta {
+    height: 45%;
+  }
+  .faixa-barra--moderada {
+    height: 70%;
+  }
+  .faixa-barra--longa {
+    height: 92%;
+  }
+  .faixa-inicio {
+    display: block;
+    order: 2;
+    font-size: 8px;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    color: var(--texto-claro);
+  }
+  .faixa-hora,
+  .faixa-nivel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .faixa-pico {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
   }
 }
 </style>
