@@ -145,5 +145,6 @@ Para ensaiar uma operação em produção, termine sempre com `ROLLBACK` em vez 
 | Pessoa | Usuário MySQL | Papel |
 |---|---|---|
 | Álvaro | `alvaro` | `equipe_moderacao` |
+| Luís | `luis` | `equipe_moderacao` |
 
-O acesso é conferido na VM (`~/.ssh/authorized_keys`) e no MySQL (`SELECT user, host FROM mysql.user;`). Cada membro tem usuário próprio; o `root` é só para administração. Quando alguém sair da equipe, remova a chave e o usuário no mesmo dia.
+O acesso é conferido na VM (`~/.ssh/authorized_keys`) e no MySQL (`SELECT user, host FROM mysql.user;`). Hoje há dois usuários individuais; quem precisar moderar pede ao grupo para criar o seu (veja o deploy de produção). O `root` é só para administração. o `root` é só para administração. Quando alguém sair da equipe, remova a chave e o usuário no mesmo dia.
