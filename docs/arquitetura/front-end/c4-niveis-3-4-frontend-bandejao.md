@@ -707,7 +707,7 @@ separação por app do backend (RNF06):
 | `authStore` | Sessão do usuário: apelido, tipo de usuário e `avisoPrivacidadePendente`, lidos de `GET /api/sessao/`. Login com e-mail institucional e senha (`entrar(emailInstitucional, senha)`, ADR 0016), logout, cadastro, reenvio de confirmação (pelo e-mail ou pelo token) e pedido de recuperação de senha pelo e-mail. **Sem token** (ADR 0007) | Nenhuma no PWA: a sessão está no cookie `HttpOnly`; a store é recarregada ao abrir o app |
 | `preferenciasStore` | Campus lembrado, escolha manual depois da última detecção, campus detectado, refeição selecionada, filtros de marcador e dieta, "Agora não" do aviso de localização | `localStorage` (RF07, RF08, RF09, RF19, RN04), exceto o campus detectado (memória) |
 | `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, dia, refeição e filtros, com erro e carregamento por pedido; a resposta que depende do relógio e a de "não publicado" valem 5 minutos, e a lista de campi (`GET /api/campi/`, com `carregandoCampi` e `erroCampi`) | Em memória |
-| `avaliacoesStore` | Resumo do dia (notas de todas as refeições, `GET /api/avaliacoes/resumo/`), comentários com `distintivo` e envio/edição da avaliação do usuário | Em memória |
+| `avaliacoesStore` | Resumo do dia (notas de todas as refeições, `GET /api/avaliacoes/resumo/`), resumo da semana da `HomeView` (um resumo do dia por dia da semana, #259), comentários com `distintivo` e envio/edição da avaliação do usuário | Em memória |
 | `filaStore` | Previsão por campus, refeição e dia (a espera estimada entra com o RF22), check-in e pergunta de saída pendente | Em memória; nunca guarda coordenadas (RI09) |
 | `gamificacaoStore` | Progresso, adesão ao ranking, posição própria por campus, posição do semestre anterior, Bandeja de Ouro própria, ranking por campus e último bloco `pontos` | Em memória |
 
@@ -776,7 +776,14 @@ novamente". O cartão "Cardápio de hoje" da `HomeView` usa o mesmo
 `GET /api/cardapio/`, com o campus e o dia de hoje, e deixa o backend
 resolver a refeição pelo relógio; a nota do cartão vem do resumo do dia. A
 semana inteira por campus (`/cardapio/<campus>/`), do MVP, saiu da store e
-do simulado (#251), porque só o simulado a respondia.
+do simulado (#251), porque só o simulado a respondia. Os cartões "Avaliações" e
+"Satisfação da semana" da `HomeView` não têm rota própria: o backend só tem o
+resumo do dia, e o `GET /api/avaliacoes/resumo/` só com o campus devolve o
+dia corrente. A `avaliacoesStore` pede o resumo de cada dia da semana
+(segunda a domingo) e junta a média, ponderada pela quantidade, e a
+quantidade; se um dia falhar, os cartões dizem que não foi possível carregar
+as avaliações da semana (#259). O resumo da semana e a lista
+`GET /api/avaliacoes/` do MVP saíram da store e do simulado.
 
 O `apiClient` é o único ponto que conhece a URL base da API, envia o
 cookie de sessão e o cabeçalho CSRF nas escritas, e trata erros de forma
