@@ -41,19 +41,31 @@ Os arquivos ficam em `deploy/backup/`:
   BD-07) e testa a escrita antes de começar, como o `rodar-comando.sh`: a linha
   do cron não tem redireção, para o cron não parar em silêncio se o log não
   abrir. Sem permissão de escrita no log ou na trava, o script sai com 73 e
-  avisa o syslog. Erros **e o resumo de cada execução** vão também para o
+  avisa o syslog (a rotação das cópias velhas roda **antes** desse teste, então
+  continua valendo, e o `crit` abaixo também vale para essa saída e para a do
+  backup "pulado", status 75). Erros **e o resumo de cada execução** vão também para o
   syslog, com a tag `bandejao-backup` (`journalctl -t bandejao-backup`),
   porque a VM não manda e-mail.
 - **Pasta sem backup útil:** como a rotação roda mesmo com o dump falhando,
   7 falhas seguidas (uma senha trocada no `.env.db`, por exemplo) apagam todas
   as cópias. Quando uma falha deixa a pasta sem cópia, ou com a mais nova com
-  mais de 26 h, o script grava um aviso `user.crit` no syslog:
-  `journalctl -t bandejao-backup -p crit`. Se o arquivo novo tiver menos da
+  mais de 26 h, o script grava um aviso `user.crit` no syslog. Confira com
+  `journalctl -t bandejao-backup -p err`, que traz o `crit` **e** os erros
+  comuns (`-p crit` sozinho esconde a falha com status 73). Se o arquivo novo tiver menos da
   metade do tamanho da cópia anterior (um banco que perdeu os dados vira um
   dump completo e pequeno), o aviso é `user.warning`.
-- **Interrupção:** Ctrl-C ou `kill` apagam o dump em andamento (o `sh` não
-  roda a limpeza sozinho num sinal; o script converte o sinal em saída com
-  status 130).
+- **Interrupção:** o `sh` não roda a limpeza sozinho num sinal, então o script
+  converte Ctrl-C, `kill` e o TERM do systemd em saída com status 130, apaga o
+  dump em andamento e registra "interrompido por sinal" no log e no syslog.
+  Duas limitações: um `kill <pid>` só no script não é imediato (o `sh` espera o
+  `timeout` filho terminar, até cerca de 35 min; só o Ctrl-C atinge o grupo
+  inteiro), e, depois do Ctrl-C, o `mysqldump` continua dentro do container até
+  terminar ou até o limite de 30 min. A trava é liberada, então um backup
+  logo em seguida roda em paralelo com ele.
+- **Tabela de cache fora:** a `cache_bandejao` (limite de taxa, com chaves que
+  podem ter IP) é efêmera e fica fora do dump. Depois de restaurar num banco
+  **vazio**, rode `docker compose exec backend python manage.py
+  createcachetable`.
 
 ## Instalar (uma vez, na VM, como `azureuser`)
 
@@ -83,9 +95,11 @@ ls -la /var/backups/bandejao
 O esperado é uma linha `ok: bandejao-....sql.gz` no fim do log, um arquivo
 `-rw-------` e a pasta `.` com `drwx------`.
 
-Com `sudo`, o `.trava`, o log e a cópia passam a ser do root (a pasta continua
-do `azureuser`), e o cron seguinte sai com status 73, avisando o syslog. Para
-desfazer:
+Com `sudo`, a cópia nova nasce do root e, **se ainda não existiam**, o `.trava`
+e o log também (o `>>` não troca o dono de um arquivo que já existe). A pasta
+continua do `azureuser`. Quando o log ou a trava passam a ser do root, o cron
+seguinte sai com status 73 e avisa o syslog (as cópias velhas ainda saem, e o
+aviso `crit` aparece se a pasta ficar sem cópia útil). Para desfazer:
 
 ```bash
 sudo rm -f /var/backups/bandejao/.trava
@@ -100,10 +114,12 @@ sh deploy/backup/testar-restauracao.sh
 
 O script usa a cópia mais recente (ou a que você passar como argumento), sobe
 um MySQL temporário **sem rede** e com senha aleatória, restaura e compara:
-o número de tabelas tem que ser o da produção, o `django_migrations` não
-pode estar vazio e **pelo menos uma tabela de dados** (fora de `django_*` e
-`auth_*`) precisa ter linhas: um banco recriado gera um dump completo e vazio,
-que não pode passar como backup bom. Se uma consulta falhar, o erro do MySQL
+o número de tabelas (sem a de cache) tem que ser o da produção, o
+`django_migrations` não pode estar vazio e o `cadastro_usuario` não pode estar
+vazio nem ter menos da metade das contas da produção: um banco recriado gera
+um dump completo e sem contas, que não pode passar como backup bom. (Uma
+tabela qualquer com linhas não basta: a de cache enche com uma tentativa de
+login.) Se uma consulta falhar, o erro do MySQL
 aparece na mensagem. Termina com `OK: a restauração de ... foi conferida.` O
 container temporário (e o volume dele) some sozinho, inclusive num Ctrl-C. A
 senha dele não aparece no `ps`. O banco de produção só é lido.
@@ -120,7 +136,8 @@ ls -la --time-style=long-iso /var/backups/bandejao
 Depois de uma semana, as datas devem ser as 7 últimas, e a mais antiga não
 pode ter mais de 7 dias. O log (`/var/log/bandejao/backup-banco.log`) mostra,
 a cada dia, quantas cópias ficaram. No dia seguinte à instalação, confira
-também `journalctl -t bandejao-backup` e que **não** há linha `crit`.
+também `journalctl -t bandejao-backup -p err` e que **não** há linha `crit`
+(o `-p err` inclui o `crit`).
 
 ## Restaurar de verdade (emergência)
 
