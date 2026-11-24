@@ -735,6 +735,38 @@ def test_segundo_backup_ao_mesmo_tempo_e_pulado(rodar, ambiente):
 
 
 @precisa_de_sh
+def test_flock_que_falha_por_outro_motivo_nao_vira_pulado(rodar, ambiente):
+    """Só o status 1 do `flock -n` é "trava ocupada" (saída 75). Qualquer
+    outro status é erro do próprio `flock` e sai com 1."""
+    flock = ambiente["bin"] / "flock"
+    flock.write_text("#!/bin/sh\nexit 2\n", encoding="utf-8", newline="\n")
+    flock.chmod(0o755)
+    resultado = rodar()
+    assert resultado.returncode == 1
+    assert "flock saiu com status 2" in resultado.log
+    assert "pulado" not in resultado.log
+    assert resultado.docker is None
+
+
+@precisa_de_sh
+def test_log_que_nao_pode_ser_criado_sai_com_1_e_avisa_com_crit(
+    rodar, ambiente, tmp_path
+):
+    """Sem pasta de log, o script sai com 1, mas a pasta de backups continua
+    conferida: sem nenhuma cópia, o `crit` tem que sair (como nas outras
+    saídas antes do dump)."""
+    arquivo = tmp_path / "um-arquivo"
+    arquivo.write_text("", encoding="utf-8")
+    resultado = rodar(BANDEJAO_LOGS=(arquivo / "logs").as_posix())
+    assert resultado.returncode == 1
+    assert "não foi possível criar" in resultado.stderr
+    assert any(
+        "user.crit" in linha and "SEM NENHUMA" in linha for linha in resultado.logger
+    )
+    assert resultado.docker is None
+
+
+@precisa_de_sh
 @pytest.mark.skipif(shutil.which("flock") is None, reason="sem flock no PATH")
 def test_saida_75_com_copia_velha_demais_avisa_com_crit(rodar, ambiente):
     import fcntl
@@ -783,9 +815,15 @@ case "$1" in
         esac ;;
     compose)
         # A produção também lê a entrada: grava o que chegar nela.
-        cat > "$SAIDA_DOCKER.compose_entrada"
+        # `>>`: cada chamada acrescenta; se uma delas ler o teclado, o
+        # arquivo deixa de ficar vazio.
+        cat >> "$SAIDA_DOCKER.compose_entrada"
         case "$*" in
             *"FROM cadastro_usuario"*) echo "${USUARIOS_PROD:-3}"; exit 0 ;;
+            # A produção tem a tabela de cache, que a cópia não tem (fica fora
+            # do dump): só a consulta que a exclui devolve o mesmo número.
+            *information_schema*cache_bandejao*) echo "${TABELAS_PROD:-30}"; exit 0 ;;
+            *information_schema*) echo $(( ${TABELAS_PROD:-30} + 1 )); exit 0 ;;
             *) echo "${TABELAS_PROD:-30}"; exit 0 ;;
         esac ;;
 esac
