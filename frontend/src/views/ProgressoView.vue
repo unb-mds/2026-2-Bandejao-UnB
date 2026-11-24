@@ -61,7 +61,7 @@ function alterarAdesao(participar) {
       <template v-else>
         <!-- Desktop (FE-23): o cartão de identidade do protótipo. Repete o que a
              patente já diz, então fica fora da árvore de acessibilidade. -->
-        <div v-if="situacao === 'carregado'" class="identidade" aria-hidden="true">
+        <div v-if="situacao === 'carregado'" class="identidade fundo-escuro" aria-hidden="true">
           <span class="identidade-avatar">{{ auth.apelido.charAt(0).toUpperCase() }}</span>
           <div>
             <p class="sobretitulo">Perfil Bandejão</p>
@@ -237,7 +237,7 @@ function alterarAdesao(participar) {
   }
   .corpo > * {
     grid-column: 1 / -1;
-    margin-top: 0 !important;
+    margin-top: 0;
   }
   .corpo > .progresso-patente {
     grid-column: 1;
@@ -260,9 +260,6 @@ function alterarAdesao(participar) {
     color: #fff;
     background: var(--verde-escuro);
     box-shadow: 0 18px 40px var(--sombra-escura);
-  }
-  .identidade .sobretitulo {
-    color: var(--branco-60);
   }
   .identidade-avatar {
     display: grid;

@@ -2,6 +2,7 @@
 import cafe from '@/assets/refeicoes/cafe.png'
 import almoco from '@/assets/refeicoes/almoco.png'
 import jantar from '@/assets/refeicoes/jantar.png'
+import { ORDEM_REFEICOES } from '@/constants/refeicoes'
 
 /** Ilustração de cada refeição (RF17), decorativa: o nome vem sempre em texto ao lado. */
 const ILUSTRACOES = { cafe, almoco, jantar }
@@ -10,8 +11,8 @@ defineProps({
   refeicao: {
     type: String,
     required: true,
-    // Lista escrita aqui: o defineProps não enxerga as constantes do setup.
-    validator: (valor) => ['cafe', 'almoco', 'jantar'].includes(valor),
+    // Constante importada: o defineProps não enxerga as declaradas no setup.
+    validator: (valor) => ORDEM_REFEICOES.includes(valor),
   },
   grande: { type: Boolean, default: false },
 })

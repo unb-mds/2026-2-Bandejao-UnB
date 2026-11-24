@@ -172,7 +172,7 @@ function limparFiltros() {
       <span class="suave horario">{{ horarioRefeicao(atual.refeicao) }}</span>
     </RouterLink>
 
-    <div v-if="destaque" class="destaque" data-teste="destaque-refeicao">
+    <div v-if="destaque" class="destaque fundo-escuro" data-teste="destaque-refeicao">
       <div class="destaque-texto">
         <p class="sobretitulo">Destaque do {{ REFEICOES[destaque.refeicao].rotuloCurto }}</p>
         <p class="destaque-prato">{{ destaque.prato }}</p>
@@ -613,9 +613,6 @@ function limparFiltros() {
   }
   .destaque-texto {
     position: relative;
-  }
-  .destaque .sobretitulo {
-    color: var(--branco-60);
   }
   .destaque-prato {
     max-width: 620px;

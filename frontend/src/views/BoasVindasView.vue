@@ -1,10 +1,7 @@
 <script setup>
-import { REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
+import { ORDEM_REFEICOES, REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
 import AppLogo from '@/components/AppLogo.vue'
 import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
-
-// Desktop (FE-23): as três refeições no lado verde, com o almoço em destaque.
-const REFEICOES_DO_DIA = ['cafe', 'almoco', 'jantar']
 </script>
 
 <template>
@@ -66,7 +63,7 @@ const REFEICOES_DO_DIA = ['cafe', 'almoco', 'jantar']
       </div>
       <ul class="hero-refeicoes" aria-label="Refeições do RU">
         <li
-          v-for="refeicao in REFEICOES_DO_DIA"
+          v-for="refeicao in ORDEM_REFEICOES"
           :key="refeicao"
           class="hero-refeicao"
           :class="{ 'hero-refeicao--destaque': refeicao === 'almoco' }"

@@ -91,7 +91,7 @@ defineProps({
   }
   .secao-fila > * {
     grid-column: 1 / -1;
-    margin-top: 0 !important;
+    margin-top: 0;
   }
   .secao-fila > section:not(:first-of-type),
   .como-funciona {

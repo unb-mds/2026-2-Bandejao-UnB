@@ -725,7 +725,7 @@ async function enviar() {
   }
   .widget-avaliacao > * {
     grid-column: 1 / -1;
-    margin-top: 0 !important;
+    margin-top: 0;
   }
   .widget-avaliacao > .resumo {
     grid-column: 1;
@@ -763,7 +763,7 @@ async function enviar() {
     order: -2;
   }
   .widget-avaliacao > .titulo-secao {
-    margin-top: 16px !important;
+    margin-top: 16px;
     font-size: 22px;
     letter-spacing: -0.03em;
   }
