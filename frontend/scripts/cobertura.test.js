@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ARQUIVOS_CRITICOS, MODULOS } from './mutacao.mjs'
-import { coberturaDoRelatorio, principal } from './cobertura.mjs'
+import { MINIMO_COBERTURA, coberturaDoRelatorio, principal } from './cobertura.mjs'
 
 const RAIZ_NO_CI = '/home/runner/work/2026-2-Bandejao-UnB/2026-2-Bandejao-UnB/frontend'
 
@@ -106,14 +106,30 @@ describe('coberturaDoRelatorio', () => {
     expect(arquivos.map((a) => a.arquivo)).not.toContain('src/stores/gamificacao.js')
   })
 
-  it('arquivo com o mesmo final de caminho em outra pasta não conta', () => {
+  it('pasta com o nome grudado no começo (meusrc/) não conta: o final casa a partir de uma barra', () => {
     const arquivos = todosCriticos(100)
     delete arquivos['src/stores/auth.js']
     const { ausentes } = coberturaDoRelatorio(
-      relatorio({ ...arquivos, 'src/outra/stores/auth.js': [100, 100] }),
+      relatorio({ ...arquivos, 'meusrc/stores/auth.js': [100, 100] }),
     )
 
     expect(ausentes).toEqual(['src/stores/auth.js'])
+  })
+
+  it.each([
+    ['sem `covered`', { total: 100 }],
+    ['`covered` texto', { total: 100, covered: 'abc' }],
+    ['`covered` negativo', { total: 100, covered: -1 }],
+    ['`covered` maior que o total', { total: 100, covered: 101 }],
+    ['`total` fracionado', { total: 10.5, covered: 5 }],
+  ])('linhas malformadas (%s) são ausentes, não NaN%%', (_caso, linhas) => {
+    const dados = relatorio(todosCriticos(100))
+    dados[`${RAIZ_NO_CI}/src/stores/fila.js`].lines = linhas
+
+    const { ausentes, arquivos } = coberturaDoRelatorio(dados)
+
+    expect(ausentes).toEqual(['src/stores/fila.js'])
+    expect(arquivos.every((a) => Number.isFinite(a.pct))).toBe(true)
   })
 })
 
@@ -153,11 +169,21 @@ describe('linha de comando (principal)', () => {
     const caminho = gravar({ ...todosCriticos(100), 'src/services/apiClient.js': [1000, 699] })
 
     expect(principal(['resumo', caminho, '--minimo', '70'])).toBe(1)
-    expect(textoDe(erros)).toContain('src/services/apiClient.js')
-    expect(textoDe(erros)).toContain('69.9')
+    expect(textoDe(erros)).toContain(
+      '::error::Cobertura de src/services/apiClient.js abaixo de 70%: 69.90%',
+    )
   })
 
-  it('sem --minimo, o mínimo é 70', () => {
+  it('o motivo da reprovação também sai no stdout, que vai para o resumo do run', () => {
+    const caminho = gravar({ ...todosCriticos(100), 'src/services/apiClient.js': [1000, 699] })
+
+    principal(['resumo', caminho])
+
+    expect(textoDe(saida)).toContain('**Abaixo de 70%:** `src/services/apiClient.js` (69.90%)')
+  })
+
+  it('sem --minimo, o mínimo é a meta do vitest.config.js (70)', () => {
+    expect(MINIMO_COBERTURA).toBe(70)
     const caminho = gravar({ ...todosCriticos(100), 'src/stores/fila.js': [1000, 699] })
 
     expect(principal(['resumo', caminho])).toBe(1)
@@ -209,9 +235,32 @@ describe('linha de comando (principal)', () => {
     expect(textoDe(erros)).toContain('Não dá para medir')
   })
 
-  it('JSON inválido sai com 2', () => {
+  it('JSON inválido sai com 2 e diz que não dá para medir', () => {
     const caminho = join(pasta, 'quebrado.json')
     writeFileSync(caminho, '{ não é json')
+
+    expect(principal(['resumo', caminho])).toBe(2)
+    expect(textoDe(erros)).toContain('::error::Não dá para medir')
+    expect(textoDe(saida)).toContain('**Não medido:**')
+  })
+
+  it.each([
+    ['null', 'null'],
+    ['lista', '[]'],
+    ['objeto vazio', '{}'],
+    ['número', '42'],
+  ])('JSON válido com formato errado (%s) sai com 2', (_caso, conteudo) => {
+    const caminho = join(pasta, 'formato.json')
+    writeFileSync(caminho, conteudo)
+
+    expect(principal(['resumo', caminho])).toBe(2)
+    expect(textoDe(erros)).toContain('::error::Não dá para medir')
+  })
+
+  it('arquivo ausente e arquivo abaixo ao mesmo tempo: sai com 2 (não medir vence)', () => {
+    const arquivos = { ...todosCriticos(100), 'src/stores/fila.js': [1000, 100] }
+    delete arquivos['src/router/index.js']
+    const caminho = gravar(arquivos)
 
     expect(principal(['resumo', caminho])).toBe(2)
   })
@@ -222,12 +271,17 @@ describe('linha de comando (principal)', () => {
     const caminho = gravar(arquivos)
 
     expect(principal(['resumo', caminho])).toBe(2)
+    expect(textoDe(erros)).toContain('::error::')
     expect(textoDe(erros)).toContain('src/components/CheckinBotao.vue')
+    expect(textoDe(saida)).toContain('**Não medido:** `src/components/CheckinBotao.vue`')
   })
 
-  it('comando desconhecido ou sem caminho sai com 2 e mostra o uso', () => {
-    expect(principal([])).toBe(2)
-    expect(principal(['resumo'])).toBe(2)
+  it.each([
+    ['sem comando', []],
+    ['sem caminho', ['resumo']],
+    ['comando desconhecido', ['outro', 'x.json']],
+  ])('%s: sai com 2 e mostra o uso', (_caso, argumentos) => {
+    expect(principal(argumentos)).toBe(2)
     expect(textoDe(erros)).toContain('Uso:')
   })
 })

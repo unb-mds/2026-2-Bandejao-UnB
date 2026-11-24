@@ -13,6 +13,7 @@ import {
   escoreDoRelatorio,
   principal,
 } from './mutacao.mjs'
+import { MINIMO_COBERTURA } from './cobertura.mjs'
 
 const raiz = fileURLToPath(new URL('..', import.meta.url))
 const existe = (arquivo) => existsSync(`${raiz}/${arquivo}`)
@@ -58,15 +59,24 @@ describe('lista dos arquivos críticos', () => {
     expect(ARQUIVOS_CRITICOS.filter((arquivo) => !existe(arquivo))).toEqual([])
   })
 
-  it('todo arquivo com meta de cobertura no vitest.config.js também é mutado', () => {
-    const comMeta = Object.keys(configDoVitest.test.coverage.thresholds)
+  // As metas são montadas a partir do ARQUIVOS_CRITICOS (FE-19): os dois testes
+  // abaixo passam por construção e servem de trava contra quem voltar a
+  // escrever a lista à mão no vitest.config.js.
+  it('trava: todo arquivo com meta de cobertura no vitest.config.js também é mutado', () => {
+    // Só as chaves de arquivo: opções globais (`perFile`, `lines`) não são arquivos.
+    const comMeta = Object.keys(configDoVitest.test.coverage.thresholds).filter((chave) =>
+      chave.startsWith('src/'),
+    )
     expect(comMeta.length).toBeGreaterThan(0)
     expect(comMeta.filter((arquivo) => !ARQUIVOS_CRITICOS.includes(arquivo))).toEqual([])
   })
 
-  it('todo arquivo mutado também tem meta de 70% de linhas no vitest.config.js (FE-19)', () => {
+  it('trava: todo arquivo mutado tem a meta de linhas do cobertura.mjs no vitest.config.js', () => {
     const metas = configDoVitest.test.coverage.thresholds
-    expect(ARQUIVOS_CRITICOS.filter((arquivo) => metas[arquivo]?.lines !== 70)).toEqual([])
+    expect(MINIMO_COBERTURA).toBe(70)
+    expect(
+      ARQUIVOS_CRITICOS.filter((arquivo) => metas[arquivo]?.lines !== MINIMO_COBERTURA),
+    ).toEqual([])
   })
 
   it('o alvo fixo da configuração é um arquivo crítico', () => {
