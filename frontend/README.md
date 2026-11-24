@@ -79,14 +79,15 @@ O `.github/workflows/frontend-ci.yml` roda em todo PR, com cinco portas (Plano d
 | Job | O que reprova |
 |---|---|
 | `lint (front)` | Qualquer erro ou aviso do Oxlint ou do ESLint, incluindo teste sem `expect` (`vitest/expect-expect`) e `v-html` |
-| `testes (front)` | Teste falhando, ou menos de 70% de linhas em algum arquivo crítico (`coverage.thresholds` no `vitest.config.js`) |
+| `testes (front)` | Teste falhando, ou menos de 70% de linhas em algum arquivo crítico (`coverage.thresholds` no `vitest.config.js`, montado a partir do `ARQUIVOS_CRITICOS` do `scripts/mutacao.mjs`). A tabela por módulo sai no resumo do run, e o relatório HTML no artefato `cobertura-front` |
 | `build (front)` | Erro no `vite build`, ou o servidor simulado dentro do `dist/` |
 | `seguranca (front)` | Dependência com vulnerabilidade alta ou crítica (`npm audit`) e achado de severidade ERROR no Semgrep |
 | `mutacao (front)` | Escore de mutação abaixo de 50% nos arquivos críticos alterados no PR. O job roda em todo PR, mas só chama o Stryker quando o PR mexe em algum arquivo crítico, num teste que chegue a um deles ou na configuração da mutação |
 
-Arquivo crítico novo (por exemplo, uma store de um extra) entra na lista do `coverage.thresholds` do
-`vitest.config.js` e no `MODULOS` do `scripts/mutacao.mjs` no mesmo PR que o cria. A base
-inteira passa pela mutação toda semana (`frontend-mutacao-semanal.yml`).
+Arquivo crítico novo (por exemplo, uma store de um extra) entra no `MODULOS` do
+`scripts/mutacao.mjs` no mesmo PR que o cria: a mutação e o `coverage.thresholds` do
+`vitest.config.js` usam essa lista. A base inteira passa pela mutação toda semana
+(`frontend-mutacao-semanal.yml`).
 
 Se o Stryker quebrar no dry run de um componente `.vue` com "`defineProps()` ... cannot reference
 locally declared variables", envolva o `defineProps` com `// Stryker disable all` e
