@@ -38,6 +38,46 @@ jobs:
         cache-dependency-path: backend/requirements-dev.txt
     - run: pip install -r requirements-dev.txt
     - run: pytest --cov=apps --cov-branch --cov-fail-under=70
+    # Meta do RNF06 por módulo crítico (ADR 0013; Plano de Testes, seções 1,
+    # 2 e 5.1): a média de apps/ esconde um módulo fraco atrás dos outros. O
+    # coverage report lê o .coverage que o passo anterior deixou em backend/.
+    # tests/ e migrations/ já ficam fora do .coverage pelo [run] omit do
+    # .coveragerc; na linha do cardápio, o --omit só tira o leitor. O passo
+    # mede os seis e só depois falha (e só roda se o pytest passou). A tabela
+    # de cada módulo vai para o resumo do run (relatório da BE-18).
+    - name: Cobertura por módulo crítico (mínimo 70%)
+      shell: bash
+      run: |
+        falhou=0
+        relatorio() {
+          local titulo="$1"; shift
+          echo "== $titulo"
+          echo "### $titulo" >> "$GITHUB_STEP_SUMMARY"
+          if ! coverage report "$@" --format=markdown >> "$GITHUB_STEP_SUMMARY"; then
+            echo "_Sem tabela: o coverage report falhou para $titulo (ver o log)._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo >> "$GITHUB_STEP_SUMMARY"
+          local saida
+          if saida=$(coverage report "$@" --fail-under=70 2>&1); then
+            echo "$saida"
+          else
+            echo "$saida"
+            if grep -q "No data to report" <<< "$saida"; then
+              echo "::error::Sem dados de cobertura para $titulo (caminho mudou?)."
+            elif grep -q "^TOTAL" <<< "$saida"; then
+              echo "::error::Cobertura de $titulo abaixo de 70%."
+            else
+              echo "::error::O coverage report falhou para $titulo (ver o log)."
+            fi
+            falhou=1
+          fi
+        }
+        for modulo in cadastro cardapio/leitor avaliacao fila gamificacao; do
+          relatorio "$modulo" --include="apps/$modulo/*"
+        done
+        relatorio "cardapio (sem o leitor)" --include="apps/cardapio/*" \
+          --omit="apps/cardapio/leitor/*"
+        exit "$falhou"
 
   seguranca:
     runs-on: ubuntu-latest

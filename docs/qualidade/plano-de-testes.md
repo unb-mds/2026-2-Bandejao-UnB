@@ -12,12 +12,12 @@ O plano de ensino trata a cobertura como **piso, não como prova de qualidade**.
 
 | Métrica | Meta | Onde | Como se confere |
 |---|---|---|---|
-| Cobertura de linhas | **≥ 70%** | Módulos críticos (seção 2) | `coverage.py` (back) e `@vitest/coverage-v8` (front), com o CI falhando abaixo da meta |
+| Cobertura de linhas | **≥ 70%** | Módulos críticos (seção 2), cada um | `coverage.py` (back) e `@vitest/coverage-v8` (front), com o CI falhando abaixo da meta. No back, o CI mede linhas e ramos juntos (`--cov-branch`), com duas casas decimais, sem arredondar a meta para cima |
 | Escore de mutação | **≥ 50%** | Módulos críticos | `mutmut` (back) e StrykerJS (front) |
 | Teste de sabotagem | **100%** dos módulos críticos | Módulos críticos | Defeito proposital em cada módulo; a suíte tem que quebrar. Registro na seção 6 |
 | Achados críticos/altos em SAST | **0 em aberto** | Todo o código e as dependências | `bandit`, Semgrep, `pip-audit` e `npm audit` |
 
-A cobertura de ramos (branches) também sai no relatório, para orientar a revisão, mas não bloqueia o PR.
+A cobertura de ramos (branches) também sai no relatório, para orientar a revisão. No back, ela entra no percentual que bloqueia o PR: com `--cov-branch`, o `coverage.py` soma linhas e ramos num número só, que costuma ficar abaixo do de linhas. Se um módulo ficar entre os dois (linhas ≥ 70% e o combinado abaixo), o relatório registra os dois.
 
 **Porta de qualidade da entrega:** a nota da Release 2 só é lançada com o software implantado e acessível, o **CI verde no commit da entrega** e **nenhuma vulnerabilidade crítica ou alta** em aberto (plano de ensino, Condições de Aprovação).
 
@@ -31,7 +31,7 @@ São os do RNF06, no que entrou na R2. São eles que precisam cumprir as metas d
 |---|---|---|
 | Cadastro e autenticação | `apps/cadastro` | `stores/auth.js`, validações do cadastro, guardas do `router` |
 | Leitura do cardápio (com os ícones) | `apps/cardapio/leitor` | — |
-| Exposição do cardápio e filtros | `apps/cardapio` (serviços de consulta e filtros) | `stores/cardapio.js`, `utils/cardapio.js` |
+| Exposição do cardápio e filtros | `apps/cardapio` sem o leitor (serviços de consulta e filtros, e também views, serializers, models e comandos: a cobertura e a mutação medem o app inteiro menos o `leitor/`) | `stores/cardapio.js`, `utils/cardapio.js` |
 | Avaliação | `apps/avaliacao` | `stores/avaliacoes.js` |
 | Fila (check-in, previsão) | `apps/fila` | `filaStore`, `services/leituraPosicao.js`, `CheckinBotao`, `FilaPrevisao` |
 | Gamificação (pontos, patente, ranking) | `apps/gamificacao` | `gamificacaoStore`, `PontosAviso` |
@@ -228,15 +228,15 @@ O link do PR de prova vermelho fica na descrição do PR que cria cada porta (BE
 
 Dois workflows, um por frente, e um de ponta a ponta. Todos rodam em todo PR para a `develop` e para a `main`. A proteção da branch exige todos os jobs verdes para mesclar.
 
-### 5.1 `backend-ci.yml` (BE-02, BD-02, BE-19)
+### 5.1 `backend-ci.yml` (BE-02, BD-02, BE-19, BE-18)
 
 | Job | Comandos | Bloqueia o merge |
 |---|---|---|
 | `lint` | `ruff check .` e `ruff format --check .` | Sim |
-| `testes` | `pytest --cov --cov-branch` com SQLite; depois `coverage report --include=<módulos críticos> --fail-under=70` | Sim |
+| `testes` | `pytest --cov=apps --cov-branch --cov-fail-under=70` com SQLite; depois `coverage report --include=<módulo> --fail-under=70` para **cada** módulo crítico da seção 2 (o `cardapio` sem o leitor, com `--omit`), com a tabela de cada um no resumo do run (BE-18). O passo mede os seis e só depois falha; ele roda se o `pytest` passou | Sim |
 | `testes-mysql` | Mesma suíte com MySQL 8.4 `utf8mb4`, collation `utf8mb4_0900_ai_ci` e isolamento explícito READ COMMITTED (BD-02). Executado em todos os PRs para `develop` e `main`, inclusive os que não alteram migrations | Sim, obrigatório na `develop` |
 | `contrato` | `manage.py spectacular --validate` e comparação com o contrato do repositório | Sim |
-| `seguranca` | `bandit -r apps -lll` (falha em severidade alta), Semgrep, `pip-audit` | Sim |
+| `seguranca` | `bandit -r apps config -lll` (falha em severidade alta), Semgrep, `pip-audit` | Sim |
 | `mutacao` | `mutmut run` nos arquivos críticos alterados; falha abaixo de 50% | Sim, quando roda |
 
 **Como o job `mutacao` funciona (BE-19):**
