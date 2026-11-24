@@ -1,5 +1,24 @@
 <script setup>
+import { useRouter } from 'vue-router'
+import { useCardapioStore } from '@/stores/cardapio'
+import { usePreferenciasStore } from '@/stores/preferencias'
 import AppLogo from '@/components/AppLogo.vue'
+
+/**
+ * Primeira visita: entrar na conta ou escolher o campus aqui mesmo. Sem o
+ * passo "Continuar sem login", quem não permite a localização chega ao
+ * cardápio em 2 interações, "Agora não" e o campus (RNF03 da Release 2,
+ * #285). A escolha fica lembrada no aparelho (RN04), como no seletor.
+ */
+const router = useRouter()
+const cardapio = useCardapioStore()
+const preferencias = usePreferenciasStore()
+cardapio.carregarCampi()
+
+function escolher(id) {
+  preferencias.escolherCampus(id)
+  router.push({ name: 'campus-tela', params: { campusId: String(id) } })
+}
 </script>
 
 <template>
@@ -52,7 +71,39 @@ import AppLogo from '@/components/AppLogo.vue'
 
     <div class="acoes pilha-3">
       <RouterLink :to="{ name: 'login' }" class="botao botao--destaque">Entrar na conta</RouterLink>
-      <RouterLink :to="{ name: 'campus' }" class="botao visitante">Continuar sem login</RouterLink>
+
+      <p id="boas-vindas-campus" class="chamada-campus">
+        Ou escolha o campus para ver o cardápio sem login
+      </p>
+      <p
+        v-if="cardapio.carregandoCampi || (!cardapio.campiCarregados && !cardapio.erroCampi)"
+        class="nota"
+        role="status"
+      >
+        Carregando campi…
+      </p>
+      <div v-else-if="cardapio.erroCampi && !cardapio.campi.length" class="nota" role="alert">
+        <p>Não foi possível carregar os campi. {{ cardapio.erroCampi }}</p>
+        <button
+          type="button"
+          class="botao-pequeno tentar"
+          @click="cardapio.carregarCampi({ forcar: true })"
+        >
+          Tentar novamente
+        </button>
+      </div>
+      <p v-else-if="!cardapio.campi.length" class="nota">Nenhum campus disponível no momento.</p>
+      <div v-else class="campi" role="group" aria-labelledby="boas-vindas-campus">
+        <button
+          v-for="campus in cardapio.campi"
+          :key="campus.id"
+          type="button"
+          class="botao visitante"
+          @click="escolher(campus.id)"
+        >
+          {{ campus.nome }}
+        </button>
+      </div>
       <p class="nota">Visitantes podem consultar o cardápio e as avaliações</p>
     </div>
   </div>
@@ -117,8 +168,24 @@ import AppLogo from '@/components/AppLogo.vue'
   padding: 0 24px 48px;
 }
 
+.chamada-campus {
+  padding-top: 8px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--branco-45);
+}
+
+.campi {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .visitante {
+  padding: 12px;
+  font-size: 13px;
   font-weight: 600;
+  text-align: center;
   border: 1.5px solid var(--branco-20);
   color: var(--branco-70);
 }
@@ -127,5 +194,9 @@ import AppLogo from '@/components/AppLogo.vue'
   font-size: 12px;
   text-align: center;
   color: var(--branco-25);
+}
+
+.tentar {
+  margin-top: 8px;
 }
 </style>
