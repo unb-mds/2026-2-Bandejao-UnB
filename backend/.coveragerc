@@ -2,3 +2,8 @@
 omit =
     */tests/*
     */migrations/*
+
+[report]
+# Duas casas no total: sem isso (precision = 0), o --fail-under=70 compara o
+# total arredondado, e um módulo com 69,6% passaria como 70% (revisão da BE-18).
+precision = 2
