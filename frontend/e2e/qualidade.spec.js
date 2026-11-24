@@ -14,35 +14,71 @@ const PRATO_DO_GAMA = 'Silveirinha de carne'
 const cardapioDoGama = (page) =>
   page.getByRole('region', { name: 'Cardápio' }).getByText(PRATO_DO_GAMA)
 
-// As interações são contadas uma a uma: o aviso de localização (RF19) também
-// conta (RNF03), então a resposta automática do apoio fica desligada.
-test.describe('RNF03: até 3 interações até o cardápio na primeira visita', () => {
+// Cada toque é conferido pela tela que ele abre: um passo a mais ou a menos
+// falha no passo certo. O aviso de localização (RF19) conta como interação
+// (RNF03), então a resposta automática do apoio fica desligada.
+test.describe('RNF03: interações até o cardápio na primeira visita', () => {
   test.use({ responderAvisoLocalizacao: false })
 
-  test('sem permitir a localização, 3 interações; na visita seguinte, nenhuma', async ({
+  test('sem permitir a localização: "Agora não", "Continuar sem login" e o campus (3); na visita seguinte, nenhuma', async ({
     page,
   }) => {
-    let interacoes = 0
-    const tocar = async (alvo) => {
-      await alvo.click()
-      interacoes += 1
-    }
-
     await page.goto('/')
     const aviso = page.getByRole('dialog', { name: 'Usar sua localização?' })
-    await tocar(aviso.getByRole('button', { name: 'Agora não' }))
-    await tocar(page.getByRole('link', { name: 'Continuar sem login' }))
-    await tocar(page.getByRole('button', { name: new RegExp(GAMA.nome) }))
+    await aviso.getByRole('button', { name: 'Agora não' }).click()
+    await expect(aviso).toBeHidden()
+    await expect(page).toHaveURL(/\/boas-vindas$/)
 
-    const cardapio = page.getByRole('region', { name: 'Cardápio' })
-    await expect(cardapio.getByRole('listitem').first()).toBeVisible()
-    expect(interacoes).toBeLessThanOrEqual(3)
+    await page.getByRole('link', { name: 'Continuar sem login' }).click()
+    await expect(page).toHaveURL(/\/campus$/)
+
+    await page.getByRole('button', { name: new RegExp(GAMA.nome) }).click()
+    await expect(page).toHaveURL(new RegExp(`/campus/${GAMA.id}$`))
+    await expect(cardapioDoGama(page)).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
 
     // Visita seguinte (RNF03, RN04): o campus fica lembrado no aparelho e o
-    // cardápio abre sem interação.
+    // cardápio abre sem interação, sem o aviso por cima.
     await page.goto('/')
     await expect(page).toHaveURL(new RegExp(`/campus/${GAMA.id}$`))
-    await expect(cardapio.getByRole('listitem').first()).toBeVisible()
+    await expect(cardapioDoGama(page)).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+  })
+
+  // Bug aberto (#ISSUE_BOAS_VINDAS): a Release 2 conta 2 interações sem
+  // permissão ("Agora não" e o campus), mas a boas-vindas pede o
+  // "Continuar sem login" no meio. Quando for corrigido, este teste passa a
+  // passar, o test.fail() acusa, e o checklist precisa ser atualizado.
+  test.fail(
+    'sem permitir a localização, Release 2: o campus já pode ser escolhido depois do "Agora não" (2)',
+    async ({ page }) => {
+      await page.goto('/')
+      const aviso = page.getByRole('dialog', { name: 'Usar sua localização?' })
+      await aviso.getByRole('button', { name: 'Agora não' }).click()
+      await expect(page.getByRole('button', { name: new RegExp(GAMA.nome) })).toBeVisible()
+    },
+  )
+
+  test.describe('com a localização permitida', () => {
+    test.use({ geolocation: GAMA.ru })
+
+    // Pendência do EXTRA 3: sem a detecção do campus (RF20.1, FE-E3),
+    // permitir a localização não leva ao cardápio do campus em que a pessoa
+    // está. Quando a FE-E3 entrar, este teste passa a passar e o test.fail()
+    // acusa, para o checklist ser atualizado.
+    test.fail(
+      '"Permitir localização" e o pedido do navegador (2) abrem o cardápio do campus detectado',
+      async ({ page, context }) => {
+        await page.goto('/')
+        const aviso = page.getByRole('dialog', { name: 'Usar sua localização?' })
+        // O Playwright não toca no pedido nativo do navegador: a permissão é
+        // dada antes do toque, e o pedido conta +1, como faria a pessoa.
+        await context.grantPermissions(['geolocation'])
+        await aviso.getByRole('button', { name: 'Permitir localização' }).click()
+
+        await expect(cardapioDoGama(page)).toBeVisible()
+      },
+    )
   })
 })
 
