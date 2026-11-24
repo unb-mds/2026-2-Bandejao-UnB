@@ -52,8 +52,8 @@ const emit = defineEmits(['escolher'])
   transition: all 0.15s;
 }
 .refeicao--ativa {
-  border-color: #fff;
-  color: #fff;
+  border-color: var(--branco);
+  color: var(--branco);
 }
 
 .nota {

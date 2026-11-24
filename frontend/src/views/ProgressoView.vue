@@ -140,7 +140,7 @@ function alterarAdesao(participar) {
 .subtitulo {
   margin-top: 4px;
   font-size: 12px;
-  color: rgb(255 255 255 / 75%);
+  color: var(--branco-75);
 }
 
 .estado {

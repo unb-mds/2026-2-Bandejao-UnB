@@ -92,7 +92,7 @@ function aplicar() {
                 v-if="marcadoresPendentes.includes(marcador.id)"
                 nome="check"
                 :tamanho="8"
-                cor="#fff"
+                cor="var(--branco)"
                 espessura="4"
               />
             </span>
@@ -127,7 +127,7 @@ function aplicar() {
 .fundo {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--fundo-dialogo);
 }
 
 .gaveta {
@@ -183,7 +183,7 @@ function aplicar() {
 .opcao-dieta--ativa {
   background: var(--verde-escuro);
   border-color: var(--verde-escuro);
-  color: #fff;
+  color: var(--branco);
 }
 
 .indisponivel {

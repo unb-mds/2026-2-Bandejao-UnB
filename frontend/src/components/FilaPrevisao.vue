@@ -231,7 +231,7 @@ function tentarNovamente() {
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--verde-escuro);
-  color: #fff;
+  color: var(--branco);
   font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;

@@ -47,7 +47,7 @@ const emit = defineEmits(['escolher'])
   transition: all 0.15s;
 }
 .dia--ativo {
-  background: #fff;
+  background: var(--branco);
 }
 
 .dia-semana {

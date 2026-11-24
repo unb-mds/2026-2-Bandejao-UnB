@@ -659,7 +659,7 @@ async function enviar() {
   font-size: 12px;
   font-weight: 900;
   background: var(--verde-escuro);
-  color: #fff;
+  color: var(--branco);
 }
 
 .apelido {

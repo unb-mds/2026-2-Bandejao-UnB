@@ -91,7 +91,7 @@ import AppLogo from '@/components/AppLogo.vue'
 }
 
 .logo {
-  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(var(--sombra-logo));
 }
 
 .nome {
@@ -101,7 +101,7 @@ import AppLogo from '@/components/AppLogo.vue'
   font-weight: 900;
   line-height: 1;
   letter-spacing: -1.5px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .slogan {

@@ -351,7 +351,7 @@ async function sair() {
   font-weight: 900;
   font-size: 16px;
   letter-spacing: -0.3px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .campus-atual {
@@ -373,7 +373,7 @@ async function sair() {
   font-size: 14px;
   font-weight: 900;
   background: var(--branco-10);
-  color: #fff;
+  color: var(--branco);
 }
 
 .menu-fundo {
@@ -391,7 +391,7 @@ async function sair() {
   padding: 12px;
   border-radius: var(--raio-lg);
   background: var(--cartao);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--sombra-menu);
 }
 
 .menu-apelido {
@@ -438,7 +438,7 @@ async function sair() {
   font-size: 28px;
   line-height: 1.25;
   letter-spacing: -0.5px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .aviso-sair {
@@ -482,7 +482,7 @@ async function sair() {
   font-size: 10px;
   font-weight: 900;
   background: var(--verde-escuro);
-  color: #fff;
+  color: var(--branco);
 }
 
 .horario {
@@ -650,7 +650,7 @@ async function sair() {
 
 .barra {
   width: 100%;
-  border-radius: 2px 2px 0 0;
+  border-radius: var(--raio-2xs) var(--raio-2xs) 0 0;
   background: var(--borda);
 }
 .barra--destaque {

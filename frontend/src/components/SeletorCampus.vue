@@ -144,7 +144,7 @@ function escolher(id) {
 }
 
 .opcao--atual {
-  color: #fff;
+  color: var(--branco);
   background: var(--verde-escuro);
   border-color: var(--verde-escuro);
 }
@@ -170,7 +170,7 @@ function escolher(id) {
   font-weight: 900;
   font-size: 20px;
   letter-spacing: -0.5px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .subtitulo {
@@ -204,7 +204,7 @@ function escolher(id) {
   font-size: 12px;
   font-weight: 900;
   letter-spacing: -0.3px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .textos {

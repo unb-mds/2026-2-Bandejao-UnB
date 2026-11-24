@@ -321,9 +321,8 @@ function limparFiltros() {
   font-family: var(--fonte-titulo);
   font-weight: 900;
   font-size: 16px;
-  color: #fff;
+  color: var(--branco);
 }
-
 
 .botao-filtro {
   position: relative;
@@ -346,7 +345,7 @@ function limparFiltros() {
   font-size: 9px;
   font-weight: 900;
   background: var(--dourado);
-  color: #fff;
+  color: var(--branco);
 }
 
 .barra-avaliacao {
