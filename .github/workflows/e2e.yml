@@ -1,0 +1,70 @@
+name: E2E
+
+# Testes de ponta a ponta (FE-18, Plano de Testes 3.5 e 5.3): sobe o PWA de
+# produção (Caddy), a API (Gunicorn) e o MySQL com o
+# frontend/e2e/docker-compose.yml, carrega as fixtures (BD-03 e as do e2e) e
+# roda o Playwright no celular (360x800) e no desktop (1366x768).
+#
+# Roda em todo PR, qualquer que seja a base, e sem filtro `paths:`: um check
+# obrigatório que não roda fica "pendente" e trava o merge. Qualquer mudança
+# no back, no front ou no banco pode quebrar um fluxo de ponta a ponta.
+on:
+  push:
+    branches: [ "develop", "main" ]
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: frontend
+    # Com `shell: bash` explícito, o GitHub roda com `-eo pipefail`.
+    shell: bash
+
+jobs:
+  ponta-a-ponta:
+    name: ponta-a-ponta
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Um push novo no PR cancela a rodada anterior, que já ficou velha.
+    concurrency:
+      group: e2e-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # Só o Chromium, na versão do @playwright/test do package-lock.json.
+      - run: npx playwright install --with-deps chromium
+
+      # Builda as imagens de produção do backend e do PWA e espera os
+      # healthchecks (MySQL, Gunicorn e Caddy).
+      - name: Subir PWA, API e banco
+        run: docker compose -f e2e/docker-compose.yml up -d --build --wait
+
+      # O globalSetup do Playwright limpa o banco e carrega as fixtures.
+      - name: Testes de ponta a ponta (celular e desktop)
+        run: npx playwright test
+
+      - name: Logs da pilha
+        if: ${{ failure() }}
+        run: docker compose -f e2e/docker-compose.yml logs --no-color --tail 200
+
+      - name: Publicar o relatório
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-relatorio
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
+
+      - name: Derrubar a pilha
+        if: ${{ always() }}
+        run: docker compose -f e2e/docker-compose.yml down -v
