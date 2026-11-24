@@ -66,7 +66,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Revisão humana: [revisão de Poviovsky](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/132#pullrequestreview-5927752431), aprovada com duas sugestões no registro (o vermelho do commit `test` e esta situação) e observações (`get_object_or_404`, `/api` sem a barra, `path_info`), aplicadas nos ajustes da revisão.
 - Situação: `pt-br` adotado e [registrado na #121](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/121#issuecomment-6929024596); ajustes da revisão aplicados.
 
-
 ## #123 — Limite de taxa no cadastro, no reenvio e no login
 
 - PR: [PR #133](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/133).
@@ -77,7 +76,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Revisão humana: revisão de AlvaroBento12 [Revisão de Álvaro Bento](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/133#issuecomment-6934287007), sem bloqueio, com dois ajustes pedidos (docstring do formato e vaga gasta na falha do SMTP) e cinco sugestões, todas aplicadas nos ajustes da revisão. A sugestão de conferir o retorno do `cache.set` foi aplicada com leitura de volta, porque o `set` do `DatabaseCache` devolve `None` mesmo quando grava. No recheck [recheck](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/133#issuecomment-6937500372), um ajuste: a leitura de volta conferia só se a chave existia, o que não pegava a falha a partir da 2ª gravação da janela (a linha antiga continuava lá). Agora confere se o horário do pedido chegou à lista, com 1 s de folga para pedidos simultâneos; testes no commit 909a8e0 (3 falham antes) e correção em 9cff7e6.
 - Situação: números dos limites conforme a proposta do guia (seção 4.1), a confirmar com o grupo na #123.
 
-
 ## Skills — pr-review-toolkit e uso das skills
 
 - PR: [#151 — Skills: pr-review-toolkit e uso das skills](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/151).
@@ -87,7 +85,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação: caminhos citados no `USO-DAS-SKILLS.md` conferidos no repositório; arquivos do plugin conferem com a versão 1.0.1 instalada.
 - Revisão humana: [revisão de Poviovsky](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/151#pullrequestreview-5942574990), aprovada com ajustes (licença MIT da `c4-architecture`, link do PR e vírgula neste registro, convenção de commit de revisão, pasta `review-status` em minúsculas e aviso da dependência no `SKILLS/README.md`), aplicados nos ajustes da revisão.
 - Situação: ajustes da revisão aplicados; aguardando nova revisão.
-
 
 ## BD-04 — Parâmetros do Anexo A
 
@@ -957,3 +954,12 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - **resumo e mensagens do passo:** se a tabela markdown falhar, o resumo diz que não há tabela; o `::error::` separa "abaixo de 70%", "sem dados" (módulo renomeado) e outra falha do `coverage report` (por exemplo, "No source for code", que apareceu no teste na máquina com um `.coverage` velho);
   - `coverage==7.17.5` fixo; Plano de Testes com linhas e ramos juntos no back, o escopo do `cardapio` sem o leitor, "passo" no lugar de "job" e a BE-18 no título da 5.1.
 - Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12 e a revisão do contrato pelo FE.
+
+## BD-E5 — Consultas dos indicadores de adesão (RNF09)
+
+- Ferramenta: Claude (Anthropic).
+- Apoio: `docs/arquitetura/banco-de-dados/indicadores-adesao-bd-e5.md` (quatro consultas, definições e como rodar na VM) e `backend/tests/test_indicadores_adesao_bd_e5.py`, que lê as consultas do próprio documento e as executa sobre dados de resposta conhecida.
+- Decisões que a equipe deve confirmar: a RNF09 não diz a base das porcentagens 3 e 4; o documento usa todas as contas com `status = 'ativo'`, e as contagens que a consulta devolve permitem refazer a conta com outra base. O indicador 3 sai 0% até a BE-E6 gravar `sequencia_atual`.
+- Validação local: teste com 6 casos no SQLite; oito mutações nas consultas (`>=` virando `>`, filtro de conta, `LEFT JOIN` virando `JOIN`, base sem filtro de status, número de semanas, estado da pergunta, limiar da sequência, valor do ranking) derrubam o teste. O MySQL 8.4 não rodou na máquina local; o job `testes-mysql` do CI é quem confere.
+- Pendente: rodar as consultas uma vez no MySQL da produção e anotar a data e o resultado.
+- Revisão humana: pendente.
