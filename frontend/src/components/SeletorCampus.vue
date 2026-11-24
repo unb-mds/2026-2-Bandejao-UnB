@@ -278,9 +278,9 @@ function escolher(id) {
     margin-top: auto;
     padding-top: 40px;
     list-style: none;
-    font-size: 8px;
+    font-size: 11px;
     font-weight: 700;
-    color: var(--branco-35);
+    color: var(--branco-60);
   }
   .passos li {
     flex: 1;

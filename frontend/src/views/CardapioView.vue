@@ -615,7 +615,7 @@ function limparFiltros() {
     position: relative;
   }
   .destaque .sobretitulo {
-    color: var(--branco-48);
+    color: var(--branco-60);
   }
   .destaque-prato {
     max-width: 620px;
@@ -626,7 +626,7 @@ function limparFiltros() {
     margin-top: 16px;
     font-size: 12px;
     line-height: 1.6;
-    color: var(--branco-48);
+    color: var(--branco-60);
   }
   .destaque-arte {
     position: relative;

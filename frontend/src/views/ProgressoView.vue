@@ -262,7 +262,7 @@ function alterarAdesao(participar) {
     box-shadow: 0 18px 40px var(--sombra-escura);
   }
   .identidade .sobretitulo {
-    color: var(--branco-48);
+    color: var(--branco-60);
   }
   .identidade-avatar {
     display: grid;
@@ -293,10 +293,10 @@ function alterarAdesao(participar) {
   }
   .identidade-pontos small {
     margin-top: 2px;
-    font-size: 8px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--branco-48);
+    color: var(--branco-60);
   }
 
   .patente,

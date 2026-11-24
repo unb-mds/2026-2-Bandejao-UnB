@@ -51,6 +51,12 @@
     padding: 27px clamp(28px, 4vw, 62px) 50px;
     background: var(--creme);
   }
+  /* Subtítulos sobre o verde com contraste AA (o branco a 40% fica em 3,6). */
+  .tela:not(.tela-formulario) .cabecalho .subtitulo-tela,
+  .tela:not(.tela-formulario) .cabecalho .subtitulo {
+    font-size: 13px;
+    color: var(--branco-75);
+  }
   /* Com o botão de voltar, ele fica à esquerda do título, como no protótipo. */
   .cabecalho:has(> .voltar:not(.voltar--rotulo)) {
     display: grid;
@@ -105,7 +111,7 @@
 /* Rótulo pequeno em maiúsculas acima dos títulos (o "eyebrow" do protótipo). */
 .sobretitulo {
   margin: 0 0 8px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1.2;
   letter-spacing: 0.14em;
@@ -113,7 +119,7 @@
   color: var(--texto-rotulo);
 }
 .fundo-escuro .sobretitulo {
-  color: var(--branco-48);
+  color: var(--branco-60);
 }
 
 /* A partir do tablet, o cartão cresce com o conteúdo e quem rola é a página

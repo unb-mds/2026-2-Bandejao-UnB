@@ -177,11 +177,9 @@ async function sairDaConta() {
 
 .marca small {
   margin-top: 5px;
-  font-size: 7px;
-  font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--branco-40);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--branco-60);
 }
 
 nav {
@@ -191,11 +189,11 @@ nav {
 
 .rotulo-lateral {
   margin: 0 12px 12px;
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--branco-30);
+  color: var(--branco-60);
 }
 
 .item {
@@ -205,9 +203,9 @@ nav {
   margin: 4px 0;
   padding: 12px 13px;
   border-radius: 11px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--branco-55);
+  color: var(--branco-75);
   text-decoration: none;
   transition: 0.2s ease;
 }
@@ -235,7 +233,7 @@ nav {
   align-items: center;
   gap: 8px;
   margin: 0 7px 12px;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--dourado);
   text-decoration: none;
@@ -251,7 +249,7 @@ nav {
   align-items: center;
   gap: 10px;
   padding: 12px 7px;
-  color: var(--branco-40);
+  color: var(--branco-60);
   text-decoration: none;
 }
 .atalho:hover {
@@ -291,13 +289,13 @@ nav {
 }
 
 .atalho-texto small {
-  font-size: 7px;
-  color: var(--branco-35);
+  font-size: 11px;
+  color: var(--branco-60);
 }
 
 .atalho-texto strong {
   margin-top: 3px;
-  font-size: 9px;
+  font-size: 12px;
   color: #fff;
 }
 
@@ -312,7 +310,7 @@ nav {
   height: 34px;
   flex-shrink: 0;
   border-radius: 50%;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 900;
   color: var(--verde-escuro);
   background: var(--dourado-avatar);
@@ -326,8 +324,8 @@ nav {
   gap: 8px;
   margin: 4px 6px 0;
   padding: 7px 4px;
-  font-size: 8px;
-  color: var(--branco-35);
+  font-size: 11px;
+  color: var(--branco-60);
 }
 .sair:hover:not(:disabled) {
   color: #fff;

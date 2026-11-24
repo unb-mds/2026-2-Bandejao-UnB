@@ -253,11 +253,11 @@ const REFEICOES_DO_DIA = ['cafe', 'almoco', 'jantar']
   }
   .hero-marca small {
     margin-top: 5px;
-    font-size: 8px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.11em;
     text-transform: uppercase;
-    color: var(--branco-40);
+    color: var(--branco-60);
   }
   .hero-texto {
     position: relative;
@@ -276,7 +276,7 @@ const REFEICOES_DO_DIA = ['cafe', 'almoco', 'jantar']
     margin-top: 25px;
     font-size: 14px;
     line-height: 1.75;
-    color: var(--branco-48);
+    color: var(--branco-60);
   }
   .hero-refeicoes {
     position: relative;
@@ -296,7 +296,7 @@ const REFEICOES_DO_DIA = ['cafe', 'almoco', 'jantar']
     padding: 11px 13px;
     border: 1px solid var(--branco-08);
     border-radius: 16px;
-    color: var(--branco-55);
+    color: var(--branco-60);
     background: var(--branco-05);
   }
   .hero-refeicao--destaque {
@@ -313,8 +313,8 @@ const REFEICOES_DO_DIA = ['cafe', 'almoco', 'jantar']
   .hero-refeicao > small {
     align-self: start;
     margin-top: 3px;
-    font-size: 8px;
-    color: var(--branco-35);
+    font-size: 11px;
+    color: var(--branco-60);
   }
 
   .entrada {
@@ -387,7 +387,7 @@ const REFEICOES_DO_DIA = ['cafe', 'almoco', 'jantar']
     color: var(--texto-suave);
   }
   .nota {
-    color: var(--texto-claro);
+    color: var(--texto-suave);
   }
 }
 </style>

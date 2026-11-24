@@ -86,12 +86,12 @@ const emit = defineEmits(['escolher'])
     background: transparent;
   }
   .dia-semana {
-    font-size: 8px;
-    color: var(--texto-claro);
+    font-size: 11px;
+    color: var(--texto-suave);
   }
   .dia-data {
-    font-size: 11px;
-    color: var(--texto-claro);
+    font-size: 13px;
+    color: var(--texto-suave);
   }
   .dia--ativo {
     background: var(--verde-escuro);

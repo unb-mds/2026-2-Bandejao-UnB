@@ -88,11 +88,11 @@ defineProps({
 
 .marca small {
   margin-top: 5px;
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.11em;
   text-transform: uppercase;
-  color: var(--branco-40);
+  color: var(--branco-60);
 }
 
 .arte {
@@ -114,8 +114,8 @@ defineProps({
 
 .descricao {
   margin-top: 13px;
-  font-size: 11px;
-  color: var(--branco-48);
+  font-size: 13px;
+  color: var(--branco-60);
 }
 
 .passos {

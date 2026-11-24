@@ -842,7 +842,7 @@ async function sair() {
   .cartao-hoje .horario,
   .cartao-hoje .hoje-rotulo,
   .cartao-hoje .hoje-vazio {
-    color: var(--branco-48);
+    color: var(--branco-60);
   }
   .cartao-hoje .hoje-titulo {
     font-size: clamp(28px, 2.6vw, 38px);
