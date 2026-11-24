@@ -960,7 +960,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## #285 — Primeira visita em 2 interações sem a localização (RNF03)
 
-- Issue: [#285](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/285). PR: a abrir. Relacionada: FE-16 ([#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192), PR [#287](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287)).
+- Issue: [#285](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/285). PR: [#289](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/289). Relacionada: FE-16 ([#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192), PR [#287](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287)).
 - Ferramenta: Claude (Anthropic), em 24/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
 - Apoio:
   - a `BoasVindasView` passou a ter a escolha do campus (os campi de `GET /api/campi/`, com "Carregando campi…", a falha com "Tentar novamente" e a lista vazia, como o `SeletorCampus`), no lugar do "Continuar sem login"; a escolha fica lembrada (RN04) e leva à tela do campus. O "Entrar na conta" continua;
