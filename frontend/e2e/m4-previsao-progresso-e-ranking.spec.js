@@ -1,6 +1,10 @@
 import { test, expect, GAMA } from './apoio/teste'
 import { contaDoFluxo, entrar } from './apoio/contas'
 
+/** A lista do ranking ou o estado vazio: o ranking do campus terminou de carregar. */
+const rankingCarregado = (page) =>
+  page.locator('[data-teste="ranking-lista"]').or(page.getByText('Ninguém no ranking ainda'))
+
 /**
  * M4: previsão da fila (RF13), progresso (RF26) e ranking do campus (RF27).
  * A previsão sai do histórico das três segundas anteriores
@@ -22,7 +26,11 @@ test('previsão da fila, patente no progresso e entrada no ranking', async ({ pa
   await expect(patente).toContainText('160 pontos')
   await expect(patente).toContainText('Faltam 290 pontos para Veterano')
 
+  // Ranking carregado (a lista ou o estado vazio; o outro projeto pode já ter
+  // entrado) antes de conferir a ausência: durante o "Carregando ranking…" ou
+  // com um erro, o apelido também não apareceria.
   await page.goto(`/ranking/${GAMA.id}`)
+  await expect(rankingCarregado(page)).toBeVisible()
   await expect(page.getByText(conta.apelido)).toBeHidden()
 
   // Só aparece no ranking quem escolhe participar (RF26.2, RI12).
@@ -33,6 +41,7 @@ test('previsão da fila, patente no progresso e entrada no ranking', async ({ pa
   await expect(adesao).toBeChecked()
 
   await page.goto(`/ranking/${GAMA.id}`)
+  await expect(rankingCarregado(page)).toBeVisible()
   await expect(page.getByRole('button', { name: GAMA.nome })).toHaveAttribute(
     'aria-pressed',
     'true',

@@ -67,5 +67,7 @@ test('visitante filtra o cardápio e, depois de entrar, avalia o almoço', async
   await avaliacoes.getByRole('button', { name: 'Salvar alteração' }).click()
   await expect(avaliacoes).toContainText('Avaliação atualizada!')
   await expect(avaliacoes).toContainText('Sua nota: 5 estrelas')
-  await expect(page.getByText(/\+\d+ pontos?/)).toBeHidden()
+  // O aviso abriria na mesma resposta do POST: a avaliacoesStore repassa o
+  // bloco de pontos antes de a tela mostrar "Avaliação atualizada!".
+  await expect(page.locator('[data-teste="pontos-aviso"]')).toHaveCount(0)
 })
