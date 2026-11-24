@@ -30,10 +30,10 @@ troque esta linha pela data de fechamento.
 
 - Vale o **RU do campus Darcy Ribeiro** (o mesmo da palavra do monitor): um dia
   é de refeição se esse RU serve refeição nele, segundo o calendário do RU da
-  UnB. O calendário decide, sem excluir o fim de semana por regra (o sistema
-  prevê serviço no sábado).
-- Ficam de fora os dias em que o RU não serve (domingos, feriados e recessos),
-  mesmo com a coleta ligada, e os dias incompletos de coleta (o 21/11).
+  UnB. O calendário decide, sem excluir o fim de semana por regra.
+- Ficam de fora os dias em que o RU do Darcy não serve (feriados e recessos,
+  por exemplo), mesmo com a coleta ligada, e os dias incompletos de coleta (o
+  21/11). O Darcy serve aos domingos (#229): **domingo com refeição conta**.
 - Uma falha do leitor do PDF **não** tira o dia da conta: o sistema segue no ar
   com o último cardápio.
 - A lista das datas contadas fica anotada em "Dias de refeição no período".

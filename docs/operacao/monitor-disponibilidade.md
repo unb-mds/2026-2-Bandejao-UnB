@@ -33,10 +33,12 @@ queda no relatório.
 
 O monitor da API existe por causa do que já aconteceu: o banco de produção
 chegou a ficar sem campi, e a API respondia 200 com `[]`. Um monitor que só
-olha o código HTTP não pegaria isso. O caso está no passo
-[3. Subir](deploy/deploy-producao.md?id=_3-subir) do guia de deploy; a
-seção "Validação em produção" do mesmo guia registra a resposta com os 5 campi
-depois do `loaddata`.
+olha o código HTTP não pegaria isso. O passo
+[3. Subir](deploy/deploy-producao.md?id=_3-subir) do guia de deploy explica o
+motivo (sem a fixture, a API responde `[]`); o caso em produção, em 20/11, está
+registrado na entrada do PR #211 no `AI-USAGE.md`, e a seção "Validação em
+produção" do guia de deploy registra a resposta com os 5 campi depois do
+`loaddata`.
 
 ## Alertas
 
@@ -76,7 +78,8 @@ com o deploy automático, um merge vira deploy no meio da correção.
    `docker compose up -d` (sem `git pull`) e veja
    `docker compose logs --tail 100 <serviço>`. Se o container está de pé mas
    com erro (o backend respondendo 500, por exemplo), ele não é reiniciado
-   sozinho: use `docker compose restart <serviço>`. Se o erro for de configuração
+   sozinho: use `docker compose restart <serviço>`. Se a causa for o banco
+   (passo 2), reinicie o `db` e não o backend. Se o erro for de configuração
    (`.env`), veja os casos de `--force-recreate` em
    [Atualizar](deploy/deploy-producao.md?id=atualizar). Não siga o resto de
    "Atualizar" no meio de um incidente: ele faz `git pull` e coloca código novo
@@ -135,6 +138,9 @@ no [relatório parcial de disponibilidade](operacao/relatorio-disponibilidade-pa
 
 ## Limites conhecidos
 
+- Os links entre pastas deste guia (`deploy/...`, `operacao/...`) seguem o
+  formato do site da documentação (docsify). Abertos direto pelo GitHub, dão
+  404: leia pelo site.
 - A granularidade é de 5 minutos (o plano gratuito não oferece menos).
 - O monitor mede se o serviço **responde**, não se o cardápio mostrado está
   atualizado. A atualização depende do leitor do PDF (RF06), que tem alerta
