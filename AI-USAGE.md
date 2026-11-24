@@ -66,7 +66,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Revisão humana: [revisão de Poviovsky](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/132#pullrequestreview-5927752431), aprovada com duas sugestões no registro (o vermelho do commit `test` e esta situação) e observações (`get_object_or_404`, `/api` sem a barra, `path_info`), aplicadas nos ajustes da revisão.
 - Situação: `pt-br` adotado e [registrado na #121](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/121#issuecomment-6929024596); ajustes da revisão aplicados.
 
-
 ## #123 — Limite de taxa no cadastro, no reenvio e no login
 
 - PR: [PR #133](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/133).
@@ -77,7 +76,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Revisão humana: revisão de AlvaroBento12 [Revisão de Álvaro Bento](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/133#issuecomment-6934287007), sem bloqueio, com dois ajustes pedidos (docstring do formato e vaga gasta na falha do SMTP) e cinco sugestões, todas aplicadas nos ajustes da revisão. A sugestão de conferir o retorno do `cache.set` foi aplicada com leitura de volta, porque o `set` do `DatabaseCache` devolve `None` mesmo quando grava. No recheck [recheck](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/133#issuecomment-6937500372), um ajuste: a leitura de volta conferia só se a chave existia, o que não pegava a falha a partir da 2ª gravação da janela (a linha antiga continuava lá). Agora confere se o horário do pedido chegou à lista, com 1 s de folga para pedidos simultâneos; testes no commit 909a8e0 (3 falham antes) e correção em 9cff7e6.
 - Situação: números dos limites conforme a proposta do guia (seção 4.1), a confirmar com o grupo na #123.
 
-
 ## Skills — pr-review-toolkit e uso das skills
 
 - PR: [#151 — Skills: pr-review-toolkit e uso das skills](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/151).
@@ -87,7 +85,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação: caminhos citados no `USO-DAS-SKILLS.md` conferidos no repositório; arquivos do plugin conferem com a versão 1.0.1 instalada.
 - Revisão humana: [revisão de Poviovsky](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/151#pullrequestreview-5942574990), aprovada com ajustes (licença MIT da `c4-architecture`, link do PR e vírgula neste registro, convenção de commit de revisão, pasta `review-status` em minúsculas e aviso da dependência no `SKILLS/README.md`), aplicados nos ajustes da revisão.
 - Situação: ajustes da revisão aplicados; aguardando nova revisão.
-
 
 ## BD-04 — Parâmetros do Anexo A
 
@@ -899,6 +896,21 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Sugestão não aplicada: `--reset-stats`. As medições do documento incluem a rampa; trocar agora mudaria o método no meio do registro, então a rampa ficou anotada nos limites.
 - Situação: aprovado no recheck, aguardando o merge; DOC a ser avisado.
 
+## BD-09 — Monitor de disponibilidade
+
+- Issue: [#149](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/149). PR: [#226 — docs(operacao): monitor de disponibilidade (BD-09)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/226).
+- Ferramenta: Claude (Anthropic).
+- Apoio: texto do guia `docs/operacao/monitor-disponibilidade.md` (monitores, alertas, o que fazer ao receber um alerta, método de cálculo da disponibilidade na janela de 7h às 19h30), modelo do relatório parcial e links no menu lateral e no guia de deploy. O texto foi gerado pela IA e revisado, commitado e aplicado pelo autor.
+- Feito pelo autor, sem a IA: criação da conta e dos dois monitores no UptimeRobot (site e `/api/campi/` com a palavra `Darcy Ribeiro`, a cada 5 minutos, com alerta por e-mail) e conferência de que os dois ficaram `Up`.
+- Validação: monitores ativos e em `Up` no painel; a página `/api/campi/` foi aberta no navegador para escolher a palavra. Não há código nem testes nesta entrega.
+- Ajustes da revisão (Álvaro): o passo 3 do alerta deixou de mandar seguir "Atualizar" (que faz `git pull` e coloca código novo no meio do incidente) e passou a `docker compose up -d` sem `git pull`; o passo do `loaddata` avisa que ele regrava campi e marcadores; o monitor da API virou a medida oficial do RNF02 (o do site ficou como diagnóstico), para haver um só número e não o "pior dos dois"; o guia e o relatório mandam conferir o fuso da conta do UptimeRobot (America/Sao_Paulo); a meta é avaliada no período, e os 37,5 min por dia são uma média; o relatório ganhou metadados, critério dos dias de refeição, regra do que conta como queda e evidência (CSV exportado no fechamento); o alerta diz a quem avisar (grupo da equipe), como entrar na VM e o `cd` do repositório; e as sugestões menores (log do `db`, falso incidente se o nome do campus mudar, fórmulas em %, links por seção).
+- Ajustes da segunda revisão (Josué): o roteiro de alerta deixou de dizer que o backend fica `unhealthy` com o banco fora (o healthcheck só testa a porta do Gunicorn: o `ps` mostra `healthy` e a API dá 500) e cita `docker compose restart <serviço>` para container de pé com erro; o critério dos dias de refeição passou a valer para o RU do Darcy Ribeiro, com o calendário decidindo e sem excluir o fim de semana por regra (o 21/11 é dia incompleto de coleta); o modelo do relatório ganhou a coluna "Min na janela (que contam)" e o passo 3 foi reescrito; e as sugestões: não pausar o monitor da API, guardar o log de incidentes todo mês (com plano B), comandos do passo 4 e aviso de campus renomeado, regra de decisão sem arredondar (≤ 37,5 min × dias de refeição), incidente aberto no fechamento, erro de ±5 min, configuração do monitor de palavra-chave, e detalhes do modelo (print sem o e-mail da conta, linha `_preencher_`, link duplicado, pedir no grupo que ninguém faça merge na `main` durante o incidente).
+- Ajustes da terceira revisão (Álvaro): o critério dos dias de refeição passou a dizer que o Darcy serve aos domingos (#229) e que domingo com refeição conta; o passo 3 do alerta manda reiniciar o `db`, e não o backend, quando a causa do 500 é o banco; o texto sobre os campi vazios aponta para o passo 3. Subir (o motivo) e para a entrada do PR #211 no AI-USAGE (o caso em produção, em 20/11); uma nota diz que os links entre pastas seguem o formato do docsify e dão 404 abertos direto pelo GitHub; e a descrição do PR passou a seguir o template, com `Refs #149`.
+- Decisões a confirmar com o grupo: o monitor da API como medida oficial; o critério dos dias de refeição (calendário do RU); deploy planejado conta como queda e falso positivo confirmado não conta.
+- Fora deste PR: o relatório parcial segue com os campos em branco até haver dias de refeição completos. A issue #149 fecha depois que o relatório for preenchido.
+- Revisão humana: revisões de Álvaro e de Josué no [PR #226](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/226), todas respondidas.
+- Situação: aguardando nova aprovação.
+
 ## FE-18 — Testes de ponta a ponta com Playwright
 
 - Issue: [#190](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/190). PR: [#277 — FE-18: Testes de ponta a ponta com Playwright](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/277).
@@ -957,6 +969,26 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - **resumo e mensagens do passo:** se a tabela markdown falhar, o resumo diz que não há tabela; o `::error::` separa "abaixo de 70%", "sem dados" (módulo renomeado) e outra falha do `coverage report` (por exemplo, "No source for code", que apareceu no teste na máquina com um `.coverage` velho);
   - `coverage==7.17.5` fixo; Plano de Testes com linhas e ramos juntos no back, o escopo do `cardapio` sem o leitor, "passo" no lugar de "job" e a BE-18 no título da 5.1.
 - Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12 e a revisão do contrato pelo FE.
+
+## FE-16 — Checklist de qualidade no celular e no desktop
+
+- Issue: [#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192). PR: [#287 — FE-16: Checklist de qualidade no celular e no desktop](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287). Bugs abertos: #285 e #286.
+- Ferramenta: Claude (Anthropic).
+- Apoio: conferência do front no Chromium 157 (Playwright), a 360, 768 e 1366 px, sem e com login, com o servidor simulado; contagem das interações até o cardápio na primeira visita, com e sem a localização permitida; varredura das cores, fontes e raios fora dos tokens do `base.css`; os testes de ponta a ponta `frontend/e2e/qualidade.spec.js` (primeira visita em até 3 interações, visita seguinte sem interação e nenhuma tela rolando para o lado, sem e com login); o checklist `docs/qualidade/checklist-qualidade-front.md`, com uma coluna para celular e outra para desktop; o Plano de Testes (3.4 e 3.5) e o menu da documentação; e o texto das issues dos bugs encontrados (#285 e #286). Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: não se aplica. Os testes conferem um comportamento que já existe; o que eles achariam de errado está nos bugs abertos.
+- Validação: `qualidade.spec.js` rodado contra o servidor simulado (`npm run dev`), nos dois projetos, com uma cópia que troca a conta da fixture pela conta de demonstração do simulado, que não tem as contas do e2e: todos passaram. Na pilha real, roda no job `ponta-a-ponta` do PR. `npm run lint:ci` sem achados.
+- Limites: Firefox e Safari não rodam no ambiente da conferência, e o Chromium não substitui as versões do Chrome e do Edge; a seção 4 do checklist fica para conferir no aparelho. A conferência visual foi por capturas de tela, não em celular real.
+- Achados: sem permitir a localização, a primeira visita leva 3 interações até o cardápio, e a Release 2 prevê 2, por causa do "Continuar sem login" da boas-vindas (RNF03, #285); cores e raios fora dos tokens do guia de estilo (RF17, #286), de baixa prioridade. Com a localização permitida, 4 interações, porque a detecção do campus (FE-E3) não foi feita: pendência do EXTRA 3, sem issue.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287#pullrequestreview-6042057073), com oito ajustes e sugestões.
+- Ajustes da revisão, código gerado pela IA:
+  - **a medição de "rola para o lado" nunca falhava** (também na conferência manual da primeira versão): o `.app` corta o que passa e o `.conteudo` rola sozinho, então a largura do documento ficava sempre igual à da janela. O teste e a conferência passaram a procurar elementos que vão além da borda da janela, com as abas dos dias marcadas com `data-rolagem-horizontal` na `AbasSemana`, e um teste de controle confere que um elemento de 2.000 px é acusado. A conferência foi refeita nas três larguras, sem e com login, e o resultado do checklist não mudou;
+  - cada tela só é medida depois de o conteúdo aparecer (sem `networkidle`), e o apelido em `/progresso` prova que a sessão continua ativa; `/confirmar-email` e `/redefinir-senha` entraram no teste;
+  - a primeira visita confere a tela de cada toque, o prato do Gama e que nenhum diálogo ficou aberto, nas duas visitas; o contador, que sempre dava 3, saiu;
+  - o desvio do caminho sem permissão (o "Continuar sem login", bug 1) e a pendência do EXTRA 3 (com permissão) foram separados no checklist e marcados no spec com `test.fail()`;
+  - checklist: coluna do tablet, o que o e2e cobre e o que só foi visto no simulado, a descrição do bug 2 corrigida (cores `rgb()`, a cor de texto da `ProgressoView`, a `.caixa` da `CadastroView` e o raio das barras da `HomeView`), `:campusId` nas rotas e o link da FE-20 (#169);
+  - Plano de Testes e comentários do `playwright.config.js` com a conta do M4 reusada só para leitura.
+- Validação depois dos ajustes: o spec rodado contra o servidor simulado, com uma cópia que troca a conta e o prato da fixture pelos do simulado: os testes sem login, o controle e a primeira visita passaram, e os dois `test.fail()` falharam onde deviam. O teste com login não roda no simulado, que perde a sessão ao recarregar; na pilha real, [run do `ponta-a-ponta`](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45439504101). `npm run lint:ci` sem achados.
+- Situação: ajustes da revisão aplicados; aguardando o recheck.
 
 ## #259 — Início: cartões "Avaliações" e "Satisfação da semana" pelo resumo do dia
 
