@@ -29,6 +29,14 @@ test('cadastro de aluno, confirmação pelo link do e-mail, login e logout', asy
   await expect(page).toHaveURL(/\/confirmar-email/)
   await expect(page.getByText(email)).toBeVisible()
 
+  // Antes de confirmar, o login é recusado (RF02).
+  await page.goto('/login')
+  await page.getByRole('textbox', { name: 'E-mail institucional' }).fill(email)
+  await page.getByRole('textbox', { name: 'Senha' }).fill(senha)
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page.getByRole('alert')).toContainText(/confirm/i)
+  await expect(page).toHaveURL(/\/login/)
+
   await page.goto(await linkDeConfirmacao(request, email))
   await expect(page.getByText('Conta confirmada!')).toBeVisible()
 
