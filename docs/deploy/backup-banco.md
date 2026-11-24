@@ -151,13 +151,20 @@ ls /var/backups/bandejao
 docker compose stop backend
 gzip -dc /var/backups/bandejao/bandejao-<data>.sql.gz | docker compose exec -T db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot bandejao'
 docker compose start backend
+docker compose exec backend python manage.py createcachetable
 ```
+
+O `createcachetable` recria a tabela de cache (`cache_bandejao`), que fica fora
+do dump. Sem ela, todo login, cadastro e reenvio de e-mail dá erro 500, porque o
+`migrate` não a recria quando o `django_migrations` restaurado já marca a
+migration `cadastro 0003` como aplicada. O comando não faz nada se a tabela já
+existe, então pode rodar sempre.
 
 Tabelas criadas **depois** do backup não fazem parte do dump e continuam no
 banco; uma migration que as cria falharia com "already exists". Se isso
 acontecer, recrie o banco antes de restaurar (`DROP DATABASE bandejao;` e
 `CREATE DATABASE bandejao CHARACTER SET utf8mb4;`, pelo `mysql` do container
-`db`) e restaure de novo. Ensaie antes com o `testar-restauracao.sh`, que não
+`db`) e restaure de novo (e rode o `createcachetable` depois, como acima). Ensaie antes com o `testar-restauracao.sh`, que não
 toca na produção.
 
 ## Limites conhecidos
