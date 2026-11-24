@@ -204,12 +204,19 @@ describe('HomeView: cartão "Cardápio de hoje" pelo GET /api/cardapio/ (#251)',
   })
 
   it('a nota do cartão é a da refeição de hoje no resumo do dia (GET /api/avaliacoes/resumo/)', async () => {
-    const resumo = trocarGet('/avaliacoes/resumo/?campus=1&data=', () =>
-      Promise.resolve([
-        { refeicaoId: 6, tipo: 'cafe', media: 2.1, quantidade: 3 },
-        { refeicaoId: 7, tipo: 'almoco', media: 4.4, quantidade: 5 },
-      ]),
-    )
+    // A lista só vem para hoje: a semana também pede 04/10, e um stub que respondesse
+    // a mesma lista para todos os dias não notaria o cartão ler outro dia.
+    const resumo = trocarGet('/avaliacoes/resumo/?campus=1&data=', (caminho) => {
+      const data = new URLSearchParams(caminho.split('?')[1]).get('data')
+      return Promise.resolve(
+        data === '2026-10-04'
+          ? [
+              { refeicaoId: 6, tipo: 'cafe', media: 2.1, quantidade: 3 },
+              { refeicaoId: 7, tipo: 'almoco', media: 4.4, quantidade: 5 },
+            ]
+          : [],
+      )
+    })
 
     const wrapper = await montarHome(1)
 
@@ -346,6 +353,51 @@ describe('HomeView: cartões "Avaliações" e "Satisfação da semana" (#259)', 
     expect(textoDosCartoes(wrapper)).not.toContain('sem avaliações ainda')
     expect(wrapper.find('.cartao-semana .contagem').exists()).toBe(false)
     expect(wrapper.find('.cartao-semana .grafico').exists()).toBe(false)
+  })
+
+  it('enquanto pede a semana: "carregando…" nos dois cartões, sem contagem, gráfico nem média', async () => {
+    const liberar = []
+    trocarGet(
+      '/avaliacoes/resumo/?campus=1&data=',
+      () => new Promise((resolver) => liberar.push(resolver)),
+    )
+
+    const wrapper = await montarHome(1)
+
+    expect(wrapper.get('.cartao-avaliacoes').text()).toContain('carregando…')
+    expect(wrapper.get('.cartao-semana').text()).toContain('carregando…')
+    expect(wrapper.find('.cartao-semana .contagem').exists()).toBe(false)
+    expect(wrapper.find('.cartao-semana .grafico').exists()).toBe(false)
+    expect(wrapper.find('.cartao-semana .semana-media').exists()).toBe(false)
+    expect(textoDosCartoes(wrapper)).not.toContain('0 avaliações')
+    expect(textoDosCartoes(wrapper)).not.toContain('sem avaliações ainda')
+
+    liberar.forEach((resolver) => resolver([]))
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-avaliacoes').text()).toContain('sem avaliações ainda'),
+    )
+    expect(wrapper.get('.cartao-semana .contagem').text()).toBe('0 avaliações')
+  })
+
+  it('trocar de campus com a tela aberta: os cartões passam a ser a semana do campus novo', async () => {
+    const get = vi.spyOn(apiClient, 'get')
+    const wrapper = await montarHome(1)
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-avaliacoes').text()).toContain('/ 5 · esta semana'),
+    )
+    const barrasDoDarcy = wrapper.findAll('.barra-dia').length
+
+    usePreferenciasStore().escolherCampus(3)
+    await flushPromises()
+
+    // O Gama serve de segunda a sexta; o Darcy tem mais dias.
+    await vi.waitFor(() => expect(wrapper.findAll('.barra-dia')).toHaveLength(5))
+    expect(barrasDoDarcy).not.toBe(5)
+    expect(wrapper.get('.cartao-avaliacoes').text()).toContain('/ 5 · esta semana')
+    expect(textoDosCartoes(wrapper)).not.toContain('carregando…')
+    expect(get.mock.calls.map(([caminho]) => caminho)).toContain(
+      '/avaliacoes/resumo/?campus=3&data=2026-09-28',
+    )
   })
 
   it('com o servidor simulado: os cartões mostram a semana do campus', async () => {

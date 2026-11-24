@@ -138,7 +138,23 @@ describe('avaliacoesStore: resumo da semana (um GET /api/avaliacoes/resumo/ por 
     expect(estado.resumo).toBeNull()
     expect(estado.erro.mensagem).toEqual(expect.any(String))
     expect(estado.erro.mensagem.length).toBeGreaterThan(0)
-    expect(log).toHaveBeenCalled()
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('falha da API em um dos dias: o ApiError vai para o console uma vez só', async () => {
+    const getOriginal = apiClient.get.bind(apiClient)
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
+      caminho.endsWith('data=2026-09-30')
+        ? Promise.reject(new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }))
+        : getOriginal(caminho, opcoes),
+    )
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const avaliacoes = useAvaliacoesStore()
+
+    expect(await avaliacoes.carregarResumoDaSemana(3)).toBeNull()
+
+    expect(avaliacoes.estadoDaSemana(3).erro.mensagem).toBe('Fora do ar.')
+    expect(log).toHaveBeenCalledTimes(1)
   })
 
   it('erro da API (404 campus_nao_encontrado): a mensagem da API, por campus', async () => {
