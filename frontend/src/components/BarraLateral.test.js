@@ -65,9 +65,7 @@ describe('BarraLateral (FE-23, desktop)', () => {
       .findAll('a')
       .find((link) => link.text() === 'Ranking')
       .trigger('click')
-    await flushPromises()
-
-    expect(router.currentRoute.value.path).toBe('/ranking/1')
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/ranking/1'))
     expect(
       wrapper
         .findAll('nav a')
@@ -113,10 +111,9 @@ describe('BarraLateral (FE-23, desktop)', () => {
     const { wrapper, router } = await montar(BarraLateral, '/progresso', { logado: true })
 
     await wrapper.get('.sair').trigger('click')
-    await flushPromises()
 
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/campus/1'))
     expect(useAuthStore().estaAutenticado).toBe(false)
-    expect(router.currentRoute.value.path).toBe('/campus/1')
     expect(wrapper.find('[data-teste="sair-aviso-lateral"]').exists()).toBe(false)
   })
 
@@ -128,8 +125,10 @@ describe('BarraLateral (FE-23, desktop)', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     await wrapper.get('.sair').trigger('click')
-    await flushPromises()
 
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-teste="sair-aviso-lateral"]').exists()).toBe(true),
+    )
     const aviso = wrapper.get('[data-teste="sair-aviso-lateral"]')
     expect(aviso.attributes('role')).toBe('alert')
     expect(aviso.text()).toContain('o servidor não confirmou')
@@ -174,10 +173,18 @@ describe('App: onde a lateral e o lado verde das telas de conta aparecem', () =>
     },
   )
 
-  it.each(['/boas-vindas', '/campus'])('%s: tela de entrada, sem a lateral', async (caminho) => {
-    const { wrapper } = await montar(App, caminho)
-    expect(wrapper.find('.barra-lateral').exists()).toBe(false)
-    expect(wrapper.find('.aside-conta').exists()).toBe(false)
+  it.each(['/boas-vindas', '/campus'])(
+    '%s, sem campus escolhido: tela de entrada, sem a lateral',
+    async (caminho) => {
+      const { wrapper } = await montar(App, caminho, { campus: null })
+      expect(wrapper.find('.barra-lateral').exists()).toBe(false)
+      expect(wrapper.find('.aside-conta').exists()).toBe(false)
+    },
+  )
+
+  it('/campus com campus já escolhido (vindo de "Trocar"): com a lateral, para ter saída', async () => {
+    const { wrapper } = await montar(App, '/campus')
+    expect(wrapper.find('.barra-lateral').exists()).toBe(true)
   })
 
   it.each(['/login', '/cadastro', '/recuperar-senha', '/confirmar-email', '/redefinir-senha'])(

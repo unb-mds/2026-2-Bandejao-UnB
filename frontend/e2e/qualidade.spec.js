@@ -187,3 +187,49 @@ test.describe('RNF03 e FE-20: nenhuma tela passa da largura da janela', () => {
     }
   })
 })
+
+// FE-23: o que depende da largura real da janela (o jsdom não aplica as
+// regras de largura, então isto fica no e2e).
+test.describe('FE-23: layout do desktop', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript((campusId) => {
+      localStorage.setItem(
+        'bandejao:preferencias',
+        JSON.stringify({ campusId, avisoLocalizacaoAdiado: true }),
+      )
+    }, GAMA.id)
+  })
+
+  test('a lateral só aparece a partir de 1024 px, e a barra do topo de 768 a 1023 px', async ({
+    page,
+  }) => {
+    for (const [largura, lateral, topo] of [
+      [360, false, false],
+      [768, false, true],
+      [1023, false, true],
+      [1024, true, false],
+      [1366, true, false],
+    ]) {
+      await page.setViewportSize({ width: largura, height: 800 })
+      await page.goto(`/campus/${GAMA.id}`)
+      await expect(cardapioDoGama(page)).toBeVisible()
+      const barraLateral = page.locator('.barra-lateral')
+      const barraTopo = page.locator('.navegacao-topo')
+      await (lateral ? expect(barraLateral).toBeVisible() : expect(barraLateral).toBeHidden())
+      await (topo ? expect(barraTopo).toBeVisible() : expect(barraTopo).toBeHidden())
+    }
+  })
+
+  test('cadastro numa janela baixa: o topo da tela continua alcançável', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'só o desktop divide a tela de conta')
+    await page.setViewportSize({ width: 1366, height: 650 })
+    await page.goto('/cadastro')
+    await page.getByRole('radio', { name: 'Aluno' }).click()
+    await page.locator('.area-tela').evaluate((area) => area.scrollTo(0, 0))
+
+    const voltar = await page.getByRole('button', { name: 'Voltar' }).boundingBox()
+    expect(voltar.y).toBeGreaterThanOrEqual(0)
+  })
+})
