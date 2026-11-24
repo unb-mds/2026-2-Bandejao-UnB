@@ -47,6 +47,31 @@ jobs:
       # Falha abaixo de 70% de linhas em algum arquivo crítico (vitest.config.js).
       - run: npm run test:ci
 
+      # Tabela dos arquivos críticos, por módulo, no resumo do run, com o
+      # motivo de cada reprovação. A meta já foi conferida pelo Vitest; aqui
+      # ela é repetida sobre o coverage-summary.json para o relatório e o
+      # veredito saírem do mesmo número, e o script pega o que o Vitest deixa
+      # passar (arquivo crítico ausente). Sem relatório (testes quebraram), o
+      # script sai com 2 e o job continua reprovado. A meta é o padrão do
+      # script (MINIMO_COBERTURA), a mesma do vitest.config.js.
+      # Com `shell: bash` explícito, o GitHub roda com `-eo pipefail`: é o
+      # pipefail que faz a saída 1 (ou 2) do script reprovar o step, em vez
+      # de valer a saída 0 do `tee`.
+      - name: Cobertura por módulo crítico (mínimo 70%)
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          echo "### Cobertura (front)" >> "$GITHUB_STEP_SUMMARY"
+          node scripts/cobertura.mjs resumo coverage/coverage-summary.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar o relatório
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-front
+          path: frontend/coverage/
+          if-no-files-found: warn
+
   build:
     name: build (front)
     runs-on: ubuntu-latest
