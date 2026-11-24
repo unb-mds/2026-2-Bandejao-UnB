@@ -7,7 +7,8 @@ export default mergeConfig(
   defineConfig({
     test: {
       environment: 'jsdom',
-      exclude: [...configDefaults.exclude, 'e2e/**'],
+      // .stryker-tmp: cópias do projeto que o Stryker cria durante a mutação.
+      exclude: [...configDefaults.exclude, 'e2e/**', '.stryker-tmp/**'],
       root: fileURLToPath(new URL('./', import.meta.url)),
       coverage: {
         provider: 'v8',
