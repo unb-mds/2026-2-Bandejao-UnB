@@ -1,0 +1,128 @@
+# Pilha dos testes de ponta a ponta (FE-18, Plano de Testes 3.5 e 5.3): o
+# mesmo PWA (build de produção no Caddy), o mesmo backend (Gunicorn) e o
+# mesmo MySQL de produção, mais um SMTP de teste (Mailpit) para ler o link de
+# confirmação do cadastro.
+#
+# Diferenças para o docker-compose.yml da raiz (produção):
+# - HTTP em localhost:8080, sem o certificado do Let's Encrypt (Caddyfile
+#   desta pasta), e os cookies sem o flag Secure;
+# - o relógio do backend parado numa segunda-feira, no almoço (libfaketime):
+#   o check-in só vale no horário da refeição e a avaliação só depois que ela
+#   começa, e o CI roda a qualquer hora;
+# - o e-mail vai para o Mailpit, e não para o Brevo;
+# - sem os scripts de db/init/ (o usuário da equipe não é usado nos testes).
+#
+# Uso (de dentro de frontend/): npm run e2e:subir, npm run e2e e
+# npm run e2e:descer. Veja o README do front.
+
+name: bandejao-e2e
+
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: bandejao
+      MYSQL_USER: bandejao
+      MYSQL_PASSWORD: senha-do-banco-e2e
+      MYSQL_ROOT_PASSWORD: senha-root-e2e
+    volumes:
+      # Charset e isolamento iguais aos de produção.
+      - ../../db/conf.d:/etc/mysql/conf.d:ro
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '--silent']
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 60s
+
+  mailpit:
+    image: axllent/mailpit:v1.27.11
+    environment:
+      # O backend em produção sempre autentica no SMTP, sem TLS aqui.
+      MP_SMTP_AUTH_ACCEPT_ANY: '1'
+      MP_SMTP_AUTH_ALLOW_INSECURE: '1'
+    ports:
+      # API e caixa de entrada (http://localhost:8025), lidas pelos testes.
+      - '8025:8025'
+
+  # Baixa a libfaketime, que o backend carrega com LD_PRELOAD. Fica num
+  # container à parte para a imagem do backend ser a mesma de produção. A
+  # imagem do python:3.14-slim é Debian trixie, como esta.
+  relogio:
+    image: debian:trixie-slim
+    command:
+      - sh
+      - -c
+      - >-
+        apt-get update -qq
+        && apt-get install -y -qq --no-install-recommends libfaketime > /dev/null
+        && cp /usr/lib/*/faketime/libfaketime.so.1 /relogio/
+    volumes:
+      - relogio:/relogio
+
+  backend:
+    build: ../../backend
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+      relogio:
+        condition: service_completed_successfully
+    environment:
+      DJANGO_SECRET_KEY: chave-so-dos-testes-de-ponta-a-ponta
+      DJANGO_DEBUG: 'False'
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost:8080
+      URL_DO_PWA: http://localhost:8080
+      # HTTP, sem o Caddy de produção na frente: sem o flag Secure nos
+      # cookies e sem ler o X-Forwarded-Proto.
+      ATRAS_DE_PROXY_HTTPS: 'False'
+      SESSION_COOKIE_SECURE: 'False'
+      CSRF_COOKIE_SECURE: 'False'
+      SECURE_HSTS_SECONDS: '0'
+      DB_ENGINE: mysql
+      DB_HOST: db
+      DB_PORT: '3306'
+      DB_NAME: bandejao
+      DB_USER: bandejao
+      DB_PASSWORD: senha-do-banco-e2e
+      EMAIL_HOST: mailpit
+      EMAIL_PORT: '1025'
+      EMAIL_USE_TLS: 'False'
+      EMAIL_HOST_USER: e2e
+      EMAIL_HOST_PASSWORD: e2e
+      DEFAULT_FROM_EMAIL: nao-responda@bandejaounb.com.br
+      # Segunda-feira, 23/11/2026, 12h em Brasília (15h UTC), no almoço. O
+      # relógio anda a partir daí; o DONT_RESET vale o mesmo início para os
+      # workers do Gunicorn, que são outros processos.
+      LD_PRELOAD: /relogio/libfaketime.so.1
+      FAKETIME: '@2026-11-23 15:00:00'
+      FAKETIME_DONT_RESET: '1'
+    volumes:
+      - relogio:/relogio:ro
+      # Fixtures dos testes (cardápio, contas e histórico da fila).
+      - ./dados:/e2e-dados:ro
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import socket; socket.create_connection(("127.0.0.1", 8000), 2)
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 120s
+
+  caddy:
+    build: ..
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - '8080:80'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+
+volumes:
+  relogio:
