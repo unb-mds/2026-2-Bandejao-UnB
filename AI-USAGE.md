@@ -989,3 +989,14 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - Plano de Testes e comentários do `playwright.config.js` com a conta do M4 reusada só para leitura.
 - Validação depois dos ajustes: o spec rodado contra o servidor simulado, com uma cópia que troca a conta e o prato da fixture pelos do simulado: os testes sem login, o controle e a primeira visita passaram, e os dois `test.fail()` falharam onde deviam. O teste com login não roda no simulado, que perde a sessão ao recarregar; na pilha real, [run do `ponta-a-ponta`](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45439504101). `npm run lint:ci` sem achados.
 - Situação: ajustes da revisão aplicados; aguardando o recheck.
+
+## FE-23 — Novo design do desktop, nova logo e ilustrações das refeições
+
+- Issue: [#291](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/291). PR: #___.
+- Ferramenta: Claude (Anthropic).
+- Apoio: leitura do protótipo desktop no Figma (camada de código do frame "Bandejão Desktop"), rodado à parte para ter a captura de cada tela como alvo; recorte da nova logo (só a bandeja, sem o texto) e das ilustrações de café da manhã, almoço e jantar a partir das imagens enviadas pela autora, com o fundo branco removido sem abrir buracos nos pratos e na bandeja (os recortes que vinham no Figma tinham esses buracos); `AppLogo` com a imagem nova; ícones do PWA, favicon e capturas do manifesto regerados; componentes `BarraLateral`, `AsideConta` e `IlustracaoRefeicao`; tokens novos no `base.css`; o desenho do desktop (a partir de 1024 px) na Início, na tela do campus (cardápio com o destaque da refeição e a fila em colunas), em Avaliações, Meu progresso, Ranking, boas-vindas, escolha do campus e telas de conta; testes da `BarraLateral` e de onde ela e a `AsideConta` aparecem; C4 do front. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- Escopo: só o desktop mudou de desenho; no celular e no tablet, a única mudança visível é a logo. O protótipo do celular (citado na issue) não foi aplicado. Rotas, stores e chamadas da API não mudaram.
+- TDD: não se aplica à mudança visual. Os testes da `BarraLateral` vieram junto com o componente; uma sabotagem (tirar o `login` das telas de entrada) fez o teste de onde a lateral aparece falhar.
+- Validação: `npm run test:ci` com 1.077 testes passando; `npm run lint:ci` e Prettier sem achados; `npm run build` sem erro; as telas comparadas lado a lado com as capturas do protótipo a 1366 px; o detector de elementos que passam da largura (FE-16) sem achados a 360, 768, 1024 e 1366 px, sem e com login, com o controle de 2.000 px acusado.
+- Revisão humana: pendente.
+- Situação: aguardando revisão.

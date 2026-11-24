@@ -63,9 +63,10 @@ flowchart TB
   subgraph frontend["📱 PWA (Frontend) — Vue 3 + Vite"]
     app["🖼️ App (raiz)
 Casca do app: monta os avisos
-globais e a NavegacaoTopo (tablet e
-desktop). A NavegacaoInferior (celular)
-é montada por cada tela."]
+globais, a NavegacaoTopo (tablet),
+a BarraLateral e a AsideConta
+(desktop). A NavegacaoInferior
+(celular) é montada por cada tela."]
     router["🧭 Router
 Vue Router — rotas nomeadas e
 lazy-loaded (ver Estratégia de roteamento)."]
@@ -145,10 +146,17 @@ Aviso '+10 pontos' (RF24.2)."]
   (`constants/navegacao.js`), sem repetir o "Perfil" (atalho para a Início,
   que ela marca como página atual), mais o canal de contato (RNF08), e as telas de
   formulário viram um cartão centralizado de até 480 px, que cresce com o
-  conteúdo (numa janela baixa, quem rola é a página). A partir de 1024 px,
-  o conteúdo tem largura máxima de 1200 px, centralizada. As larguras são
-  tokens do guia de estilo (`--largura-conteudo` e `--largura-formulario` em
-  `assets/base.css`, RF17). Foco visível (`:focus-visible`) e `:hover` valem em todas as telas:
+  conteúdo (numa janela baixa, quem rola é a página). A partir de 1024 px
+  (FE-23, protótipo desktop), o desktop tem desenho próprio: a `BarraLateral`
+  (246 px, à esquerda, no lugar da `NavegacaoTopo`) leva aos mesmos destinos e
+  mostra o campus atual, a conta e o contato; as telas internas ganham o
+  cabeçalho verde de 112 px e o conteúdo em cartões sobre o creme. As telas de
+  entrada (boas-vindas e escolha do campus) e as de conta ocupam a tela
+  inteira, divididas ao meio; nas de conta, o lado verde é a `AsideConta`,
+  montada no `App.vue`. A logo (`AppLogo`) e as ilustrações das refeições
+  (`IlustracaoRefeicao`) são imagens em `assets/marca/` e `assets/refeicoes/`.
+  As larguras são tokens do guia de estilo (`--largura-conteudo`,
+  `--largura-formulario` e `--largura-lateral` em `assets/base.css`, RF17). Foco visível (`:focus-visible`) e `:hover` valem em todas as telas:
   nada depende só de toque. Nas superfícies verdes, a classe `fundo-escuro`
   deixa o anel de foco dourado.
 - **`HomeView`, `BoasVindasView` e `NotFoundView`** existem no código, mas
