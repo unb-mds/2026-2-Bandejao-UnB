@@ -3,14 +3,16 @@ import { defineConfig } from '@playwright/test'
 /**
  * Testes de ponta a ponta (FE-18, Plano de Testes 3.5): o PWA de produção,
  * a API e o MySQL sobem com o e2e/docker-compose.yml, e o Playwright usa o
- * app como uma pessoa usaria. Um fluxo por marco (M1 a M4), cada um no
- * celular e no desktop (FE-20).
+ * app como uma pessoa usaria. Um fluxo por marco (M1 a M4) e os testes de
+ * qualidade da FE-16, cada um no celular e no desktop (FE-20).
  */
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.js',
   globalSetup: './e2e/apoio/preparar.js',
-  // Cada fluxo usa contas e dados próprios, então os projetos rodam juntos.
+  // Cada fluxo usa contas e dados próprios, então os projetos rodam juntos. O
+  // teste de qualidade da FE-16 reusa a conta do M4 só para ler: entrar não
+  // encerra as outras sessões, e ele não muda pontos nem a adesão.
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   // Sem segunda tentativa: o banco só é limpo uma vez por rodada, então uma
