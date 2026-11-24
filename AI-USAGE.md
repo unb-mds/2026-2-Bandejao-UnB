@@ -919,8 +919,19 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação local: `npm run test:ci` com 1.049 testes passando e todos os arquivos críticos acima de 70% de linhas (conjunto: 703/708, 99,29%; o menor é `stores/auth.js`, com 95,65%); `node scripts/cobertura.mjs resumo coverage/coverage-summary.json --minimo 70` com saída 0; `npm run lint:ci` sem achados; `npm audit --audit-level=high` sem achados altos ou críticos (9 moderados, todos em dependências de desenvolvimento: `glob`, `minimatch` e `qs`, via `@vue/test-utils`, StrykerJS e `typed-rest-client`).
 - Validação no CI: [jobs do front verdes no PR](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45394354399), incluindo `seguranca (front)` (Semgrep com severidade ERROR e `npm audit`) e `mutacao (front)`.
 - Mutação da base inteira: [rodada semanal](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45395648362) na `main` (mesmo código do front que a `develop`), com escore geral de 85,16% (api 89,63%, auth 80,56%, avaliacao 88,30%, cardapio 88,28%, fila 80,86%, gamificacao 89,50%); relatório também na issue.
-- Revisão humana: pendente.
-- Situação: aguardando revisão.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/280#issuecomment-7132811325), com dois ajustes obrigatórios, quatro importantes e sugestões.
+- Ajustes da revisão, código gerado pela IA (TDD: os testes num commit anterior à correção, com 15 falhando sem ela):
+  - linha "Situação" duplicada na FE-19 removida;
+  - `cobertura.mjs` só aceita `covered` e `total` inteiros, com `total` > 0 e `covered` entre 0 e `total`; o resto vai para `ausentes` (saída 2) em vez de virar `NaN%` e aprovar. Relatório que não é objeto (`null`, lista, número) também sai com 2;
+  - o motivo da reprovação sai também no stdout, no resumo do run (**Não medido** ou **Abaixo de 70%**, com o arquivo), e como `::error::` nos casos de saída 2; porcentagem do `::error::` com duas casas, igual à tabela;
+  - exemplo da barra trocado por `frontend/meusrc/stores/auth.js`, no comentário e no teste; conferido que o teste falha sem a barra;
+  - o buraco do Vitest (chave de `thresholds` sem arquivo conta como 100%) escrito no `vitest.config.js`, no `cobertura.mjs` e no Plano de Testes 5.2;
+  - testes novos: ausente e abaixo ao mesmo tempo saindo com 2 (conferido que falha com os blocos invertidos), JSON válido com formato errado, mensagem do JSON inválido e o uso conferido em cada chamada;
+  - meta de 70 numa constante só (`MINIMO_COBERTURA`, `cobertura.mjs`), usada pelo `vitest.config.js` e, como padrão do script, pelo workflow (sem `--minimo 70`);
+  - guarda do ponto de entrada com `realpathSync` no `cobertura.mjs` e no `mutacao.mjs`, conferida com o script chamado por um link simbólico;
+  - os dois testes da lista no `mutacao.test.js` viraram travas, com o nome dizendo isso, e só olham as chaves de arquivo (`src/`);
+  - comentários: o log do Vitest lista tudo, sem a referência ao relatório da FE-19, `MODULOS` em vez de `ARQUIVOS_CRITICOS`, caminho relativo à pasta atual e o histórico tirado do Plano de Testes.
+- Validação depois dos ajustes: `npm run test:ci` com 1.062 testes passando e a cobertura dos críticos igual (conjunto 99,29%); `node scripts/cobertura.mjs resumo coverage/coverage-summary.json` com saída 0; `npm run lint:ci` sem achados.
 - Situação: ajustes da revisão aplicados; aguardando o recheck.
 
 ## BE-18 — Portas finais do backend e contrato OpenAPI final
