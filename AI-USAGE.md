@@ -957,3 +957,19 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - **resumo e mensagens do passo:** se a tabela markdown falhar, o resumo diz que não há tabela; o `::error::` separa "abaixo de 70%", "sem dados" (módulo renomeado) e outra falha do `coverage report` (por exemplo, "No source for code", que apareceu no teste na máquina com um `.coverage` velho);
   - `coverage==7.17.5` fixo; Plano de Testes com linhas e ramos juntos no back, o escopo do `cardapio` sem o leitor, "passo" no lugar de "job" e a BE-18 no título da 5.1.
 - Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12 e a revisão do contrato pelo FE.
+
+## #259 — Início: cartões "Avaliações" e "Satisfação da semana" pelo resumo do dia
+
+- Issue: [#259](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/259). PR: a abrir. Relacionada: [#251](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/251) (PR [#257](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257)).
+- Ferramenta: Claude (Anthropic), em 24/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Fonte do resumo da semana: opção **(b)** da issue, o front monta a semana com um `GET /api/avaliacoes/resumo/?campus=…&data=…` por dia, de segunda a domingo (`inicioDaSemana`, como o backend). Sem rota nova no backend e sem mudança no `openapi.yaml`, que a BE-18 fechou como a v1.
+- Apoio:
+  - `carregarResumoDaSemana` e `estadoDaSemana` na `avaliacoesStore`: estado por campus (`carregando`, `carregado` ou `erro`, com `{ mensagem }` de `mensagemDeErro`), resposta de cada dia conferida (lista de `{ media, quantidade }`), média ponderada pela quantidade, dia sem nenhuma refeição fora do gráfico, nenhum resumo parcial se um dia falhar e resposta antiga que não sobrescreve a nova;
+  - `HomeView`: "Não foi possível carregar as avaliações da semana." no lugar do gráfico e "Não foi possível carregar" no cartão "Avaliações", separados de "sem avaliações ainda"; "carregando…" enquanto pede;
+  - simulado: `GET /avaliacoes/resumo/` só com o campus devolve a lista do dia corrente, com os 400 antes do 404 `campus_nao_encontrado` (antes, campus inexistente dava 400) e `campus=01` valendo o campus 1, como o backend; saíram o resumo da semana do MVP e a lista `GET /avaliacoes/` (o backend só tem o POST, e a lista só era usada nos testes), com o comentário do topo do `servidor.js` atualizado;
+  - saíram da store `carregar`, `daRefeicao`, `carregarResumo`, `resumoPorCampus` e o `erro` compartilhado, que só eles usavam;
+  - C4 (texto do fluxo do cardápio e tabela das stores). Os diagramas não mudam: a `HomeView` fica fora deles.
+- TDD: `90aeba3` (testes, 27 falhando) → `c5aa8ab` (código) → `81acd6c` (docs).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 1.086 testes passando (96,4% de linhas / 92,84% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Fica para a revisão: conferir com o backend real (a semana são 7 pedidos públicos em paralelo; a `media` de cada refeição vem do `Avg` sem arredondar, então a média da semana ponderada pela quantidade é a média de todas as notas).
+- Situação: aguardando o PR e a revisão de outra frente (DoD 1.4).
