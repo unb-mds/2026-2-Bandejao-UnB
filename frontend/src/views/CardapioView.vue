@@ -6,7 +6,7 @@ import { usePreferenciasStore } from '@/stores/preferencias'
 import { ORDEM_REFEICOES, REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
 import { DIETA_PADRAO, rotuloDieta } from '@/constants/dietas'
 import { rotuloMarcador } from '@/constants/marcadores'
-import { diasDaSemanaVigente, formatarNota, resumoRefeicao } from '@/utils/cardapio'
+import { destaqueDaRefeicao, diasDaSemanaVigente, formatarNota } from '@/utils/cardapio'
 import AbasSemana from '@/components/AbasSemana.vue'
 import EstrelasNota from '@/components/EstrelasNota.vue'
 import FiltroCardapio from '@/components/FiltroCardapio.vue'
@@ -67,18 +67,15 @@ const refeicoesDoDia = computed(() => {
 const notaAtual = computed(
   () => resumo.value?.find((r) => r.tipo === atual.value?.refeicao) ?? null,
 )
-// Destaque do desktop (FE-23): o prato principal da refeição, com o resto do
-// resumo embaixo, como no protótipo. Só aparece com pratos para mostrar.
+// Destaque do desktop (FE-23): o prato principal compatível com os filtros
+// (RF08, RF09), como no protótipo. Ver destaqueDaRefeicao.
 const destaque = computed(() => {
   if (semServico.value || atual.value?.status !== 'publicado') return null
-  const linhas = resumoRefeicao(atual.value.categorias ?? [])
-  if (!linhas.length) return null
-  const [primeira, ...resto] = linhas
-  return {
-    refeicao: atual.value.refeicao,
-    prato: primeira.texto.split(', ')[0],
-    resumo: resto.map((linha) => linha.texto).join(' · '),
-  }
+  const escolhido = destaqueDaRefeicao(atual.value.categorias ?? [], {
+    semAlergenos: Boolean(atual.value.filtroMarcadorDesativado),
+    evitando: preferencias.marcadores.length > 0,
+  })
+  return escolhido && { ...escolhido, refeicao: atual.value.refeicao }
 })
 const marcadoresAtivos = computed(() =>
   atual.value?.filtroMarcadorDesativado ? [] : preferencias.marcadores,
