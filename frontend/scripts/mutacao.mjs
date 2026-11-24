@@ -289,10 +289,13 @@ function comandoEscore(caminho, { minimo, porModulo }) {
   return abaixo.length ? 1 : 0
 }
 
-/** Valor do `--minimo` (padrão 50), ou null se for inválido. */
-function lerMinimo(argumentos) {
+/**
+ * Valor do `--minimo` (o `padrao` se a opção não vier), ou null se for
+ * inválido. Exportada para o `cobertura.mjs` (FE-19) validar igual.
+ */
+export function lerMinimo(argumentos, padrao = 50) {
   const indice = argumentos.indexOf('--minimo')
-  if (indice < 0) return 50
+  if (indice < 0) return padrao
   const valor = argumentos[indice + 1]
   // Sem `Number('')` (que dá 0) nem outra opção no lugar do número.
   if (valor === undefined || valor.trim() === '' || valor.startsWith('--')) return null
