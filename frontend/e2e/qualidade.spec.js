@@ -20,7 +20,9 @@ const cardapioDoGama = (page) =>
 test.describe('RNF03: interações até o cardápio na primeira visita', () => {
   test.use({ responderAvisoLocalizacao: false })
 
-  test('sem permitir a localização: "Agora não", "Continuar sem login" e o campus (3); na visita seguinte, nenhuma', async ({
+  // A Release 2 conta 2 interações sem permissão ("Agora não" e o campus). O
+  // "Continuar sem login" que havia no meio saiu da boas-vindas (#285).
+  test('sem permitir a localização: "Agora não" e o campus (2); na visita seguinte, nenhuma', async ({
     page,
   }) => {
     await page.goto('/')
@@ -28,9 +30,7 @@ test.describe('RNF03: interações até o cardápio na primeira visita', () => {
     await aviso.getByRole('button', { name: 'Agora não' }).click()
     await expect(aviso).toBeHidden()
     await expect(page).toHaveURL(/\/boas-vindas$/)
-
-    await page.getByRole('link', { name: 'Continuar sem login' }).click()
-    await expect(page).toHaveURL(/\/campus$/)
+    await expect(page.getByRole('link', { name: 'Continuar sem login' })).toHaveCount(0)
 
     await page.getByRole('button', { name: new RegExp(GAMA.nome) }).click()
     await expect(page).toHaveURL(new RegExp(`/campus/${GAMA.id}$`))
@@ -44,20 +44,6 @@ test.describe('RNF03: interações até o cardápio na primeira visita', () => {
     await expect(cardapioDoGama(page)).toBeVisible()
     await expect(page.getByRole('dialog')).toHaveCount(0)
   })
-
-  // Bug aberto (#285): a Release 2 conta 2 interações sem
-  // permissão ("Agora não" e o campus), mas a boas-vindas pede o
-  // "Continuar sem login" no meio. Quando for corrigido, este teste passa a
-  // passar, o test.fail() acusa, e o checklist precisa ser atualizado.
-  test.fail(
-    'sem permitir a localização, Release 2: o campus já pode ser escolhido depois do "Agora não" (2)',
-    async ({ page }) => {
-      await page.goto('/')
-      const aviso = page.getByRole('dialog', { name: 'Usar sua localização?' })
-      await aviso.getByRole('button', { name: 'Agora não' }).click()
-      await expect(page.getByRole('button', { name: new RegExp(GAMA.nome) })).toBeVisible()
-    },
-  )
 
   test.describe('com a localização permitida', () => {
     test.use({ geolocation: GAMA.ru })
@@ -109,7 +95,7 @@ const rankingCarregado = (page) =>
 const TELAS_SEM_LOGIN = [
   {
     rota: '/boas-vindas',
-    pronta: (page) => page.getByRole('link', { name: 'Continuar sem login' }),
+    pronta: (page) => page.getByRole('button', { name: new RegExp(GAMA.nome) }),
   },
   { rota: '/campus', pronta: (page) => page.getByRole('button', { name: new RegExp(GAMA.nome) }) },
   { rota: `/campus/${GAMA.id}`, pronta: cardapioDoGama },
