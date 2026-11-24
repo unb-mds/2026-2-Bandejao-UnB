@@ -264,6 +264,35 @@ describe('destaqueDaRefeicao (destaque do cardápio no desktop, FE-23)', () => {
     expect(destaqueDaRefeicao(cafe)).toEqual({ prato: 'Café com leite', resumo: '' })
   })
 
+  it('só uma das condições (alérgenos indisponíveis ou marcador evitado) não tira o destaque', () => {
+    const categorias = almoco(categoria('Prato principal', 'Bife'))
+
+    expect(destaqueDaRefeicao(categorias, { semAlergenos: true }).prato).toBe('Bife')
+    expect(destaqueDaRefeicao(categorias, { evitando: true }).prato).toBe('Bife')
+  })
+
+  it.each([
+    ['"Prato principal"', 'Prato principal'],
+    ['com espaço no fim', 'Prato principal '],
+  ])('o padrão sem "padrão" no nome (%s) vem antes das outras linhas', (_caso, nome) => {
+    const categorias = [
+      categoria('Prato principal — Vegetariano estrito', 'Tofu'),
+      categoria(nome, 'Bife'),
+    ]
+
+    expect(destaqueDaRefeicao(categorias).prato).toBe('Bife')
+  })
+
+  it('no resumo, só as categorias que começam com acompanhamento ou salada', () => {
+    const categorias = [
+      categoria('Prato principal', 'Bife'),
+      categoria('Molho para salada', 'Vinagrete'),
+      categoria('Salada', 'Folhas'),
+    ]
+
+    expect(destaqueDaRefeicao(categorias).resumo).toBe('Folhas')
+  })
+
   it('sem pratos: sem destaque', () => {
     expect(destaqueDaRefeicao([])).toBeNull()
     expect(destaqueDaRefeicao([categoria('Prato principal')])).toBeNull()
