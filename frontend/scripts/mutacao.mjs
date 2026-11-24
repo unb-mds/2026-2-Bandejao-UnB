@@ -26,7 +26,7 @@
  * Só usa a biblioteca padrão do Node.
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync, statSync } from 'node:fs'
+import { readFileSync, realpathSync, statSync } from 'node:fs'
 import { join, posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -320,6 +320,8 @@ export function principal([comando, ...argumentos]) {
   return 2
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// `realpathSync`: chamado por um link simbólico, o argv[1] não é o caminho real
+// do módulo, e sem isso o script não rodaria e sairia com 0.
+if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
   process.exitCode = principal(process.argv.slice(2))
 }
