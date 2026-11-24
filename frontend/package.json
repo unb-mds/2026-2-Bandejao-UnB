@@ -12,6 +12,7 @@
     "mutacao": "stryker run",
     "e2e": "playwright test",
     "e2e:subir": "docker compose -f e2e/docker-compose.yml up -d --build --wait && npm run e2e:dados",
+    "e2e:relogio": "docker compose -f e2e/docker-compose.yml up -d --no-deps --force-recreate --wait backend",
     "e2e:dados": "docker compose -f e2e/docker-compose.yml exec -T backend sh -c \"python manage.py flush --noinput && python manage.py shell -c 'from django.core.cache import cache; cache.clear()' && python manage.py loaddata campi marcadores /e2e-dados/cardapio.json /e2e-dados/contas.json /e2e-dados/historico-fila.json\"",
     "e2e:descer": "docker compose -f e2e/docker-compose.yml down -v",
     "lint": "run-s lint:oxlint lint:eslint",

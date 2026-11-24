@@ -64,8 +64,11 @@ npm run e2e -- --project celular  # só um projeto
 npm run e2e:descer                # derruba tudo e apaga os volumes
 ```
 
-O backend do e2e tem o relógio parado na segunda-feira, 23/11/2026, ao meio-dia (horário de
-Brasília), para o check-in e a avaliação valerem a qualquer hora. Os e-mails ficam no Mailpit
+O relógio do backend do e2e começa na segunda-feira, 23/11/2026, ao meio-dia (horário de
+Brasília), a cada subida do container, e anda dali em diante, para o check-in e a avaliação
+valerem a qualquer hora. O `npm run e2e` recria o backend antes de rodar, então o relógio volta
+ao meio-dia a cada rodada; com a pilha no ar há mais de 2h30, o healthcheck do backend acusa
+que o relógio saiu do almoço. Os e-mails ficam no Mailpit
 (http://localhost:8025). As fixtures e como foram geradas estão em `e2e/dados/README.md`; o
 funcionamento completo, no Plano de Testes (3.5 e 5.3).
 

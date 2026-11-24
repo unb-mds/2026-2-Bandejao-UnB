@@ -6,9 +6,11 @@
 # Diferenças para o docker-compose.yml da raiz (produção):
 # - HTTP em localhost:8080, sem o certificado do Let's Encrypt (Caddyfile
 #   desta pasta), e os cookies sem o flag Secure;
-# - o relógio do backend parado numa segunda-feira, no almoço (libfaketime):
-#   o check-in só vale no horário da refeição e a avaliação só depois que ela
-#   começa, e o CI roda a qualquer hora;
+# - o relógio do backend começa numa segunda-feira, no almoço (libfaketime),
+#   a cada subida do container, e anda dali em diante: o check-in só vale no
+#   horário da refeição e a avaliação só depois que ela começa, e o CI roda a
+#   qualquer hora. O globalSetup do Playwright recria o backend antes de cada
+#   rodada, para o relógio voltar ao meio-dia;
 # - o e-mail vai para o Mailpit, e não para o Brevo;
 # - sem os scripts de db/init/ (o usuário da equipe não é usado nos testes).
 #
@@ -75,8 +77,10 @@ services:
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
       DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost:8080
       URL_DO_PWA: http://localhost:8080
-      # HTTP, sem o Caddy de produção na frente: sem o flag Secure nos
-      # cookies e sem ler o X-Forwarded-Proto.
+      # HTTP: sem o flag Secure nos cookies e sem ler o X-Forwarded-Proto. O
+      # Caddy do e2e está na frente, mas com ATRAS_DE_PROXY_HTTPS=False o
+      # NUM_PROXIES vira 0, e o limite de taxa conta todo pedido como o IP do
+      # Caddy (por isso o globalSetup limpa o cache a cada rodada).
       ATRAS_DE_PROXY_HTTPS: 'False'
       SESSION_COOKIE_SECURE: 'False'
       CSRF_COOKIE_SECURE: 'False'
@@ -94,8 +98,9 @@ services:
       EMAIL_HOST_PASSWORD: e2e
       DEFAULT_FROM_EMAIL: nao-responda@bandejaounb.com.br
       # Segunda-feira, 23/11/2026, 12h em Brasília (15h UTC), no almoço. O
-      # relógio anda a partir daí; o DONT_RESET vale o mesmo início para os
-      # workers do Gunicorn, que são outros processos.
+      # relógio começa aí a cada subida do container e anda em tempo real; o
+      # DONT_RESET vale o mesmo início para os workers do Gunicorn, que são
+      # outros processos.
       LD_PRELOAD: /relogio/libfaketime.so.1
       FAKETIME: '@2026-11-23 15:00:00'
       FAKETIME_DONT_RESET: '1'
@@ -104,11 +109,21 @@ services:
       # Fixtures dos testes (cardápio, contas e histórico da fila).
       - ./dados:/e2e-dados:ro
     healthcheck:
+      # Pronto quando o Gunicorn aceita conexão e o relógio está no almoço de
+      # 23/11 (11h às 14h30 de Brasília). O healthcheck herda o LD_PRELOAD:
+      # se a libfaketime não carregou, a data é a de hoje e o backend não fica
+      # saudável. Depois de 2h30 no ar, o relógio sai do almoço e o check
+      # também falha, avisando que é hora de recriar o backend.
       test:
         - CMD
         - python
         - -c
-        - import socket; socket.create_connection(("127.0.0.1", 8000), 2)
+        - >-
+          import datetime as d, socket;
+          socket.create_connection(("127.0.0.1", 8000), 2);
+          utc = d.timezone.utc;
+          agora = d.datetime.now(utc);
+          assert d.datetime(2026, 11, 23, 14, 0, tzinfo=utc) <= agora < d.datetime(2026, 11, 23, 17, 30, tzinfo=utc), f"relógio fora do almoço de 23/11: {agora}"
       interval: 5s
       timeout: 5s
       retries: 24
