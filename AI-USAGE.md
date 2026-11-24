@@ -957,3 +957,16 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - **resumo e mensagens do passo:** se a tabela markdown falhar, o resumo diz que não há tabela; o `::error::` separa "abaixo de 70%", "sem dados" (módulo renomeado) e outra falha do `coverage report` (por exemplo, "No source for code", que apareceu no teste na máquina com um `.coverage` velho);
   - `coverage==7.17.5` fixo; Plano de Testes com linhas e ramos juntos no back, o escopo do `cardapio` sem o leitor, "passo" no lugar de "job" e a BE-18 no título da 5.1.
 - Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12 e a revisão do contrato pelo FE.
+
+## #285 — Primeira visita em 2 interações sem a localização (RNF03)
+
+- Issue: [#285](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/285). PR: a abrir. Relacionada: FE-16 ([#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192), PR [#287](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287)).
+- Ferramenta: Claude (Anthropic), em 24/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Apoio:
+  - a `BoasVindasView` passou a ter a escolha do campus (os campi de `GET /api/campi/`, com "Carregando campi…", a falha com "Tentar novamente" e a lista vazia, como o `SeletorCampus`), no lugar do "Continuar sem login"; a escolha fica lembrada (RN04) e leva à tela do campus. O "Entrar na conta" continua;
+  - sem permitir a localização, a primeira visita fica com 2 interações até o cardápio: "Agora não" e o campus, como pede o RNF03 da Release 2 (o RF19 já dizia que, depois do "Agora não", o sistema segue com o seletor);
+  - o teste de roteamento "2 toques: continuar → campus" virou "1 toque na boas-vindas"; comentário do `router/index.js` e tabela de rotas do C4 atualizados.
+- TDD: `e4a8975` (testes, 6 falhando) → `e54a40e` (código) → `6605b4c` (docs).
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 1.067 testes passando (96,38% de linhas / 92,74% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos. Boas-vindas conferida no navegador a 360 px, sem rolar para o lado.
+- Fica para o PR da FE-16 (#287, ainda aberto e fora da `develop`): o `frontend/e2e/qualidade.spec.js` conta "Agora não", "Continuar sem login" e o campus. Depois deste PR, o passo "Continuar sem login" sai do teste, e o caminho sem a localização passa a esperar 2 interações (se o teste estiver com `test.fail()`, ele tem de sair). O checklist da seção 2 também muda.
+- Situação: aguardando o PR e a revisão de outra frente (DoD 1.4).
