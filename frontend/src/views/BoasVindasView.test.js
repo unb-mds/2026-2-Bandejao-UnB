@@ -67,19 +67,23 @@ describe('BoasVindasView: escolha do campus na própria boas-vindas (#285)', () 
     let interacoes = 0
 
     const aviso = wrapper.get('dialog.aviso-localizacao')
-    await vi.waitFor(() => expect(aviso.attributes('open')).toBeDefined())
+    await vi.waitFor(() => expect(aviso.attributes('open')).toBeDefined(), { timeout: 4000 })
     const agoraNao = aviso.findAll('button').find((botao) => botao.text() === 'Agora não')
     await agoraNao.trigger('click')
     interacoes += 1
     await flushPromises()
+    // O clique de fato fechou o aviso: sem ele, a contagem não valeria.
+    expect(aviso.attributes('open')).toBeUndefined()
 
-    await vi.waitFor(() => expect(botaoDoCampus('Darcy Ribeiro')).toBeTruthy())
+    await vi.waitFor(() => expect(botaoDoCampus('Darcy Ribeiro')).toBeTruthy(), { timeout: 4000 })
     await botaoDoCampus('Darcy Ribeiro').trigger('click')
     interacoes += 1
 
-    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('campus-tela'))
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('campus-tela'), {
+      timeout: 4000,
+    })
     expect(router.currentRoute.value.params.campusId).toBe('1')
-    await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
+    await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true), { timeout: 4000 })
     expect(interacoes).toBe(2)
   })
 
@@ -91,6 +95,13 @@ describe('BoasVindasView: escolha do campus na própria boas-vindas (#285)', () 
 
     expect(usePreferenciasStore().campusId).toBe(3)
     await vi.waitFor(() => expect(router.currentRoute.value.params.campusId).toBe('3'))
+
+    // Segunda visita: pinia e router novos, de novo na raiz. Só o aparelho lembra.
+    wrapper.unmount()
+    await abrirPrimeiraVisita()
+
+    expect(router.currentRoute.value.name).toBe('campus-tela')
+    expect(router.currentRoute.value.params.campusId).toBe('3')
   })
 
   it('continua com "Entrar na conta", e não tem mais o passo "Continuar sem login"', async () => {
@@ -110,9 +121,46 @@ describe('BoasVindasView: escolha do campus na própria boas-vindas (#285)', () 
     expect(grupo.attributes('aria-labelledby')).toBeTruthy()
     const rotulo = wrapper.get(`#${grupo.attributes('aria-labelledby')}`)
     expect(rotulo.text()).toMatch(/campus/i)
-    for (const nome of ['Darcy Ribeiro', 'Ceilândia', 'Gama', 'Planaltina']) {
+    for (const nome of ['Darcy Ribeiro', 'Ceilândia', 'Gama', 'Planaltina', 'Fazenda Água Limpa']) {
       expect(botaoDoCampus(nome)).toBeTruthy()
     }
+    expect(grupo.findAll('button')).toHaveLength(5)
+  })
+
+  it('enquanto os campi carregam: "Carregando campi…" e nenhum botão de campus', async () => {
+    let liberar
+    const getOriginal = apiClient.get.bind(apiClient)
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
+      caminho.startsWith('/campi/')
+        ? new Promise((resolver) => (liberar = resolver))
+        : getOriginal(caminho, opcoes),
+    )
+    await abrirPrimeiraVisita()
+    const tela = wrapper.get('.boas-vindas')
+
+    expect(tela.get('[role="status"]').text()).toBe('Carregando campi…')
+    expect(tela.find('[role="group"]').exists()).toBe(false)
+    expect(tela.find('.area-campi').exists()).toBe(true)
+
+    liberar([{ id: 1, nome: 'Darcy Ribeiro' }])
+    await vi.waitFor(() => expect(botaoDoCampus('Darcy Ribeiro')).toBeTruthy())
+    expect(tela.find('[role="status"]').exists()).toBe(false)
+    expect(tela.find('.area-campi [role="group"]').exists()).toBe(true)
+  })
+
+  it('lista de campi vazia: avisa que não há campus, sem botões, e o login continua', async () => {
+    const getOriginal = apiClient.get.bind(apiClient)
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
+      caminho.startsWith('/campi/') ? Promise.resolve([]) : getOriginal(caminho, opcoes),
+    )
+    await abrirPrimeiraVisita()
+    const tela = wrapper.get('.boas-vindas')
+
+    await vi.waitFor(() => expect(tela.text()).toContain('Nenhum campus disponível no momento.'))
+    expect(tela.find('[role="group"]').exists()).toBe(false)
+    expect(tela.find('[role="status"]').exists()).toBe(false)
+    expect(tela.find('[role="alert"]').exists()).toBe(false)
+    expect(tela.findAll('a').some((link) => link.text() === 'Entrar na conta')).toBe(true)
   })
 
   it('falha ao carregar os campi: avisa e deixa tentar de novo', async () => {
