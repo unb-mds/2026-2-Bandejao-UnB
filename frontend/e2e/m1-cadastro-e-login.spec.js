@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto'
 import { test, expect } from './apoio/teste'
 import { linkDeConfirmacao } from './apoio/mailpit'
 
@@ -10,8 +11,10 @@ test('cadastro de aluno, confirmação pelo link do e-mail, login e logout', asy
   page,
   request,
 }) => {
-  const sufixo = String(Date.now()).slice(-6) + String(test.info().parallelIndex)
-  const matricula = `24${sufixo.padStart(7, '0')}`
+  // Matrícula aleatória de 7 dígitos depois do ano de ingresso (24): o banco
+  // é limpo a cada rodada, e o sorteio só evita a colisão entre os projetos.
+  const sufixo = String(randomInt(10_000_000)).padStart(7, '0')
+  const matricula = `24${sufixo}`
   const apelido = `e2e_m1_${sufixo}`
   const email = `${matricula}@aluno.unb.br`
   const senha = 'senha-forte-e2e'
