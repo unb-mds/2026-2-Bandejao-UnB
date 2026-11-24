@@ -72,6 +72,8 @@ const semana = computed(() => avaliacoes.estadoDaSemana(campusId.value))
 const resumo = computed(() => semana.value?.resumo ?? null)
 const erroSemana = computed(() => semana.value?.situacao === 'erro')
 const carregandoSemana = computed(() => !semana.value || semana.value.situacao === 'carregando')
+/** Só com a semana carregada o cartão mostra contagem, gráfico e média: antes, seria um falso "0 avaliações". */
+const semanaPronta = computed(() => !erroSemana.value && !carregandoSemana.value)
 const legendaAvaliacoes = computed(() => {
   if (erroSemana.value) return 'Não foi possível carregar'
   if (carregandoSemana.value) return 'carregando…'
@@ -294,7 +296,7 @@ async function sair() {
           <p class="pequeno-valor">{{ formatarNota(resumo?.media) }}</p>
           <p class="pequeno-legenda">{{ legendaAvaliacoes }}</p>
           <div class="pequeno-rodape">
-            <EstrelasNota :valor="resumo?.media ?? 0" :tamanho="11" />
+            <EstrelasNota v-if="resumo?.media != null" :valor="resumo.media" :tamanho="11" />
           </div>
         </RouterLink>
       </div>
@@ -303,12 +305,13 @@ async function sair() {
       <RouterLink :to="{ name: 'avaliacoes' }" class="cartao cartao-clicavel cartao-semana">
         <div class="semana-topo">
           <p class="titulo-secao">Satisfação da semana</p>
-          <span v-if="!erroSemana" class="contagem">{{ resumo?.quantidade ?? 0 }} avaliações</span>
+          <span v-if="semanaPronta" class="contagem">{{ resumo.quantidade }} avaliações</span>
         </div>
 
         <p v-if="erroSemana" class="semana-erro" role="alert">
           Não foi possível carregar as avaliações da semana.
         </p>
+        <p v-else-if="carregandoSemana" class="semana-carregando">carregando…</p>
         <div v-else class="grafico" role="img" aria-label="Nota média por dia da semana">
           <div v-for="barra in barras" :key="barra.dia" class="barra-coluna">
             <span class="barra-valor">{{ barra.media ? formatarNota(barra.media) : '–' }}</span>
@@ -321,7 +324,7 @@ async function sair() {
           </div>
         </div>
 
-        <div v-if="!erroSemana" class="semana-media">
+        <div v-if="semanaPronta" class="semana-media">
           <EstrelasNota :valor="resumo?.media ?? 0" :tamanho="13" />
           <span class="semana-nota">{{ formatarNota(resumo?.media) }} / 5</span>
           <span class="semana-legenda">média geral</span>
@@ -692,7 +695,8 @@ async function sair() {
   color: var(--texto-escuro);
 }
 
-.semana-erro {
+.semana-erro,
+.semana-carregando {
   font-size: 12px;
   color: var(--texto-suave);
 }
