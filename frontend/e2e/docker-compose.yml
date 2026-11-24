@@ -45,20 +45,34 @@ services:
       MP_SMTP_AUTH_ALLOW_INSECURE: '1'
     ports:
       # API e caixa de entrada (http://localhost:8025), lidas pelos testes.
-      - '8025:8025'
+      # Só na própria máquina: numa rede compartilhada (como a da UnB), a
+      # caixa ficaria aberta a quem estivesse nela.
+      - '127.0.0.1:8025:8025'
 
   # Baixa a libfaketime, que o backend carrega com LD_PRELOAD. Fica num
   # container à parte para a imagem do backend ser a mesma de produção. A
-  # imagem do python:3.14-slim é Debian trixie, como esta.
+  # imagem do python:3.14-slim é Debian trixie, como esta. Imagem fixa pelo
+  # digest e pacote na versão exata: uma versão nova do Debian não muda o
+  # relógio dos testes sem passar por um PR. Se o Debian tirar esta versão do
+  # repositório, o apt falha com a mensagem do pacote e é só atualizar aqui.
+  #
+  # Só baixa se a biblioteca ainda não estiver no volume: o Compose roda este
+  # serviço de novo a cada `up`, e sobrescrever o arquivo que o backend tem
+  # carregado o derruba (falha de segmentação). A cópia vai para um arquivo
+  # temporário e é renomeada no fim. Depois de mudar a versão, rode
+  # `npm run e2e:descer` para o volume ser recriado.
   relogio:
-    image: debian:trixie-slim
+    image: debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
     command:
       - sh
       - -c
       - >-
-        apt-get update -qq
-        && apt-get install -y -qq --no-install-recommends libfaketime > /dev/null
-        && cp /usr/lib/*/faketime/libfaketime.so.1 /relogio/
+        test -f /relogio/libfaketime.so.1
+        || (apt-get update -qq
+        && apt-get install -y -qq --no-install-recommends
+        libfaketime=0.9.10+2024-06-05+gba9ed5b2-0.6 > /dev/null
+        && cp /usr/lib/*/faketime/libfaketime.so.1 /relogio/.libfaketime.tmp
+        && mv /relogio/.libfaketime.tmp /relogio/libfaketime.so.1)
     volumes:
       - relogio:/relogio
 
@@ -135,9 +149,16 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - '8080:80'
+      # Só na própria máquina, como o Mailpit.
+      - '127.0.0.1:8080:80'
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    healthcheck:
+      # O PWA (index.html) e a API respondem pelo Caddy.
+      test: ['CMD-SHELL', 'wget -qO /dev/null http://127.0.0.1/ && wget -qO /dev/null http://127.0.0.1/api/campi/']
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
 volumes:
   relogio:
