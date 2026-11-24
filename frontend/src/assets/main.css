@@ -51,11 +51,6 @@
     padding: 27px clamp(28px, 4vw, 62px) 50px;
     background: var(--creme);
   }
-  .titulo-tela {
-    font-size: clamp(28px, 2.5vw, 37px);
-    line-height: 1;
-    letter-spacing: -0.045em;
-  }
   /* Com o botão de voltar, ele fica à esquerda do título, como no protótipo. */
   .cabecalho:has(> .voltar:not(.voltar--rotulo)) {
     display: grid;
@@ -208,6 +203,15 @@
   font-size: 24px;
   line-height: 1.25;
   color: #fff;
+}
+
+/* Depois da regra base: com a mesma especificidade, quem vem depois vale. */
+@media (min-width: 1024px) {
+  .titulo-tela {
+    font-size: clamp(28px, 2.5vw, 37px);
+    line-height: 1;
+    letter-spacing: -0.045em;
+  }
 }
 
 .subtitulo-tela {
