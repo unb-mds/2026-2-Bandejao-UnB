@@ -7,7 +7,7 @@ import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
 import { CANAL_CONTATO } from '@/constants/contato'
-import { dataPorExtenso, diaCurto, hojeISO } from '@/utils/datas'
+import { dataCurta, dataPorExtenso, diaCurto, hojeISO, saudacao } from '@/utils/datas'
 import { formatarNota, resumoRefeicao } from '@/utils/cardapio'
 import { abrirAvisoLocalizacao } from '@/composables/avisoLocalizacao'
 import { AVISO_SAIR_SEM_CONFIRMACAO, useSair } from '@/composables/sair'
@@ -32,12 +32,6 @@ const { semConfirmacao: saidaSemConfirmacao, sair: sairDaConta } = useSair()
 
 const campusId = computed(() => preferencias.campusId)
 const nomeDoCampus = computed(() => cardapio.buscarCampus(campusId.value)?.nome)
-// Barra do topo do desktop (FE-23): "Boa tarde, apelido!" e a data curta.
-const saudacao =
-  agora.getHours() < 12 ? 'Bom dia' : agora.getHours() < 18 ? 'Boa tarde' : 'Boa noite'
-const dataCurta = dataPorExtenso(agora)
-  .replace('-feira', '')
-  .replace(/ de \d{4}$/, '')
 const pedidoHoje = computed(() => ({ campus: campusId.value, dia: hoje }))
 const cardapioHoje = computed(() => cardapio.daRefeicao(pedidoHoje.value))
 const erroHoje = computed(() => cardapio.erroDaRefeicao(pedidoHoje.value))
@@ -219,11 +213,12 @@ async function sair() {
           <p class="sobretitulo">
             Restaurante Universitário<template v-if="nomeDoCampus"> · {{ nomeDoCampus }}</template>
           </p>
-          <p class="saudacao">{{ saudacao }}, {{ auth.apelido }}!</p>
+          <!-- Barra do topo do desktop (FE-23): "Boa tarde, apelido!" e a data curta. -->
+          <p class="saudacao">{{ saudacao(agora) }}, {{ auth.apelido }}!</p>
         </div>
         <p class="data-pilula">
           <IconeSvg nome="relogio" :tamanho="17" />
-          {{ dataCurta }}
+          {{ dataCurta(agora) }}
         </p>
       </div>
     </header>
@@ -732,9 +727,17 @@ async function sair() {
 
   .cabecalho-inicio .deco,
   .topo,
-  .data-hoje,
-  .chamada {
+  .data-hoje {
     display: none;
+  }
+  /* O h1 da página continua sendo a chamada, fora da vista no desktop. */
+  .chamada {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .topo-desktop {
@@ -766,7 +769,7 @@ async function sair() {
     padding: 0 13px;
     border: 1px solid var(--borda);
     border-radius: 11px;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 700;
     color: var(--texto-suave);
     background: var(--cartao);
@@ -864,10 +867,15 @@ async function sair() {
     color: var(--dourado-claro);
   }
   .hoje-arte {
-    display: grid;
     grid-column: 2;
     grid-row: 1 / -1;
     align-self: center;
+  }
+  /* Abaixo de 1280 px, a ilustração ficaria por cima do nome dos pratos. */
+  @media (min-width: 1280px) {
+    .hoje-arte {
+      display: grid;
+    }
   }
 
   .linha-cartoes {
