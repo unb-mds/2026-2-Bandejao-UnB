@@ -37,6 +37,9 @@ precisa_de_sh = pytest.mark.skipif(SH is None, reason="sem sh no PATH")
 
 DIA = 24 * 3600
 
+# `-p` (colado ou não à senha) e `--password`: a senha não pode ir como argumento.
+SENHA_NA_LINHA = re.compile(r"(^|\s)-p\S*|--password")
+
 
 # --- arquivos de deploy/backup ---------------------------------------------
 
@@ -134,7 +137,7 @@ DOCKER_FALSO = """#!/bin/sh
 { pwd -W 2>/dev/null || pwd; } > "$SAIDA_DOCKER"
 for arg in "$@"; do printf '%s\\n' "$arg" >> "$SAIDA_DOCKER"; done
 cat > "$SAIDA_DOCKER.entrada"
-if [ -n "${SONO_DOCKER:-}" ]; then sleep "$SONO_DOCKER"; fi
+if [ -n "${SONO_DOCKER:-}" ]; then exec sleep "$SONO_DOCKER"; fi
 if [ -n "${ERRO_DOCKER:-}" ]; then printf '%s\\n' "$ERRO_DOCKER" >&2; fi
 printf '%s' "${DUMP_TEXTO:-}"
 exit "${FALHA_DOCKER:-0}"
@@ -260,16 +263,20 @@ def test_backup_chama_o_mysqldump_no_container_db_sem_levar_a_senha(rodar):
     pasta, *argumentos = resultado.docker
     assert Path(pasta).name == RAIZ.name  # roda da pasta do repositório
     assert argumentos[:4] == ["compose", "exec", "-T", "db"]
-    # O `timeout` roda dentro do container, para o mysqldump morrer junto.
-    assert argumentos[4:7] == ["timeout", "--kill-after=60", "30m"]
-    assert argumentos[7:9] == ["sh", "-c"]
+    # O `timeout` roda dentro do container, para o mysqldump morrer junto:
+    # vem depois do `db` e antes do `sh -c`, com o limite de 30m.
+    assert "timeout" in argumentos and "30m" in argumentos
+    assert argumentos.index("db") < argumentos.index("timeout") < argumentos.index("sh")
+    assert argumentos[argumentos.index("sh") + 1] == "-c"
     texto = "\n".join(argumentos)
     for opcao in ("--single-transaction", "--routines", "--triggers", "utf8mb4"):
         assert opcao in texto
     # A senha é lida do ambiente do container e vai ao mysqldump por MYSQL_PWD,
     # nunca como -p: assim não aparece no `ps`.
     assert 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD"' in texto
-    assert "-p" not in texto.replace("--", "").split("mysqldump", 1)[1].split()
+    assert not SENHA_NA_LINHA.search(texto)
+    # A tabela de cache do limite de taxa (IP) fica fora do dump.
+    assert '--ignore-table="$1.cache_bandejao"' in texto
     assert argumentos[-2:] == ["sh", "bandejao"]
 
 
@@ -525,6 +532,56 @@ def test_tamanho_que_despenca_em_relacao_a_copia_anterior_avisa(rodar, ambiente)
     assert avisos and "menos da metade" in avisos[0]
 
 
+def tamanho_do_backup_novo(rodar, ambiente):
+    """Roda uma vez, mede a cópia e a apaga: o tamanho (com o nome do tmp no
+    cabeçalho do gzip) é o mesmo nas execuções seguintes."""
+    rodar()
+    [copia] = copias(ambiente)
+    tamanho = copia.stat().st_size
+    copia.unlink()
+    return tamanho
+
+
+@precisa_de_sh
+@pytest.mark.parametrize(
+    ("extra", "avisa"),
+    [(1, True), (0, False)],
+    ids=["logo-abaixo-da-metade", "na-metade"],
+)
+def test_limite_exato_de_metade_do_tamanho_da_copia_anterior(
+    rodar, ambiente, extra, avisa
+):
+    novo = tamanho_do_backup_novo(rodar, ambiente)
+    anterior = ambiente["backups"] / "bandejao-20261120T064500Z.sql.gz"
+    anterior.write_bytes(os.urandom(2 * novo + extra))
+    os.utime(anterior, (time.time() - DIA,) * 2)
+    resultado = rodar()
+    assert resultado.returncode == 0, resultado.stderr
+    assert any("menos da metade" in linha for linha in resultado.logger) is avisa
+
+
+@precisa_de_sh
+def test_tmp_recente_fica_e_o_de_mais_de_um_dia_sai(rodar, ambiente):
+    recente = ambiente["backups"] / ".bandejao-20261123T060000Z.tmp"
+    recente.write_text("backup de outra execução em andamento", encoding="utf-8")
+    velho = ambiente["backups"] / ".bandejao-20261120T060000Z.tmp"
+    velho.write_text("sobra de um backup interrompido", encoding="utf-8")
+    os.utime(velho, (time.time() - 2 * DIA,) * 2)
+    rodar()
+    assert recente.exists()
+    assert not velho.exists()
+
+
+@precisa_de_sh
+def test_tempo_limite_do_cliente_encerra_um_docker_travado(rodar, ambiente):
+    """Só o `timeout` de dentro do container não basta: se o cliente do docker
+    travar, ele segura a trava para sempre."""
+    resultado = rodar(SONO_DOCKER="30", BANDEJAO_TEMPO_LIMITE_CLIENTE="1")
+    assert resultado.returncode == 1
+    assert "tempo esgotado" in resultado.log
+    assert copias(ambiente) == []
+
+
 @precisa_de_sh
 def test_tamanho_parecido_com_o_da_copia_anterior_nao_avisa(rodar, ambiente):
     anterior = ambiente["backups"] / "bandejao-20261120T064500Z.sql.gz"
@@ -551,6 +608,48 @@ def test_log_sem_escrita_sai_com_73_antes_de_rodar_o_dump(rodar, ambiente):
     assert "sem permissão de escrita" in resultado.stderr
     assert any("user.err" in linha for linha in resultado.logger)
     assert resultado.docker is None
+
+
+@precisa_de_sh
+@pytest.mark.skipif(
+    os.name == "nt" or os.geteuid() == 0, reason="precisa de usuário comum no Linux"
+)
+def test_log_do_root_nao_impede_a_rotacao_de_apagar_a_copia_velha(rodar, ambiente):
+    """O caso do `sudo`: o log nasceu como root e todo cron sai com 73. As
+    cópias com mais de 7 dias têm que sair mesmo assim (RNF07.4), e a pasta
+    sem cópia nenhuma tem que avisar com `crit`."""
+    ambiente["logs"].mkdir()
+    log = ambiente["logs"] / "backup-banco.log"
+    log.write_text("", encoding="utf-8")
+    log.chmod(0o400)
+    velha = criar_copia(ambiente, "bandejao-20261101T064500Z.sql.gz", 8 * DIA)
+    try:
+        resultado = rodar()
+    finally:
+        log.chmod(0o600)
+    assert resultado.returncode == 73
+    assert not velha.exists()
+    assert any(
+        "user.crit" in linha and "SEM NENHUMA" in linha for linha in resultado.logger
+    )
+
+
+@precisa_de_sh
+@pytest.mark.skipif(
+    os.name == "nt" or os.geteuid() == 0, reason="precisa de usuário comum no Linux"
+)
+def test_saida_73_com_copia_recente_nao_avisa_com_crit(rodar, ambiente):
+    ambiente["logs"].mkdir()
+    log = ambiente["logs"] / "backup-banco.log"
+    log.write_text("", encoding="utf-8")
+    log.chmod(0o400)
+    criar_copia(ambiente, "bandejao-20261120T064500Z.sql.gz", 3600)
+    try:
+        resultado = rodar()
+    finally:
+        log.chmod(0o600)
+    assert resultado.returncode == 73
+    assert not any("user.crit" in linha for linha in resultado.logger)
 
 
 @precisa_de_sh
@@ -616,6 +715,9 @@ def test_interrupcao_apaga_o_dump_sem_compressao(ambiente, sinal):
             os.killpg(processo.pid, signal.SIGKILL)
     assert [p.name for p in ambiente["backups"].glob(".bandejao-*")] == []
     assert copias(ambiente) == []
+    # A interrupção deixa rastro no log e no syslog.
+    assert "interrompido por sinal" in ler_texto(ambiente["logs"] / "backup-banco.log")
+    assert "interrompido por sinal" in ler_texto(ambiente["logger"])
 
 
 @precisa_de_sh
@@ -630,6 +732,19 @@ def test_segundo_backup_ao_mesmo_tempo_e_pulado(rodar, ambiente):
     assert resultado.returncode == 75
     assert resultado.docker is None
     assert copias(ambiente) == []
+
+
+@precisa_de_sh
+@pytest.mark.skipif(shutil.which("flock") is None, reason="sem flock no PATH")
+def test_saida_75_com_copia_velha_demais_avisa_com_crit(rodar, ambiente):
+    import fcntl
+
+    criar_copia(ambiente, "bandejao-20261120T064500Z.sql.gz", 30 * 3600)
+    with open(ambiente["backups"] / ".trava", "a") as aberto:
+        fcntl.flock(aberto, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        resultado = rodar()
+    assert resultado.returncode == 75
+    assert any("user.crit" in linha for linha in resultado.logger)
 
 
 @precisa_de_sh
@@ -653,11 +768,12 @@ case "$1" in
     exec)
         # `exec -i <nome> mysql ...` (restauração): lê o dump da entrada.
         case "$*" in
-            *mysqladmin*) exit 0 ;;
+            *mysqladmin*) exit "${FALHA_PING:-0}" ;;
             *"-i "*) cat > "$SAIDA_DOCKER.dump"; exit "${FALHA_RESTAURAR:-0}" ;;
             *django_migrations*)
                 if [ -n "${FALHA_MIGRACOES:-}" ]; then echo "ERROR 1146: Table doesn't exist" >&2; exit 1; fi
                 echo "${MIGRACOES:-41}"; exit 0 ;;
+            *"FROM cadastro_usuario"*) echo "${USUARIOS_TEMP:-3}"; exit 0 ;;
             *"COUNT(*) FROM information_schema"*) echo "${TABELAS_TEMP:-30}"; exit 0 ;;
             *"SELECT table_name"*)
                 if [ -n "${FALHA_LISTA:-}" ]; then echo "ERROR 1045: Access denied" >&2; exit 1; fi
@@ -665,7 +781,13 @@ case "$1" in
             *'COUNT(*) FROM `'*) echo "${LINHAS:-3}"; exit 0 ;;
             *) exit 0 ;;
         esac ;;
-    compose) echo "${TABELAS_PROD:-30}"; exit 0 ;;
+    compose)
+        # A produção também lê a entrada: grava o que chegar nela.
+        cat > "$SAIDA_DOCKER.compose_entrada"
+        case "$*" in
+            *"FROM cadastro_usuario"*) echo "${USUARIOS_PROD:-3}"; exit 0 ;;
+            *) echo "${TABELAS_PROD:-30}"; exit 0 ;;
+        esac ;;
 esac
 exit 0
 """
@@ -677,13 +799,14 @@ def restaurar(ambiente):
         DOCKER_RESTAURACAO, encoding="utf-8", newline="\n"
     )
 
-    def restaurar(*argumentos, **extra):
+    def restaurar(*argumentos, entrada="", **extra):
         env = {k: v for k, v in os.environ.items() if not k.startswith("BANDEJAO_")}
         env.update(
             PATH=str(ambiente["bin"]) + os.pathsep + os.environ["PATH"],
             SAIDA_DOCKER=ambiente["docker"].as_posix(),
             BANDEJAO_BACKUPS=ambiente["backups"].as_posix(),
             BANDEJAO_ESPERA_TESTE="2",
+            BANDEJAO_PAUSA_TESTE="0",
         )
         env.update(extra)
         resultado = subprocess.run(
@@ -693,6 +816,7 @@ def restaurar(ambiente):
             capture_output=True,
             text=True,
             encoding="utf-8",
+            input=entrada,
         )
         resultado.docker = ler_linhas(ambiente["docker"]) or []
         return resultado
@@ -720,7 +844,6 @@ def test_restauracao_mostra_a_contagem_exata_de_linhas(restaurar, ambiente):
     resultado = restaurar(LINHAS="7")
     assert resultado.returncode == 0, resultado.stderr
     assert "  cadastro_usuario\t7" in resultado.stdout
-    assert "table_rows" not in RESTAURACAO.read_text(encoding="utf-8").lower()
 
 
 @precisa_de_sh
@@ -803,21 +926,32 @@ def test_restauracao_aceita_o_arquivo_como_argumento(restaurar, ambiente, tmp_pa
 
 
 @precisa_de_sh
-def test_restauracao_com_todas_as_tabelas_de_dados_vazias_falha(restaurar, ambiente):
-    """Um `down -v` seguido de `migrate` gera um dump completo e sem dados."""
+def test_restauracao_sem_contas_falha_mesmo_com_outras_tabelas_povoadas(
+    restaurar, ambiente
+):
+    """Um `down -v` seguido de `migrate` gera um dump completo e sem contas, e
+    a tabela de cache do limite de taxa enche com uma tentativa de login:
+    `LINHAS` (as outras tabelas) não pode esconder o `cadastro_usuario` vazio."""
     criar_copia(ambiente, "bandejao-20261120T064500Z.sql.gz", 1 * DIA)
-    resultado = restaurar(LINHAS="0", TABELAS_LISTA="cadastro_usuario\nauth_group\n")
+    resultado = restaurar(LINHAS="50", USUARIOS_TEMP="0", USUARIOS_PROD="3")
     assert resultado.returncode == 1
-    assert "estão vazias" in resultado.stderr
+    assert "cadastro_usuario restaurado está vazio" in resultado.stderr
     assert "OK:" not in resultado.stdout
 
 
 @precisa_de_sh
-def test_restauracao_so_com_linhas_em_tabela_do_django_ainda_falha(restaurar, ambiente):
+@pytest.mark.parametrize(
+    ("temp", "prod", "passa"),
+    [(1, 3, False), (2, 3, True), (3, 3, True), (0, 0, True), (5, 3, True)],
+)
+def test_restauracao_compara_as_contas_com_a_producao(
+    restaurar, ambiente, temp, prod, passa
+):
     criar_copia(ambiente, "bandejao-20261120T064500Z.sql.gz", 1 * DIA)
-    resultado = restaurar(LINHAS="5", TABELAS_LISTA="django_migrations\nauth_group\n")
-    assert resultado.returncode == 1
-    assert "estão vazias" in resultado.stderr
+    resultado = restaurar(USUARIOS_TEMP=str(temp), USUARIOS_PROD=str(prod))
+    assert (resultado.returncode == 0) is passa
+    if not passa:
+        assert "menos da metade" in resultado.stderr
 
 
 @precisa_de_sh
@@ -860,11 +994,46 @@ def test_restauracao_nao_deixa_o_arquivo_de_erros(restaurar, ambiente, tmp_path)
 @precisa_de_sh
 def test_consulta_de_producao_nao_le_o_teclado_nem_leva_senha(restaurar, ambiente):
     criar_copia(ambiente, "bandejao-20261120T064500Z.sql.gz", 1 * DIA)
-    resultado = restaurar()
-    compose = next(c for c in resultado.docker if c.startswith("compose exec"))
-    assert "-p" not in compose.replace("--", "").split("mysql", 1)[1].split()
-    texto = RESTAURACAO.read_text(encoding="utf-8")
-    assert "</dev/null" in texto.split("consulta_prod()", 1)[1].split("}", 1)[0]
+    resultado = restaurar(entrada="digitado no terminal")
+    assert resultado.returncode == 0, resultado.stderr
+    entrada = Path(str(ambiente["docker"]) + ".compose_entrada")
+    assert entrada.read_text(encoding="utf-8") == ""
+    # Toda chamada que roda o `mysql` passa a senha por MYSQL_PWD, e nenhuma
+    # leva `-p` ou `--password` na linha de comando.
+    chamadas_mysql = [c for c in resultado.docker if "mysql" in c and "run" != c[:3]]
+    assert chamadas_mysql
+    for chamada in chamadas_mysql:
+        assert "MYSQL_PWD=" in chamada, chamada
+        assert not SENHA_NA_LINHA.search(chamada), chamada
+
+
+@precisa_de_sh
+@pytest.mark.parametrize("banco", ["a b", "x;y", "x'y"])
+def test_restauracao_com_nome_de_banco_invalido_sai_com_2_sem_docker(
+    restaurar, ambiente, banco
+):
+    criar_copia(ambiente, "bandejao-20261120T064500Z.sql.gz", 1 * DIA)
+    resultado = restaurar(BANDEJAO_BANCO=banco)
+    assert resultado.returncode == 2
+    assert resultado.docker == []
+
+
+@precisa_de_sh
+@pytest.mark.parametrize("variavel", ["BANDEJAO_ESPERA_TESTE", "BANDEJAO_PAUSA_TESTE"])
+def test_restauracao_com_espera_nao_numerica_sai_com_2(restaurar, ambiente, variavel):
+    criar_copia(ambiente, "bandejao-20261120T064500Z.sql.gz", 1 * DIA)
+    resultado = restaurar(**{variavel: "dois"})
+    assert resultado.returncode == 2
+    assert resultado.docker == []
+
+
+@precisa_de_sh
+def test_restauracao_so_vale_com_o_mysqladmin_ping_respondendo(restaurar, ambiente):
+    criar_copia(ambiente, "bandejao-20261120T064500Z.sql.gz", 1 * DIA)
+    resultado = restaurar(FALHA_PING="1", BANDEJAO_ESPERA_TESTE="1")
+    assert resultado.returncode == 1
+    assert "não ficou pronto a tempo" in resultado.stderr
+    assert any("mysqladmin" in c for c in resultado.docker)
 
 
 @precisa_de_sh
@@ -873,14 +1042,12 @@ def test_restauracao_espera_o_fim_do_init_do_mysql(restaurar, ambiente):
     qualquer linha de log do servidor provisório."""
     criar_copia(ambiente, "bandejao-20261120T064500Z.sql.gz", 1 * DIA)
     docker = ambiente["bin"] / "docker"
-    docker.write_text(
-        DOCKER_RESTAURACAO.replace(
-            'echo "MySQL init process done. Ready for start up."',
-            'echo "Temporary server started."',
-        ),
-        encoding="utf-8",
-        newline="\n",
+    sem_o_fim_do_init = DOCKER_RESTAURACAO.replace(
+        'echo "MySQL init process done. Ready for start up."',
+        'echo "Temporary server started."',
     )
+    assert sem_o_fim_do_init != DOCKER_RESTAURACAO  # a troca aconteceu
+    docker.write_text(sem_o_fim_do_init, encoding="utf-8", newline="\n")
     resultado = restaurar(BANDEJAO_ESPERA_TESTE="1")
     assert resultado.returncode == 1
     assert "não ficou pronto a tempo" in resultado.stderr

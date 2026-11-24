@@ -19,6 +19,10 @@
 #   falhe: o prazo vale mais que a quantidade de cópias. Por isso, quando uma
 #   falha deixa a pasta sem cópia, ou com a mais nova com mais de 26 h, o
 #   script avisa no syslog com prioridade user.crit.
+#   A rotação roda logo depois de a pasta ser conferida, **antes** do teste de
+#   escrita do log e da trava: se o log nasceu como root (alguém rodou com
+#   sudo), o script sai com 73, mas as cópias velhas já saíram, e o `crit` vale
+#   também para essas saídas.
 # - O script grava o próprio log em $BANDEJAO_LOGS/backup-banco.log (padrão:
 #   /var/log/bandejao) e testa a escrita antes, como o rodar-comando.sh do
 #   BD-07: a linha do cron não tem redireção, para o cron não parar em
@@ -28,6 +32,9 @@
 # - O dump roda com `timeout` dentro do container, para o mysqldump morrer
 #   junto (o do cliente, no host, é um pouco maior). Status 124 é tempo
 #   esgotado; 137, processo morto com KILL.
+# - A tabela de cache do Django (`cache_bandejao`, limite de taxa, com chaves
+#   que podem ter IP) fica fora do dump: é efêmera e não precisa de 7 dias de
+#   backup. Depois de restaurar num banco vazio, rode `createcachetable`.
 #
 # Status: 0 (ok), 1 (falha), 2 (uso ou configuração inválida), 73 (sem escrita
 # no log ou na trava), 75 (já tem um backup rodando), 130 (interrompido).
@@ -79,6 +86,29 @@ esac
 # Arquivos novos só para o dono (600) e pastas novas 700.
 umask 077
 
+# Sem cópia, ou com a mais nova velha demais, é o único caso em que o prazo
+# da rotação deixa a pasta sem backup útil: avisa alto.
+conferir_pasta() {
+    total=$(find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' | wc -l | tr -d ' ')
+    if [ "$total" -eq 0 ]; then
+        aviso "SEM NENHUMA CÓPIA em $backups: o backup falhou e a rotação apagou o resto" user.crit
+    elif [ -z "$(find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' -mmin -1560 | head -n 1)" ]; then
+        aviso "a cópia mais nova de $backups tem mais de 26 h: o backup de hoje falhou" user.crit
+    fi
+}
+
+# Saída com status próprio (73, 75, 1...) conferindo antes a pasta: o aviso
+# `crit` não pode depender de o script ter chegado até o dump.
+sair_com() {
+    conferir_pasta
+    exit "$1"
+}
+
+abortar() {
+    falha "$1"
+    sair_com 1
+}
+
 if ! pasta=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd); then
     falha "backup: pasta do repositório não encontrada"
     exit 1
@@ -94,62 +124,8 @@ if [ ! -w "$backups" ]; then
 fi
 chmod 700 "$backups" 2>/dev/null || true
 
-if ! mkdir -p "$logs" 2>/dev/null; then
-    falha "backup: não foi possível criar $logs"
-    exit 1
-fi
-# A escrita do log e da trava é testada antes: se forem de outro usuário
-# (alguém rodou o script com sudo), o backup pararia em silêncio. O teste é
-# num subshell, porque uma redireção que falha num builtin especial como o
-# ":" encerraria o próprio script.
-trava=$backups/.trava
-for arquivo in "$log" "$trava"; do
-    if ! (: >>"$arquivo") 2>/dev/null; then
-        falha "backup: sem permissão de escrita em $arquivo (o script rodou com sudo? ver o guia)"
-        exit 73
-    fi
-done
-
-# A partir daqui, tudo o que o script escreve vai para o log.
-exec >>"$log" 2>&1
-logando=1
-
-# Interrupção (Ctrl-C, kill): o `sh` (dash) não roda o trap de EXIT sozinho,
-# então o sinal vira um exit, que dispara o trap abaixo.
-trap 'exit 130' INT TERM HUP
-
-# Uma execução por vez.
-if command -v flock >/dev/null 2>&1; then
-    exec 9>>"$trava"
-    if ! flock -n 9; then
-        echo "[$(agora)] pulado: o backup anterior ainda está rodando"
-        logger -t "$TAG" -p user.warning -- "backup pulado: o anterior ainda está rodando" 2>/dev/null || true
-        exit 75
-    fi
-else
-    aviso "sem flock: rodando sem a trava contra execução dupla"
-fi
-
-echo "[$(agora)] início do backup de $banco"
-
-# Sem cópia, ou com a mais nova velha demais, é o único caso em que o prazo
-# da rotação deixa a pasta sem backup útil: avisa alto.
-conferir_pasta() {
-    total=$(find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' | wc -l | tr -d ' ')
-    if [ "$total" -eq 0 ]; then
-        aviso "SEM NENHUMA CÓPIA em $backups: o backup falhou e a rotação apagou o resto" user.crit
-    elif [ -z "$(find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' -mmin -1560 | head -n 1)" ]; then
-        aviso "a cópia mais nova de $backups tem mais de 26 h: o backup de hoje falhou" user.crit
-    fi
-}
-
-abortar() {
-    falha "$1"
-    conferir_pasta
-    exit 1
-}
-
-# --- rotação: o prazo vale mesmo que o dump de hoje falhe -------------------
+# --- rotação: o prazo vale mesmo que o dump de hoje falhe, e mesmo que o log
+# ou a trava não possam ser gravados (por isso vem antes dos testes abaixo) ---
 # Minutos, e não dias do find: com -mtime +6 uma cópia de 6 dias e 23 h ainda
 # ficaria, e a pasta teria 8 cópias. A folga de 2 h cobre a variação de
 # horário do cron.
@@ -159,6 +135,51 @@ if ! find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' -mmin +"$minu
 fi
 # Sobra de um backup interrompido (tmp com mais de 1 dia).
 find "$backups" -maxdepth 1 -type f -name '.bandejao-*.tmp*' -mmin +1440 -delete 2>/dev/null || true
+
+if ! mkdir -p "$logs" 2>/dev/null; then
+    falha "backup: não foi possível criar $logs"
+    sair_com 1
+fi
+# A escrita do log e da trava é testada antes: se forem de outro usuário
+# (alguém rodou o script com sudo), o backup pararia em silêncio. O teste é
+# num subshell, porque uma redireção que falha num builtin especial como o
+# ":" encerraria o próprio script.
+trava=$backups/.trava
+for arquivo in "$log" "$trava"; do
+    if ! (: >>"$arquivo") 2>/dev/null; then
+        falha "backup: sem permissão de escrita em $arquivo (o script rodou com sudo? ver o guia)"
+        sair_com 73
+    fi
+done
+
+# A partir daqui, tudo o que o script escreve vai para o log.
+exec >>"$log" 2>&1
+logando=1
+
+# Interrupção (Ctrl-C, kill): o `sh` (dash) não roda o trap de EXIT sozinho,
+# então o sinal vira um exit, que dispara o trap abaixo. O aviso deixa rastro
+# no log e no syslog (um TERM do systemd num reboot, por exemplo).
+trap 'falha "backup: interrompido por sinal"; exit 130' INT TERM HUP
+
+# Uma execução por vez. O `flock -n` sai com 1 quando a trava está ocupada;
+# outro status é erro do próprio flock e não pode virar "pulado".
+if command -v flock >/dev/null 2>&1; then
+    exec 9>>"$trava"
+    flock -n 9
+    trava_status=$?
+    if [ "$trava_status" -eq 1 ]; then
+        echo "[$(agora)] pulado: o backup anterior ainda está rodando"
+        logger -t "$TAG" -p user.warning -- "backup pulado: o anterior ainda está rodando" 2>/dev/null || true
+        sair_com 75
+    elif [ "$trava_status" -ne 0 ]; then
+        falha "backup: erro ao pegar a trava (flock saiu com status $trava_status)"
+        sair_com 1
+    fi
+else
+    aviso "sem flock: rodando sem a trava contra execução dupla"
+fi
+
+echo "[$(agora)] início do backup de $banco"
 
 # --- dump ------------------------------------------------------------------
 ts=$(date -u '+%Y%m%dT%H%M%SZ')
@@ -185,15 +206,17 @@ anterior=$(ls -1t "$backups"/bandejao-*.sql.gz 2>/dev/null | head -n 1)
 # exec -T` ficava esperando o teclado e o backup travava em silêncio.
 # O `--foreground` mantém o `timeout` no grupo do terminal: sem ele, um Ctrl-C
 # não chegaria ao dump e o script só reagiria quando ele terminasse.
+# A tabela de cache do limite de taxa fica fora (ver o cabeçalho).
 timeout --foreground --kill-after=60 "$limite_cliente" \
     docker compose exec -T db \
     timeout --kill-after=60 "$limite" sh -c \
-    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -uroot --single-transaction --routines --triggers --default-character-set=utf8mb4 --no-tablespaces "$1"' \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -uroot --single-transaction --routines --triggers --default-character-set=utf8mb4 --no-tablespaces --ignore-table="$1.cache_bandejao" "$1"' \
     sh "$banco" </dev/null >"$bruto" 2>"$erros"
 status=$?
 if [ "$status" -ne 0 ]; then
     # Só as primeiras linhas do erro do mysqldump: o erro não traz dado do
-    # banco.
+    # banco. (O grep do aviso de senha é só proteção: com MYSQL_PWD ele não
+    # aparece.)
     detalhe=$(grep -v 'Using a password' "$erros" 2>/dev/null | head -n 3 | tr '\n' ' ')
     case $status in
         124) motivo="tempo esgotado ($limite no container, $limite_cliente no cliente)" ;;
