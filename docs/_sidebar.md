@@ -10,6 +10,7 @@
 - **Qualidade**
   - [Plano de testes](qualidade/plano-de-testes.md)
   - [Teste de carga (BD-14)](qualidade/teste-de-carga-bd14.md)
+  - [Checklist de qualidade do front (FE-16)](qualidade/checklist-qualidade-front.md)
 
 - **Arquitetura (C4)**
   - [Níveis 1 e 2 — geral](arquitetura/c4-niveis-1-2.md)
@@ -49,6 +50,10 @@
 
 - **Deploy**
   - [Deploy de produção](deploy/deploy-producao.md)
+
+- **Operação**
+  - [Monitor de disponibilidade](operacao/monitor-disponibilidade.md)
+  - [Relatório parcial de disponibilidade](operacao/relatorio-disponibilidade-parcial.md)
 
 - **Gestão do projeto**
   - [Atas de reunião](atas-reunioes/README.md)
