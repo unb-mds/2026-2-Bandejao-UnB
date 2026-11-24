@@ -957,3 +957,15 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - **resumo e mensagens do passo:** se a tabela markdown falhar, o resumo diz que não há tabela; o `::error::` separa "abaixo de 70%", "sem dados" (módulo renomeado) e outra falha do `coverage report` (por exemplo, "No source for code", que apareceu no teste na máquina com um `.coverage` velho);
   - `coverage==7.17.5` fixo; Plano de Testes com linhas e ramos juntos no back, o escopo do `cardapio` sem o leitor, "passo" no lugar de "job" e a BE-18 no título da 5.1.
 - Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12 e a revisão do contrato pelo FE.
+
+## FE-16 — Checklist de qualidade no celular e no desktop
+
+- Issue: [#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192). PR: #___.
+- Ferramenta: Claude (Anthropic).
+- Apoio: conferência do front no Chromium 157 (Playwright), a 360, 768 e 1366 px, sem e com login, com o servidor simulado; contagem das interações até o cardápio na primeira visita, com e sem a localização permitida; varredura das cores, fontes e raios fora dos tokens do `base.css`; os testes de ponta a ponta `frontend/e2e/qualidade.spec.js` (primeira visita em até 3 interações, visita seguinte sem interação e nenhuma tela rolando para o lado, sem e com login); o checklist `docs/qualidade/checklist-qualidade-front.md`, com uma coluna para celular e outra para desktop; o Plano de Testes (3.4 e 3.5) e o menu da documentação; e o texto das issues dos bugs encontrados. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: não se aplica. Os testes conferem um comportamento que já existe; o que eles achariam de errado está nos bugs abertos.
+- Validação: `qualidade.spec.js` rodado contra o servidor simulado (`npm run dev`), nos dois projetos, com uma cópia que troca a conta da fixture pela conta de demonstração do simulado, que não tem as contas do e2e: todos passaram. Na pilha real, roda no job `ponta-a-ponta` do PR. `npm run lint:ci` sem achados.
+- Limites: Firefox e Safari não rodam no ambiente da conferência, e o Chromium não substitui as versões do Chrome e do Edge; a seção 4 do checklist fica para conferir no aparelho. A conferência visual foi por capturas de tela, não em celular real.
+- Achados: com a localização permitida, a primeira visita leva 4 interações até o cardápio (RNF03), porque a detecção do campus (FE-E3) não foi feita; cores e um raio fora dos tokens do guia de estilo (RF17), de baixa prioridade.
+- Revisão humana: pendente.
+- Situação: aguardando revisão.
