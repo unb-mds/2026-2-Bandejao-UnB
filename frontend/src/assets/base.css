@@ -70,6 +70,21 @@
   /* Larguras a partir do tablet (mobile first, FE-20, RNF05) */
   --largura-conteudo: 1200px;
   --largura-formulario: 480px;
+
+  /* Desktop (FE-23, protótipo desktop): lateral, fundo creme e destaques */
+  --largura-lateral: 246px;
+  --creme: #f3e9da;
+  --dourado-claro: #e7c76e;
+  --dourado-avatar: #d8bd79;
+  --laranja: #a8562c;
+  --texto-rotulo: #89786a;
+  --branco-48: rgba(255, 255, 255, 0.48);
+  --branco-30: rgba(255, 255, 255, 0.3);
+  --branco-05: rgba(255, 255, 255, 0.05);
+  --branco-02: rgba(255, 255, 255, 0.02);
+  --sombra-logo: rgba(0, 0, 0, 0.2);
+  --sombra-cartao: rgba(63, 43, 22, 0.06);
+  --sombra-escura: rgba(19, 43, 24, 0.15);
 }
 
 *,
