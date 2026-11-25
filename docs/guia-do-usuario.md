@@ -35,11 +35,9 @@ Acesse **https://bandejaounb.com.br** no navegador. Funciona no Chrome, Firefox,
 Na tela de boas-vindas há duas opções:
 
 - **Entrar na conta:** para quem já tem conta (veja [Criar sua conta](#criar-sua-conta)).
-- **Continuar sem login:** para consultar o cardápio, as avaliações, a previsão da fila e o ranking como visitante.
+- **Ou escolha o campus para ver o cardápio sem login:** toque no campus que você frequenta, ali mesmo na tela. Assim você consulta o cardápio, as avaliações, a previsão da fila e o ranking como visitante.
 
-### 3. Escolha o seu campus
-
-Toque no campus que você frequenta:
+Os campi são:
 
 - Darcy Ribeiro
 - Ceilândia
@@ -47,11 +45,13 @@ Toque no campus que você frequenta:
 - Planaltina
 - Fazenda Água Limpa
 
+Na primeira abertura, o Bandejão também pergunta se pode usar a sua localização, que serve só para o check-in (veja [Sua localização](#sua-localização)). Quem toca em **Agora não** chega ao cardápio com duas interações: **Agora não** e o campus.
+
 O Bandejão lembra o campus neste aparelho. Na próxima vez, ele abre direto na tela do seu campus. Para mudar, toque em **Trocar**, ao lado do nome do campus.
 
 > No Darcy Ribeiro, as informações valem só para o RU. O **Restaurante Executivo** não faz parte do Bandejão.
 
-### 4. (Opcional) Instale na tela inicial
+### 3. (Opcional) Instale na tela inicial
 
 O Bandejão é um PWA: dá para instalá-lo e abri-lo como um aplicativo, sem passar pela loja.
 
@@ -100,7 +100,7 @@ Podem criar conta **estudantes** (com o e-mail `@aluno.unb.br`) e **professores 
 ### Entrar e sair
 
 - **Entrar:** use o e-mail institucional e a senha. Depois do login, o Bandejão abre na tela do seu campus.
-- **Sair:** toque no seu avatar (a inicial do apelido) e escolha **Sair da conta**.
+- **Sair:** escolha **Sair da conta**. No celular e no tablet, ela fica em **Perfil** (que abre **Meu progresso**) e no menu do seu avatar (a inicial do apelido), no **Início**. No computador, fica no fim da barra lateral.
 - Depois de **5 tentativas erradas** em 10 minutos, o login fica bloqueado por 10 minutos.
 
 ### Não recebi o e-mail de confirmação
@@ -121,7 +121,9 @@ A tela do campus reúne tudo o que você precisa para a próxima refeição:
 - a **previsão da fila** em faixas de 15 minutos;
 - o botão de **check-in** (para quem tem conta).
 
-As **avaliações** (estrelas, comentários e envio) ficam numa tela própria, **Avaliações**. O **Início** mostra só a nota média, com link para ela.
+A previsão e o check-in também têm tela própria, **Fila do RU**, aberta pelo item **Fila** da navegação ou pelo card **Fila** do **Início**.
+
+As **avaliações** (estrelas, comentários e envio) ficam numa tela própria, **Avaliações**. A tela do campus mostra a **nota média** da refeição, com a quantidade de avaliações. O **Início** mostra a nota média e a **Satisfação da semana** (um gráfico com a nota média de cada dia), e leva à tela **Avaliações**.
 
 O Bandejão abre na **refeição padrão**:
 
@@ -139,9 +141,17 @@ Os horários usados são:
 
 ### Navegação
 
-No celular, a barra inferior leva às seções principais: **Início**, **Cardápio**, **Fila**, **Avaliações** e **Perfil**. No computador, as mesmas opções ficam na barra do topo e na barra lateral.
+Os itens principais são **Início**, **Cardápio**, **Fila**, **Avaliações** e **Perfil**. A barra muda conforme o aparelho:
 
-No **Início**, toque no seu avatar para abrir o menu com **Meu progresso**, **Trocar campus**, **Ranking do campus**, **Usar minha localização** e **Sair da conta** (ou **Entrar na conta**, se você estiver sem login).
+| Aparelho | Onde fica a navegação |
+|---|---|
+| **Celular** | Barra inferior com os 5 itens. Ela aparece nas telas internas, não no **Início**. |
+| **Tablet** | Barra no topo, com os mesmos 5 itens e o **Contato**. |
+| **Computador** (a partir de 1024 px) | Barra lateral com **Início**, **Cardápio**, **Fila do RU**, **Avaliações** e **Ranking**, e o **Contato**. Embaixo ficam o atalho do **campus atual**, o atalho da conta (**Meu progresso**, ou **Acessar conta** sem login) e **Sair da conta**. Não há item **Perfil**. |
+
+**Perfil** abre **Meu progresso**, mesmo para quem está sem login.
+
+No **Início**, no celular e no tablet, toque no seu avatar para abrir o menu com **Meu progresso**, **Trocar campus**, **Ranking do campus**, **Usar minha localização** e **Sair da conta** (ou **Entrar na conta**, se você estiver sem login). No computador, esse menu não aparece: esses caminhos ficam na barra lateral e na tela do campus.
 
 ---
 
@@ -190,6 +200,8 @@ Quando o Bandejão não consegue ler os marcadores do PDF de uma refeição, apa
 
 A previsão mostra como a fila costuma estar em cada **faixa de 15 minutos** da refeição, para você escolher um horário mais tranquilo. Ela pode ser vista sem login.
 
+Para vê-la, abra **Fila do RU** (item **Fila** da navegação) ou desça a tela do campus. No **Início**, o card **Fila** mostra a **previsão de pico**, os horários mais cheios, com o link **Ver fila do RU**.
+
 | Nível | O que quer dizer |
 |---|---|
 | **Vazia** | Menos de 25% do movimento da faixa mais cheia do dia |
@@ -229,7 +241,7 @@ Regras:
 O check-in avisa que você está no RU. Ele **alimenta a previsão da fila** e rende **pontos**.
 
 1. Esteja com a conta aberta, no RU do campus escolhido, **durante o horário da refeição**.
-2. Na tela do campus, toque em **Estou no RU**.
+2. Na tela do campus ou na tela **Fila do RU**, toque em **Estou no RU**.
 3. Na primeira vez, o Bandejão explica para que usa a localização. Toque em **Permitir localização** e aceite o pedido do navegador.
 4. O Bandejão confere pelo GPS que você está perto do RU. Se estiver tudo certo, aparece **Check-in confirmado**.
 
@@ -246,7 +258,7 @@ Regras:
 
 - A localização é lida **só no momento do check-in** e **não é guardada**: as coordenadas são descartadas depois da conferência.
 - Se você tocar em **Agora não**, o cardápio, as avaliações e a fila continuam funcionando. Só o check-in fica indisponível.
-- Para liberar a localização depois, use **Usar minha localização**, na tela do campus ou no menu do avatar.
+- Para liberar a localização depois, use **Usar minha localização**, na tela do campus ou, no celular e no tablet, no menu do avatar do **Início**.
 
 ---
 
@@ -275,7 +287,7 @@ A sua patente depende dos seus pontos totais e **nunca diminui**:
 | Mestre da Fila | 900 pontos |
 | Lenda do RU | 1.500 pontos |
 
-Em **Meu progresso** (no menu do avatar), você vê sua patente, seus pontos e quanto falta para a próxima patente.
+Em **Meu progresso** (veja a [Navegação](#navegação)), você vê sua patente, seus pontos e quanto falta para a próxima patente.
 
 ### Ranking do semestre
 
@@ -284,7 +296,7 @@ Cada campus tem um ranking do semestre com quem mais contribui ali.
 - **Participar é opcional e começa desligado.** Para entrar, abra **Meu progresso** e ligue **Participar do ranking**. Você pode sair quando quiser, e seus pontos continuam contando.
 - O ranking mostra os **10 primeiros** do campus, com a **posição**, o **apelido** e a **patente**. Os pontos de cada pessoa não aparecem.
 - Só entram os pontos ganhos naquele campus durante o semestre letivo.
-- Qualquer pessoa, mesmo sem login, pode ver o ranking em **Ranking do campus**.
+- Qualquer pessoa, mesmo sem login, pode ver o ranking: em **Ranking do campus**, no menu do avatar do **Início** (celular e tablet), ou em **Ranking**, na barra lateral (computador).
 
 ---
 
