@@ -137,7 +137,9 @@ describe('CardapioView ligada ao GET /api/cardapio/ (FE-08)', () => {
       dieta: 'vegetariano_estrito',
       marcadores: 'soja',
     })
-    expect(wrapper.text()).toContain('Tofu grelhado ao shoyu')
+    // Na lista do cardápio: o destaque do desktop (FE-23) também mostraria o prato.
+    const pratos = wrapper.findAll('.prato-nome').map((p) => p.text())
+    expect(pratos).toContain('Tofu grelhado ao shoyu')
   })
 
   it('aplicar um filtro pede o cardápio de novo com ele', async () => {
@@ -439,5 +441,102 @@ describe('CardapioView: estados vazios e avisos (FE-08)', () => {
     const wrapper = await montarEm('/campus/1')
 
     expect(wrapper.text()).toContain('Sujeito a alteração.')
+  })
+})
+
+describe('CardapioView: destaque da refeição no desktop (FE-23)', () => {
+  const prato = (descricao, contemMarcadorSelecionado = false) => ({
+    descricao,
+    marcadores: contemMarcadorSelecionado ? ['ovo'] : [],
+    contemMarcadorSelecionado,
+  })
+  const categoria = (nome, ...pratos) => ({
+    nome,
+    semOpcaoCompativel: pratos.length > 0 && pratos.every((p) => p.contemMarcadorSelecionado),
+    pratos,
+  })
+  const destaque = (wrapper) => wrapper.find('[data-teste="destaque-refeicao"]')
+
+  it('destaca o prato principal, com a ilustração da refeição', async () => {
+    responderCardapio({
+      categorias: [
+        categoria('Prato principal — Padrão', prato('Bife acebolado')),
+        categoria('Acompanhamentos', prato('Arroz')),
+      ],
+    })
+
+    const wrapper = await montarEm('/campus/1')
+
+    expect(destaque(wrapper).find('.destaque-prato').text()).toBe('Bife acebolado')
+    expect(destaque(wrapper).text()).toContain('Arroz')
+    expect(destaque(wrapper).find('img').exists()).toBe(true)
+  })
+
+  it('com um marcador evitado, não destaca o prato que o contém (RF08)', async () => {
+    usePreferenciasStore().aplicarFiltros('todos', ['ovo'])
+    responderCardapio({
+      categorias: [
+        categoria('Prato principal — Padrão', prato('Almôndegas', true), prato('Frango assado')),
+      ],
+    })
+
+    const wrapper = await montarEm('/campus/1')
+
+    expect(destaque(wrapper).find('.destaque-prato').text()).toBe('Frango assado')
+  })
+
+  it('sem prato principal compatível com o filtro: sem destaque', async () => {
+    usePreferenciasStore().aplicarFiltros('todos', ['ovo'])
+    responderCardapio({
+      categorias: [categoria('Prato principal — Padrão', prato('Almôndegas', true))],
+    })
+
+    const wrapper = await montarEm('/campus/1')
+
+    expect(destaque(wrapper).exists()).toBe(false)
+  })
+
+  it('alérgenos indisponíveis com marcador evitado: sem destaque', async () => {
+    usePreferenciasStore().aplicarFiltros('todos', ['ovo'])
+    responderCardapio({
+      alergenosIndisponivel: true,
+      filtroMarcadorDesativado: true,
+      categorias: [categoria('Prato principal — Padrão', prato('Almôndegas'))],
+    })
+
+    const wrapper = await montarEm('/campus/1')
+
+    expect(destaque(wrapper).exists()).toBe(false)
+  })
+
+  it('com a dieta, destaca o prato da linha que a API devolveu', async () => {
+    usePreferenciasStore().aplicarFiltros('vegetariano_estrito', [])
+    responderCardapio({
+      categorias: [categoria('Prato principal — Vegetariano estrito', prato('Tofu grelhado'))],
+    })
+
+    const wrapper = await montarEm('/campus/1')
+
+    expect(destaque(wrapper).find('.destaque-prato').text()).toBe('Tofu grelhado')
+  })
+
+  it('refeição sem pratos: sem destaque', async () => {
+    responderCardapio({ categorias: [] })
+
+    const wrapper = await montarEm('/campus/1')
+
+    expect(destaque(wrapper).exists()).toBe(false)
+  })
+
+  it('dia sem serviço (a API devolve outro dia): sem destaque', async () => {
+    responderCardapio({
+      data: '2026-09-29',
+      categorias: [categoria('Prato principal', prato('Bife'))],
+    })
+    usePreferenciasStore().selecionar('2026-09-28', 'almoco')
+
+    const wrapper = await montarEm('/campus/1')
+
+    expect(destaque(wrapper).exists()).toBe(false)
   })
 })
