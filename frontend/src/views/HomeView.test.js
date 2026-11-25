@@ -47,12 +47,16 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+const getOriginal = apiClient.get.bind(apiClient)
+
 function trocarGet(trecho, resposta) {
-  const getOriginal = apiClient.get.bind(apiClient)
+  const anterior = vi.isMockFunction(apiClient.get)
+    ? apiClient.get.getMockImplementation()
+    : getOriginal
   return vi
     .spyOn(apiClient, 'get')
     .mockImplementation((caminho, opcoes) =>
-      caminho.startsWith(trecho) ? resposta(caminho) : getOriginal(caminho, opcoes),
+      caminho.startsWith(trecho) ? resposta(caminho) : anterior(caminho, opcoes),
     )
 }
 
@@ -315,5 +319,134 @@ describe('HomeView: "Sair da conta" no menu (RF03.3)', () => {
     expect(aviso.text()).toContain('o servidor não confirmou')
     expect(useAuthStore().estaAutenticado).toBe(false)
     expect(router.currentRoute.value.name).toBe('inicio')
+  })
+})
+
+describe('HomeView: previsão de pico no cartão Fila (FE-22, #269)', () => {
+  const faixa = (inicio, fim, ehPico = true) => ({
+    inicio,
+    fim,
+    nivel: ehPico ? 'longa' : 'curta',
+    ehPico,
+  })
+
+  const cartaoFila = (wrapper) => wrapper.get('.linha-cartoes a[href="/fila"]')
+
+  function prepararCardapio(troca = {}) {
+    trocarGet('/cardapio/', () => Promise.resolve(cardapioDaApi(troca)))
+  }
+
+  it('pede a previsão do campus, da refeição de hoje e da data correta', async () => {
+    prepararCardapio({ refeicao: 'jantar' })
+    const get = trocarGet('/fila/previsao/', () =>
+      Promise.resolve({
+        status: 'disponivel',
+        faixas: [faixa('18:30', '18:45')],
+      }),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => {
+      expect(get.mock.calls.map(([caminho]) => caminho)).toContain(
+        '/fila/previsao/?campus=1&refeicao=jantar&data=2026-10-04',
+      )
+      expect(cartaoFila(wrapper).text()).toContain('18h30 às 18h45')
+    })
+  })
+
+  it('mostra todos os picos em caso de empate', async () => {
+    prepararCardapio()
+    trocarGet('/fila/previsao/', () =>
+      Promise.resolve({
+        status: 'disponivel',
+        faixas: [faixa('11:00', '11:15', false), faixa('11:30', '11:45'), faixa('12:00', '12:15')],
+      }),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => {
+      const texto = cartaoFila(wrapper).text()
+      expect(texto).toContain('11h30 às 11h45')
+      expect(texto).toContain('12h às 12h15')
+      expect(texto).not.toContain('11h às 11h15')
+    })
+  })
+
+  it('mostra texto de reserva quando os dados são insuficientes', async () => {
+    prepararCardapio()
+    trocarGet('/fila/previsao/', () =>
+      Promise.resolve({
+        status: 'dados_insuficientes',
+        faixas: [],
+      }),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => {
+      expect(cartaoFila(wrapper).text()).toContain('Dados insuficientes')
+      expect(cartaoFila(wrapper).text()).not.toContain('Na próxima versão')
+    })
+  })
+
+  it('mostra texto de reserva quando a API falha', async () => {
+    prepararCardapio()
+    trocarGet('/fila/previsao/', () =>
+      Promise.reject(
+        new ApiError(500, {
+          codigo: 'erro_interno',
+          mensagem: 'Fora do ar.',
+        }),
+      ),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => {
+      expect(cartaoFila(wrapper).text()).toContain('Previsão indisponível')
+      expect(cartaoFila(wrapper).text()).not.toContain('Na próxima versão')
+    })
+  })
+
+  it('sem refeição hoje: não pede previsão de outro dia', async () => {
+    prepararCardapio({ data: '2026-10-05' })
+    const get = vi.spyOn(apiClient, 'get')
+
+    const wrapper = await montarHome(1)
+
+    expect(cartaoFila(wrapper).text()).toContain('Sem refeição hoje')
+    expect(get.mock.calls.some(([caminho]) => caminho.startsWith('/fila/previsao/'))).toBe(false)
+  })
+
+  it('atualiza a previsão quando o campus muda', async () => {
+    prepararCardapio()
+    trocarGet('/fila/previsao/', (caminho) =>
+      Promise.resolve({
+        status: 'disponivel',
+        faixas: caminho.includes('campus=3&')
+          ? [faixa('12:30', '12:45')]
+          : [faixa('11:30', '11:45')],
+      }),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => expect(cartaoFila(wrapper).text()).toContain('11h30 às 11h45'))
+
+    usePreferenciasStore().escolherCampus(3)
+
+    await vi.waitFor(() => {
+      expect(cartaoFila(wrapper).text()).toContain('12h30 às 12h45')
+      expect(cartaoFila(wrapper).text()).not.toContain('11h30 às 11h45')
+    })
+  })
+
+  it('continua levando à rota fila', async () => {
+    const wrapper = await montarHome(1)
+
+    expect(cartaoFila(wrapper).attributes('href')).toBe('/fila')
+    expect(router.resolve(cartaoFila(wrapper).attributes('href')).name).toBe('fila')
   })
 })
