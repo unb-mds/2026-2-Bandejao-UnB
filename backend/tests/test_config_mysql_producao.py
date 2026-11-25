@@ -225,6 +225,31 @@ def test_rodado_de_novo_tira_os_grants_antigos_sem_escape(rodar):
 
 
 @precisa_de_sh
+@pytest.mark.parametrize("banco", ["bandejao", "ru_db", "ru%db"])
+@pytest.mark.parametrize(
+    "destino", ["'app_bandejao'@'%'", "'equipe_moderacao'"], ids=["app", "papel"]
+)
+def test_todo_revoke_vem_antes_do_grant(rodar, banco, destino):
+    """Revisão do #298: com `bandejao` (o nome de produção, sem curinga), os
+    REVOKEs e o GRANT usam o mesmo nome. Um REVOKE depois do GRANT tiraria
+    todos os privilégios da aplicação, e o CI (`bandejao_ci`) não veria."""
+    sql = rodar(MYSQL_DATABASE=banco).sql
+
+    revokes = [
+        m.start()
+        for m in re.finditer(
+            rf"^REVOKE .* FROM {re.escape(destino)};$", sql, re.MULTILINE
+        )
+    ]
+    grant = re.search(
+        rf"^GRANT [A-Z, ]+ ON .* TO {re.escape(destino)};$", sql, re.MULTILINE
+    )
+    assert revokes, sql
+    assert grant, sql
+    assert max(revokes) < grant.start()
+
+
+@precisa_de_sh
 def test_valores_com_aspas_e_barras_viram_texto_no_sql(rodar):
     """Aspas, barra invertida, $(...) e crase não fecham o texto nem rodam."""
     resultado = rodar(
