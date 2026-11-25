@@ -1,6 +1,6 @@
 # Uso das skills no projeto
 
-Este documento registra **como**, **quando** e **em quais partes do projeto** o grupo G6 usa cada skill do Claude guardada nesta pasta. Ele complementa o [`README.md`](README.md), que lista as skills disponíveis, e o [`AI-USAGE.md`](../AI-USAGE.md), que registra o uso de IA em cada PR.
+Este documento registra **como**, **quando** e **em quais partes do projeto** o grupo G6 usa cada skill do Claude guardada nesta pasta. Ele complementa o [`README.md`](README.md), que lista as skills disponíveis, o [`AI-USAGE.md`](../AI-USAGE.md), que registra o uso de IA em cada PR, e a seção "Uso de IA nas contribuições" do [`CONTRIBUTING.md`](../CONTRIBUTING.md), que traz as regras para quem contribui com apoio de IA.
 
 ## Resumo
 
@@ -32,7 +32,11 @@ As skills acompanham as etapas de um item do backlog:
 - **O que faz:** gera o relatório padronizado de estudo semanal, com resumo do assunto e aplicação no projeto.
 - **Quando:** depois que um integrante estuda um assunto da semana e antes do commit do relatório. Também serve para corrigir a formatação de um relatório já escrito.
 - **Onde:** relatórios em `docs/estudos/` (por exemplo, `semana03-c4-model.md`).
-- **Como:** peça "gerar o relatório do meu estudo da semana sobre X". Confira se o nome do arquivo segue o padrão usado em `docs/estudos/`. A skill sugere `estudos/semana-XX/`, mas o repositório usa `docs/estudos/semanaXX-assunto.md`.
+- **Como:** peça "gerar o relatório do meu estudo da semana sobre X". A skill conduz uma entrevista curta, seção por seção, e só gera o arquivo depois da sua revisão.
+- **Ajustes ao nosso repositório:**
+  - **Caminho:** a skill sugere `estudos/semana-XX/semanaXX-assunto.md`, mas o repositório usa `docs/estudos/semanaXX-assunto.md`, sem subpasta por semana. Depois, adicione o link em `docs/_sidebar.md`.
+  - **Commit:** a skill sugere `estudo(semanaXX): assunto - nome`, mas o repositório usa Conventional Commits, por exemplo `docs(estudos): resumo de C4 Model (semana 03)`.
+  - **Modelo:** o `SKILL.md` monta o relatório a partir de `assets/template.md`, que não está nesta pasta. Sem ele, a skill segue as seções listadas no próprio `SKILL.md` (resumo, aplicação no projeto, principais conceitos, fontes e observações).
 
 ### grilling
 
@@ -45,7 +49,7 @@ As skills acompanham as etapas de um item do backlog:
 
 - **O que faz:** mantém o modelo de domínio do projeto (termos e relações) e registra decisões em ADRs.
 - **Quando:** quando surge ou muda um termo do domínio (Campus, RU, Cardápio, Fila…) ou quando uma decisão precisa de ADR.
-- **Onde:** [`CONTEXT.md`](../CONTEXT.md) (glossário) e [`docs/arquitetura/adr/`](../docs/arquitetura/adr/) (ADRs 0001 a 0014).
+- **Onde:** [`CONTEXT.md`](../CONTEXT.md) (glossário) e [`docs/arquitetura/adr/`](../docs/arquitetura/adr/) (ADRs 0001 a 0016).
 - **Como:** use os termos do `CONTEXT.md` nos nomes do código e nos diagramas C4 nível 4. Uma ADR nova segue a numeração da pasta.
 
 ### grill-with-docs
@@ -86,6 +90,18 @@ As skills acompanham as etapas de um item do backlog:
 - **Quando:** para saber quais correções de revisão ainda estão pendentes.
 - **Onde:** branches de correção e PRs do repositório no GitHub.
 - **Como:** `/review-status`. Ela depende do script `lib/autofix.sh` do plugin review-to-pr, que não está nesta pasta. Sem esse plugin, a skill não roda.
+
+## Como instalar as skills
+
+Os arquivos desta pasta são a cópia de referência do grupo. Para uma skill funcionar, ela precisa estar instalada na ferramenta de IA de quem vai usá-la:
+
+- **Claude Code, só para você:** copie a pasta da skill (com o `SKILL.md`) para `~/.claude/skills/`, por exemplo `~/.claude/skills/estudo-semanal/SKILL.md`.
+- **Claude Code, para quem abrir o projeto:** copie a pasta para `.claude/skills/` na raiz do repositório. Hoje o grupo não faz isso, para não misturar as skills com o código; cada integrante instala as que usa.
+- **Claude (app ou site):** compacte a pasta da skill em `.zip` e envie em **Configurações › Capacidades › Skills**.
+- **pr-review-toolkit:** é um plugin, não uma skill solta. No Claude Code, instale pelo marketplace oficial com `/plugin install pr-review-toolkit@claude-plugins-official`.
+- **grill-with-docs:** instale junto com `grilling` e `domain-modeling` (veja o [`README.md`](README.md)).
+
+As skills com `description` no `SKILL.md` são chamadas sozinhas quando o pedido combina com a descrição. A `grill-with-docs` é chamada só pelo nome (`/grill-with-docs`).
 
 ## Observações
 
