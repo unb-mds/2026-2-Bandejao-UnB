@@ -144,15 +144,18 @@ Aviso '+10 pontos' (RF24.2)."]
   No celular, cada tela ocupa a tela inteira e a `NavegacaoInferior` aparece
   em Cardápio, Fila e Avaliações. No tablet (768 a 1023 px), a `NavegacaoTopo`
   (montada no `App.vue`, menos na boas-vindas) leva aos mesmos destinos
-  (`constants/navegacao.js`), sem repetir o "Perfil" (atalho para a Início,
-  que ela marca como página atual), mais o canal de contato (RNF08), e as telas de
+  (`constants/navegacao.js`), incluindo o "Perfil", que leva a Meu progresso
+  (`/progresso`), e marca a página atual com `aria-current`. Também oferece
+  o canal de contato (RNF08), e as telas de
   formulário viram um cartão centralizado de até 480 px (`--largura-formulario`),
   que cresce com o conteúdo (numa janela baixa, quem rola é a página).
 - **Desktop, a partir de 1024 px (FE-23, protótipo desktop):** desenho próprio,
   não o do tablet esticado.
   - A `BarraLateral` (246 px, `--largura-lateral`, à esquerda) substitui a
-    `NavegacaoTopo`: leva aos mesmos destinos e ao Ranking, e mostra o campus
-    atual, a conta, o "Sair da conta" (como o `BotaoSair`) e o contato.
+    `NavegacaoTopo`: leva à Início, ao Cardápio, à Fila, às Avaliações e ao
+    Ranking. O acesso a Meu progresso fica no atalho de conta para usuários
+    autenticados; para visitantes, esse atalho leva ao login. A lateral também
+    mostra o campus atual, o "Sair da conta" (como o `BotaoSair`) e o contato.
   - Telas internas: cabeçalho verde de 112 px e conteúdo em cartões sobre o
     creme, na largura que sobra ao lado da lateral (o teto de 1200 px do
     `--largura-conteudo` deixa de valer). A Início é a exceção: barra do topo

@@ -212,7 +212,7 @@ function tentarDeNovo() {
     border: 1px solid var(--borda);
     border-radius: var(--raio-xl);
     background: var(--cartao);
-    box-shadow: 0 8px 22px var(--sombra-cartao);
+    box-shadow: 0 8px 22px var(--sombra-cartao-cor);
   }
 }
 </style>

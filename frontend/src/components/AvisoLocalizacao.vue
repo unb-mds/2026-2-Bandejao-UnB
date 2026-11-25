@@ -198,7 +198,7 @@ watch(pedidosDeAberturaDoAviso, (vezes) => {
     <section v-if="etapa" class="cartao painel">
       <template v-if="etapa === 'aviso' || etapa === 'navegador'">
         <div class="icone-caixa">
-          <IconeSvg nome="local" :tamanho="24" cor="#fff" />
+          <IconeSvg nome="local" :tamanho="24" cor="var(--branco)" />
         </div>
         <p class="rotulo rotulo-desktop">Localização</p>
         <h2 id="aviso-localizacao-titulo" ref="titulo" tabindex="-1" class="titulo">
@@ -271,7 +271,7 @@ watch(pedidosDeAberturaDoAviso, (vezes) => {
           <IconeSvg
             :nome="informacao.icone"
             :tamanho="24"
-            :cor="etapa === 'concedida' ? '#fff' : 'var(--alerta-texto)'"
+            :cor="etapa === 'concedida' ? 'var(--branco)' : 'var(--alerta-texto)'"
           />
         </div>
         <h2 id="aviso-localizacao-titulo" ref="titulo" tabindex="-1" class="titulo">
@@ -322,7 +322,7 @@ watch(pedidosDeAberturaDoAviso, (vezes) => {
 }
 
 .aviso-localizacao::backdrop {
-  background: rgba(10, 26, 12, 0.55);
+  background: var(--fundo-dialogo);
 }
 
 .painel {
@@ -452,7 +452,7 @@ watch(pedidosDeAberturaDoAviso, (vezes) => {
   .icone-caixa {
     margin-bottom: 24px;
     border-radius: var(--raio-lg);
-    box-shadow: 0 10px 22px rgba(19, 43, 24, 0.14);
+    box-shadow: var(--sombra-destaque);
   }
 
   .rotulo-desktop {
@@ -480,7 +480,7 @@ watch(pedidosDeAberturaDoAviso, (vezes) => {
   }
 
   .botao--primario {
-    box-shadow: 0 10px 20px rgba(19, 43, 24, 0.15);
+    box-shadow: var(--sombra-destaque);
   }
 
   .botao-secundario {

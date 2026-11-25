@@ -660,7 +660,7 @@ async function enviar() {
   font-size: 12px;
   font-weight: 900;
   background: var(--verde-escuro);
-  color: #fff;
+  color: var(--branco);
 }
 
 .apelido {
@@ -739,7 +739,7 @@ async function enviar() {
   .widget-avaliacao > .resumo + * {
     padding: 28px;
     border-radius: var(--raio-xl);
-    box-shadow: 0 8px 22px var(--sombra-cartao);
+    box-shadow: 0 8px 22px var(--sombra-cartao-cor);
   }
   /* Resumo: a média grande, como no protótipo. */
   .widget-avaliacao > .resumo {
@@ -769,7 +769,7 @@ async function enviar() {
   }
   .widget-avaliacao > .comentario-item {
     padding: 18px 24px;
-    border-radius: 18px;
+    border-radius: var(--raio-18);
   }
 }
 </style>

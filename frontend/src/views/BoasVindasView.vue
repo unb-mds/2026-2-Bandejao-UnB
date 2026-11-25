@@ -36,13 +36,13 @@ function escolher(id) {
     >
       <path
         d="M140 10 C100 60 40 100 10 200"
-        stroke="white"
+        style="stroke: var(--branco)"
         stroke-width="1.5"
         stroke-opacity="0.05"
       />
       <path
         d="M160 40 C120 80 60 120 20 200"
-        stroke="white"
+        style="stroke: var(--branco)"
         stroke-width="1"
         stroke-opacity="0.04"
       />
@@ -57,7 +57,7 @@ function escolher(id) {
     >
       <path
         d="M10 0 C40 50 80 100 120 160"
-        stroke="white"
+        style="stroke: var(--branco)"
         stroke-width="1.5"
         stroke-opacity="0.05"
       />
@@ -192,7 +192,7 @@ function escolher(id) {
 }
 
 .logo {
-  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(var(--sombra-logo));
 }
 
 .nome {
@@ -202,7 +202,7 @@ function escolher(id) {
   font-weight: 900;
   line-height: 1;
   letter-spacing: -1.5px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .slogan {
@@ -288,7 +288,7 @@ function escolher(id) {
     flex-direction: column;
     overflow: hidden;
     padding: clamp(32px, 4vw, 62px) clamp(38px, 5vw, 78px) 36px;
-    color: #fff;
+    color: var(--branco);
     background: var(--verde-escuro);
   }
   .hero::before,
@@ -375,12 +375,12 @@ function escolher(id) {
     min-height: 96px;
     padding: 11px 13px;
     border: 1px solid var(--branco-08);
-    border-radius: 16px;
+    border-radius: var(--raio-lg);
     color: var(--branco-60);
     background: var(--branco-05);
   }
   .hero-refeicao--destaque {
-    color: #fff;
+    color: var(--branco);
     border-color: var(--dourado);
     background: var(--branco-08);
   }
@@ -458,7 +458,7 @@ function escolher(id) {
     padding: 0;
   }
   .acoes .botao--destaque {
-    color: #fff;
+    color: var(--branco);
     background: var(--verde-escuro);
     box-shadow: 0 10px 20px var(--sombra-escura);
   }

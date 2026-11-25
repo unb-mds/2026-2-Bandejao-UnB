@@ -60,20 +60,15 @@ O guia são os tokens de `frontend/src/assets/base.css` (paleta, tipografia, rai
 
 | Item | Celular | Desktop |
 |---|---|---|
-| Paleta: as cores da marca, do texto e do feedback vêm dos tokens | ⚠️ (bug 2) | ⚠️ (bug 2) |
+| Paleta: as cores da marca, do texto e do feedback vêm dos tokens | ✅ (validação automatizada; PR #290) | ✅ (validação automatizada; PR #290) |
 | Tipografia: títulos em `--fonte-titulo` (Nunito) e texto em `--fonte-texto` (Inter), sem `font-family` solta | ✅ | ✅ |
-| Raios: `--raio-sm` a `--raio-xl` e o formato de pílula (`999px`) | ⚠️ (bug 2) | ⚠️ (bug 2) |
+| Raios: escala semântica (`--raio-2xs` a `--raio-xl`), tokens numéricos, círculo (`50%`) e pílula (`999px`) | ✅ (validação automatizada; PR #290) | ✅ (validação automatizada; PR #290) |
 | Larguras: no desktop, a lateral de 246 px (`--largura-lateral`) e o conteúdo na largura que sobra; formulários de conta com 470 px (tablet: cartão até `--largura-formulario`, 480 px) | não se aplica | ✅ |
-| Navegação: `NavegacaoInferior` no celular, `NavegacaoTopo` de 768 a 1023 px e `BarraLateral` a partir de 1024 px (FE-23), com os mesmos destinos | ✅ | ✅ |
+| Navegação: `NavegacaoInferior` no celular, `NavegacaoTopo` de 768 a 1023 px e `BarraLateral` a partir de 1024 px (FE-23). Perfil leva a Meu progresso no celular e no tablet (#297); no desktop, o atalho de conta leva a Meu progresso para usuários autenticados e ao login para visitantes, sem duplicar o Perfil no menu principal | ✅ | ✅ |
 | Foco visível (`:focus-visible`), dourado sobre o verde | ✅ | ✅ |
 | Mesma distribuição de informação entre as telas: cabeçalho verde nas telas internas (no desktop, a Início tem a barra do topo clara) e cartões em `--cartao` sobre o bege (no desktop, o creme) | ✅ | ✅ |
 
-**Bug 2 (baixa prioridade):** cores e raios fora dos tokens. Visualmente as telas são coerentes; o que falta é o token.
-
-- O branco (`#fff`) aparece escrito direto em 18 arquivos.
-- 9 cores `rgb()`/`rgba()` soltas, em 7 arquivos: sombras e fundos escurecidos (`AvisoLocalizacao`, `FiltroCardapio`, `BoasVindasView`, `HomeView`, `PontosAviso` e `assets/main.css`) e uma cor de texto, `rgb(255 255 255 / 75%)` na `ProgressoView` (linha 143), que é exatamente o token `--branco-75`.
-- Dois raios fora dos tokens: 6 px na `.caixa` da `CadastroView` (a caixa de seleção de 20×20, linha 255) e `2px 2px 0 0` nas barras do gráfico da `HomeView` (linha 653).
-- As cores do desenho do `AppLogo` são da ilustração e ficam de fora.
+**Bug 2 (baixa prioridade):** correção implementada no [PR #290](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/290), com validação automatizada local aprovada (13/13 testes do guia de estilo, 1.131/1.131 testes da suíte completa em 44 arquivos, lint e build). As cores e raios identificados foram substituídos por tokens; o teste-guarda verifica as formas de declaração documentadas no próprio teste. O AppLogo também é verificado pelo teste-guarda. A guarda detecta usos incorretos de tokens de sombra completa e tokens duplicados no base.css.
 
 ## 4. Navegadores (RNF05)
 
@@ -98,5 +93,5 @@ Preencher com o número da versão, quem conferiu e a data. Problema encontrado 
 | Achado | Requisito | Situação |
 |---|---|---|
 | Bug 1. Sem permitir a localização, a primeira visita levava 3 interações até o cardápio, e a Release 2 prevê 2 ("Continuar sem login" a mais) | RNF03 | #285, corrigido no PR #289 |
-| Bug 2. Cores e raios fora dos tokens do guia de estilo | RF17 | #286 |
+| Bug 2. Cores e raios fora dos tokens do guia de estilo | RF17 | #286 — correção no PR #290, validação automatizada aprovada |
 | Pendência 1. Com a localização permitida, 3 interações até o cardápio, porque a detecção do campus não foi feita | RNF03, RF20.1 | EXTRA 3 (FE-E3), sem issue nesta release |

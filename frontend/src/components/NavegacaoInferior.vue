@@ -5,8 +5,8 @@ import IconeSvg from './IconeSvg.vue'
 
 /**
  * Barra de navegação inferior (protótipo): visível em Cardápio, Fila e
- * Avaliações — não na Início. "Perfil" leva à Início, onde ficam o apelido,
- * a troca de campus e o login/logout.
+ * Avaliações — não na Início. "Perfil" leva a Meu progresso, inclusive
+ * para visitantes sem login.
  */
 const route = useRoute()
 const ativo = (item) => itemAtivo(item, route.name)
@@ -36,7 +36,7 @@ const ativo = (item) => itemAtivo(item, route.name)
 .navegacao {
   flex-shrink: 0;
   display: flex;
-  background: #fff;
+  background: var(--branco);
   border-top: 1px solid var(--borda);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
