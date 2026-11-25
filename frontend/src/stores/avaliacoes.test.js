@@ -11,7 +11,6 @@ import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
 
 // Segunda-feira, 28/09/2026, 12h — almoço em andamento.
 const SEGUNDA_MEIO_DIA = new Date(2026, 8, 28, 12, 0)
-const ALMOCO_HOJE = { campus: 3, data: '2026-09-28', refeicao: 'almoco' }
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -25,45 +24,208 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-// MVP: a `HomeView` (/inicio) ainda lê a semana e a refeição no formato
-// antigo. Sai na FE-E2.
-describe('avaliacoesStore (formato do MVP, usado pela HomeView)', () => {
-  it('carrega as avaliações de uma refeição e guarda pela refeição', async () => {
+/**
+ * Resumo da semana da Início (#259): o backend só tem o resumo do dia, então
+ * a store pede um por dia, de segunda a domingo, e junta média e quantidade.
+ */
+describe('avaliacoesStore: resumo da semana (um GET /api/avaliacoes/resumo/ por dia)', () => {
+  const SEMANA = [
+    '2026-09-28',
+    '2026-09-29',
+    '2026-09-30',
+    '2026-10-01',
+    '2026-10-02',
+    '2026-10-03',
+    '2026-10-04',
+  ]
+
+  /** Responde o resumo do dia pela data do pedido; dia ausente: sem refeições. */
+  function responderPorDia(porDia) {
+    return vi.spyOn(apiClient, 'get').mockImplementation(async (caminho) => {
+      const data = new URLSearchParams(caminho.split('?')[1]).get('data')
+      return porDia[data] ?? []
+    })
+  }
+
+  it('pede o resumo de cada dia da semana, de segunda a domingo, com campus e data', async () => {
+    const get = responderPorDia({})
     const avaliacoes = useAvaliacoesStore()
 
-    const daRefeicao = await avaliacoes.carregar(ALMOCO_HOJE)
+    await avaliacoes.carregarResumoDaSemana(3)
 
-    expect(daRefeicao.quantidade).toEqual(expect.any(Number))
-    expect(avaliacoes.daRefeicao(ALMOCO_HOJE)).toBe(daRefeicao)
-    expect(avaliacoes.daRefeicao({ ...ALMOCO_HOJE, refeicao: 'jantar' })).toBeNull()
+    expect(get.mock.calls.map(([caminho]) => caminho)).toEqual(
+      SEMANA.map((data) => `/avaliacoes/resumo/?campus=3&data=${data}`),
+    )
   })
 
-  it('carrega o resumo da semana do campus', async () => {
-    const avaliacoes = useAvaliacoesStore()
+  it('no domingo, a semana ainda é a da segunda anterior', async () => {
+    vi.setSystemTime(new Date(2026, 9, 4, 12, 0))
+    const get = responderPorDia({})
 
-    const resumo = await avaliacoes.carregarResumo(3)
+    await useAvaliacoesStore().carregarResumoDaSemana(3)
 
-    expect(resumo).not.toBeNull()
-    expect(avaliacoes.resumoPorCampus[3]).toBe(resumo)
+    expect(get.mock.calls[0][0]).toBe('/avaliacoes/resumo/?campus=3&data=2026-09-28')
+    expect(get.mock.calls[6][0]).toBe('/avaliacoes/resumo/?campus=3&data=2026-10-04')
   })
 
-  it('erro ao carregar fica em `erro` e devolve o que já havia', async () => {
+  it('junta média (ponderada pela quantidade) e quantidade, por dia e na semana', async () => {
+    responderPorDia({
+      '2026-09-28': [
+        { refeicaoId: 1, tipo: 'cafe', media: 3, quantidade: 1 },
+        { refeicaoId: 2, tipo: 'almoco', media: 5, quantidade: 3 },
+        { refeicaoId: 3, tipo: 'jantar', media: null, quantidade: 0 },
+      ],
+      '2026-09-29': [{ refeicaoId: 4, tipo: 'almoco', media: 2, quantidade: 4 }],
+      '2026-09-30': [{ refeicaoId: 5, tipo: 'almoco', media: null, quantidade: 0 }],
+    })
     const avaliacoes = useAvaliacoesStore()
 
-    expect(await avaliacoes.carregar({ campus: 3 })).toBeNull()
-    expect(avaliacoes.erro).toBe('Informe campus, data e refeição.')
+    const resumo = await avaliacoes.carregarResumoDaSemana(3)
 
-    expect(await avaliacoes.carregarResumo('executivo')).toBeNull()
-    expect(avaliacoes.erro).toBe('Campus não encontrado.')
+    expect(resumo).toEqual({
+      media: (3 + 5 * 3 + 2 * 4) / 8,
+      quantidade: 8,
+      // Dia sem nenhuma refeição (sem serviço ou sem cardápio) fica de fora;
+      // dia com refeição e sem avaliação entra, com a média null.
+      dias: [
+        { data: '2026-09-28', media: (3 + 5 * 3) / 4, quantidade: 4 },
+        { data: '2026-09-29', media: 2, quantidade: 4 },
+        { data: '2026-09-30', media: null, quantidade: 0 },
+      ],
+    })
+    expect(avaliacoes.estadoDaSemana(3)).toEqual({ situacao: 'carregado', resumo, erro: null })
+    expect(avaliacoes.estadoDaSemana(1)).toBeNull()
   })
 
-  it('limparCache esquece as avaliações carregadas (login e logout)', async () => {
+  it('semana sem avaliações: média null e quantidade 0', async () => {
+    responderPorDia({
+      '2026-09-28': [{ refeicaoId: 1, tipo: 'almoco', media: null, quantidade: 0 }],
+    })
+
+    const resumo = await useAvaliacoesStore().carregarResumoDaSemana(3)
+
+    expect(resumo).toEqual({
+      media: null,
+      quantidade: 0,
+      dias: [{ data: '2026-09-28', media: null, quantidade: 0 }],
+    })
+  })
+
+  it('com o servidor simulado: os dias em que o Gama serve, com as avaliações deles', async () => {
     const avaliacoes = useAvaliacoesStore()
-    await avaliacoes.carregar(ALMOCO_HOJE)
 
-    avaliacoes.limparCache()
+    const resumo = await avaliacoes.carregarResumoDaSemana(3)
 
-    expect(avaliacoes.daRefeicao(ALMOCO_HOJE)).toBeNull()
+    // O Gama serve de segunda a sexta.
+    expect(resumo.dias.map((dia) => dia.data)).toEqual(SEMANA.slice(0, 5))
+    expect(resumo.quantidade).toBe(resumo.dias.reduce((total, dia) => total + dia.quantidade, 0))
+  })
+
+  it('falha em um dos dias: fica "erro" com a mensagem, sem resumo parcial, e registra no console', async () => {
+    const getOriginal = apiClient.get.bind(apiClient)
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
+      caminho.endsWith('data=2026-09-30')
+        ? Promise.reject(new TypeError('Failed to fetch'))
+        : getOriginal(caminho, opcoes),
+    )
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const avaliacoes = useAvaliacoesStore()
+
+    expect(await avaliacoes.carregarResumoDaSemana(3)).toBeNull()
+
+    const estado = avaliacoes.estadoDaSemana(3)
+    expect(estado.situacao).toBe('erro')
+    expect(estado.resumo).toBeNull()
+    expect(estado.erro.mensagem).toEqual(expect.any(String))
+    expect(estado.erro.mensagem.length).toBeGreaterThan(0)
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('falha da API em um dos dias: o ApiError vai para o console uma vez só', async () => {
+    const getOriginal = apiClient.get.bind(apiClient)
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
+      caminho.endsWith('data=2026-09-30')
+        ? Promise.reject(new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }))
+        : getOriginal(caminho, opcoes),
+    )
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const avaliacoes = useAvaliacoesStore()
+
+    expect(await avaliacoes.carregarResumoDaSemana(3)).toBeNull()
+
+    expect(avaliacoes.estadoDaSemana(3).erro.mensagem).toBe('Fora do ar.')
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('erro da API (404 campus_nao_encontrado): a mensagem da API, por campus', async () => {
+    const avaliacoes = useAvaliacoesStore()
+    await avaliacoes.carregarResumoDaSemana(3)
+
+    expect(await avaliacoes.carregarResumoDaSemana(99)).toBeNull()
+
+    expect(avaliacoes.estadoDaSemana(99)).toEqual({
+      situacao: 'erro',
+      resumo: null,
+      erro: { mensagem: 'Não existe campus com esse id.' },
+    })
+    // O erro de um campus não apaga o resumo de outro.
+    expect(avaliacoes.estadoDaSemana(3).situacao).toBe('carregado')
+  })
+
+  it.each([
+    ['um objeto no lugar da lista (o formato da semana do MVP)', { media: 4, quantidade: 2 }],
+    ['item sem quantidade', [{ tipo: 'almoco', media: 4 }]],
+    ['média que não é número', [{ tipo: 'almoco', media: '4', quantidade: 1 }]],
+  ])('resposta fora do formato (%s): fica "erro" e registra no console', async (_caso, corpo) => {
+    vi.spyOn(apiClient, 'get').mockResolvedValue(corpo)
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const avaliacoes = useAvaliacoesStore()
+
+    expect(await avaliacoes.carregarResumoDaSemana(3)).toBeNull()
+
+    expect(avaliacoes.estadoDaSemana(3).situacao).toBe('erro')
+    expect(log).toHaveBeenCalled()
+  })
+
+  it('enquanto carrega: "carregando"', async () => {
+    const avaliacoes = useAvaliacoesStore()
+
+    const pedido = avaliacoes.carregarResumoDaSemana(3)
+
+    expect(avaliacoes.estadoDaSemana(3)).toEqual({
+      situacao: 'carregando',
+      resumo: null,
+      erro: null,
+    })
+    await pedido
+    expect(avaliacoes.estadoDaSemana(3).situacao).toBe('carregado')
+  })
+
+  it('uma resposta antiga que chega depois da nova não sobrescreve o resumo', async () => {
+    let liberarAntiga
+    const antiga = new Promise((resolver) => (liberarAntiga = resolver))
+    const get = vi
+      .spyOn(apiClient, 'get')
+      .mockImplementationOnce(() => antiga)
+      .mockResolvedValue([{ refeicaoId: 1, tipo: 'almoco', media: 5, quantidade: 1 }])
+    const avaliacoes = useAvaliacoesStore()
+
+    const primeira = avaliacoes.carregarResumoDaSemana(3)
+    await avaliacoes.carregarResumoDaSemana(3)
+    liberarAntiga([{ refeicaoId: 1, tipo: 'almoco', media: 1, quantidade: 9 }])
+    await primeira
+
+    expect(get).toHaveBeenCalledTimes(14)
+    expect(avaliacoes.estadoDaSemana(3).resumo.media).toBe(5)
+  })
+
+  it('a store não tem mais a lista e o resumo da semana do MVP', () => {
+    const avaliacoes = useAvaliacoesStore()
+
+    expect(avaliacoes.carregar).toBeUndefined()
+    expect(avaliacoes.carregarResumo).toBeUndefined()
+    expect(avaliacoes.resumoPorCampus).toBeUndefined()
+    expect(avaliacoes.erro).toBeUndefined()
   })
 })
 
@@ -91,30 +253,18 @@ describe('avaliacoesStore: resumo do dia (GET /api/avaliacoes/resumo/)', () => {
     expect(avaliacoes.daResumoDoDia(1, '2026-09-29')).toBeNull()
   })
 
-  it('resumo do dia em 501: devolve null, fica "indisponível" e não mexe no erro da tela', async () => {
+  it('resumo do dia em 501: devolve null e fica "indisponível", sem log', async () => {
     const avaliacoes = useAvaliacoesStore()
     simulacao.definirResumoDoDiaDisponivel(false)
     const log = vi.spyOn(console, 'error')
 
     expect(await avaliacoes.carregarResumoDoDia(1, '2026-09-28')).toBeNull()
 
-    expect(avaliacoes.erro).toBeNull()
     expect(avaliacoes.situacaoDoResumoDoDia(1, '2026-09-28')).toBe('indisponivel')
     expect(log).not.toHaveBeenCalled()
   })
 
-  it('501 que chega depois de carregar() não aparece como erro nas Avaliações', async () => {
-    const avaliacoes = useAvaliacoesStore()
-    simulacao.definirResumoDoDiaDisponivel(false)
-
-    const resumo = avaliacoes.carregarResumoDoDia(1, '2026-09-28')
-    await avaliacoes.carregar(ALMOCO_HOJE)
-    await resumo
-
-    expect(avaliacoes.erro).toBeNull()
-  })
-
-  it('outra falha do resumo do dia é registrada no console, sem mexer no erro da tela', async () => {
+  it('outra falha do resumo do dia fica "erro" e é registrada no console', async () => {
     const avaliacoes = useAvaliacoesStore()
     vi.spyOn(apiClient, 'get').mockRejectedValueOnce(
       new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }),
@@ -123,7 +273,6 @@ describe('avaliacoesStore: resumo do dia (GET /api/avaliacoes/resumo/)', () => {
 
     expect(await avaliacoes.carregarResumoDoDia(1, '2026-09-28')).toBeNull()
 
-    expect(avaliacoes.erro).toBeNull()
     expect(avaliacoes.situacaoDoResumoDoDia(1, '2026-09-28')).toBe('erro')
     expect(log).toHaveBeenCalledTimes(1)
   })
@@ -477,7 +626,10 @@ describe('avaliacoesStore: respostas inesperadas e rascunho', () => {
 
     await expect(avaliacoes.avaliar(alvo)).resolves.toMatchObject({ desfecho: 'criada' })
 
-    expect(log).toHaveBeenCalledWith('Falha ao registrar os pontos da avaliação.', expect.any(Error))
+    expect(log).toHaveBeenCalledWith(
+      'Falha ao registrar os pontos da avaliação.',
+      expect.any(Error),
+    )
   })
 
   it('2xx com a recarga falhando: "criada" com atualizada=false e os dados anteriores mantidos', async () => {

@@ -204,12 +204,19 @@ describe('HomeView: cartão "Cardápio de hoje" pelo GET /api/cardapio/ (#251)',
   })
 
   it('a nota do cartão é a da refeição de hoje no resumo do dia (GET /api/avaliacoes/resumo/)', async () => {
-    const resumo = trocarGet('/avaliacoes/resumo/?campus=1&data=', () =>
-      Promise.resolve([
-        { refeicaoId: 6, tipo: 'cafe', media: 2.1, quantidade: 3 },
-        { refeicaoId: 7, tipo: 'almoco', media: 4.4, quantidade: 5 },
-      ]),
-    )
+    // A lista só vem para hoje: a semana também pede 04/10, e um stub que respondesse
+    // a mesma lista para todos os dias não notaria o cartão ler outro dia.
+    const resumo = trocarGet('/avaliacoes/resumo/?campus=1&data=', (caminho) => {
+      const data = new URLSearchParams(caminho.split('?')[1]).get('data')
+      return Promise.resolve(
+        data === '2026-10-04'
+          ? [
+              { refeicaoId: 6, tipo: 'cafe', media: 2.1, quantidade: 3 },
+              { refeicaoId: 7, tipo: 'almoco', media: 4.4, quantidade: 5 },
+            ]
+          : [],
+      )
+    })
 
     const wrapper = await montarHome(1)
 
@@ -265,6 +272,152 @@ describe('HomeView: cartão "Cardápio de hoje" no domingo (#229)', () => {
     )
     expect(cartao.find('.hoje-linhas').exists()).toBe(false)
     expect(cartao.find('.hoje-nota').exists()).toBe(false)
+  })
+})
+
+/**
+ * Cartões "Avaliações" e "Satisfação da semana" (#259). O backend só tem o
+ * resumo do dia (uma lista por refeição); a semana é montada no front, com um
+ * pedido por dia. Domingo, 04/10: a semana vai de 28/09 a 04/10.
+ */
+describe('HomeView: cartões "Avaliações" e "Satisfação da semana" (#259)', () => {
+  /** Resumo do dia do Darcy pela data do pedido; dia ausente: sem refeições. */
+  function resumoPorDia(porDia) {
+    return trocarGet('/avaliacoes/resumo/?campus=1&data=', (caminho) => {
+      const data = new URLSearchParams(caminho.split('?')[1]).get('data')
+      return Promise.resolve(porDia[data] ?? [])
+    })
+  }
+
+  const textoDosCartoes = (wrapper) =>
+    `${wrapper.get('.cartao-avaliacoes').text()} ${wrapper.get('.cartao-semana').text()}`
+
+  it('com avaliações: média e quantidade da semana e uma barra por dia com refeições', async () => {
+    const get = resumoPorDia({
+      '2026-09-28': [
+        { refeicaoId: 1, tipo: 'almoco', media: 4, quantidade: 3 },
+        { refeicaoId: 2, tipo: 'jantar', media: null, quantidade: 0 },
+      ],
+      '2026-09-29': [{ refeicaoId: 3, tipo: 'almoco', media: 2, quantidade: 1 }],
+      '2026-09-30': [{ refeicaoId: 4, tipo: 'almoco', media: null, quantidade: 0 }],
+    })
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-avaliacoes .pequeno-valor').text()).toBe('3,5'),
+    )
+    expect(wrapper.get('.cartao-avaliacoes').text()).toContain('/ 5 · esta semana')
+    expect(wrapper.get('.cartao-semana .contagem').text()).toBe('4 avaliações')
+    expect(wrapper.get('.cartao-semana .semana-nota').text()).toBe('3,5 / 5')
+    expect(wrapper.findAll('.barra-dia').map((dia) => dia.text())).toEqual(['Seg', 'Ter', 'Qua'])
+    expect(wrapper.findAll('.barra-valor').map((valor) => valor.text())).toEqual([
+      '4,0',
+      '2,0',
+      '–',
+    ])
+    // Nunca o pedido só com o campus, que no backend devolve o dia corrente.
+    const caminhos = get.mock.calls.map(([caminho]) => caminho)
+    expect(caminhos).not.toContain('/avaliacoes/resumo/?campus=1')
+    expect(caminhos).toContain('/avaliacoes/resumo/?campus=1&data=2026-09-28')
+  })
+
+  it('sem avaliações na semana: "sem avaliações ainda" e 0 avaliações, sem erro', async () => {
+    resumoPorDia({
+      '2026-09-28': [{ refeicaoId: 1, tipo: 'almoco', media: null, quantidade: 0 }],
+    })
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-avaliacoes').text()).toContain('sem avaliações ainda'),
+    )
+    expect(wrapper.get('.cartao-semana .contagem').text()).toBe('0 avaliações')
+    expect(
+      wrapper.get('.cartao-semana').findComponent({ name: 'EstrelasNota' }).exists(),
+    ).toBe(false)
+    expect(textoDosCartoes(wrapper)).not.toContain('Não foi possível')
+  })
+
+  it('falha no pedido: diz que não carregou, e não "sem avaliações ainda"', async () => {
+    trocarGet('/avaliacoes/resumo/?campus=1&data=2026-09-30', () =>
+      Promise.reject(new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' })),
+    )
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-semana').text()).toContain(
+        'Não foi possível carregar as avaliações da semana.',
+      ),
+    )
+    expect(wrapper.get('.cartao-avaliacoes').text()).toContain('Não foi possível carregar')
+    expect(textoDosCartoes(wrapper)).not.toContain('sem avaliações ainda')
+    expect(wrapper.find('.cartao-semana .contagem').exists()).toBe(false)
+    expect(wrapper.find('.cartao-semana .grafico').exists()).toBe(false)
+  })
+
+  it('enquanto pede a semana: "carregando…" nos dois cartões, sem contagem, gráfico nem média', async () => {
+    const liberar = []
+    trocarGet(
+      '/avaliacoes/resumo/?campus=1&data=',
+      () => new Promise((resolver) => liberar.push(resolver)),
+    )
+
+    const wrapper = await montarHome(1)
+
+    expect(wrapper.get('.cartao-avaliacoes').text()).toContain('carregando…')
+    expect(wrapper.get('.cartao-semana').text()).toContain('carregando…')
+    expect(wrapper.find('.cartao-semana .contagem').exists()).toBe(false)
+    expect(wrapper.find('.cartao-semana .grafico').exists()).toBe(false)
+    expect(wrapper.find('.cartao-semana .semana-media').exists()).toBe(false)
+    expect(textoDosCartoes(wrapper)).not.toContain('0 avaliações')
+    expect(textoDosCartoes(wrapper)).not.toContain('sem avaliações ainda')
+
+    liberar.forEach((resolver) => resolver([]))
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-avaliacoes').text()).toContain('sem avaliações ainda'),
+    )
+    expect(wrapper.get('.cartao-semana .contagem').text()).toBe('0 avaliações')
+  })
+
+  it('trocar de campus com a tela aberta: os cartões passam a ser a semana do campus novo', async () => {
+    const get = vi.spyOn(apiClient, 'get')
+    const wrapper = await montarHome(1)
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-avaliacoes').text()).toContain('/ 5 · esta semana'),
+    )
+    const barrasDoDarcy = wrapper.findAll('.barra-dia').length
+
+    usePreferenciasStore().escolherCampus(3)
+    await flushPromises()
+
+    // O Gama serve de segunda a sexta; o Darcy tem mais dias.
+    await vi.waitFor(() => expect(wrapper.findAll('.barra-dia')).toHaveLength(5))
+    expect(barrasDoDarcy).not.toBe(5)
+    expect(wrapper.get('.cartao-avaliacoes').text()).toContain('/ 5 · esta semana')
+    expect(textoDosCartoes(wrapper)).not.toContain('carregando…')
+    expect(get.mock.calls.map(([caminho]) => caminho)).toContain(
+      '/avaliacoes/resumo/?campus=3&data=2026-09-28',
+    )
+  })
+
+  it('com o servidor simulado: os cartões mostram a semana do campus', async () => {
+    const wrapper = await montarHome(3)
+
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-avaliacoes').text()).toContain('/ 5 · esta semana'),
+    )
+    // O Gama serve de segunda a sexta.
+    expect(wrapper.findAll('.barra-dia').map((dia) => dia.text())).toEqual([
+      'Seg',
+      'Ter',
+      'Qua',
+      'Qui',
+      'Sex',
+    ])
+    expect(wrapper.get('.cartao-semana .contagem').text()).not.toBe('0 avaliações')
   })
 })
 

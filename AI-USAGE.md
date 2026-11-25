@@ -1047,6 +1047,47 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação depois dos ajustes: `npm run lint:ci` sem achados, `npm run test:ci` com 1.069 testes passando (96,38% de linhas / 92,79% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
 - Pendente (não foi feito no ambiente da IA): rodar o e2e de novo (`qualidade.spec.js`, Playwright) e conferir a boas-vindas a 360×640 e 640×360 no navegador, com os campi carregando e carregados. O resultado entra aqui.
 - Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12, o e2e e a conferência visual.
+
+## #259 — Início: cartões "Avaliações" e "Satisfação da semana" pelo resumo do dia
+
+- Issue: [#259](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/259). PR: [#288](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/288). Relacionada: [#251](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/251) (PR [#257](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257)).
+- Ferramenta: Claude (Anthropic), em 24/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Fonte do resumo da semana: opção **(b)** da issue, o front monta a semana com um `GET /api/avaliacoes/resumo/?campus=…&data=…` por dia, de segunda a domingo (`inicioDaSemana`, como o backend). Sem rota nova no backend e sem mudança no `openapi.yaml`, que a BE-18 fechou como a v1.
+- Apoio:
+  - `carregarResumoDaSemana` e `estadoDaSemana` na `avaliacoesStore`: estado por campus (`carregando`, `carregado` ou `erro`, com `{ mensagem }` de `mensagemDeErro`), resposta de cada dia conferida (lista de `{ media, quantidade }`), média ponderada pela quantidade, dia sem nenhuma refeição fora do gráfico, nenhum resumo parcial se um dia falhar e resposta antiga que não sobrescreve a nova;
+  - `HomeView`: "Não foi possível carregar as avaliações da semana." no lugar do gráfico e "Não foi possível carregar" no cartão "Avaliações", separados de "sem avaliações ainda"; "carregando…" enquanto pede;
+  - simulado: `GET /avaliacoes/resumo/` só com o campus devolve a lista do dia corrente, com os 400 antes do 404 `campus_nao_encontrado` (antes, com `data`, o campus inexistente dava 400) e `campus=01` valendo o campus 1, como o backend; saíram o resumo da semana do MVP e a lista `GET /avaliacoes/` (o backend só tem o POST, e a lista só era usada nos testes), com o comentário do topo do `servidor.js` atualizado;
+  - saíram da store `carregar`, `daRefeicao`, `carregarResumo`, `resumoPorCampus` e o `erro` compartilhado, que só eles usavam;
+  - C4 (texto do fluxo do cardápio e tabela das stores). Os diagramas não mudam: a `HomeView` fica fora deles.
+- TDD: `90aeba3` (testes, 27 falhando) → `c5aa8ab` (código) → `81acd6c` (docs).
+- Validação local (antes da revisão): `npm run lint:ci` sem achados, `npm run test:ci` com 1.086 testes passando (96,4% de linhas / 92,84% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Funcionamento do resumo: a Início faz 8 pedidos públicos de resumo: os 7 dias da semana e o de hoje do cartão "Cardápio de hoje", que sai duas vezes; a `media` de cada refeição vem do `Avg` sem arredondar, então a média da semana ponderada pela quantidade é a média de todas as notas visíveis, sem as ocultadas pela moderação.
+- Ajustes da revisão do AlvaroBento12, código gerado pela IA:
+  - conflito com a `develop` resolvido neste `AI-USAGE.md` (as seções da FE-16 e da #259 ficaram);
+  - **"0 avaliações" falso:** enquanto a semana carrega, o cartão "Satisfação da semana" mostra "carregando…", sem contagem, gráfico nem média, e o cartão "Avaliações" não mostra estrelas sem média (antes anunciavam "Nota 0.0 de 5");
+  - **testes:** "carregando…" nos dois cartões; troca de campus com a tela aberta; o stub do resumo do domingo agora só devolve a lista para `data=2026-10-04`; o `console.error` do `ApiError` conferido com `toHaveBeenCalledTimes(1)`. As quatro mutações da revisão (legenda, semana só na montagem, cartão de hoje lendo outro dia, sem o `console.error`), aplicadas uma a uma, passaram a derrubar um teste;
+  - **recarga:** decisão de não manter o resumo anterior. Cada volta à Início pede de novo e mostra "carregando…"; se a recarga falhar, aparece o erro, e não um número desatualizado. Registrada no comentário de `carregarResumoDaSemana`;
+  - `frontend/README.md` sem as rotas do MVP de avaliações e sem os slugs de campus (o `campus` é o id de `GET /campi/`);
+  - trechos que diziam que o backend responde 501 (cabeçalho do `servidor.js`, doc da store e C4) agora dizem que é a defesa contra um backend sem a rota; no C4, "o formato de semana do MVP" no lugar de "o resumo da semana";
+  - o texto "campus inexistente dava 400" (só valia com `data`) também precisa ser corrigido na descrição do PR.
+- Validação depois dos ajustes: `npm run lint:ci` sem achados, `npm run test:ci` com 1.089 testes passando (96,41% de linhas / 92,79% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Conferência com o backend real (critério de aceite da #259): realizada em 24 e 25/11/2026, no commit `55dc763`, com Django 6.1.1, Python 3.13.5, SQLite e `VITE_USE_MOCK=false`, sem Docker.
+  - Campus Gama, com 622 objetos carregados de 5 fixtures.
+  - Sem avaliações: estado vazio correto e 0 avaliações.
+  - Oito requisições de resumo com HTTP 200, confirmadas no Network e no terminal do Django, abrangendo 23 a 29/11 e uma consulta adicional para o dia atual.
+  - Primeira avaliação de 4 estrelas: HTTP 201, média 4,0 e contagem 1.
+  - Segunda avaliação de 2 estrelas: HTTP 201, média 3,0 e contagem 2.
+  - Backend desligado: mensagens de erro corretas nos dois cartões, sem confundir falha com ausência de avaliações.
+  - Backend religado: média 3,0 e contagem 2 restauradas, inclusive após a virada do dia.
+  - Limitação: SQLite, não o MySQL de produção.
+  - Apoio do ChatGPT (OpenAI): orientação na execução do roteiro fornecido pelo revisor, interpretação dos logs e documentação dos resultados. Testes executados manualmente pela autora.
+- Ajustes da segunda revisão, com apoio do ChatGPT (OpenAI), em 24/11/2026:
+  - interpretação da revisão, elaboração dos patches de correção e teste de regressão, orientação para execução dos testes e comandos Git;
+  - atualização com a develop e resolução do conflito no AI-USAGE.md;
+  - ocultação das estrelas do cartão "Satisfação da semana" quando não há média, com verificação de regressão no teste existente.
+- Validação após a segunda revisão: `npm run lint:ci` sem erros ou avisos, `npm run test:ci` com 1.145 testes aprovados em 43 arquivos e `npm run build` aprovado. Cobertura de linhas: 96,56%; ramos: 93,06%; funções: 95,51%; statements: 95,62%.
+- Situação: código aprovado pelo AlvaroBento12 no head `cb11922`; ajustes finais de documentação aplicados.
+
 ## FE-23 — Novo design do desktop, nova logo e ilustrações das refeições
 
 - Issue: [#291](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/291). PR: [#293 — FE-23: Novo design do desktop, nova logo e ilustrações das refeições](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/293).
