@@ -6,7 +6,7 @@ import { useFilaStore } from '@/stores/fila'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
 import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
-import { REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
+import { REFEICOES, formatarHora, horarioRefeicao } from '@/constants/refeicoes'
 import { CANAL_CONTATO } from '@/constants/contato'
 import { dataCurta, dataPorExtenso, diaCurto, hojeISO, saudacao } from '@/utils/datas'
 import { formatarNota, resumoRefeicao } from '@/utils/cardapio'
@@ -61,11 +61,6 @@ watch(
   { immediate: true },
 )
 
-function horaPico(valor) {
-  const [h, m] = valor.split(':')
-  return m === '00' ? `${Number(h)}h` : `${Number(h)}h${m}`
-}
-
 const textoPrevisao = computed(() => {
   if (erroHoje.value) return 'Previsão indisponível'
   if (!cardapioHoje.value) return 'Carregando previsão…'
@@ -84,9 +79,11 @@ const textoPrevisao = computed(() => {
 
   const picos = (previsao.faixas ?? [])
     .filter((faixa) => faixa.ehPico)
-    .map((faixa) => `${horaPico(faixa.inicio)} às ${horaPico(faixa.fim)}`)
+    .map((faixa) => `${formatarHora(faixa.inicio)} às ${formatarHora(faixa.fim)}`)
 
-  return picos.length ? picos.join(' e ') : 'Previsão indisponível'
+  if (!picos.length) return 'Previsão indisponível'
+  if (picos.length === 1) return picos[0]
+  return `${picos.slice(0, -1).join(', ')} e ${picos.at(-1)}`
 })
 
 const linhasResumo = computed(() =>

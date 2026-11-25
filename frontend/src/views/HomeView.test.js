@@ -50,9 +50,8 @@ afterEach(() => {
 const getOriginal = apiClient.get.bind(apiClient)
 
 function trocarGet(trecho, resposta) {
-  const anterior = vi.isMockFunction(apiClient.get)
-    ? apiClient.get.getMockImplementation()
-    : getOriginal
+  const anterior =
+    (vi.isMockFunction(apiClient.get) && apiClient.get.getMockImplementation()) || getOriginal
   return vi
     .spyOn(apiClient, 'get')
     .mockImplementation((caminho, opcoes) =>
@@ -337,9 +336,9 @@ describe('HomeView: cartões "Avaliações" e "Satisfação da semana" (#259)', 
       expect(wrapper.get('.cartao-avaliacoes').text()).toContain('sem avaliações ainda'),
     )
     expect(wrapper.get('.cartao-semana .contagem').text()).toBe('0 avaliações')
-    expect(
-      wrapper.get('.cartao-semana').findComponent({ name: 'EstrelasNota' }).exists(),
-    ).toBe(false)
+    expect(wrapper.get('.cartao-semana').findComponent({ name: 'EstrelasNota' }).exists()).toBe(
+      false,
+    )
     expect(textoDosCartoes(wrapper)).not.toContain('Não foi possível')
   })
 
@@ -532,11 +531,7 @@ describe('HomeView: previsão de pico no cartão Fila (FE-22, #269)', () => {
     trocarGet('/fila/previsao/', () =>
       Promise.resolve({
         status: 'disponivel',
-        faixas: [
-          faixa('11:30', '11:45'),
-          faixa('12:00', '12:15'),
-          faixa('12:30', '12:45'),
-        ],
+        faixas: [faixa('11:30', '11:45'), faixa('12:00', '12:15'), faixa('12:30', '12:45')],
       }),
     )
 
