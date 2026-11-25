@@ -1003,3 +1003,46 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - Plano de Testes e comentários do `playwright.config.js` com a conta do M4 reusada só para leitura.
 - Validação depois dos ajustes: o spec rodado contra o servidor simulado, com uma cópia que troca a conta e o prato da fixture pelos do simulado: os testes sem login, o controle e a primeira visita passaram, e os dois `test.fail()` falharam onde deviam. O teste com login não roda no simulado, que perde a sessão ao recarregar; na pilha real, [run do `ponta-a-ponta`](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45439504101). `npm run lint:ci` sem achados.
 - Situação: ajustes da revisão aplicados; aguardando o recheck.
+
+## FE-23 — Novo design do desktop, nova logo e ilustrações das refeições
+
+- Issue: [#291](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/291). PR: [#293 — FE-23: Novo design do desktop, nova logo e ilustrações das refeições](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/293).
+- Ferramenta: Claude (Anthropic).
+- Apoio: leitura do protótipo desktop no Figma (camada de código do frame "Bandejão Desktop"), rodado à parte para ter a captura de cada tela como alvo; recorte da nova logo (só a bandeja, sem o texto) e das ilustrações de café da manhã, almoço e jantar a partir das imagens enviadas pela autora, com o fundo branco removido sem abrir buracos nos pratos e na bandeja (os recortes que vinham no Figma tinham esses buracos); `AppLogo` com a imagem nova; ícones do PWA, favicon e capturas do manifesto regerados; componentes `BarraLateral`, `AsideConta` e `IlustracaoRefeicao`; tokens novos no `base.css`; o desenho do desktop (a partir de 1024 px) na Início, na tela do campus (cardápio com o destaque da refeição e a fila em colunas), em Avaliações, Meu progresso, Ranking, boas-vindas, escolha do campus e telas de conta; testes da `BarraLateral` e de onde ela e a `AsideConta` aparecem; C4 do front. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- Escopo: só o desktop mudou de desenho; no celular e no tablet, a única mudança visível é a logo. O protótipo do celular (citado na issue) não foi aplicado. Rotas, stores e chamadas da API não mudaram.
+- TDD: no primeiro envio, não foi seguido: os testes da `BarraLateral` vieram no mesmo commit do componente (uma sabotagem, tirar o `login` das telas de entrada, fez o teste falhar). Nos ajustes da revisão, cada comportamento teve o commit de `test(...)` antes do `fix(...)`, com os testes falhando antes da correção.
+- Validação: `npm run test:ci` com 1.077 testes passando; `npm run lint:ci` e Prettier sem achados; `npm run build` sem erro; as telas comparadas lado a lado com as capturas do protótipo a 1366 px; o detector de elementos que passam da largura (FE-16) sem achados a 360, 768, 1024 e 1366 px, sem e com login, com o controle de 2.000 px acusado.
+- Ajuste depois do CI: o `ponta-a-ponta` falhou em 7 testes nos dois projetos, por seletores que passaram a achar dois elementos (o prato principal também no destaque do cardápio e o apelido também na `BarraLateral`). Os testes passaram a procurar o prato na lista do cardápio e o apelido no cabeçalho da tela ou na lista do ranking; no M4, a ausência do apelido antes de entrar no ranking também ficou restrita à lista, porque no desktop a lateral mostra o apelido. Na segunda rodada, faltava o botão "Sair da conta" do M1, que no desktop também existe na lateral: o teste passou a clicar no da tela (`main`). Conferido no servidor simulado que cada seletor acha um elemento só, a 360 e a 1366 px.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/293#issuecomment-7144272834), com quatro bloqueios, sete itens importantes e sugestões.
+- Ajustes da revisão, código gerado pela IA (cada um com o teste antes da correção):
+  - Ranking (RF27) na `BarraLateral`, alcançado por clique (Vitest e, no desktop, M4); o único atalho era o menu do perfil da Início, que some no desktop;
+  - telas de conta sem cortar o topo numa janela baixa (e2e em 1366x650: o "Voltar" estava em −63 px);
+  - "Sair da conta" da lateral como o `BotaoSair` (RF03.3): volta à raiz quando o servidor confirma e avisa com `role="alert"` quando não confirma;
+  - destaque do cardápio pelo `destaqueDaRefeicao` (`utils/cardapio.js`), que pula os pratos com marcador evitado (RF08), segue a dieta (RF09) e some sem prato compatível ou sem a informação de alérgenos; também conferido no M3;
+  - `/campus` aberto por "Trocar" mostra a lateral, para ter saída (RNF08);
+  - saudação e data curta em `utils/datas.js`, testadas nos limites de 12h e 18h; `h1` da Início só fora da vista no desktop; ilustração do cartão de hoje só a partir de 1280 px;
+  - título das telas internas a 34 px (a regra do desktop perdia para a base);
+  - contraste AA e fontes de 11 a 13 px nos textos novos do desktop, conferidos com uma varredura dos textos visíveis a 1366 px; o que resta abaixo de AA é anterior ao FE-23 e vale também para o celular (`--texto-claro` em legendas, dourado nos títulos de categoria);
+  - legenda dos níveis no gráfico da fila;
+  - testes da tela do campus, do progresso e do cardápio restritos ao conteúdo (a lateral e o destaque os faziam passar sozinhos; conferido tirando a `FilaView`);
+  - lacunas de teste: o passo da `AsideConta`, `/confirmar-email` e `/redefinir-senha`, a lateral sem campus e com falha nos campi, e a visibilidade real da lateral e da `NavegacaoTopo` a 360, 768, 1023, 1024 e 1366 px (e2e);
+  - sugestões: rolagem própria da lateral, texto neutro com a busca dos campi em falha, `ORDEM_REFEICOES`, listas de rotas a partir das telas de conta, sem o token `--laranja` e a classe `app--entrada`, sem os `!important` de margem, `fundo-escuro` no destaque e na identidade, `icone.svg` de 70 para 37 KB. Ficou de fora o componente único para a marca (logo e "bandejão"), que aparece em três lugares com tamanhos diferentes;
+  - C4 do front e checklist de qualidade com o desktop.
+- Validação depois dos ajustes: `npm run test:ci` com 1.118 testes passando; `npm run lint:ci`, Prettier e `npm run build` sem achados; Stryker em `utils/cardapio.js` com 91,89% (sobra um mutante equivalente); o detector de largura sem achados a 360, 768, 1024 e 1366 px; os e2e novos rodados contra o servidor simulado (o cadastro em janela baixa falhou antes da correção e passou depois). Na pilha real, fica para o `ponta-a-ponta` do PR.
+- Situação: ajustes da revisão aplicados; aguardando o recheck.
+
+## RNF01 revisto para 500 usuários simultâneos
+
+- Relacionadas: BD-14 ([#184](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/184), PR [#244](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/244)), que mediu o RNF01 e não chegou à meta de 2.000 usuários.
+- Ferramenta: Claude (Anthropic), em 23/11/2026.
+- Apoio: conferência dos números da BD-14 contra o relatório (`docs/qualidade/teste-de-carga-bd14.md`), busca de onde o "2.000" aparecia na documentação e redação das trocas: RNF01 e justificativa no Documento de Requisitos, tabela de metas do Documento de Visão, tabela do Plano de Testes e uma nota no relatório da BD-14 avisando que o número foi revisto.
+- Decisão humana: fechar em 500 usuários (passou nas três varreduras; 1.000 falhou numa), com a ressalva de que o número foi medido no runner de 4 vCPUs e a VM tem 2, sem pedir nova rodada antes da Release 2.
+- Fora da mudança: a linha da BD-14 no backlog continua com a meta de 2.000, porque descreve a tarefa como foi pedida; as medições do relatório da BD-14 também não mudam.
+- Validação: `git diff --check` sem achados; `git grep "2.000 usu"` no repositório inteiro só acha o backlog, as medições do relatório e o comentário da rampa no `carga.yml`.
+- Revisão humana: [revisão de Poviovsky](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/276#pullrequestreview-6040071165), aprovada com sugestões. Aplicadas:
+  - comentários com a meta antiga fora de `docs/` (`carga.yml` e `test_carga_bd14.py`) passam a dizer 500;
+  - a ressalva dos 4 vCPUs saiu do enunciado do RNF01 e foi para o fim da justificativa (a premissa de 3 a 7 s fica no enunciado);
+  - a tabela do Documento de Visão traz a premissa de 3 a 7 s;
+  - os exemplos de comando (`teste-de-carga-bd14.md` e docstring do `locustfile.py`) usam 500.
+- Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
+- Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).

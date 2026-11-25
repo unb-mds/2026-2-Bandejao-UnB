@@ -387,7 +387,7 @@ Os requisitos não funcionais estão detalhados no Documento de Requisitos (RNF0
 
 | Categoria | Meta | Requisito |
 |---|---|---|
-| Desempenho (Métrica de Eficiência) | Visualização do cardápio (e, na Release 2, da previsão de pico) respondida em até 3 segundos em pelo menos 95% das requisições, com até 2.000 usuários simultâneos | RNF01 |
+| Desempenho (Métrica de Eficiência) | Visualização do cardápio (e, na Release 2, da previsão de pico) respondida em até 3 segundos em pelo menos 95% das requisições, com até 500 usuários simultâneos, cada um com um pedido a cada 3 a 7 s (medido no teste de carga da BD-14, em ambiente de teste com 4 vCPUs) | RNF01 |
 | Disponibilidade e confiabilidade | Pelo menos 95% do tempo durante o horário de funcionamento dos RUs (7h às 19h30), nos dias com refeição servida; se a leitura do PDF falhar, o sistema continua exibindo o último cardápio lido com sucesso | RNF02 |
 | Usabilidade | Cardápio de um campus em no máximo 3 interações na primeira visita (na Release 2, as etapas do aviso de localização contam como interações); interface funcional em telas a partir de 360 px | RNF03 |
 | Manutenibilidade | Nos módulos críticos do backend e do frontend: cobertura de linhas de no mínimo 70%, escore de mutação de no mínimo 50%, teste de sabotagem em todos os módulos e nenhum achado crítico ou alto em aberto na análise estática de segurança | RNF06 |
