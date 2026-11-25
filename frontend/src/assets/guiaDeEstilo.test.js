@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest'
 /**
  * Guia de estilo (RF17, #286): cores e raios vêm dos tokens do `base.css`.
  * Confere o código-fonte de todas as telas, componentes e do `main.css`. Ficam
- * de fora o próprio `base.css`, que define os tokens, e o `AppLogo`, cujas
- * cores são da ilustração.
+ * de fora apenas o próprio `base.css`, que define os tokens.
+ * Sombras completas devem ocupar todo o valor da propriedade CSS.
  * A guarda cobre hex, rgb/rgba, hsl/hsla, branco literal em SVG e raios CSS.
  * Não é um parser CSS/JS: outras funções, palavras-chave e borderRadius em JS
  * não são cobertos integralmente.
@@ -72,7 +72,9 @@ describe('guia de estilo: cores e raios só pelos tokens do base.css (RF17, #286
   })
 
   it('todos os tokens referenciados estão definidos', () => {
-    const definidos = new Set([...semComentarios(BASE).matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]))
+    const definidos = new Set(
+      [...semComentarios(BASE).matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]),
+    )
     const ausentes = Object.entries(ARQUIVOS).flatMap(([arquivo, codigo]) =>
       [...semComentarios(codigo).matchAll(/var\(\s*(--[\w-]+)/g)]
         .filter((m) => !definidos.has(m[1]))
@@ -99,11 +101,14 @@ describe('guia de estilo: cores e raios só pelos tokens do base.css (RF17, #286
     },
   )
 
-  it('o base.css define as sombras como tokens --sombra-*', () => {
-    expect(BASE.match(/--sombra-[a-z-]+\s*:/g)?.length ?? 0).toBeGreaterThan(0)
+  it('o base.css nao possui tokens duplicados', () => {
+    const tokens = [...semComentarios(BASE).matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1])
+    const duplicados = tokens.filter((token, indice) => tokens.indexOf(token) !== indice)
+
+    expect(duplicados).toEqual([])
   })
 
-  it('sombras completas nao podem ser combinadas com outros valores', () => {
+  it('sombras completas não podem ser combinadas com outros valores', () => {
     const completas = [...semComentarios(BASE).matchAll(/(--sombra-[\w-]+)\s*:\s*([^;]+);/g)]
       .filter((m) => /^-?\d/.test(m[2].trim()))
       .map((m) => m[1])

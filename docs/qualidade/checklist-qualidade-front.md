@@ -60,15 +60,15 @@ O guia são os tokens de `frontend/src/assets/base.css` (paleta, tipografia, rai
 
 | Item | Celular | Desktop |
 |---|---|---|
-| Paleta: as cores da marca, do texto e do feedback vêm dos tokens | ⬜ (correção no PR #290) | ⬜ (correção no PR #290) |
+| Paleta: as cores da marca, do texto e do feedback vêm dos tokens | ✅ (validação automatizada; PR #290) | ✅ (validação automatizada; PR #290) |
 | Tipografia: títulos em `--fonte-titulo` (Nunito) e texto em `--fonte-texto` (Inter), sem `font-family` solta | ✅ | ✅ |
-| Raios: `--raio-2xs` a `--raio-xl` e o formato de pílula (`999px`) | ⬜ (correção no PR #290) | ⬜ (correção no PR #290) |
+| Raios: escala semântica (`--raio-2xs` a `--raio-xl`), tokens numéricos, círculo (`50%`) e pílula (`999px`) | ✅ (validação automatizada; PR #290) | ✅ (validação automatizada; PR #290) |
 | Larguras: no desktop, a lateral de 246 px (`--largura-lateral`) e o conteúdo na largura que sobra; formulários de conta com 470 px (tablet: cartão até `--largura-formulario`, 480 px) | não se aplica | ✅ |
 | Navegação: `NavegacaoInferior` no celular, `NavegacaoTopo` de 768 a 1023 px e `BarraLateral` a partir de 1024 px (FE-23), com os mesmos destinos | ✅ | ✅ |
 | Foco visível (`:focus-visible`), dourado sobre o verde | ✅ | ✅ |
 | Mesma distribuição de informação entre as telas: cabeçalho verde nas telas internas (no desktop, a Início tem a barra do topo clara) e cartões em `--cartao` sobre o bege (no desktop, o creme) | ✅ | ✅ |
 
-**Bug 2 (baixa prioridade):** correção implementada no [PR #290](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/290), com validação automatizada local aprovada (12/12 testes do guia de estilo, 1.074/1.074 testes da suíte completa, lint e build). As cores e raios identificados foram substituídos por tokens; o teste-guarda verifica as formas de declaração documentadas no próprio teste. As cores da ilustração `AppLogo` ficam de fora.
+**Bug 2 (baixa prioridade):** correção implementada no [PR #290](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/290), com validação automatizada local aprovada (13/13 testes do guia de estilo, 1.131/1.131 testes da suíte completa em 44 arquivos, lint e build). As cores e raios identificados foram substituídos por tokens; o teste-guarda verifica as formas de declaração documentadas no próprio teste. O AppLogo também é verificado pelo teste-guarda. A guarda detecta usos incorretos de tokens de sombra completa e tokens duplicados no base.css.
 
 ## 4. Navegadores (RNF05)
 
