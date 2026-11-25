@@ -6,7 +6,7 @@ import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { AVISO_SAIR_SEM_CONFIRMACAO, useSair } from '@/composables/sair'
 import { CANAL_CONTATO, EMAIL_CONTATO } from '@/constants/contato'
-import { ITENS_NAVEGACAO_TOPO, itemAtivo } from '@/constants/navegacao'
+import { ITENS_NAVEGACAO_LATERAL, itemAtivo } from '@/constants/navegacao'
 import AppLogo from './AppLogo.vue'
 import IconeSvg from './IconeSvg.vue'
 
@@ -17,7 +17,7 @@ import IconeSvg from './IconeSvg.vue'
  */
 // O Ranking (RF27) só tinha atalho no menu do perfil da Início, que some no
 // desktop: aqui ele entra na navegação.
-const ITENS = [...ITENS_NAVEGACAO_TOPO, { rotulo: 'Ranking', rota: 'ranking', icone: 'trofeu' }]
+const ITENS = [...ITENS_NAVEGACAO_LATERAL, { rotulo: 'Ranking', rota: 'ranking', icone: 'trofeu' }]
 
 const route = useRoute()
 const router = useRouter()
