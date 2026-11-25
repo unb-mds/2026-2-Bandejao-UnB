@@ -161,6 +161,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y default-libmysqlclient-dev build-essential pkg-config
 
+      # Como na VM antes da #250: o usuário e o papel já têm GRANTs no nome
+      # do banco sem escape (curinga). A conferência depois do script prova
+      # que, rodado de novo, ele tira esses GRANTs.
+      - name: Dar os GRANTs antigos, sem escape (como na VM antes da #250)
+        env:
+          # A senha de root só nos passos que usam o root, e não no migrate
+          # nem no pytest. É a mesma do serviço mysql, acima.
+          MYSQL_PWD: senha-ci-descartavel
+        run: |
+          mysql -h "$DB_HOST" -P "$DB_PORT" -uroot -e "
+            CREATE ROLE IF NOT EXISTS 'equipe_moderacao';
+            GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
+            GRANT SELECT, INSERT, UPDATE, DELETE ON \`$DB_NAME\`.* TO 'equipe_moderacao';"
+
       # O mesmo script da primeira subida da VM, rodado dentro do container do
       # serviço (ele usa o cliente mysql pelo socket, como na imagem). O
       # MYSQL_DATABASE, o MYSQL_USER e a senha de root já estão no ambiente

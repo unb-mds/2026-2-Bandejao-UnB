@@ -62,7 +62,9 @@ _bandejao_usuarios() {
     _bandejao_banco_escapado=$(printf '%s' "$_bandejao_banco" | sed -e 's/[_%]/\\&/g')
     # A imagem dá o ALL com só o "_" escapado, e as versões do script antes
     # da #250 davam os GRANTs sem escape. Para rodar de novo num banco que já
-    # existe, o REVOKE tira os três antes do GRANT novo.
+    # existe, antes do GRANT novo: o usuário da aplicação perde o que tiver
+    # nos três nomes (o da imagem, o sem escape e o escapado); o papel, que a
+    # imagem não toca, perde só o GRANT sem escape.
     _bandejao_banco_imagem=$(printf '%s' "$_bandejao_banco" | sed -e 's/_/\\_/g')
 
     printf '%s\n' "[bandejao] Ajustando as permissões de '$MYSQL_USER' no banco '$MYSQL_DATABASE'."
