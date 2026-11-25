@@ -1067,3 +1067,8 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Limites: validação visual em 360 e 1366 px, integração com backend real, CI e revisão humana ainda não confirmadas.
 - Participação humana: execução dos comandos, aplicação das alterações e commits no ambiente local.
 - Situação: implementação concluída localmente, aguardando validação final e abertura do PR.
+
+- Validação complementar: lint com zero erros e avisos; 1.125 testes aprovados em 43 arquivos.
+- Cobertura global: 96,56% de linhas, 95,61% de instruções, 95,44% de funções e 92,98% de ramificações.
+- Cobertura de linhas da HomeView: 96,55%.
+- Conferência visual: capturas em 360 e 1366 px, campus Gama, com previsão de pico de 7h45 às 8h, sem cortes visíveis no cartão.
