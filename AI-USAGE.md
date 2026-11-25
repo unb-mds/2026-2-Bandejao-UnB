@@ -1035,7 +1035,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## Guia de contribuição, guia do usuário e revisão das skills
 
-- PR: [CONFIRMAR o número do PR].
+- PR: [#299](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/299).
 - Ferramenta: Claude (Anthropic), em 24/11/2026.
 - Apoio: leitura do `CONTRIBUTING.md` e do site docs.flutter.dev, usados como modelo por indicação da professora; redação do `CONTRIBUTING.md` e do `docs/guia-do-usuario.md`; revisão do `SKILLS/USO-DAS-SKILLS.md` (faixa de ADRs até a 0016, ajustes da `estudo-semanal` ao repositório e seção "Como instalar as skills"); link do guia no `docs/_sidebar.md` e no `README.md`, com a seção "Como contribuir" do README resumida e apontando para o `CONTRIBUTING.md`; `contact_links` do `.github/ISSUE_TEMPLATE/config.yml`, que ainda apontava para `SEU_ORG/SEU_REPO`.
 - Conferência com o código: os textos, os horários, os pontos, as patentes e as regras do guia do usuário foram conferidos na `develop` (telas do `frontend/src`, `backend/config/parametros.py` e fixture dos campi) e no Documento de Requisitos. O guia descreve só o que está no código: ficam de fora a pergunta de saída da fila, a espera estimada, a sequência semanal, o cardápio da semana seguinte, o histórico de refeições e a detecção automática do campus (EXTRA 3, sem issue).
