@@ -375,7 +375,9 @@ aplicadas na subida do backend. Os dados do banco e os certificados ficam nos
 volumes e não se perdem.
 
 Se o merge mudou algum arquivo de `deploy/cron/`, reinstale-o como em
-[Tarefas periódicas](#tarefas-periódicas-cron).
+[Tarefas periódicas](#tarefas-periódicas-cron). Se mudou
+`deploy/backup/bandejao-backup`, reinstale-o como em
+[Backup do banco](deploy/backup-banco.md).
 
 Se mudar só o `Caddyfile`, recrie o Caddy. Um `caddy reload` não basta
 depois de um `git pull`: o `Caddyfile` entra por bind mount de um arquivo só,
@@ -664,10 +666,16 @@ Rode cada comando uma vez à mão, pelo mesmo script do cron, **como
 `azureuser` e sem `sudo`**, e veja o log:
 
 ```bash
-sh deploy/cron/rodar-comando.sh clearsessions
-sh deploy/cron/rodar-comando.sh excluir_cadastros_pendentes
+sh deploy/cron/rodar-comando.sh clearsessions </dev/null
+sh deploy/cron/rodar-comando.sh excluir_cadastros_pendentes </dev/null
 tail -n 5 /var/log/bandejao/*.log
 ```
+
+O `</dev/null` evita que o comando leia o terminal. A correção da BD-07
+(24/11/2026) faz o script usar a entrada vazia sozinho, mas ela só chega à VM
+com a release `develop` → `main`, pelo deploy automático. Até lá, sem o
+`</dev/null` o comando trava (veja "Comando parado" abaixo); depois, ele é só
+uma garantia.
 
 Com `sudo`, o log e a trava passam a ser do root, e o cron do `azureuser` não
 consegue mais gravar: a tarefa para e só deixa o erro no syslog (status 73).
@@ -694,6 +702,32 @@ Cada execução grava no log do comando:
 Os status 1, 2 e 73 saem antes do log, então a execução não aparece no
 arquivo do comando. Se o log não tiver a execução esperada, veja o
 `journalctl -t bandejao-cron`.
+
+**Comando parado: o log só tem `início` e não avança.** Foi o que aconteceu ao
+rodar à mão, por SSH, a versão antiga do script (sem o `</dev/null`): o
+`docker compose` era parado pelo kernel ao tentar ler o terminal (estado `T`).
+A saída do comando sempre vai para o log, então o sinal não é "sem saída": é o
+estado `T`. Pelo cron isso não acontece. Para ver e destravar, **abra outra
+sessão SSH** (a travada não responde):
+
+```bash
+ps -eo pid,pgid,stat,cmd | grep "[d]ocker compose exec"
+kill -KILL -<pgid>
+```
+
+Use o `pgid` da linha com estado `T` ou `Tl` e confira, no fim dela, que o
+comando é o que travou (por exemplo `... manage.py clearsessions`). O `timeout`
+do mesmo grupo aparece como `S`; tarefas saudáveis do cron e outros
+`docker compose` não são o alvo.
+
+O `kill` encerra só o cliente `docker` e libera a trava; ele **não** encerra o
+Django dentro do container. Se o comando já tinha começado, ele segue rodando
+até o limite de 2 h, e uma nova execução pode rodar junto. Confira antes com
+`docker compose top backend | grep manage.py`. Se você matar o cliente, o status
+137 que aparecer no log vem do próprio `kill`. Enquanto o comando parado seguir
+vivo, ele segura a trava, e as execuções do cron do mesmo comando saem como 75
+(pulado) até o limite de 130 min. Depois que a correção estiver na VM, isso não
+se repete.
 
 Todo status diferente de 0 também vai para o syslog, com a tag
 `bandejao-cron`. O status 75 vai como aviso, e os outros, como erro. A VM não
@@ -763,7 +797,8 @@ deploy automático grava no `/var/log/bandejao/deploy.log` (ver
 
   A outra saída é recriar o volume com `docker compose down -v`, que **apaga
   todos os dados do banco** e só deve ser usada antes de haver dados reais (e
-  depois de um backup). O backup diário do banco é a BD-15.
+  depois de um backup). O backup diário do banco está em
+  [Backup do banco](deploy/backup-banco.md) (BD-15).
 - **Não apague o volume `caddy_dados`.** Ele guarda os certificados, e o
   Let's Encrypt limita quantos certificados o mesmo domínio pode pedir por
   semana.
@@ -791,3 +826,28 @@ do `AI-USAGE.md`.
 | `.env` e `.env.db` | Permissão `600` |
 | Reinício da VM (`sudo reboot`) | Os três serviços voltaram sozinhos (`restart: unless-stopped`), e os dados do banco continuaram |
 | IP real atrás do Caddy (`NUM_PROXIES = 1`) | De uma rede, o 11º pedido de reenvio deu `429`. De outra rede (a própria VM), o pedido seguinte deu `200`: o limite conta cada IP separado |
+
+### Backup do banco (BD-15, 24/11/2026)
+
+Conferido na VM, na branch do PR #227 (`4e40f2b`), antes de o backup entrar na
+`main`:
+
+| Item | Resultado |
+|---|---|
+| `docker compose exec -T db timeout --version` | GNU coreutils 8.32: o `timeout` existe dentro do container `db` |
+| `sh deploy/backup/backup-banco.sh` | Saída 0; no log, `ok: bandejao-20261124T144124Z.sql.gz (39334 bytes; 3 cópia(s) guardada(s), prazo de 7 dias)`; `journalctl -t bandejao-backup -p err` sem entradas |
+| `sh deploy/backup/testar-restauracao.sh` | `OK`: 25 tabelas restauradas (produção: 25), 31 migrações, contas restauradas 2 (produção: 2) |
+
+**Rotação de 7 dias** (24/11/2026, 22h de Brasília; 01h UTC de 25/11), na branch
+do PR já com a quarta revisão (`97b3b66`): dois arquivos vazios com
+`bandejao-teste-` no nome foram criados com `touch -d` (um de 8 dias, um de 6
+dias) em `/var/backups/bandejao`, junto das 3 cópias reais. Depois do
+`sh deploy/backup/backup-banco.sh` (saída 0, cópia nova
+`bandejao-20261125T010337Z.sql.gz`, 39826 bytes), só o de 8 dias tinha saído; o
+de 6 dias e as cópias reais de 22/11 e 24/11 ficaram. O de 6 dias foi apagado
+à mão e a VM voltou para a `main`.
+
+A produção tem só 2 contas e nenhuma avaliação ou check-in, então a conferência
+de linhas por tabela ainda é pequena; ela vale mais quando houver uso. A
+instalação e a restauração de emergência estão em
+[Backup do banco](deploy/backup-banco.md).
