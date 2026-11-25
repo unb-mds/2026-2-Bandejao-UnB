@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest'
  * não são cobertos integralmente.
  */
 const SRC = fileURLToPath(new URL('..', import.meta.url))
-const FORA = ['assets/base.css', 'components/AppLogo.vue']
+const FORA = ['assets/base.css']
 
 // Lidos do disco: no Vitest, o `?raw` de um .css chega vazio.
 const ARQUIVOS = Object.fromEntries(
@@ -48,7 +48,7 @@ describe('guia de estilo: cores e raios só pelos tokens do base.css (RF17, #286
   it('confere os arquivos de verdade (a leitura não veio vazia)', () => {
     expect(ARQUIVOS['assets/main.css']).toContain('.botao')
     expect(ARQUIVOS['views/HomeView.vue']).toContain('<template>')
-    expect(Object.keys(ARQUIVOS)).not.toContain('components/AppLogo.vue')
+    expect(Object.keys(ARQUIVOS)).toContain('components/AppLogo.vue')
     expect(BASE).toContain('--verde-escuro')
   })
 
@@ -101,5 +101,32 @@ describe('guia de estilo: cores e raios só pelos tokens do base.css (RF17, #286
 
   it('o base.css define as sombras como tokens --sombra-*', () => {
     expect(BASE.match(/--sombra-[a-z-]+\s*:/g)?.length ?? 0).toBeGreaterThan(0)
+  })
+
+  it('sombras completas nao podem ser combinadas com outros valores', () => {
+    const completas = [...semComentarios(BASE).matchAll(/(--sombra-[\w-]+)\s*:\s*([^;]+);/g)]
+      .filter((m) => /^-?\d/.test(m[2].trim()))
+      .map((m) => m[1])
+
+    expect(completas.length).toBeGreaterThan(0)
+
+    const invalidas = Object.entries(ARQUIVOS).flatMap(([arquivo, codigo]) =>
+      semComentarios(codigo)
+        .split('\n')
+        .flatMap((linha, indice) =>
+          completas
+            .filter((token) => linha.includes(`var(${token})`))
+            .filter((token) => {
+              const valor = `var(${token})`
+              return !(
+                linha.trim() === `box-shadow: ${valor};` ||
+                linha.trim() === `filter: drop-shadow(${valor});`
+              )
+            })
+            .map(() => `${arquivo}:${indice + 1}: ${linha.trim()}`),
+        ),
+    )
+
+    expect(invalidas).toEqual([])
   })
 })
