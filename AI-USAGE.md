@@ -1080,3 +1080,21 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - `npm run build`: concluído com sucesso.
 - Limitações: a conferência visual dos novos ajustes com os protótipos do Figma, nas versões desktop e mobile, e a validação manual do check-in autenticado ainda estão pendentes. O equipamento da autora apresentou travamentos durante as tentativas de execução local.
 - Situação: ajustes da revisão aplicados e validados por testes automatizados; aguardando conferência visual e nova revisão.
+
+### Segunda rodada de revisão
+
+- **Ferramenta utilizada:** ChatGPT, com integração ao Figma.
+- **Contexto:** segunda revisão do PR #302, que apontou alterações visuais na Home e no Cardápio mobile ainda não conferidas com os protótipos.
+- **Ajustes realizados:**
+  - Consulta ao código-fonte dos protótipos desktop e mobile.
+  - Adequação da visibilidade da ilustração na Home.
+  - Ajuste das proporções, dos espaçamentos e da responsividade do cartão de destaque do Cardápio mobile.
+  - Preservação integral dos três arquivos PNG, sem compressão, conversão ou substituição.
+  - Preservação das correções funcionais aprovadas na primeira revisão.
+- **Decisão humana:** manter as alterações visuais e as ilustrações no próprio PR #302, sem abertura de um PR separado.
+- **Validação realizada:**
+  - Lint: zero erros e zero avisos.
+  - Testes específicos: 46 de 46 aprovados.
+  - Build de produção concluído com sucesso.
+  - `git diff --check` sem problemas.
+- **Validação pendente:** conferência visual da aplicação renderizada a 360 px e 1366 px, devido às limitações de hardware do equipamento utilizado. A comparação com o código-fonte dos protótipos não substitui essa conferência.
