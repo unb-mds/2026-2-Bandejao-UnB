@@ -1024,5 +1024,11 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Apoio: conferência dos números da BD-14 contra o relatório (`docs/qualidade/teste-de-carga-bd14.md`), busca de onde o "2.000" aparecia na documentação e redação das trocas: RNF01 e justificativa no Documento de Requisitos, tabela de metas do Documento de Visão, tabela do Plano de Testes e uma nota no relatório da BD-14 avisando que o número foi revisto.
 - Decisão humana: fechar em 500 usuários (passou nas três varreduras; 1.000 falhou numa), com a ressalva de que o número foi medido no runner de 4 vCPUs e a VM tem 2, sem pedir nova rodada antes da Release 2.
 - Fora da mudança: a linha da BD-14 no backlog continua com a meta de 2.000, porque descreve a tarefa como foi pedida; as medições do relatório da BD-14 também não mudam.
-- Validação: `git diff --check` sem achados; `git grep "2.000 usu"` em `docs/` só acha o backlog e as medições do relatório.
-- Situação: aguardando o CI e a revisão.
+- Validação: `git diff --check` sem achados; `git grep "2.000 usu"` no repositório inteiro só acha o backlog, as medições do relatório e o comentário da rampa no `carga.yml`.
+- Revisão humana: [revisão de Poviovsky](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/276#pullrequestreview-6040071165), aprovada com sugestões. Aplicadas:
+  - comentários com a meta antiga fora de `docs/` (`carga.yml` e `test_carga_bd14.py`) passam a dizer 500;
+  - a ressalva dos 4 vCPUs saiu do enunciado do RNF01 e foi para o fim da justificativa (a premissa de 3 a 7 s fica no enunciado);
+  - a tabela do Documento de Visão traz a premissa de 3 a 7 s;
+  - os exemplos de comando (`teste-de-carga-bd14.md` e docstring do `locustfile.py`) usam 500.
+- Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
+- Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
