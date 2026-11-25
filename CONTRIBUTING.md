@@ -187,6 +187,7 @@ Os tipos mais usados são `feat`, `fix`, `test`, `refactor`, `docs` e `chore`. O
 | Onde | O que reprova |
 |---|---|
 | Backend | Ruff (lint e formatação); teste falhando; cobertura abaixo de 70%; Bandit, pip-audit ou Semgrep com achado alto ou crítico; testes no MySQL 8.4; migration pendente; mutação abaixo de 50% nos arquivos críticos alterados |
+| Ponta a ponta | Fluxo quebrado nos testes do Playwright (celular e desktop), que sobem o PWA, a API e o MySQL. Roda em todo PR, qualquer que seja a base |
 | Frontend | Erro ou aviso do Oxlint/ESLint; teste falhando; cobertura abaixo de 70% nos arquivos críticos; erro no build; `npm audit` ou Semgrep com achado alto ou crítico; mutação abaixo de 50% nos arquivos críticos alterados |
 
 **Definition of Done.** O PR só entra quando cumpre a [Definition of Done](docs/requisitos/backlog.md) do backlog. Os pontos que mais aparecem na revisão:

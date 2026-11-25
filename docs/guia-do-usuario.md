@@ -15,7 +15,7 @@ Se é a primeira vez, siga os [primeiros passos](#primeiros-passos). Em menos de
 | Quero… | Vá para |
 |---|---|
 | Ver o que tem para comer hoje | [Consultar o cardápio](#consultar-o-cardápio) |
-| Esconder pratos com um ingrediente ou seguir uma dieta | [Filtros alimentares](#filtros-alimentares) |
+| Sinalizar pratos com um ingrediente ou seguir uma dieta | [Filtros alimentares](#filtros-alimentares) |
 | Saber o melhor horário para ir ao RU | [Previsão da fila](#previsão-da-fila) |
 | Dar nota para a refeição | [Avaliar uma refeição](#avaliar-uma-refeição) |
 | Ajudar a prever a fila e ganhar pontos | [Fazer check-in](#fazer-check-in) |
@@ -109,8 +109,6 @@ Confira a caixa de spam. Se não estiver lá, tente entrar com o seu e-mail e se
 
 ### Esqueci a senha
 
-<!-- [CONFIRMAR] A tela "Esqueci a senha" existe no app, mas em 24/11/2026 a API de produção ainda não tinha a rota /api/recuperar-senha/ (resposta 404). Se a recuperação entrar no ar antes da entrega, troque este parágrafo pelo passo a passo: Entrar → Esqueci a senha → informar o e-mail → abrir o link (vale 1 hora) → criar a nova senha. -->
-
 A recuperação de senha pelo próprio site ainda não está disponível. Enquanto isso, escreva para **equipe@bandejaounb.com.br** a partir do seu e-mail institucional.
 
 ---
@@ -120,9 +118,10 @@ A recuperação de senha pelo próprio site ainda não está disponível. Enquan
 A tela do campus reúne tudo o que você precisa para a próxima refeição:
 
 - o **cardápio** da refeição, com os filtros alimentares;
-- a **nota média** e os **comentários** da refeição;
 - a **previsão da fila** em faixas de 15 minutos;
 - o botão de **check-in** (para quem tem conta).
+
+As **avaliações** (estrelas, comentários e envio) ficam numa tela própria, **Avaliações**. O **Início** mostra só a nota média, com link para ela.
 
 O Bandejão abre na **refeição padrão**:
 
@@ -161,7 +160,7 @@ O cardápio vem do PDF oficial do RU e é lido automaticamente toda semana. Por 
 
 ## Filtros alimentares
 
-Toque em **Filtros alimentares** para ajustar o cardápio à sua alimentação. A escolha fica salva neste aparelho e vale para todos os dias, refeições e campi.
+Toque no ícone de funil (**Filtros alimentares**), na tela do campus, para ajustar o cardápio à sua alimentação. A escolha fica salva neste aparelho e vale para todos os dias, refeições e campi.
 
 ### Dieta
 
@@ -193,10 +192,12 @@ A previsão mostra como a fila costuma estar em cada **faixa de 15 minutos** da 
 
 | Nível | O que quer dizer |
 |---|---|
-| **Vazia** | Bem menos movimento que no pico |
-| **Curta** | Movimento abaixo da metade do pico |
-| **Moderada** | Movimento perto do pico |
-| **Longa** | O horário mais cheio; a faixa marcada como **Pico** |
+| **Vazia** | Menos de 25% do movimento da faixa mais cheia do dia |
+| **Curta** | De 25% a menos de 50% |
+| **Moderada** | De 50% a menos de 75% |
+| **Longa** | 75% ou mais |
+
+A faixa mais cheia do dia (ou as faixas, se houver empate) recebe também o selo **Pico**, além do nível **Longa**.
 
 **Como ela é calculada.** A previsão usa só os **check-ins** feitos pelos usuários nas **últimas 4 semanas**, no **mesmo dia da semana**, campus e refeição. O nível de cada faixa é relativo ao horário mais cheio do dia: ele diz *quando* a fila costuma ser maior, e não quantos minutos você vai esperar.
 
@@ -208,10 +209,11 @@ A previsão mostra como a fila costuma estar em cada **faixa de 15 minutos** da 
 
 Qualquer pessoa pode ler as avaliações. Para avaliar, é preciso estar com a conta aberta.
 
-1. Na tela do campus, escolha o dia de hoje e a refeição.
-2. Toque nas **estrelas** para dar uma nota de **1 a 5**.
-3. Se quiser, escreva um **comentário** de até **500 caracteres** sobre os pratos.
-4. Toque em **Enviar avaliação**.
+1. Na tela do campus, escolha o dia de hoje e a refeição que quer avaliar.
+2. Abra a tela **Avaliações**, pela barra de navegação ou pelo card **Avaliações** do **Início**. Ela abre na refeição escolhida.
+3. Toque nas **estrelas** para dar uma nota de **1 a 5**.
+4. Se quiser, escreva um **comentário** de até **500 caracteres** sobre os pratos.
+5. Toque em **Enviar avaliação**.
 
 Regras:
 
@@ -237,7 +239,7 @@ Regras:
 - Fora do horário, aparece uma mensagem como *"O check-in do almoço só vale das 11h00 às 14h30."*
 - Você precisa estar perto do RU do campus escolhido. Um check-in feito de outro campus, de casa ou com o GPS impreciso é recusado.
 - No **Darcy Ribeiro**, o RU e o Restaurante Executivo ficam no mesmo prédio, e o GPS não distingue os dois.
-- <!-- [CONFIRMAR] Na fixture dos campi, a Fazenda Água Limpa está com a confirmação desligada (confirmacao_ativa = false, raio 0), porque a coordenada é da fazenda, não do RU. Conferir se continua assim em produção. --> Na **Fazenda Água Limpa**, o check-in ainda não está disponível.
+- Na **Fazenda Água Limpa**, o check-in ainda não está disponível.
 - Quem criou a conta antes da Release 2 precisa dar ciência ao aviso de privacidade atualizado antes do primeiro check-in.
 
 ### Sua localização
@@ -280,7 +282,7 @@ Em **Meu progresso** (no menu do avatar), você vê sua patente, seus pontos e q
 Cada campus tem um ranking do semestre com quem mais contribui ali.
 
 - **Participar é opcional e começa desligado.** Para entrar, abra **Meu progresso** e ligue **Participar do ranking**. Você pode sair quando quiser, e seus pontos continuam contando.
-- O ranking mostra a **posição**, o **apelido** e a **patente**. Os pontos de cada pessoa não aparecem.
+- O ranking mostra os **10 primeiros** do campus, com a **posição**, o **apelido** e a **patente**. Os pontos de cada pessoa não aparecem.
 - Só entram os pontos ganhos naquele campus durante o semestre letivo.
 - Qualquer pessoa, mesmo sem login, pode ver o ranking em **Ranking do campus**.
 
@@ -339,7 +341,7 @@ Não. A localização é lida só no momento do check-in e descartada logo depoi
 Não. O apelido é definido no cadastro e não pode ser alterado.
 
 **Por que não apareço no ranking?**
-A participação começa desligada. Ligue **Participar do ranking** em **Meu progresso**. É preciso ter pelo menos 1 ponto no semestre naquele campus.
+A participação começa desligada. Ligue **Participar do ranking** em **Meu progresso**. É preciso ter pelo menos 1 ponto no semestre naquele campus, e só aparecem os **10 primeiros** colocados.
 
 **O Restaurante Executivo do Darcy Ribeiro está no Bandejão?**
 Não. As informações valem só para o RU.
