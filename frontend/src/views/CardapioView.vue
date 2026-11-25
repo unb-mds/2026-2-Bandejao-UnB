@@ -534,8 +534,18 @@ function limparFiltros() {
 
 /* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
 .destaque {
-  display: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  margin: 12px 16px;
+  color: var(--branco-100, #fff);
+  background: var(--verde-escuro);
+  border-radius: var(--raio-lg);
 }
+.destaque-prato { font-weight: 900; }
+.destaque-resumo { font-size: 12px; }
 
 @media (min-width: 1024px) {
   /* Dias e refeição viram duas pílulas claras sobre o creme. */
@@ -592,7 +602,7 @@ function limparFiltros() {
     gap: 32px;
     min-height: 300px;
     overflow: hidden;
-    margin-bottom: 14px;
+    margin: 0 0 14px;
     padding: 40px;
     border-radius: 28px;
     color: #fff;
