@@ -342,7 +342,7 @@ async function sair() {
             {{ textoPrevisao }}
           </p>
           <p class="pequeno-legenda">previsão de pico</p>
-          <p class="pequeno-rodape pequeno-rodape--suave">Ver previsão completa</p>
+          <p class="pequeno-rodape pequeno-rodape--suave">Ver fila do RU</p>
         </RouterLink>
 
         <!-- Avaliações -->
@@ -790,7 +790,10 @@ async function sair() {
 }
 
 /* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
-.topo-desktop,
+.topo-desktop {
+  display: none;
+}
+
 .hoje-arte {
   display: none;
 }

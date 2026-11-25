@@ -1165,6 +1165,50 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
 - Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
 
+## Tela da fila (`/fila`)
+- Issue: sem issue (pedido direto da equipe). PR: #302.
+- Ferramentas: Claude (Anthropic) e ChatGPT (OpenAI).
+- Problema: o item "Fila" das navegações levava à tela do campus com `#fila`. A fila ficava embaixo do cardápio, a navegação marcava "Cardápio", e, com o cardápio carregando depois da rolagem, a fila saía da vista: no celular e no desktop, parecia que a tela da fila não existia.
+- Apoio inicial (Claude): tela própria `FilaTelaView` em `/fila` (cabeçalho "Fila do RU" com o campus, voltar para a tela do campus, a seção `FilaView` e o contato), com a rota exigindo campus; o composable `useFilaDoCampus`, compartilhado pelas duas telas; C4 do front e README. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD inicial: os testes da tela, da rota e da navegação num commit anterior à correção, com 5 falhando sem ela.
+- Validação inicial: `npm run test:ci` com 1.123 testes passando, `npm run lint:ci` sem achados; conferência no navegador a 360 e a 1366 px, conforme registrado na implementação inicial.
+- Revisão humana: [revisão de Álvaro](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/302#pullrequestreview-6051341271), com solicitação de alterações.
+- Apoio na revisão (ChatGPT), em 25/11/2026:
+  - independência da refeição e da data da previsão da fila em relação à seleção do cardápio;
+  - tratamento de campus inexistente e falha no carregamento dos campi, com opção de tentar novamente;
+  - atualização do card da fila na Home, removendo a indicação de funcionalidade futura;
+  - reforço dos testes das três navegações e inclusão de testes de regressão;
+  - verificação de que a tela da fila não solicita o cardápio;
+  - correção da duplicidade de títulos para leitores de tela;
+  - reversão de alterações exclusivamente de formatação apontadas na revisão;
+  - substituição das ilustrações de café da manhã, almoço e jantar, compartilhadas pelas versões desktop e mobile, utilizando as imagens fornecidas pela autora;
+  - auxílio na atualização deste registro.
+- Decisão humana: manter a arquitetura existente, utilizar as ilustrações fornecidas e aplicar as correções na mesma branch do PR #302.
+- Validação após os ajustes, executada pela autora:
+  - `npm run test:ci -- --maxWorkers=1 --no-file-parallelism`: 44 arquivos de teste e 1.128 testes passando;
+  - cobertura: 95,69% de instruções, 93,24% de ramificações, 95,63% de funções e 96,67% de linhas;
+  - `npm run lint:ci`: nenhum erro ou aviso;
+  - `npm run build`: concluído com sucesso.
+- Limitações: a conferência visual dos novos ajustes com os protótipos do Figma, nas versões desktop e mobile, e a validação manual do check-in autenticado ainda estão pendentes. O equipamento da autora apresentou travamentos durante as tentativas de execução local.
+- Situação: ajustes da revisão aplicados e validados por testes automatizados; aguardando conferência visual e nova revisão.
+
+### Segunda rodada de revisão
+
+- **Ferramenta utilizada:** ChatGPT, com integração ao Figma.
+- **Contexto:** segunda revisão do PR #302, que apontou alterações visuais na Home e no Cardápio mobile ainda não conferidas com os protótipos.
+- **Ajustes realizados:**
+  - Consulta ao código-fonte dos protótipos desktop e mobile.
+  - Adequação da visibilidade da ilustração na Home.
+  - Ajuste das proporções, dos espaçamentos e da responsividade do cartão de destaque do Cardápio mobile.
+  - Preservação integral dos três arquivos PNG, sem compressão, conversão ou substituição.
+  - Preservação das correções funcionais aprovadas na primeira revisão.
+- **Decisão humana:** manter as alterações visuais e as ilustrações no próprio PR #302, sem abertura de um PR separado.
+- **Validação realizada:**
+  - Lint: zero erros e zero avisos.
+  - Testes específicos: 46 de 46 aprovados.
+  - Build de produção concluído com sucesso.
+  - `git diff --check` sem problemas.
+- **Validação pendente:** conferência visual da aplicação renderizada a 360 px e 1366 px, devido às limitações de hardware do equipamento utilizado. A comparação com o código-fonte dos protótipos não substitui essa conferência.
 ## Correção da navegação do Perfil (#297)
 
 - Issue: [#297](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/297). PR: [#301](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/301).
