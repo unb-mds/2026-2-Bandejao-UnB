@@ -1060,3 +1060,34 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
 - Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
 >>>>>>> origin/develop
+
+### Issue #259 — Ajustes da revisão do PR #288
+
+Data: 24/11/2026.
+
+Ferramenta de IA: ChatGPT.
+
+Uso da IA:
+- Apoio na interpretação da revisão do PR.
+- Elaboração dos patches de correção e teste de regressão.
+- Orientação para execução dos testes e comandos Git.
+
+Alterações realizadas:
+- Merge com a develop e resolução do conflito no AI-USAGE.md.
+- Ocultação das estrelas do cartão Satisfação da semana quando não existem avaliações.
+- Inclusão de uma verificação de regressão no teste existente.
+
+Validações executadas localmente:
+- npm run lint:ci: aprovado, sem erros ou avisos.
+- npm run test:ci: 1.145 testes aprovados em 43 arquivos.
+- npm run build: aprovado.
+- Cobertura de linhas: 96,56%.
+- Cobertura de ramos: 93,06%.
+- Cobertura de funções: 95,51%.
+- Cobertura de instruções: 95,62%.
+
+Pendência:
+A validação manual da rota /inicio com o backend real não foi
+executada, pois o comando Docker não está disponível no ambiente
+local. O critério de aceite correspondente permanece pendente.
+
