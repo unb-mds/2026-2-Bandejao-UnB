@@ -26,6 +26,7 @@
   - Banco de dados
     - [Nível 3](arquitetura/banco-de-dados/C4-nivel-3-banco-de-dados-bandejao.md)
     - [Nível 4](arquitetura/banco-de-dados/C4-nivel-4-banco-de-dados-bandejao.md)
+    - [Indicadores de adesão (BD-E5)](arquitetura/banco-de-dados/indicadores-adesao-bd-e5.md)
   - Front-end
     - [Níveis 3 e 4](arquitetura/front-end/c4-niveis-3-4-frontend-bandejao.md)
 

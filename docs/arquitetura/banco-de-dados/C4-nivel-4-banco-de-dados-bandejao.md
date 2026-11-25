@@ -614,7 +614,8 @@ derivável), também **não são tabelas**:
 
 Os quatro indicadores de adesão da RNF09 (pergunta de saída respondida,
 check-ins por usuário ativo, sequência de 2 semanas ou mais e adesão ao
-ranking) também são consultas manuais, sem tabela própria.
+ranking) também são consultas manuais, sem tabela própria. As consultas
+ficam em [`indicadores-adesao-bd-e5.md`](indicadores-adesao-bd-e5.md).
 
 ---
 
