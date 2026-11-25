@@ -214,6 +214,9 @@ DOCKER_FALSO = """#!/bin/sh
 # `pwd -W` dá o caminho do Windows no sh do Git; no Linux, vale o `pwd`.
 { pwd -W 2>/dev/null || pwd; } > "$SAIDA_DOCKER"
 for arg in "$@"; do printf '%s\\n' "$arg" >> "$SAIDA_DOCKER"; done
+# Com LER_STDIN, lê a entrada como o `docker compose exec -T` num terminal:
+# se ela estiver aberta, espera para sempre.
+if [ -n "${LER_STDIN:-}" ]; then cat > "$SAIDA_DOCKER.stdin"; fi
 echo "saida-do-comando"
 if [ -n "${ESPERA_DOCKER:-}" ]; then sleep "$ESPERA_DOCKER"; fi
 echo x >> "$SAIDA_DOCKER.vezes"
@@ -243,7 +246,15 @@ def ambiente(tmp_path):
 
 @pytest.fixture
 def rodar(ambiente):
-    def rodar(*argumentos, falha=None, espera=None, fundo=False, caminho=None, **extra):
+    def rodar(
+        *argumentos,
+        falha=None,
+        espera=None,
+        fundo=False,
+        caminho=None,
+        stdin=None,
+        **extra,
+    ):
         env = {
             k: v
             for k, v in os.environ.items()
@@ -251,6 +262,7 @@ def rodar(ambiente):
             not in (
                 "FALHA_DOCKER",
                 "ESPERA_DOCKER",
+                "LER_STDIN",
                 "BANDEJAO_TEMPO_LIMITE",
                 "BANDEJAO_TEMPO_LIMITE_CLIENTE",
             )
@@ -268,7 +280,7 @@ def rodar(ambiente):
             env["ESPERA_DOCKER"] = str(espera)
         comando = [SH, SCRIPT.as_posix(), *argumentos]
         if fundo:
-            return subprocess.Popen(comando, env=env)
+            return subprocess.Popen(comando, env=env, stdin=stdin)
         resultado = subprocess.run(
             comando,
             check=False,  # o status de saída é conferido pelos testes
@@ -329,6 +341,27 @@ def test_roda_o_comando_no_container_com_tempo_limite(rodar):
     ]
     # Da pasta do repositório, onde estão o docker-compose.yml e o .env.
     assert Path(pasta).resolve() == RAIZ.resolve()
+
+
+@precisa_de_sh
+def test_nao_le_o_terminal_ao_rodar_a_mao(rodar, ambiente):
+    """Rodando à mão por SSH, a entrada é o terminal, aberta e sem dados. O
+    `docker compose exec -T` ficava lendo dela e o script travava em silêncio.
+    Aqui a entrada é um pipe que ninguém fecha: se o script a repassar ao
+    docker, o `cat` do docker falso espera e o teste estoura o tempo."""
+    processo = rodar("clearsessions", fundo=True, LER_STDIN="1", stdin=subprocess.PIPE)
+    try:
+        status = processo.wait(timeout=20)
+    except subprocess.TimeoutExpired:
+        processo.kill()
+        processo.wait()
+        pytest.fail("o script ficou esperando a entrada: o docker leu o terminal")
+    finally:
+        processo.stdin.close()
+
+    assert status == 0
+    stdin_do_docker = ambiente["docker"].with_name("docker.txt.stdin")
+    assert stdin_do_docker.read_text(encoding="utf-8") == ""
 
 
 @precisa_de_sh
