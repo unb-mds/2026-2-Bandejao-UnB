@@ -10,7 +10,7 @@ const emit = defineEmits(['escolher'])
 </script>
 
 <template>
-  <div class="dias sem-barra" role="tablist" aria-label="Dia da semana">
+  <div class="dias sem-barra" role="tablist" aria-label="Dia da semana" data-rolagem-horizontal>
     <button
       v-for="dia in dias"
       :key="dia"
