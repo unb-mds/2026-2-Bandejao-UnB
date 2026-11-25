@@ -78,6 +78,18 @@ describe('FilaPrevisao (FE-11, RF13, RN06)', () => {
     for (const faixa of comuns) expect(faixa.find('.selo-pico').exists()).toBe(false)
   })
 
+  it('legenda dos níveis com as faixas (no desktop, as colunas só mostram a cor, FE-23)', async () => {
+    const wrapper = await montar()
+
+    const legenda = wrapper.get('[data-teste="previsao-legenda"]')
+    expect(legenda.findAll('li').map((item) => item.text())).toEqual([
+      'Vazia',
+      'Curta',
+      'Moderada',
+      'Longa',
+    ])
+  })
+
   it('dados insuficientes: avisa, sem faixas e sem valor de reserva', async () => {
     const wrapper = await montar({ campusId: 5 })
 
@@ -213,8 +225,18 @@ describe('FilaPrevisao (FE-11, RF13, RN06)', () => {
   })
 
   it.each([
-    ['400 parametros_invalidos', 400, { codigo: 'parametros_invalidos', mensagem: 'Inválido.' }, false],
-    ['404 campus_nao_encontrado', 404, { codigo: 'campus_nao_encontrado', mensagem: 'Não há.' }, false],
+    [
+      '400 parametros_invalidos',
+      400,
+      { codigo: 'parametros_invalidos', mensagem: 'Inválido.' },
+      false,
+    ],
+    [
+      '404 campus_nao_encontrado',
+      404,
+      { codigo: 'campus_nao_encontrado', mensagem: 'Não há.' },
+      false,
+    ],
     ['404 sem codigo (página de proxy)', 404, {}, false],
     ['500', 500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' }, true],
   ])('%s: "Tentar novamente" aparece? %s', async (_caso, status, dados, comBotao) => {

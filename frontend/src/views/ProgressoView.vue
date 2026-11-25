@@ -59,7 +59,21 @@ function alterarAdesao(participar) {
       />
 
       <template v-else>
-        <div aria-live="polite">
+        <!-- Desktop (FE-23): o cartão de identidade do protótipo. Repete o que a
+             patente já diz, então fica fora da árvore de acessibilidade. -->
+        <div v-if="situacao === 'carregado'" class="identidade fundo-escuro" aria-hidden="true">
+          <span class="identidade-avatar">{{ auth.apelido.charAt(0).toUpperCase() }}</span>
+          <div>
+            <p class="sobretitulo">Perfil Bandejão</p>
+            <p class="identidade-apelido">{{ auth.apelido }}</p>
+          </div>
+          <span class="identidade-pontos">
+            <strong>{{ dados.pontosTotais }}</strong>
+            <small>pontos</small>
+          </span>
+        </div>
+
+        <div class="progresso-patente" aria-live="polite">
           <p v-if="situacao === 'carregando'" class="texto-pequeno estado">Carregando progresso…</p>
 
           <div
@@ -207,5 +221,90 @@ function alterarAdesao(participar) {
 
 .sair {
   align-self: flex-start;
+}
+
+/* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
+.identidade {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .corpo {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-content: start;
+  }
+  .corpo > * {
+    grid-column: 1 / -1;
+    margin-top: 0;
+  }
+  .corpo > .progresso-patente {
+    grid-column: 1;
+  }
+  .corpo > .progresso-patente + * {
+    grid-column: 2;
+  }
+  .corpo > .sair {
+    justify-self: start;
+  }
+
+  .identidade {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 22px;
+    min-height: 170px;
+    padding: 32px;
+    border-radius: 28px;
+    color: #fff;
+    background: var(--verde-escuro);
+    box-shadow: 0 18px 40px var(--sombra-escura);
+  }
+  .identidade-avatar {
+    display: grid;
+    place-items: center;
+    width: 76px;
+    height: 76px;
+    border-radius: 20px;
+    font: 900 28px var(--fonte-titulo);
+    color: #fff;
+    background: var(--dourado);
+    box-shadow: 0 10px 24px var(--sombra-logo);
+  }
+  .identidade-apelido {
+    font: 900 28px / 1.1 var(--fonte-titulo);
+    letter-spacing: -0.03em;
+  }
+  .identidade-pontos {
+    display: grid;
+    place-content: center;
+    width: 96px;
+    height: 96px;
+    border: 6px solid var(--dourado);
+    border-radius: 50%;
+    text-align: center;
+  }
+  .identidade-pontos strong {
+    font: 900 24px / 1 var(--fonte-titulo);
+  }
+  .identidade-pontos small {
+    margin-top: 2px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--branco-60);
+  }
+
+  .patente,
+  .corpo :deep(.cartao) {
+    padding: 28px;
+    border-radius: var(--raio-xl);
+    box-shadow: 0 8px 22px var(--sombra-cartao);
+  }
+  .nome-patente {
+    font-size: 30px;
+    letter-spacing: -0.03em;
+  }
 }
 </style>

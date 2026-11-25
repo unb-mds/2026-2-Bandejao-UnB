@@ -106,8 +106,9 @@ describe('CampusView (FE-07, front 3a.2)', () => {
     const { wrapper } = await montarEm('/campus/1')
 
     await vi.waitFor(() => expect(wrapper.find('.prato').exists()).toBe(true))
-    expect(wrapper.text()).toContain('Fila do RU')
-    expect(wrapper.text()).toContain('Entre para fazer check-in')
+    // Na tela (main): a BarraLateral do desktop (FE-23) também diz "Fila do RU".
+    expect(wrapper.get('main').text()).toContain('Fila do RU')
+    expect(wrapper.get('main').text()).toContain('Entre para fazer check-in')
   })
 
   it('a previsão da fila aparece na tela do campus, sem login (FE-11, RF13)', async () => {
@@ -162,11 +163,10 @@ describe('CampusView (FE-07, front 3a.2)', () => {
 
     const { wrapper } = await montarEm('/campus/1')
 
-    await vi.waitFor(() =>
-      expect(wrapper.text()).toContain('Não foi possível carregar o cardápio'),
-    )
-    expect(wrapper.text()).toContain('Fila do RU')
-    expect(wrapper.text()).toContain('Entre para fazer check-in')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Não foi possível carregar o cardápio'))
+    // Na tela (main): a BarraLateral do desktop (FE-23) também diz "Fila do RU".
+    expect(wrapper.get('main').text()).toContain('Fila do RU')
+    expect(wrapper.get('main').text()).toContain('Entre para fazer check-in')
   })
 
   it('a lista de campi falhando não esconde o cardápio', async () => {
@@ -278,9 +278,7 @@ describe('CampusView (FE-07, front 3a.2)', () => {
   it('a refeição do check-in: outro dia usa a refeição de agora; hoje, a selecionada', async () => {
     await entrarComAvisoAceito()
     const { wrapper } = await montarEm('/campus/1')
-    await vi.waitFor(() =>
-      expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true),
-    )
+    await vi.waitFor(() => expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true))
     const preferencias = usePreferenciasStore()
 
     preferencias.selecionar('2026-09-29', 'jantar')
@@ -424,9 +422,7 @@ describe('CampusView (FE-07, front 3a.2)', () => {
     await entrarComAvisoAceito()
     const post = vi.spyOn(apiClient, 'post')
     const { wrapper } = await montarEm('/campus/1')
-    await vi.waitFor(() =>
-      expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true),
-    )
+    await vi.waitFor(() => expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true))
 
     await wrapper.get('[data-teste="checkin-botao"]').trigger('click')
     await flushPromises()
@@ -441,16 +437,12 @@ describe('CampusView (FE-07, front 3a.2)', () => {
     simularGps()
     await entrarComAvisoAceito()
     const { wrapper } = await montarEm('/campus/1')
-    await vi.waitFor(() =>
-      expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true),
-    )
+    await vi.waitFor(() => expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true))
 
     await wrapper.get('[data-teste="checkin-botao"]').trigger('click')
     await flushPromises()
 
-    await vi.waitFor(() =>
-      expect(wrapper.find('[data-teste="pontos-aviso"]').exists()).toBe(true),
-    )
+    await vi.waitFor(() => expect(wrapper.find('[data-teste="pontos-aviso"]').exists()).toBe(true))
     expect(wrapper.get('[data-teste="pontos-aviso"]').text()).toContain('+10 pontos')
     expect(wrapper.text().match(/\+10 pontos/g)).toHaveLength(1)
   })
@@ -460,9 +452,7 @@ describe('CampusView (FE-07, front 3a.2)', () => {
     await entrarComAvisoAceito()
     const post = vi.spyOn(apiClient, 'post')
     const { wrapper } = await montarEm('/campus/1')
-    await vi.waitFor(() =>
-      expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true),
-    )
+    await vi.waitFor(() => expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true))
     await wrapper.get('[data-teste="checkin-botao"]').trigger('click')
     await flushPromises()
 
@@ -483,9 +473,7 @@ describe('CampusView (FE-07, front 3a.2)', () => {
     await entrarComAvisoAceito()
     const post = vi.spyOn(apiClient, 'post')
     const { wrapper } = await montarEm('/campus/1')
-    await vi.waitFor(() =>
-      expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true),
-    )
+    await vi.waitFor(() => expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true))
     usePreferenciasStore().selecionar(hojeISO(SEGUNDA(14, 30)), 'almoco')
     await flushPromises()
     await wrapper.get('[data-teste="checkin-botao"]').trigger('click')
@@ -506,9 +494,7 @@ describe('CampusView (FE-07, front 3a.2)', () => {
     await entrarComAvisoAceito()
     const post = vi.spyOn(apiClient, 'post')
     const { wrapper } = await montarEm('/campus/1')
-    await vi.waitFor(() =>
-      expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true),
-    )
+    await vi.waitFor(() => expect(wrapper.find('[data-teste="checkin-botao"]').exists()).toBe(true))
     await wrapper.get('[data-teste="checkin-botao"]').trigger('click')
     await flushPromises()
 

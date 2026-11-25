@@ -163,9 +163,7 @@ describe('ProgressoView: usuário logado (FE-12, RF26.2)', () => {
     vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) => {
       if (caminho === '/gamificacao/progresso/' && falhar) {
         falhar = false
-        return Promise.reject(
-          new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }),
-        )
+        return Promise.reject(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
       }
       return getOriginal(caminho, opcoes)
     })
@@ -186,9 +184,7 @@ describe('ProgressoView: usuário logado (FE-12, RF26.2)', () => {
     await entrar()
     const del = vi.spyOn(apiClient, 'delete')
     const { wrapper, router } = await montarEm()
-    await vi.waitFor(() =>
-      expect(wrapper.find('[data-teste="botao-sair"]').exists()).toBe(true),
-    )
+    await vi.waitFor(() => expect(wrapper.find('[data-teste="botao-sair"]').exists()).toBe(true))
 
     await wrapper.get('[data-teste="botao-sair"]').trigger('click')
     await flushPromises()
@@ -283,9 +279,7 @@ describe('ProgressoView: sair da conta (FE-12, RF03.3)', () => {
   it('o servidor não confirma: avisa, sem sair da tela', async () => {
     await entrar()
     const { wrapper, router } = await montarEm()
-    await vi.waitFor(() =>
-      expect(wrapper.find('[data-teste="botao-sair"]').exists()).toBe(true),
-    )
+    await vi.waitFor(() => expect(wrapper.find('[data-teste="botao-sair"]').exists()).toBe(true))
     vi.spyOn(apiClient, 'delete').mockRejectedValueOnce(
       new ApiError(500, { codigo: 'erro_interno', mensagem: 'Erro no servidor.' }),
     )
@@ -303,9 +297,7 @@ describe('ProgressoView: sair da conta (FE-12, RF03.3)', () => {
   it('enquanto sai, o botão fica desativado e um segundo clique não pede de novo', async () => {
     await entrar()
     const { wrapper } = await montarEm()
-    await vi.waitFor(() =>
-      expect(wrapper.find('[data-teste="botao-sair"]').exists()).toBe(true),
-    )
+    await vi.waitFor(() => expect(wrapper.find('[data-teste="botao-sair"]').exists()).toBe(true))
     const del = vi.spyOn(apiClient, 'delete').mockReturnValue(new Promise(() => {}))
 
     await wrapper.get('[data-teste="botao-sair"]').trigger('click')
@@ -324,7 +316,8 @@ describe('ProgressoView: visitante (FE-12, RF05)', () => {
 
     expect(router.currentRoute.value.name).toBe('progresso')
     expect(wrapper.text()).toContain('Entre para ver seu progresso')
-    expect(wrapper.find('a[href^="/login"]').exists()).toBe(true)
+    // O convite da tela: a BarraLateral do desktop (FE-23) também leva ao login.
+    expect(wrapper.get('main').find('a[href^="/login"]').exists()).toBe(true)
     expect(get.mock.calls.map(([caminho]) => caminho)).not.toContain('/gamificacao/progresso/')
     expect(wrapper.find('[data-teste="adesao-interruptor"]').exists()).toBe(false)
     expect(wrapper.find('[data-teste="botao-sair"]').exists()).toBe(false)
@@ -362,9 +355,7 @@ describe('ProgressoView: mudança de adesão (FE-12, RF27.1)', () => {
     await entrar()
     await useGamificacaoStore().alterarAdesao(true)
     const { wrapper } = await montarEm()
-    await vi.waitFor(() =>
-      expect(interruptor(wrapper).attributes('aria-checked')).toBe('true'),
-    )
+    await vi.waitFor(() => expect(interruptor(wrapper).attributes('aria-checked')).toBe('true'))
     const del = vi.spyOn(apiClient, 'delete')
 
     await interruptor(wrapper).trigger('click')
@@ -392,9 +383,7 @@ describe('ProgressoView: mudança de adesão (FE-12, RF27.1)', () => {
     await entrar()
     const { wrapper } = await montarComInterruptor()
     trocarGet('/gamificacao/progresso/', () =>
-      Promise.reject(
-        new ApiError(500, { codigo: 'erro_interno', mensagem: 'Erro no servidor.' }),
-      ),
+      Promise.reject(new ApiError(500, { codigo: 'erro_interno', mensagem: 'Erro no servidor.' })),
     )
 
     await interruptor(wrapper).trigger('click')
