@@ -1032,3 +1032,14 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - os exemplos de comando (`teste-de-carga-bd14.md` e docstring do `locustfile.py`) usam 500.
 - Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
 - Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
+
+## #250 — GRANT com o nome do banco escapado no `10-usuarios.sh`
+
+- Issue: [#250](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/250), achada na revisão do [#246](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/246) (#209).
+- Ferramenta: Claude (Anthropic). O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Mudança:
+  - `db/init/10-usuarios.sh`: os `GRANT`s do usuário da aplicação e do papel `equipe_moderacao` usam o nome do banco com o `_` e o `%` escapados. Para rodar de novo na VM, o script tira antes os `GRANT`s antigos, sem escape (os dois `REVOKE` do usuário da aplicação continuam, e o papel ganha um);
+  - `backend-ci.yml` (`testes-mysql`): a conferência do `SHOW GRANTS` procura o nome escapado no usuário e no papel e falha com um `GRANT` no nome sem escape; a cópia para o banco de teste lê a linha do nome escapado. As consultas usam `mysql -r`, porque sem ele a saída dobra a barra;
+  - guia de deploy: o `SHOW GRANTS` esperado e a seção "Nome do banco no GRANT", com como aplicar na VM.
+- TDD: testes antes da correção — do script com o `mysql` falso, do workflow e, no MySQL do CI, um que confere o escape no `SHOW GRANTS` e outro em que o usuário da aplicação tenta `CREATE DATABASE bandejaoXci` e precisa receber o erro 1044.
+- Situação: aguardando o CI e a revisão. Depois do merge e da release, falta conferir o `SHOW GRANTS` na VM; com o `DB_NAME` recomendado (`bandejao`), nada muda lá.

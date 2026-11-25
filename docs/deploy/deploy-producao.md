@@ -198,6 +198,9 @@ SQL
 
 O resultado certo tem só `SELECT, INSERT, UPDATE, DELETE, CREATE, DROP,
 REFERENCES, INDEX, ALTER` no banco `bandejao`, e nenhum `ALL PRIVILEGES`. Se
+o `DB_NAME` tiver `_` ou `%`, eles aparecem escapados no nome do banco
+(`ru_db` sai como `` `ru\\_db`.* ``: a saída do cliente dobra a barra); veja
+[Nome do banco no GRANT](#nome-do-banco-no-grant). Se
 aparecer `ALL PRIVILEGES`, ou se o log mostrar `[bandejao] ERRO`, rode o
 script à mão, como em [Banco](#banco); ele sai com erro se algo falhar. Antes
 de haver dados reais, também dá para apagar o volume e subir de novo (`docker
@@ -299,6 +302,36 @@ sai com erro (status 1, com `[bandejao] ERRO`) se algum comando falhar:
 docker compose up -d --force-recreate --wait db
 docker compose exec db sh /docker-entrypoint-initdb.d/10-usuarios.sh
 ```
+
+### Nome do banco no GRANT
+
+No `GRANT` de banco, o `_` e o `%` do nome são curingas: um `GRANT` em
+`` `ru_db`.* `` vale também para `ruXdb`, `ru-db` etc., e o `DB_USER`, que
+tem `CREATE` e `DROP`, poderia criar e apagar bancos com esses nomes. Por
+isso o `10-usuarios.sh` dá os privilégios com o nome escapado
+(`` `ru\_db`.* ``), que vale só para o banco da aplicação (#250).
+
+Até a #250, o script dava os `GRANT`s sem o escape. Com o `DB_NAME`
+recomendado (`bandejao`, sem `_` nem `%`), isso não muda nada. Se o `DB_NAME`
+da VM tiver `_` ou `%`, aplique a correção depois do deploy que a trouxe
+(o CD já faz o backup do banco antes de subir; confira o
+`~/backups/deploy-<data>-<commit>.sql.gz`). O script tira os `GRANT`s antigos,
+sem escape, e dá os novos; não precisa recriar o `db`, porque o `.env.db`
+não mudou:
+
+```bash
+cd ~/2026-2-Bandejao-UnB
+ls -lt ~/backups/ | head -3
+docker compose exec db sh /docker-entrypoint-initdb.d/10-usuarios.sh
+docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' <<'SQL'
+SHOW GRANTS FOR '<DB_USER>'@'%';
+SHOW GRANTS FOR 'equipe_moderacao';
+SQL
+```
+
+Nas duas respostas, o nome do banco precisa aparecer só escapado (com a barra
+dobrada pela saída do cliente, como `` `ru\\_db`.* ``), e nenhuma linha com
+`` `ru_db`.* ``.
 
 ### Conexão com o banco (TLS)
 
