@@ -161,6 +161,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y default-libmysqlclient-dev build-essential pkg-config
 
+      # Como na VM antes da #250: o usuário e o papel já têm GRANTs no nome
+      # do banco sem escape (curinga). A conferência depois do script prova
+      # que, rodado de novo, ele tira esses GRANTs.
+      - name: Dar os GRANTs antigos, sem escape (como na VM antes da #250)
+        env:
+          # A senha de root só nos passos que usam o root, e não no migrate
+          # nem no pytest. É a mesma do serviço mysql, acima.
+          MYSQL_PWD: senha-ci-descartavel
+        run: |
+          mysql -h "$DB_HOST" -P "$DB_PORT" -uroot -e "
+            CREATE ROLE IF NOT EXISTS 'equipe_moderacao';
+            GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
+            GRANT SELECT, INSERT, UPDATE, DELETE ON \`$DB_NAME\`.* TO 'equipe_moderacao';"
+
       # O mesmo script da primeira subida da VM, rodado dentro do container do
       # serviço (ele usa o cliente mysql pelo socket, como na imagem). O
       # MYSQL_DATABASE, o MYSQL_USER e a senha de root já estão no ambiente
@@ -192,8 +206,23 @@ jobs:
             echo "::error::$DB_USER com privilégio global (ON *.*)."
             exit 1
           fi
-          echo "$permissoes" | grep -q "ON \`$DB_NAME\`" \
-            || { echo "::error::$DB_USER sem privilégio no $DB_NAME."; exit 1; }
+          # O "_" e o "%" são curingas no nome do banco do GRANT: o certo é
+          # o nome escapado (bandejao\_ci), que vale só para o banco da
+          # aplicação. Um GRANT no nome sem escape falha o passo (#250).
+          banco_escapado=$(printf '%s' "$DB_NAME" | sed 's/[_%]/\\&/g')
+          for quem in "'$DB_USER'@'%'" "'equipe_moderacao'"; do
+            # -r: sem ele, a saída dobra a barra (bandejao\\_ci).
+            linhas=$(mysql -h "$DB_HOST" -P "$DB_PORT" -uroot -N -r \
+              -e "SHOW GRANTS FOR $quem")
+            echo "$linhas"
+            echo "$linhas" | grep -qF "ON \`$banco_escapado\`.*" \
+              || { echo "::error::$quem sem privilégio no $DB_NAME (nome escapado)."; exit 1; }
+            if [ "$banco_escapado" != "$DB_NAME" ] \
+              && echo "$linhas" | grep -F "ON \`$DB_NAME\`.*"; then
+              echo "::error::$quem com GRANT no nome sem escape: vale para outros bancos (curinga)."
+              exit 1
+            fi
+          done
 
       # O pytest-django cria o banco test_<DB_NAME>. Ele recebe exatamente os
       # privilégios que o script deu ao banco da aplicação, copiados do SHOW
@@ -205,8 +234,9 @@ jobs:
           # nem no pytest. É a mesma do serviço mysql, acima.
           MYSQL_PWD: senha-ci-descartavel
         run: |
-          linha=$(mysql -h "$DB_HOST" -P "$DB_PORT" -uroot -N \
-            -e "SHOW GRANTS FOR '$DB_USER'@'%'" | grep "ON \`$DB_NAME\`")
+          banco_escapado=$(printf '%s' "$DB_NAME" | sed 's/[_%]/\\&/g')
+          linha=$(mysql -h "$DB_HOST" -P "$DB_PORT" -uroot -N -r \
+            -e "SHOW GRANTS FOR '$DB_USER'@'%'" | grep -F "ON \`$banco_escapado\`.*")
           privilegios=$(echo "$linha" | sed -E 's/^GRANT (.*) ON .*/\1/')
           echo "Privilégios copiados: $privilegios"
           # O "_" é curinga no nome do banco do GRANT: escapado, vale só o

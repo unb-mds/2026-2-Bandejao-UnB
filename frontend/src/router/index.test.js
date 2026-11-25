@@ -86,14 +86,11 @@ describe('roteamento', () => {
     ['/campus/-1'],
     ['/campus/1.5'],
     ['/campus/01'],
-  ])(
-    '%s: "Campus não encontrado", sem virar o campus lembrado',
-    async (caminho) => {
-      const { wrapper } = await montarEm(caminho)
-      await vi.waitFor(() => expect(wrapper.text()).toContain('Campus não encontrado'))
-      expect(usePreferenciasStore().campusId).toBeNull()
-    },
-  )
+  ])('%s: "Campus não encontrado", sem virar o campus lembrado', async (caminho) => {
+    const { wrapper } = await montarEm(caminho)
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Campus não encontrado'))
+    expect(usePreferenciasStore().campusId).toBeNull()
+  })
 
   it.each([
     ['/cardapio', { name: 'campus-tela', params: { campusId: '1' } }],
@@ -109,16 +106,13 @@ describe('roteamento', () => {
     ['/cardapio/gama', '3'],
     ['/cardapio/planaltina', '4'],
     ['/cardapio/fal', '5'],
-  ])(
-    'link antigo %s abre o campus do link, não o lembrado',
-    async (caminho, campusId) => {
-      const aviso = vi.spyOn(console, 'warn')
-      const lembrado = campusId === '1' ? 3 : 1
-      const { router } = await montarEm(caminho, { campus: lembrado })
-      expect(router.currentRoute.value).toMatchObject({ name: 'campus-tela', params: { campusId } })
-      expect(aviso).not.toHaveBeenCalled()
-    },
-  )
+  ])('link antigo %s abre o campus do link, não o lembrado', async (caminho, campusId) => {
+    const aviso = vi.spyOn(console, 'warn')
+    const lembrado = campusId === '1' ? 3 : 1
+    const { router } = await montarEm(caminho, { campus: lembrado })
+    expect(router.currentRoute.value).toMatchObject({ name: 'campus-tela', params: { campusId } })
+    expect(aviso).not.toHaveBeenCalled()
+  })
 
   it.each([['/cardapio/executivo'], ['/cardapio/0'], ['/cardapio/01']])(
     '%s não abre o campus lembrado: cai no 404',
@@ -169,14 +163,9 @@ describe('roteamento', () => {
 })
 
 describe('navegação do protótipo', () => {
-  it('visitante chega ao cardápio em 2 toques: continuar → campus (RNF03)', async () => {
+  it('visitante chega ao cardápio em 1 toque na boas-vindas: o campus (RNF03, #285)', async () => {
     const { wrapper, router } = await montarEm('/')
-
-    await wrapper
-      .findAll('a')
-      .find((a) => a.text() === 'Continuar sem login')
-      .trigger('click')
-    await esperarRota(router, 'campus')
+    expect(router.currentRoute.value.name).toBe('boas-vindas')
 
     const botaoDarcy = () =>
       wrapper.findAll('button').find((b) => b.text().includes('Darcy Ribeiro'))

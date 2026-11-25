@@ -117,7 +117,8 @@ lembrado; a mesma seção aparece embaixo do cardápio, na tela do campus.
 
 ```
 / ──(1ª visita)──► /boas-vindas ──► /login ──► /cadastro ──► /confirmar-email
-  └(campus salvo)► /cardapio            └────► /campus ──► /inicio
+  │             └─(escolhe o campus)┐
+  └(campus salvo)──────────────────► /campus/:campusId ──► /inicio
                                                               ├─► /cardapio
                                                               ├─► /fila       (Fila do RU)
                                                               └─► /avaliacoes

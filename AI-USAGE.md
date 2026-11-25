@@ -991,6 +991,19 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - `coverage==7.17.5` fixo; Plano de Testes com linhas e ramos juntos no back, o escopo do `cardapio` sem o leitor, "passo" no lugar de "job" e a BE-18 no título da 5.1.
 - Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12 e a revisão do contrato pelo FE.
 
+## BD-13 — Roteiro de moderação
+
+- Issue: [#165](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/165). PR: [#284](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/284).
+- Ferramenta: Claude (Anthropic), em 24/11/2026.
+- Apoio: texto de `docs/operacao/roteiro-de-moderacao.md` (cinco operações em SQL com checagem, transação e verificação: ocultar avaliação, suspender e reativar conta, excluir conta pelo `remover_conta` em sete passos (conferir o alvo, suspender, backup manual, apagar as avaliações do titular, excluir, conferir e apagar o backup), corrigir pontos nas duas tabelas e matrícula contestada), entrada no menu lateral (`docs/_sidebar.md`) e esta seção. O texto foi gerado pela IA a partir do modelo de dados do código e dos ADRs 0004, 0007 e 0008, e revisado e aplicado pelo autor. As três revisões do Álvaro no PR #284 também foram aplicadas com apoio da IA: a primeira (blocos sem `COMMIT`, backup antes da exclusão, avaliações do titular, `WHERE` da operação 4, links e tabela de acesso), a segunda, a terceira e a quarta (a seguir).
+- Segunda revisão (Álvaro, sobre o commit `7974614`, com apoio do PR Review Toolkit): o backup manual passou a ter apagamento obrigatório (o arquivo guarda dados de quem pediu a exclusão; o aviso de privacidade promete 7 dias); o `DELETE` das avaliações exige `COMMIT;` e conferência numa conexão nova, porque sair do `mysql` sem `COMMIT` o desfaz; todo bloco começa com `ROLLBACK;` (o `START TRANSACTION` faz `COMMIT` da transação aberta); a operação 3 passou a conferir o alvo, suspender antes, verificar o backup com `pipefail` e a última linha do dump, e avisar que restaurar volta o banco inteiro; a operação 4 confere `pontos_concedidos_em` antes de retirar pontos e pede a linha do semestre da refeição; a operação 5 busca por `matricula_siape`; saiu o "registre no grupo" que sobrava; as três âncoras ganharam o `_` do docsify; o roteiro ganhou blocos de transação para desfazer a ocultação e reativar a conta, a regra de não deixar transação aberta, a conferência de todas as tabelas depois da exclusão, a observação sobre `mysql.user` (precisa de `root`), a chave do deploy automático e a troca da senha do `root` quando alguém sai. O critério da issue sobre ensaiar cada operação em produção não foi atendido por completo (veja a validação) e ficou registrado no PR.
+- Terceira revisão (Álvaro, sobre o commit `4645faa`, por leitura, conferindo no código): a operação 4 passou a explicar como achar o semestre da refeição (o `SemestreResolver` usa o primeiro semestre cujo término é igual ou posterior à data, então as férias contam para o semestre seguinte; exemplo e ponteiro para `ParametrosGamificacaoConfig.datas_termino_semestre`); `<n>` passou a ter valor (avaliação 5, check-in 10, resposta de saída 15, de `config/parametros.py`); ganhou uma linha com os marcadores `fila_checkin.pontos_concedidos_em` e `fila_perguntasaida.pontos_concedidos_em` para os outros erros de pontuação; o comentário da conferência do passo 6 deixou de se contradizer; e o passo 7 passou a listar o arquivo com `ls -l` antes do `rm -f --`. Os valores e o `SemestreResolver` foram conferidos no código da `develop`; o texto novo não foi rodado em MySQL nem em produção.
+- Quarta revisão (Álvaro, aprovada, sobre o commit `7919fa7`): a sugestão da l. 193 foi aplicada. Como o BD-15 (#227) já entrou na `develop`, o texto deixou de dizer que o guia "entra com o BD-15" e que o backup diário "só passa a valer quando estiver instalado", e passou a apontar para a seção "Restaurar de verdade (emergência)" do guia e a listar onde ficam as cópias. O link usa o padrão dos outros links do roteiro (`?id=` com o título da seção); o texto novo não foi rodado em MySQL nem em produção.
+- Feito pelo autor, sem a IA: execução das operações 1, 2, 4 e 5 na VM de produção, dentro de transação e terminando em `ROLLBACK`; criação do usuário `luis` com o papel `equipe_moderacao`, conferência dos acessos (`authorized_keys` e `mysql.user`) para a tabela "Quem tem acesso", e o ensaio do comando de backup manual e do bloco que apaga as avaliações (terminando em `ROLLBACK`).
+- Validação: ensaio em produção em 24/11/2026, sempre dentro de transação e terminando em `ROLLBACK`, **na versão anterior às revisões**. Exceções: a operação 3 (exclusão de conta) não foi ensaiada, de propósito, porque não tem desfazer; na operação 1 a produção não tem avaliações, então o ensaio criou uma dentro da transação, ocultou e desfez; na operação 4 só foi ensaiado o `UPDATE` de `gamificacao_pontuacaousuario` (recusado pelo `CHECK` ao passar de zero), porque `gamificacao_pontossemestrecampus` está vazia em produção, e o `WHERE` novo com `usuario_id` não foi rodado em produção; a operação 5 só tinha `SELECT` e rodou sem erro. Depois da segunda revisão, os blocos SQL do roteiro foram executados num banco de teste (SQLite) só para conferir nomes de tabelas e colunas; o comportamento do MySQL descrito nas regras (o `START TRANSACTION` faz `COMMIT` implícito e sair sem `COMMIT` desfaz) é o documentado e não foi ensaiado em produção. Não há código nem testes nesta entrega.
+- Ressalva do ensaio: o ensaio do backup manual em produção foi feito com o bloco antigo. O bloco novo, com `pipefail` e `$arq`, só foi testado com um `docker` falso. Nenhuma das três revisões mudou isso.
+- Situação: aguardando nova revisão.
+
 ## FE-16 — Checklist de qualidade no celular e no desktop
 
 - Issue: [#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192). PR: [#287 — FE-16: Checklist de qualidade no celular e no desktop](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287). Bugs abertos: #285 e #286.
@@ -1011,6 +1024,29 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação depois dos ajustes: o spec rodado contra o servidor simulado, com uma cópia que troca a conta e o prato da fixture pelos do simulado: os testes sem login, o controle e a primeira visita passaram, e os dois `test.fail()` falharam onde deviam. O teste com login não roda no simulado, que perde a sessão ao recarregar; na pilha real, [run do `ponta-a-ponta`](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45439504101). `npm run lint:ci` sem achados.
 - Situação: ajustes da revisão aplicados; aguardando o recheck.
 
+## #285 — Primeira visita em 2 interações sem a localização (RNF03)
+
+- Issue: [#285](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/285). PR: [#289](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/289). Relacionada: FE-16 ([#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192), PR [#287](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287)).
+- Ferramenta: Claude (Anthropic), em 24/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Apoio:
+  - a `BoasVindasView` passou a ter a escolha do campus (os campi de `GET /api/campi/`, com "Carregando campi…", a falha com "Tentar novamente" e a lista vazia, como o `SeletorCampus`), no lugar do "Continuar sem login"; a escolha fica lembrada (RN04) e leva à tela do campus. O "Entrar na conta" continua;
+  - sem permitir a localização, a primeira visita fica com 2 interações até o cardápio: "Agora não" e o campus, como pede o RNF03 da Release 2 (o RF19 já dizia que, depois do "Agora não", o sistema segue com o seletor);
+  - o teste de roteamento "2 toques: continuar → campus" virou "1 toque na boas-vindas"; comentário do `router/index.js` e tabela de rotas do C4 atualizados.
+- TDD: `e4a8975` (testes, 6 falhando) → `e54a40e` (código) → `6605b4c` (docs).
+- Validação local (antes da revisão): `npm run lint:ci` sem achados, `npm run test:ci` com 1.067 testes passando (96,38% de linhas / 92,74% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos. Boas-vindas conferida no navegador a 360 px, sem rolar para o lado.
+- FE-16 (#287): já está na `develop`. Neste PR o `frontend/e2e/qualidade.spec.js` e o `docs/qualidade/checklist-qualidade-front.md` foram atualizados para o caminho de 2 interações (ver os ajustes da revisão abaixo).
+- Revisão humana: revisão de AlvaroBento12 neste PR, com dois ajustes que bloqueiam o merge, cinco importantes e sugestões.
+- Ajustes da revisão, código gerado pela IA:
+  - **`develop` trazida:** conflito resolvido neste `AI-USAGE.md` (as entradas da FE-16 e da #285 ficaram);
+  - **e2e e checklist (FE-16):** o `qualidade.spec.js` agora conta "Agora não" e o campus (2), sem o "Continuar sem login", e o `test.fail()` do caminho sem a localização saiu, com o comentário passando para o teste da primeira visita; a tela `/boas-vindas` espera um botão de campus, para a largura ser medida com a grade carregada. No checklist, o caminho sem permissão é 2 interações (✅), o com permissão 3 (pendência 1), e o bug 1 aparece como corrigido neste PR;
+  - **paisagem:** `overflow-y: auto` na boas-vindas e `flex-shrink: 0` em `.marca` e `.acoes`, para a grade e o "Tentar novamente" não ficarem cortados em 640×360;
+  - **toque no lugar errado:** a área dos campi reserva a altura da grade (`.area-campi`, `min-height: 150px`, 3 fileiras de botões), para o "Entrar na conta" não subir quando os campi carregam;
+  - **contraste (WCAG AA):** `--branco-70` na nota (carregando, erro, lista vazia e rodapé) e no rótulo `.chamada-campus`, e uma borda no "Tentar novamente";
+  - **testes:** "Carregando campi…" e a lista vazia cobertos (desligar o ramo ou apagar o texto derruba um teste); a visita seguinte agora é simulada com pinia e router novos na raiz; o aviso perde o `open` depois do "Agora não"; o teste dos campi confere os 5 (com a Fazenda Água Limpa); `timeout` maior no `vi.waitFor` do teste do RNF03;
+  - **textos:** C4 (`SeletorCampus` não é mais o destino da primeira escolha, a `BoasVindasView` usa stores e API, e a raiz sem campus vai para as boas-vindas), docblock da view, "Fluxo da primeira visita" no `router/index.js` e o diagrama do `frontend/README.md`.
+- Validação depois dos ajustes: `npm run lint:ci` sem achados, `npm run test:ci` com 1.069 testes passando (96,38% de linhas / 92,79% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Pendente (não foi feito no ambiente da IA): rodar o e2e de novo (`qualidade.spec.js`, Playwright) e conferir a boas-vindas a 360×640 e 640×360 no navegador, com os campi carregando e carregados. O resultado entra aqui.
+- Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12, o e2e e a conferência visual.
 ## FE-23 — Novo design do desktop, nova logo e ilustrações das refeições
 
 - Issue: [#291](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/291). PR: [#293 — FE-23: Novo design do desktop, nova logo e ilustrações das refeições](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/293).
@@ -1098,3 +1134,34 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - Build de produção concluído com sucesso.
   - `git diff --check` sem problemas.
 - **Validação pendente:** conferência visual da aplicação renderizada a 360 px e 1366 px, devido às limitações de hardware do equipamento utilizado. A comparação com o código-fonte dos protótipos não substitui essa conferência.
+## #250 — GRANT com o nome do banco escapado no `10-usuarios.sh`
+
+- Issue: [#250](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/250), achada na revisão do [#246](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/246) (#209). PR: [#298 — fix(banco): GRANT com o nome do banco escapado (#250)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/298).
+- Ferramenta: Claude (Anthropic). O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Mudança:
+  - `db/init/10-usuarios.sh`: os `GRANT`s do usuário da aplicação e do papel `equipe_moderacao` usam o nome do banco com o `_` e o `%` escapados. Para rodar de novo na VM, o script tira antes os `GRANT`s antigos, sem escape (os dois `REVOKE` do usuário da aplicação continuam, e o papel ganha um);
+  - `backend-ci.yml` (`testes-mysql`): a conferência do `SHOW GRANTS` procura o nome escapado no usuário e no papel e falha com um `GRANT` no nome sem escape; a cópia para o banco de teste lê a linha do nome escapado. As consultas usam `mysql -r`, porque sem ele a saída dobra a barra;
+  - guia de deploy: o `SHOW GRANTS` esperado e a seção "Nome do banco no GRANT", com como aplicar na VM.
+- TDD: testes em `ac36517`, antes da correção (`ca3b1d4`) — do script com o `mysql` falso, do workflow e, no MySQL do CI, um que confere o escape no `SHOW GRANTS` e outro em que o usuário da aplicação tenta `CREATE DATABASE bandejaoXci` e precisa receber o erro 1044.
+- Validação: local, `pytest` com 2262 aprovados e 67 pulados (os do MySQL rodam no CI), `ruff check` e `ruff format --check` sem achados e o YAML do workflow válido. No CI do #298, os 11 checks verdes; no `testes-mysql`, nenhum teste pulado e o `SHOW GRANTS` com `` `bandejao\_ci`.* `` no usuário e no papel.
+- Revisão humana: [aprovação de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/298#pullrequestreview-6050603783), com cinco sugestões. Aplicadas (TDD: testes em `ea0a2e6`, antes do ajuste):
+  - teste de que todo `REVOKE` vem antes do `GRANT`, no usuário e no papel, também com o nome de produção (`bandejao`), em que os nomes coincidem e o CI não veria a troca; uma mutação local com o `REVOKE` depois do `GRANT` faz o teste falhar;
+  - o `testes-mysql` dá os `GRANT`s antigos, sem escape, antes do script, como na VM antes da #250: a conferência passa a provar, num MySQL de verdade, que o script rodado de novo os retira;
+  - guia: recriar o `db` só quando o `.env.db` muda; se mudar só o script, basta rodá-lo de novo;
+  - este registro, com o link do PR, a validação e a revisão;
+  - comentário do script: o usuário da aplicação perde o que tiver nos três nomes, e o papel, só o `GRANT` sem escape.
+- Situação: aprovado; sugestões aplicadas, aguardando o recheck. A #250 fica aberta até conferir o `SHOW GRANTS` na VM, depois da release; com o `DB_NAME` recomendado (`bandejao`), nada muda lá.
+
+### Complemento da revisao do PR #289 - integracao com FE-23
+
+- Ferramenta: ChatGPT (OpenAI), em 24/11/2026.
+- Apoio: resolucao dos conflitos com a develop em AI-USAGE.md e BoasVindasView.vue, preservando os registros das duas branches e integrando a escolha direta do campus ao novo design da FE-23.
+- Ajuste das cores da selecao de campus para o fundo claro no desktop.
+- Validacao local: lint sem erros ou avisos, 1125 testes aprovados em 44 arquivos e build sem erros.
+- Cobertura: 96,53% de linhas, 93,07% de ramos, 95,41% de funcoes e 95,56% de instrucoes.
+- BoasVindasView.vue: 100% de cobertura e 7 testes especificos aprovados.
+- Validacao visual com backend simulado: 360x640, 640x360 e desktop.
+- Rolagem vertical em paisagem confirmada pela autora.
+- Pendente: conferencia visual da estabilidade do login durante o carregamento dos campi.
+- E2E com backend real nao executado localmente por indisponibilidade do Docker; aguardando CI.
+- Os comandos sugeridos pela IA foram executados pela autora.
