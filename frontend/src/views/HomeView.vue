@@ -344,7 +344,7 @@ async function sair() {
         </div>
 
         <div v-if="semanaPronta" class="semana-media">
-          <EstrelasNota :valor="resumo?.media ?? 0" :tamanho="13" />
+          <EstrelasNota v-if="resumo?.media != null" :valor="resumo.media" :tamanho="13" />
           <span class="semana-nota">{{ formatarNota(resumo?.media) }} / 5</span>
           <span class="semana-legenda">média geral</span>
         </div>
