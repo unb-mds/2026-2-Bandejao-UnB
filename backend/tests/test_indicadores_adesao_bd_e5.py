@@ -291,4 +291,6 @@ def test_set_inicio_no_mysql_da_o_inicio_da_janela_em_brasilia(db):
         cursor.execute("SELECT @inicio")
         (valor,) = cursor.fetchone()
 
-    assert valor == inicio()
+    # O MySQL devolve variável de usuário como texto ('2026-10-28'), e não como
+    # data: compara-se a data escrita por extenso.
+    assert str(valor) == inicio().isoformat()
