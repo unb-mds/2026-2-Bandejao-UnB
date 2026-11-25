@@ -16,6 +16,7 @@ Projeto do **Grupo 6 (G6)** na disciplina **Métodos de Desenvolvimento de Softw
 - [Releases e funcionalidades](#releases-e-funcionalidades)
 - [Quem pode usar](#quem-pode-usar)
 - [Onde o Bandejão está publicado](#onde-o-bandejão-está-publicado)
+- [Guia do usuário](#guia-do-usuário)
 - [Documentação](#documentação)
 - [Tecnologias](#tecnologias)
 - [Estrutura do repositório](#estrutura-do-repositório)
@@ -71,12 +72,17 @@ Todo merge na `main` vai para produção sozinho, pelo deploy contínuo: depois 
 
 O site do GitHub Pages, citado abaixo, é **só a documentação** do projeto, e não a aplicação.
 
+## Guia do usuário
+
+Como usar o Bandejão (primeiros passos, cardápio e filtros, previsão da fila, avaliação, check-in, pontos e ranking, solução de problemas e perguntas frequentes): [Guia do usuário](docs/guia-do-usuario.md), também no [site da documentação](https://unb-mds.github.io/2026-2-Bandejao-UnB/#/guia-do-usuario).
+
 ## Documentação
 
 Toda a documentação fica na pasta [`docs/`](docs/) e é publicada automaticamente no **GitHub Pages** (Docsify): **https://unb-mds.github.io/2026-2-Bandejao-UnB/**
 
 | Seção | Conteúdo |
 |---|---|
+| **Uso e contribuição** | [Guia do usuário](docs/guia-do-usuario.md) · [Como contribuir](CONTRIBUTING.md) |
 | **Requisitos** | [Documento de Visão](docs/requisitos/documento-de-visao-bandejao.md) · [Documento de Requisitos](docs/requisitos/documento-de-requisitos-bandejao.md) · [Glossário do domínio](docs/requisitos/CONTEXT-DOMINIO.md) · [Backlog do produto](docs/requisitos/backlog.md) |
 | **Arquitetura (C4)** | [Níveis 1 e 2](docs/arquitetura/c4-niveis-1-2.md) · Backend: [Nível 3](docs/arquitetura/backend/c4-nivel-3-backend.md) e Nível 4 ([cadastro/autenticação](docs/arquitetura/backend/c4-nivel-4-cadastro-autenticacao.md), [exposição do cardápio](docs/arquitetura/backend/c4-nivel-4-exposicao-cardapio.md), [leitor do cardápio](docs/arquitetura/backend/c4-nivel-4-leitor-cardapio.md), [avaliação](docs/arquitetura/backend/c4-nivel-4-avaliacao.md), [fila](docs/arquitetura/backend/c4-nivel-4-fila.md), [gamificação](docs/arquitetura/backend/c4-nivel-4-gamificacao.md)) · [Teste do leitor do PDF (BE-04)](docs/arquitetura/backend/teste-leitor-pdf-be-04.md) · Banco de dados: [Nível 3](docs/arquitetura/banco-de-dados/C4-nivel-3-banco-de-dados-bandejao.md) e [Nível 4](docs/arquitetura/banco-de-dados/C4-nivel-4-banco-de-dados-bandejao.md) · [Front-end](docs/arquitetura/front-end/c4-niveis-3-4-frontend-bandejao.md) |
 | **Decisões de arquitetura (ADRs)** | [0001 Stack do backend](docs/arquitetura/adr/0001-escolha-stack-backend.md) · [0002 Matrícula e apelido extraídos do e-mail](docs/arquitetura/adr/0002-matricula-apelido-extraidos-do-email.md) · [0003 Leitor de PDF como módulo do backend](docs/arquitetura/adr/0003-leitor-pdf-como-modulo-do-backend.md) · [0004 Acesso direto da equipe ao banco](docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md) · [0005 Filtros no backend](docs/arquitetura/adr/0005-filtros-de-marcador-e-dieta-no-backend.md) · [0006 Alerta de falha do leitor por e-mail](docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md) · [0007 Sessão por cookie HttpOnly](docs/arquitetura/adr/0007-sessao-autenticada-por-cookie-httponly.md) · [0008 Matrícula/SIAPE em texto claro](docs/arquitetura/adr/0008-matricula-siape-em-texto-claro.md) · [0009 Detecção de campus no aparelho](docs/arquitetura/adr/0009-deteccao-de-campus-no-aparelho.md) · [0010 Nível por chegadas com espera estimada](docs/arquitetura/adr/0010-nivel-por-chegadas-com-espera-estimada.md) · [0011 Contadores de gamificação além da retenção](docs/arquitetura/adr/0011-contadores-de-gamificacao-alem-da-janela-de-retencao.md) · [0012 Hospedagem na Azure e e-mail pelo Brevo](docs/arquitetura/adr/0012-hospedagem-e-servico-de-email.md) · [0013 Estratégia de testes e portas de qualidade](docs/arquitetura/adr/0013-estrategia-de-testes-e-portas-de-qualidade.md) · [0014 Descoberta do PDF de cada campus](docs/arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md) · [0015 Permissões de agentes de IA](docs/arquitetura/adr/0015-permissoes-de-agentes-de-ia-no-repositorio.md) · [0016 Login com e-mail institucional](docs/arquitetura/adr/0016-login-com-email-institucional.md) |
@@ -141,14 +147,9 @@ e abra http://localhost:3000.
 
 ## Como contribuir
 
-- **Branches (Gitflow):** o desenvolvimento acontece na **`develop`**, e a `main` recebe as entregas. Crie sua branch a partir da `develop` com um prefixo: `feature/…`, `fix/…`, `docs/…` ou `chore/…`.
-- **Commits:** mensagens no padrão *Conventional Commits*, em português (ex.: `feat: adiciona filtro de dieta`, `docs: atualiza o backlog`).
-- **TDD:** o teste entra num commit antes do código (vermelho → verde → refatorar), conforme o [Plano de testes](docs/qualidade/plano-de-testes.md).
-- **Pull requests:** sempre para a `develop`, pequenos, usando o [template de PR](.github/PULL_REQUEST_TEMPLATE.md) e referenciando a issue. O PR só entra com o CI verde e revisado por alguém de outra frente, seguindo a Definition of Done do [Backlog do produto](docs/requisitos/backlog.md).
-- **Contrato da API:** se um endpoint mudar, atualize o [`backend/openapi.yaml`](backend/openapi.yaml) no mesmo PR.
-- **Issues:** use os templates de [história de usuário](.github/ISSUE_TEMPLATE/historia_usuario.yml), [tarefa](.github/ISSUE_TEMPLATE/tarefa.yml) ou [bug](.github/ISSUE_TEMPLATE/bug_report.yml). Os IDs (`BD-`, `BE-`, `FE-`, `QA-`, `DOC-`) e labels seguem o [Backlog do produto](docs/requisitos/backlog.md).
-- **Vocabulário:** use os termos do [glossário do domínio](docs/requisitos/CONTEXT-DOMINIO.md) e os nomes da arquitetura (C4) no código e nos textos (ex.: *Marcador*, e não "alérgeno").
-- **Decisões de arquitetura:** registre como nova ADR em `docs/arquitetura/adr/` e adicione ao menu do site. Se a implementação divergir do C4, atualize o documento de arquitetura no mesmo PR.
+O passo a passo completo está no guia **[Como contribuir](CONTRIBUTING.md)**: como preparar o ambiente, o fluxo de branches (Gitflow a partir da `develop`), o TDD com o teste antes do código, os commits em Conventional Commits, os pull requests com a Definition of Done, a revisão de código e as regras de uso de IA.
+
+Resumo: crie a branch a partir da `develop` (`feature/…`, `fix/…`, `docs/…` ou `chore/…`), escreva o teste antes do código e abra um PR pequeno para a `develop`, com o [template de PR](.github/PULL_REQUEST_TEMPLATE.md), o CI verde e a revisão de alguém de outra frente.
 
 ## Equipe
 
