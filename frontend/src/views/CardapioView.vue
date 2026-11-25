@@ -563,7 +563,7 @@ function limparFiltros() {
     min-height: 40px;
     padding: 0 13px;
     border: 1px solid var(--borda);
-    border-radius: 11px;
+    border-radius: var(--raio-11);
     background: var(--cartao);
   }
   /* O IconeSvg recebe a cor branca por prop (style inline) para o celular. */
@@ -594,8 +594,8 @@ function limparFiltros() {
     overflow: hidden;
     margin-bottom: 14px;
     padding: 40px;
-    border-radius: 28px;
-    color: #fff;
+    border-radius: var(--raio-28);
+    color: var(--branco);
     background: var(--verde-escuro);
     box-shadow: 0 18px 40px var(--sombra-escura);
   }
@@ -650,15 +650,15 @@ function limparFiltros() {
   .categoria {
     padding: 20px;
     border: 1px solid var(--borda);
-    border-radius: 18px;
+    border-radius: var(--raio-18);
     background: var(--cartao);
-    box-shadow: 0 6px 18px var(--sombra-cartao);
+    box-shadow: 0 6px 18px var(--sombra-cartao-cor);
   }
   .aviso-alteracao {
     grid-column: 1 / -1;
     padding: 16px 20px;
     border: 1px solid var(--alerta-borda);
-    border-radius: 14px;
+    border-radius: var(--raio-14);
     text-align: left;
     color: var(--alerta-texto);
     background: var(--alerta-fundo);

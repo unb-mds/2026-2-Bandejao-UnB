@@ -68,19 +68,19 @@ const emit = defineEmits(['escolher'])
     width: min(100%, 405px);
     padding: 4px;
     border: 1px solid var(--borda);
-    border-radius: 13px;
+    border-radius: var(--raio-13);
     background: var(--cartao);
   }
   .refeicao {
     align-items: flex-start;
     padding: 8px 14px;
     border: 0;
-    border-radius: 9px;
+    border-radius: var(--raio-9);
     text-align: left;
     color: var(--texto-suave);
   }
   .refeicao--ativa {
-    color: #fff;
+    color: var(--branco);
     background: var(--verde-escuro);
   }
   .refeicao .rotulo {

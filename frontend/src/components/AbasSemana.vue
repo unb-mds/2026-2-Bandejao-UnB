@@ -75,14 +75,14 @@ const emit = defineEmits(['escolher'])
     gap: 2px;
     padding: 4px;
     border: 1px solid var(--borda);
-    border-radius: 13px;
+    border-radius: var(--raio-13);
     background: var(--cartao);
   }
   .dia {
     flex: 0 0 auto;
     min-width: 61px;
     padding: 7px 11px;
-    border-radius: 9px;
+    border-radius: var(--raio-9);
     background: transparent;
   }
   .dia-semana {
@@ -100,7 +100,7 @@ const emit = defineEmits(['escolher'])
     color: var(--branco-60);
   }
   .dia--ativo .dia-data {
-    color: #fff;
+    color: var(--branco);
   }
 }
 </style>

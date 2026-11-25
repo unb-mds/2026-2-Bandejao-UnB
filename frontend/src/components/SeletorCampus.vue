@@ -298,7 +298,7 @@ function escolher(id) {
   }
   .passos .passo--feito,
   .passos .passo--atual {
-    color: #fff;
+    color: var(--branco);
   }
   .passo--feito span {
     border-color: var(--dourado);
@@ -334,7 +334,7 @@ function escolher(id) {
   }
   .campus {
     min-height: 78px;
-    border-radius: 16px;
+    border-radius: var(--raio-lg);
   }
 }
 </style>

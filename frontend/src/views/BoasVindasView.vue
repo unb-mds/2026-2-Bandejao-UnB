@@ -205,7 +205,7 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
     flex-direction: column;
     overflow: hidden;
     padding: clamp(32px, 4vw, 62px) clamp(38px, 5vw, 78px) 36px;
-    color: #fff;
+    color: var(--branco);
     background: var(--verde-escuro);
   }
   .hero::before,
@@ -292,12 +292,12 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
     min-height: 96px;
     padding: 11px 13px;
     border: 1px solid var(--branco-08);
-    border-radius: 16px;
+    border-radius: var(--raio-lg);
     color: var(--branco-60);
     background: var(--branco-05);
   }
   .hero-refeicao--destaque {
-    color: #fff;
+    color: var(--branco);
     border-color: var(--dourado);
     background: var(--branco-08);
   }
@@ -375,7 +375,7 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
     padding: 0;
   }
   .acoes .botao--destaque {
-    color: #fff;
+    color: var(--branco);
     background: var(--verde-escuro);
     box-shadow: 0 10px 20px var(--sombra-escura);
   }

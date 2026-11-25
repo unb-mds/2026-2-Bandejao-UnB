@@ -768,12 +768,12 @@ async function sair() {
     min-height: 40px;
     padding: 0 13px;
     border: 1px solid var(--borda);
-    border-radius: 11px;
+    border-radius: var(--raio-11);
     font-size: 12px;
     font-weight: 700;
     color: var(--texto-suave);
     background: var(--cartao);
-    box-shadow: 0 4px 14px var(--sombra-cartao);
+    box-shadow: 0 4px 14px var(--sombra-cartao-cor);
   }
 
   .cartoes {
@@ -793,7 +793,7 @@ async function sair() {
 
   .cartao {
     border-radius: var(--raio-xl);
-    box-shadow: 0 8px 22px var(--sombra-cartao);
+    box-shadow: 0 8px 22px var(--sombra-cartao-cor);
   }
 
   /* Cardápio de hoje: o cartão verde grande, com a ilustração da refeição. */
@@ -809,7 +809,7 @@ async function sair() {
     padding: 32px;
     border: 0;
     text-align: left;
-    color: #fff;
+    color: var(--branco);
     background: var(--verde-escuro);
   }
   .cartao-hoje::before {
@@ -848,10 +848,10 @@ async function sair() {
     font-size: clamp(28px, 2.6vw, 38px);
     line-height: 1.02;
     letter-spacing: -0.045em;
-    color: #fff;
+    color: var(--branco);
   }
   .cartao-hoje .hoje-nota span {
-    color: #fff;
+    color: var(--branco);
   }
   .cartao-hoje .hoje-linhas {
     border-top: 0;

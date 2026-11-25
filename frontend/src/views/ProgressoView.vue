@@ -256,8 +256,8 @@ function alterarAdesao(participar) {
     gap: 22px;
     min-height: 170px;
     padding: 32px;
-    border-radius: 28px;
-    color: #fff;
+    border-radius: var(--raio-28);
+    color: var(--branco);
     background: var(--verde-escuro);
     box-shadow: 0 18px 40px var(--sombra-escura);
   }
@@ -266,11 +266,11 @@ function alterarAdesao(participar) {
     place-items: center;
     width: 76px;
     height: 76px;
-    border-radius: 20px;
+    border-radius: var(--raio-20);
     font: 900 28px var(--fonte-titulo);
-    color: #fff;
+    color: var(--branco);
     background: var(--dourado);
-    box-shadow: 0 10px 24px var(--sombra-logo);
+    box-shadow: 0 10px 24px var(--sombra-logo-cor);
   }
   .identidade-apelido {
     font: 900 28px / 1.1 var(--fonte-titulo);
@@ -300,7 +300,7 @@ function alterarAdesao(participar) {
   .corpo :deep(.cartao) {
     padding: 28px;
     border-radius: var(--raio-xl);
-    box-shadow: 0 8px 22px var(--sombra-cartao);
+    box-shadow: 0 8px 22px var(--sombra-cartao-cor);
   }
   .nome-patente {
     font-size: 30px;

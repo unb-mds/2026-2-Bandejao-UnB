@@ -79,6 +79,18 @@
   --raio-lg: 16px;
   --raio-xl: 24px;
 
+  /* Raios do prototipo desktop (FE-23) */
+  --raio-3: 3px;
+  --raio-5: 5px;
+  --raio-9: 9px;
+  --raio-10: 10px;
+  --raio-11: 11px;
+  --raio-13: 13px;
+  --raio-14: 14px;
+  --raio-18: 18px;
+  --raio-20: 20px;
+  --raio-28: 28px;
+
   /* Larguras a partir do tablet (mobile first, FE-20, RNF05) */
   --largura-conteudo: 1200px;
   --largura-formulario: 480px;
@@ -92,8 +104,8 @@
   --branco-30: rgba(255, 255, 255, 0.3);
   --branco-05: rgba(255, 255, 255, 0.05);
   --branco-02: rgba(255, 255, 255, 0.02);
-  --sombra-logo: rgba(0, 0, 0, 0.2);
-  --sombra-cartao: rgba(63, 43, 22, 0.06);
+  --sombra-logo-cor: rgba(0, 0, 0, 0.2);
+  --sombra-cartao-cor: rgba(63, 43, 22, 0.06);
   --sombra-escura: rgba(19, 43, 24, 0.15);
 }
 
