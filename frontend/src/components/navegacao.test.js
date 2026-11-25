@@ -203,3 +203,15 @@ describe('App: navegação do topo', () => {
     expect(wrapper.findComponent(NavegacaoTopo).exists()).toBe(false)
   })
 })
+
+describe('Tela "Fila do RU" (/fila)', () => {
+  it('as três navegações marcam "Fila", não "Cardápio"', async () => {
+    const { wrapper } = await montar(App, '/fila')
+
+    const atuais = wrapper
+      .findAll('nav a[aria-current="page"]')
+      .map((link) => link.text().replace(/\s+/g, ' ').trim())
+    expect(atuais.length).toBeGreaterThan(0)
+    expect(atuais.every((texto) => texto.startsWith('Fila'))).toBe(true)
+  })
+})
