@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useFilaStore } from '@/stores/fila'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
 import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
@@ -19,6 +20,7 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
 /** Tela inicial (protótipo): resumo do dia, fila, avaliações e satisfação da semana. */
 const router = useRouter()
 const auth = useAuthStore()
+const fila = useFilaStore()
 const avaliacoes = useAvaliacoesStore()
 const cardapio = useCardapioStore()
 cardapio.carregarCampi()
@@ -41,6 +43,52 @@ const tipoHoje = computed(() => {
     resposta?.status === 'publicado' && !resposta.semServico && resposta.data === hoje
   return servidoHoje ? resposta.refeicao : null
 })
+const pedidoPrevisao = computed(() =>
+  campusId.value && tipoHoje.value
+    ? { campus: campusId.value, refeicao: tipoHoje.value, data: hoje }
+    : null,
+)
+
+const estadoPrevisao = computed(() =>
+  pedidoPrevisao.value ? fila.estadoDaPrevisao(pedidoPrevisao.value) : null,
+)
+
+watch(
+  pedidoPrevisao,
+  (pedido) => {
+    if (pedido) fila.carregarPrevisao(pedido)
+  },
+  { immediate: true },
+)
+
+function horaPico(valor) {
+  const [h, m] = valor.split(':')
+  return m === '00' ? `${Number(h)}h` : `${Number(h)}h${m}`
+}
+
+const textoPrevisao = computed(() => {
+  if (erroHoje.value) return 'Previsão indisponível'
+  if (!cardapioHoje.value) return 'Carregando previsão…'
+  if (!tipoHoje.value) return 'Sem refeição hoje'
+
+  const estado = estadoPrevisao.value
+  if (['erro', 'indisponivel'].includes(estado?.situacao)) {
+    return 'Previsão indisponível'
+  }
+
+  const previsao = estado?.previsao
+  if (!previsao) return 'Carregando previsão…'
+  if (previsao.status === 'dados_insuficientes') {
+    return 'Dados insuficientes'
+  }
+
+  const picos = (previsao.faixas ?? [])
+    .filter((faixa) => faixa.ehPico)
+    .map((faixa) => `${horaPico(faixa.inicio)} às ${horaPico(faixa.fim)}`)
+
+  return picos.length ? picos.join(' e ') : 'Previsão indisponível'
+})
+
 const linhasResumo = computed(() =>
   tipoHoje.value ? resumoRefeicao(cardapioHoje.value.categorias) : [],
 )
@@ -278,9 +326,11 @@ async function sair() {
             <span class="ponto" />
             <span class="rotulo">Fila</span>
           </div>
-          <p class="pequeno-valor">Em breve</p>
+          <p class="pequeno-valor valor-previsao" aria-live="polite">
+            {{ textoPrevisao }}
+          </p>
           <p class="pequeno-legenda">previsão de pico</p>
-          <p class="pequeno-rodape pequeno-rodape--suave">Na próxima versão</p>
+          <p class="pequeno-rodape pequeno-rodape--suave">Ver previsão completa</p>
         </RouterLink>
 
         <!-- Avaliações -->
@@ -609,6 +659,12 @@ async function sair() {
   font-size: 24px;
   line-height: 1;
   color: var(--texto-escuro);
+}
+
+.valor-previsao {
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .pequeno-legenda {
