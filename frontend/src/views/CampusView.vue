@@ -99,9 +99,7 @@ watch(
 
     <main v-if="naoEncontrado" class="conteudo sem-barra estado">
       <p class="estado-titulo">Campus não encontrado</p>
-      <RouterLink :to="{ name: 'campus' }" class="botao botao--primario"
-        >Escolher o campus</RouterLink
-      >
+      <RouterLink :to="{ name: 'campus' }" class="botao botao--primario">Escolher o campus</RouterLink>
       <ContatoEquipe />
     </main>
 

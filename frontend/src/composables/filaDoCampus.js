@@ -9,9 +9,9 @@ const INTERVALO_DO_RELOGIO = 30 * 1000
 /**
  * Refeição do check-in e da previsão da fila (RF12, RF13), com um relógio que
  * anda a cada 30 s para a refeição virar sozinha. Usado pela tela do campus
- * (seção da fila) e pela tela "Fila do RU", que mostram a mesma coisa.
+ * (seção da fila) e pela tela "Fila do RU", com seleção independente na tela própria.
  */
-export function useFilaDoCampus() {
+export function useFilaDoCampus({ seguirSelecao = true } = {}) {
   const preferencias = usePreferenciasStore()
   const agora = ref(new Date())
   let relogio = null
@@ -25,7 +25,11 @@ export function useFilaDoCampus() {
 
   const refeicaoDaFila = computed(() => {
     const selecionada = preferencias.refeicaoSelecionada
-    if (preferencias.dataSelecionada === hojeISO(agora.value) && REFEICOES[selecionada]) {
+    if (
+      seguirSelecao &&
+      preferencias.dataSelecionada === hojeISO(agora.value) &&
+      REFEICOES[selecionada]
+    ) {
       return selecionada
     }
     return refeicaoPadrao(ORDEM_REFEICOES, agora.value)
@@ -33,9 +37,11 @@ export function useFilaDoCampus() {
   const refeicaoEncerrada = computed(
     () => minutosAgora(agora.value) > minutosDoDia(REFEICOES[refeicaoDaFila.value].fim),
   )
-  const dataDaPrevisao = computed(() => preferencias.dataSelecionada ?? hojeISO(agora.value))
+  const dataDaPrevisao = computed(() =>
+    (seguirSelecao ? preferencias.dataSelecionada : null) ?? hojeISO(agora.value),
+  )
   const refeicaoDaPrevisao = computed(() =>
-    REFEICOES[preferencias.refeicaoSelecionada]
+    seguirSelecao && REFEICOES[preferencias.refeicaoSelecionada]
       ? preferencias.refeicaoSelecionada
       : refeicaoDaFila.value,
   )

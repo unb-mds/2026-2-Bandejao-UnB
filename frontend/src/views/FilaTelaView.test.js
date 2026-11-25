@@ -6,13 +6,15 @@ import { instalarGuardas, routes } from '@/router'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { reiniciarSimulacao } from '@/services/mock/servidor'
 import App from '@/App.vue'
+import { apiClient, ApiError } from '@/services/apiClient'
 
 const SEGUNDA_MEIO_DIA = new Date(2026, 8, 28, 12, 0)
 
-async function montarFila(campus = 1) {
+async function montarFila(campus = 1, selecao = null) {
   const pinia = createPinia()
   setActivePinia(pinia)
   if (campus) usePreferenciasStore().escolherCampus(campus)
+  if (selecao) usePreferenciasStore().selecionar(...selecao)
   const router = createRouter({ history: createMemoryHistory(), routes })
   instalarGuardas(router)
   router.push('/fila')
@@ -32,6 +34,7 @@ beforeEach(() => {
 enableAutoUnmount(afterEach)
 
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.useRealTimers()
   document.body.innerHTML = ''
 })
@@ -57,9 +60,42 @@ describe('FilaTelaView: a tela "Fila do RU" (RF12, RF13)', () => {
   })
 
   it('não carrega o cardápio: é a tela da fila, só', async () => {
+    const get = vi.spyOn(apiClient, 'get')
     const { wrapper } = await montarFila(1)
-
     expect(wrapper.find('[aria-labelledby="titulo-cardapio"]').exists()).toBe(false)
+    expect(get.mock.calls.some(([caminho]) => caminho.startsWith('/cardapio/'))).toBe(false)
+  })
+
+  it.each(['2026-09-27', '2026-09-28', '2026-09-29'])(
+    'ignora a seleção do cardápio de %s', async (data) => {
+      vi.setSystemTime(new Date(2026, 8, 28, 18, 0))
+      const { wrapper } = await montarFila(1, [data, 'almoco'])
+      await vi.waitFor(() => expect(wrapper.get('#titulo-previsao').text()).toContain('Jantar'))
+      expect(wrapper.get('#titulo-checkin').text()).toContain('Jantar')
+      expect(wrapper.get('#titulo-previsao').text()).toContain('hoje')
+    },
+  )
+
+  it('esquece campus inexistente e oferece nova escolha', async () => {
+    const { wrapper } = await montarFila(99)
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Campus não encontrado'))
+    expect(wrapper.text()).toContain('Escolher o campus')
+    expect(usePreferenciasStore().campusId).toBeNull()
+  })
+
+  it('permite tentar novamente após falha nos campi', async () => {
+    const original = apiClient.get.bind(apiClient)
+    let falhar = true
+    vi.spyOn(apiClient, 'get').mockImplementation((caminho, opcoes) =>
+      caminho === '/campi/' && falhar
+        ? Promise.reject(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
+        : original(caminho, opcoes),
+    )
+    const { wrapper } = await montarFila(1)
+    await vi.waitFor(() => expect(wrapper.get('[data-teste="falha-campi"]').text()).toContain('Sem internet.'))
+    falhar = false
+    await wrapper.get('[data-teste="falha-campi"] button').trigger('click')
+    await vi.waitFor(() => expect(wrapper.get('#titulo-checkin').text()).toContain('Almoço'))
   })
 
   it('o botão de voltar leva à tela do campus', async () => {

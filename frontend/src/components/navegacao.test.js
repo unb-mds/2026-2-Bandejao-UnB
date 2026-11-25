@@ -7,6 +7,7 @@ import { usePreferenciasStore } from '@/stores/preferencias'
 import { reiniciarSimulacao } from '@/services/mock/servidor'
 import { ITENS_NAVEGACAO, ITENS_NAVEGACAO_TOPO, itemAtivo } from '@/constants/navegacao'
 import App from '@/App.vue'
+import BarraLateral from './BarraLateral.vue'
 import NavegacaoInferior from './NavegacaoInferior.vue'
 import NavegacaoTopo from './NavegacaoTopo.vue'
 
@@ -208,10 +209,10 @@ describe('Tela "Fila do RU" (/fila)', () => {
   it('as três navegações marcam "Fila", não "Cardápio"', async () => {
     const { wrapper } = await montar(App, '/fila')
 
-    const atuais = wrapper
-      .findAll('nav a[aria-current="page"]')
-      .map((link) => link.text().replace(/\s+/g, ' ').trim())
-    expect(atuais.length).toBeGreaterThan(0)
-    expect(atuais.every((texto) => texto.startsWith('Fila'))).toBe(true)
+    for (const componente of [BarraLateral, NavegacaoTopo, NavegacaoInferior]) {
+      const atuais = wrapper.getComponent(componente).findAll('nav a[aria-current="page"]')
+      expect(atuais).toHaveLength(1)
+      expect(atuais[0].text().trim()).toMatch(/^Fila/)
+    }
   })
 })
