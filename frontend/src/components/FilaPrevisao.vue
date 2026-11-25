@@ -244,7 +244,7 @@ function tentarNovamente() {
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--verde-escuro);
-  color: #fff;
+  color: var(--branco);
   font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
@@ -305,7 +305,7 @@ function tentarNovamente() {
   .faixa-barra {
     order: 1;
     width: 100%;
-    border-radius: 6px 6px 3px 3px;
+    border-radius: var(--raio-xs) var(--raio-xs) var(--raio-3) var(--raio-3);
   }
   .faixa-barra--vazia {
     height: 22%;
@@ -346,7 +346,7 @@ function tentarNovamente() {
   .legenda-cor {
     width: 12px;
     height: 12px;
-    border-radius: 3px;
+    border-radius: var(--raio-3);
   }
   .faixa-hora,
   .faixa-nivel {

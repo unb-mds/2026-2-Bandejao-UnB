@@ -108,7 +108,7 @@ defineProps({
   .como-funciona {
     align-self: start;
     padding: 20px;
-    border-radius: var(--raio-lg);
+    border-radius: var(--raio-18);
   }
 }
 </style>

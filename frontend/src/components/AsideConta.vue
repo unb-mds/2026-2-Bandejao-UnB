@@ -51,7 +51,7 @@ defineProps({
     height: 100%;
     overflow: hidden;
     padding: clamp(32px, 4vw, 58px);
-    color: #fff;
+    color: var(--branco);
     background: var(--verde-escuro);
   }
 }
@@ -127,7 +127,7 @@ defineProps({
 .passos span {
   width: 28px;
   height: 3px;
-  border-radius: 5px;
+  border-radius: var(--raio-5);
   background: var(--branco-10);
 }
 

@@ -155,7 +155,7 @@ watch(
   margin-top: 12px;
   font-size: 13px;
   line-height: 1.5;
-  color: #fff;
+  color: var(--branco);
 }
 
 .falha-campi .botao-pequeno {

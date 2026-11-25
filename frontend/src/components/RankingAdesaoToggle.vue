@@ -87,7 +87,7 @@ const emit = defineEmits(['alterar'])
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--branco);
   transition: transform 0.15s;
 }
 
