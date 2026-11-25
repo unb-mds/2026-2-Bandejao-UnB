@@ -1055,3 +1055,18 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - os exemplos de comando (`teste-de-carga-bd14.md` e docstring do `locustfile.py`) usam 500.
 - Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
 - Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
+
+
+### Complemento da revisao do PR #289 - integracao com FE-23
+
+- Ferramenta: ChatGPT (OpenAI), em 24/11/2026.
+- Apoio: resolucao dos conflitos com a develop em AI-USAGE.md e BoasVindasView.vue, preservando os registros das duas branches e integrando a escolha direta do campus ao novo design da FE-23.
+- Ajuste das cores da selecao de campus para o fundo claro no desktop.
+- Validacao local: lint sem erros ou avisos, 1125 testes aprovados em 44 arquivos e build sem erros.
+- Cobertura: 96,53% de linhas, 93,07% de ramos, 95,41% de funcoes e 95,56% de instrucoes.
+- BoasVindasView.vue: 100% de cobertura e 7 testes especificos aprovados.
+- Validacao visual com backend simulado: 360x640, 640x360 e desktop.
+- Rolagem vertical em paisagem confirmada pela autora.
+- Pendente: conferencia visual da estabilidade do login durante o carregamento dos campi.
+- E2E com backend real nao executado localmente por indisponibilidade do Docker; aguardando CI.
+- Os comandos sugeridos pela IA foram executados pela autora.
