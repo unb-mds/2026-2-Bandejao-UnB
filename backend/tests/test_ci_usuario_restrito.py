@@ -93,6 +93,36 @@ def test_nome_do_banco_de_teste_vai_escapado_no_grant():
     assert "\\`$banco_de_teste\\`.*" in run
 
 
+def test_conferencia_procura_o_nome_escapado_e_falha_sem_escape():
+    """#250: o SHOW GRANTS certo mostra o banco com o `_` escapado. Um GRANT
+    no nome sem escape (curinga) falha o passo, no usuário e no papel."""
+    run = passo_chamado("Conferir as permissões")["run"]
+
+    assert "sed 's/[_%]/\\\\&/g'" in run
+    assert "equipe_moderacao" in run
+    assert 'grep -qF "ON \\`$banco_escapado\\`.*"' in run
+    assert 'grep -F "ON \\`$DB_NAME\\`.*"' in run
+
+
+def test_grants_antigos_sem_escape_existem_antes_do_script():
+    """Revisão do #298: como na VM antes da #250, o usuário e o papel já têm
+    GRANTs no nome sem escape quando o script roda. A conferência depois do
+    script prova que os REVOKEs tiram esses GRANTs num MySQL de verdade."""
+    passo = passo_chamado("Dar os GRANTs antigos")
+    run = passo["run"]
+
+    assert "CREATE ROLE IF NOT EXISTS 'equipe_moderacao'" in run
+    assert "ON \\`$DB_NAME\\`.* TO '$DB_USER'@'%'" in run
+    assert "ON \\`$DB_NAME\\`.* TO 'equipe_moderacao'" in run
+    assert passos().index(passo) < indice("10-usuarios.sh")
+
+
+def test_copia_para_o_banco_de_teste_le_a_linha_do_nome_escapado():
+    run = passo_chamado("Dar ao banco de teste")["run"]
+
+    assert 'grep -F "ON \\`$banco_escapado\\`.*"' in run
+
+
 def test_senha_de_root_so_nos_passos_que_usam_o_root():
     """O migrate e o pytest não recebem a senha de root."""
     job = job_mysql()

@@ -198,6 +198,9 @@ SQL
 
 O resultado certo tem só `SELECT, INSERT, UPDATE, DELETE, CREATE, DROP,
 REFERENCES, INDEX, ALTER` no banco `bandejao`, e nenhum `ALL PRIVILEGES`. Se
+o `DB_NAME` tiver `_` ou `%`, eles aparecem escapados no nome do banco
+(`ru_db` sai como `` `ru\\_db`.* ``: a saída do cliente dobra a barra); veja
+[Nome do banco no GRANT](#nome-do-banco-no-grant). Se
 aparecer `ALL PRIVILEGES`, ou se o log mostrar `[bandejao] ERRO`, rode o
 script à mão, como em [Banco](#banco); ele sai com erro se algo falhar. Antes
 de haver dados reais, também dá para apagar o volume e subir de novo (`docker
@@ -289,16 +292,51 @@ SET DEFAULT ROLE 'equipe_moderacao' TO '<usuário>'@'%';
 
 Para tirar o acesso: `DROP USER '<usuário>'@'%';`.
 
-Se o `.env.db` ganhar o usuário da equipe depois da primeira subida, ou se o
-script mudar, recrie o `db` para ele ler o `.env.db` e rode o script de novo.
-O `--wait` espera o banco ficar `healthy`; sem ele, o script pode rodar antes
-de o MySQL aceitar conexões. O script pode rodar quantas vezes for preciso e
-sai com erro (status 1, com `[bandejao] ERRO`) se algum comando falhar:
+Se o `.env.db` mudar (por exemplo, ganhar o usuário da equipe depois da
+primeira subida), recrie o `db` para ele ler o arquivo e rode o script de
+novo. O `--wait` espera o banco ficar `healthy`; sem ele, o script pode rodar
+antes de o MySQL aceitar conexões. O script pode rodar quantas vezes for
+preciso e sai com erro (status 1, com `[bandejao] ERRO`) se algum comando
+falhar:
 
 ```bash
 docker compose up -d --force-recreate --wait db
 docker compose exec db sh /docker-entrypoint-initdb.d/10-usuarios.sh
 ```
+
+Se mudar só o script, não precisa recriar o `db`: a pasta `db/init/` entra
+inteira no container, e o `git pull` já atualiza o arquivo. Basta rodar a
+segunda linha.
+
+### Nome do banco no GRANT
+
+No `GRANT` de banco, o `_` e o `%` do nome são curingas: um `GRANT` em
+`` `ru_db`.* `` vale também para `ruXdb`, `ru-db` etc., e o `DB_USER`, que
+tem `CREATE` e `DROP`, poderia criar e apagar bancos com esses nomes. Por
+isso o `10-usuarios.sh` dá os privilégios com o nome escapado
+(`` `ru\_db`.* ``), que vale só para o banco da aplicação (#250).
+
+Até a #250, o script dava os `GRANT`s sem o escape. Com o `DB_NAME`
+recomendado (`bandejao`, sem `_` nem `%`), isso não muda nada. Se o `DB_NAME`
+da VM tiver `_` ou `%`, aplique a correção depois do deploy que a trouxe
+(o CD já faz o backup do banco antes de subir; confira o
+`~/backups/deploy-<data>-<commit>.sql.gz`). O script tira os `GRANT`s antigos,
+sem escape, e dá os novos. Como só o script mudou, não precisa recriar o
+`db`:
+
+```bash
+cd ~/2026-2-Bandejao-UnB
+ls -lt ~/backups/ | head -3
+docker compose exec db sh /docker-entrypoint-initdb.d/10-usuarios.sh
+docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' <<'SQL'
+SHOW GRANTS FOR '<DB_USER>'@'%';
+SHOW GRANTS FOR 'equipe_moderacao';
+SQL
+```
+
+Nas duas respostas, o nome do banco precisa aparecer só escapado (com a barra
+dobrada pela saída do cliente, como `` `ru\\_db`.* ``), e nenhuma linha com
+`` `ru_db`.* ``.
 
 ### Conexão com o banco (TLS)
 
@@ -666,10 +704,16 @@ Rode cada comando uma vez à mão, pelo mesmo script do cron, **como
 `azureuser` e sem `sudo`**, e veja o log:
 
 ```bash
-sh deploy/cron/rodar-comando.sh clearsessions
-sh deploy/cron/rodar-comando.sh excluir_cadastros_pendentes
+sh deploy/cron/rodar-comando.sh clearsessions </dev/null
+sh deploy/cron/rodar-comando.sh excluir_cadastros_pendentes </dev/null
 tail -n 5 /var/log/bandejao/*.log
 ```
+
+O `</dev/null` evita que o comando leia o terminal. A correção da BD-07
+(24/11/2026) faz o script usar a entrada vazia sozinho, mas ela só chega à VM
+com a release `develop` → `main`, pelo deploy automático. Até lá, sem o
+`</dev/null` o comando trava (veja "Comando parado" abaixo); depois, ele é só
+uma garantia.
 
 Com `sudo`, o log e a trava passam a ser do root, e o cron do `azureuser` não
 consegue mais gravar: a tarefa para e só deixa o erro no syslog (status 73).
@@ -696,6 +740,32 @@ Cada execução grava no log do comando:
 Os status 1, 2 e 73 saem antes do log, então a execução não aparece no
 arquivo do comando. Se o log não tiver a execução esperada, veja o
 `journalctl -t bandejao-cron`.
+
+**Comando parado: o log só tem `início` e não avança.** Foi o que aconteceu ao
+rodar à mão, por SSH, a versão antiga do script (sem o `</dev/null`): o
+`docker compose` era parado pelo kernel ao tentar ler o terminal (estado `T`).
+A saída do comando sempre vai para o log, então o sinal não é "sem saída": é o
+estado `T`. Pelo cron isso não acontece. Para ver e destravar, **abra outra
+sessão SSH** (a travada não responde):
+
+```bash
+ps -eo pid,pgid,stat,cmd | grep "[d]ocker compose exec"
+kill -KILL -<pgid>
+```
+
+Use o `pgid` da linha com estado `T` ou `Tl` e confira, no fim dela, que o
+comando é o que travou (por exemplo `... manage.py clearsessions`). O `timeout`
+do mesmo grupo aparece como `S`; tarefas saudáveis do cron e outros
+`docker compose` não são o alvo.
+
+O `kill` encerra só o cliente `docker` e libera a trava; ele **não** encerra o
+Django dentro do container. Se o comando já tinha começado, ele segue rodando
+até o limite de 2 h, e uma nova execução pode rodar junto. Confira antes com
+`docker compose top backend | grep manage.py`. Se você matar o cliente, o status
+137 que aparecer no log vem do próprio `kill`. Enquanto o comando parado seguir
+vivo, ele segura a trava, e as execuções do cron do mesmo comando saem como 75
+(pulado) até o limite de 130 min. Depois que a correção estiver na VM, isso não
+se repete.
 
 Todo status diferente de 0 também vai para o syslog, com a tag
 `bandejao-cron`. O status 75 vai como aviso, e os outros, como erro. A VM não

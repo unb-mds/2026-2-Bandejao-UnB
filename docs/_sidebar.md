@@ -53,6 +53,7 @@
   - [Backup do banco](deploy/backup-banco.md)
 
 - **Operação**
+  - [Roteiro de moderação](operacao/roteiro-de-moderacao.md)
   - [Monitor de disponibilidade](operacao/monitor-disponibilidade.md)
   - [Relatório parcial de disponibilidade](operacao/relatorio-disponibilidade-parcial.md)
 
