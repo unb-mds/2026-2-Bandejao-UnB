@@ -540,7 +540,7 @@ function limparFiltros() {
   gap: 12px;
   padding: 20px;
   margin: 12px 16px;
-  color: #fff;
+  color: var(--branco);
   background: var(--verde-escuro);
   border-radius: var(--raio-xl);
 }
