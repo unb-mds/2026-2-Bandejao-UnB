@@ -1032,3 +1032,14 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - os exemplos de comando (`teste-de-carga-bd14.md` e docstring do `locustfile.py`) usam 500.
 - Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
 - Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
+
+## Guia de contribuição, guia do usuário e revisão das skills
+
+- PR: [CONFIRMAR o número do PR].
+- Ferramenta: Claude (Anthropic), em 24/11/2026.
+- Apoio: leitura do `CONTRIBUTING.md` e do site docs.flutter.dev, usados como modelo por indicação da professora; redação do `CONTRIBUTING.md` e do `docs/guia-do-usuario.md`; revisão do `SKILLS/USO-DAS-SKILLS.md` (faixa de ADRs até a 0016, ajustes da `estudo-semanal` ao repositório e seção "Como instalar as skills"); link do guia no `docs/_sidebar.md` e no `README.md`, com a seção "Como contribuir" do README resumida e apontando para o `CONTRIBUTING.md`; `contact_links` do `.github/ISSUE_TEMPLATE/config.yml`, que ainda apontava para `SEU_ORG/SEU_REPO`.
+- Conferência com o código: os textos, os horários, os pontos, as patentes e as regras do guia do usuário foram conferidos na `develop` (telas do `frontend/src`, `backend/config/parametros.py` e fixture dos campi) e no Documento de Requisitos. O guia descreve só o que está no código: ficam de fora a pergunta de saída da fila, a espera estimada, a sequência semanal, o cardápio da semana seguinte, o histórico de refeições e a detecção automática do campus (EXTRA 3, sem issue).
+- Decisões humanas: a recuperação de senha fica, por enquanto, pelo contato com a equipe, porque `GET /api/recuperar-senha/` respondeu 404 em produção em 24/11/2026; a detecção automática do campus não entra no guia.
+- Validação: os links relativos dos três documentos novos ou revisados foram conferidos contra os arquivos da `develop`. O site da documentação deve ser conferido localmente com `python -m http.server 3000 --directory docs`.
+- Revisão humana: [CONFIRMAR quem revisou e o link da revisão].
+- Situação: aguardando revisão.
