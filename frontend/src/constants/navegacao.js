@@ -1,7 +1,7 @@
 export const ITENS_NAVEGACAO = [
   { rotulo: 'Início', rota: 'inicio', icone: 'casa', preenche: true },
   { rotulo: 'Cardápio', rota: 'cardapio', icone: 'talheres', ativaEm: 'campus-tela' },
-  { rotulo: 'Fila', rota: 'fila', icone: 'relogio' },
+  { rotulo: 'Fila', rotuloLateral: 'Fila do RU', rota: 'fila', icone: 'relogio' },
   { rotulo: 'Avaliações', rota: 'avaliacoes', icone: 'estrela', preenche: true },
   // "Perfil" é um atalho para a Início, onde ficam o apelido, o campus e o login.
   { rotulo: 'Perfil', rota: 'inicio', icone: 'usuario', atalhoDaInicio: true },
