@@ -47,12 +47,15 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+const getOriginal = apiClient.get.bind(apiClient)
+
 function trocarGet(trecho, resposta) {
-  const getOriginal = apiClient.get.bind(apiClient)
+  const anterior =
+    (vi.isMockFunction(apiClient.get) && apiClient.get.getMockImplementation()) || getOriginal
   return vi
     .spyOn(apiClient, 'get')
     .mockImplementation((caminho, opcoes) =>
-      caminho.startsWith(trecho) ? resposta(caminho) : getOriginal(caminho, opcoes),
+      caminho.startsWith(trecho) ? resposta(caminho) : anterior(caminho, opcoes),
     )
 }
 
@@ -204,12 +207,19 @@ describe('HomeView: cartão "Cardápio de hoje" pelo GET /api/cardapio/ (#251)',
   })
 
   it('a nota do cartão é a da refeição de hoje no resumo do dia (GET /api/avaliacoes/resumo/)', async () => {
-    const resumo = trocarGet('/avaliacoes/resumo/?campus=1&data=', () =>
-      Promise.resolve([
-        { refeicaoId: 6, tipo: 'cafe', media: 2.1, quantidade: 3 },
-        { refeicaoId: 7, tipo: 'almoco', media: 4.4, quantidade: 5 },
-      ]),
-    )
+    // A lista só vem para hoje: a semana também pede 04/10, e um stub que respondesse
+    // a mesma lista para todos os dias não notaria o cartão ler outro dia.
+    const resumo = trocarGet('/avaliacoes/resumo/?campus=1&data=', (caminho) => {
+      const data = new URLSearchParams(caminho.split('?')[1]).get('data')
+      return Promise.resolve(
+        data === '2026-10-04'
+          ? [
+              { refeicaoId: 6, tipo: 'cafe', media: 2.1, quantidade: 3 },
+              { refeicaoId: 7, tipo: 'almoco', media: 4.4, quantidade: 5 },
+            ]
+          : [],
+      )
+    })
 
     const wrapper = await montarHome(1)
 
@@ -268,6 +278,152 @@ describe('HomeView: cartão "Cardápio de hoje" no domingo (#229)', () => {
   })
 })
 
+/**
+ * Cartões "Avaliações" e "Satisfação da semana" (#259). O backend só tem o
+ * resumo do dia (uma lista por refeição); a semana é montada no front, com um
+ * pedido por dia. Domingo, 04/10: a semana vai de 28/09 a 04/10.
+ */
+describe('HomeView: cartões "Avaliações" e "Satisfação da semana" (#259)', () => {
+  /** Resumo do dia do Darcy pela data do pedido; dia ausente: sem refeições. */
+  function resumoPorDia(porDia) {
+    return trocarGet('/avaliacoes/resumo/?campus=1&data=', (caminho) => {
+      const data = new URLSearchParams(caminho.split('?')[1]).get('data')
+      return Promise.resolve(porDia[data] ?? [])
+    })
+  }
+
+  const textoDosCartoes = (wrapper) =>
+    `${wrapper.get('.cartao-avaliacoes').text()} ${wrapper.get('.cartao-semana').text()}`
+
+  it('com avaliações: média e quantidade da semana e uma barra por dia com refeições', async () => {
+    const get = resumoPorDia({
+      '2026-09-28': [
+        { refeicaoId: 1, tipo: 'almoco', media: 4, quantidade: 3 },
+        { refeicaoId: 2, tipo: 'jantar', media: null, quantidade: 0 },
+      ],
+      '2026-09-29': [{ refeicaoId: 3, tipo: 'almoco', media: 2, quantidade: 1 }],
+      '2026-09-30': [{ refeicaoId: 4, tipo: 'almoco', media: null, quantidade: 0 }],
+    })
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-avaliacoes .pequeno-valor').text()).toBe('3,5'),
+    )
+    expect(wrapper.get('.cartao-avaliacoes').text()).toContain('/ 5 · esta semana')
+    expect(wrapper.get('.cartao-semana .contagem').text()).toBe('4 avaliações')
+    expect(wrapper.get('.cartao-semana .semana-nota').text()).toBe('3,5 / 5')
+    expect(wrapper.findAll('.barra-dia').map((dia) => dia.text())).toEqual(['Seg', 'Ter', 'Qua'])
+    expect(wrapper.findAll('.barra-valor').map((valor) => valor.text())).toEqual([
+      '4,0',
+      '2,0',
+      '–',
+    ])
+    // Nunca o pedido só com o campus, que no backend devolve o dia corrente.
+    const caminhos = get.mock.calls.map(([caminho]) => caminho)
+    expect(caminhos).not.toContain('/avaliacoes/resumo/?campus=1')
+    expect(caminhos).toContain('/avaliacoes/resumo/?campus=1&data=2026-09-28')
+  })
+
+  it('sem avaliações na semana: "sem avaliações ainda" e 0 avaliações, sem erro', async () => {
+    resumoPorDia({
+      '2026-09-28': [{ refeicaoId: 1, tipo: 'almoco', media: null, quantidade: 0 }],
+    })
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-avaliacoes').text()).toContain('sem avaliações ainda'),
+    )
+    expect(wrapper.get('.cartao-semana .contagem').text()).toBe('0 avaliações')
+    expect(wrapper.get('.cartao-semana').findComponent({ name: 'EstrelasNota' }).exists()).toBe(
+      false,
+    )
+    expect(textoDosCartoes(wrapper)).not.toContain('Não foi possível')
+  })
+
+  it('falha no pedido: diz que não carregou, e não "sem avaliações ainda"', async () => {
+    trocarGet('/avaliacoes/resumo/?campus=1&data=2026-09-30', () =>
+      Promise.reject(new ApiError(500, { codigo: 'erro_interno', mensagem: 'Fora do ar.' })),
+    )
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-semana').text()).toContain(
+        'Não foi possível carregar as avaliações da semana.',
+      ),
+    )
+    expect(wrapper.get('.cartao-avaliacoes').text()).toContain('Não foi possível carregar')
+    expect(textoDosCartoes(wrapper)).not.toContain('sem avaliações ainda')
+    expect(wrapper.find('.cartao-semana .contagem').exists()).toBe(false)
+    expect(wrapper.find('.cartao-semana .grafico').exists()).toBe(false)
+  })
+
+  it('enquanto pede a semana: "carregando…" nos dois cartões, sem contagem, gráfico nem média', async () => {
+    const liberar = []
+    trocarGet(
+      '/avaliacoes/resumo/?campus=1&data=',
+      () => new Promise((resolver) => liberar.push(resolver)),
+    )
+
+    const wrapper = await montarHome(1)
+
+    expect(wrapper.get('.cartao-avaliacoes').text()).toContain('carregando…')
+    expect(wrapper.get('.cartao-semana').text()).toContain('carregando…')
+    expect(wrapper.find('.cartao-semana .contagem').exists()).toBe(false)
+    expect(wrapper.find('.cartao-semana .grafico').exists()).toBe(false)
+    expect(wrapper.find('.cartao-semana .semana-media').exists()).toBe(false)
+    expect(textoDosCartoes(wrapper)).not.toContain('0 avaliações')
+    expect(textoDosCartoes(wrapper)).not.toContain('sem avaliações ainda')
+
+    liberar.forEach((resolver) => resolver([]))
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-avaliacoes').text()).toContain('sem avaliações ainda'),
+    )
+    expect(wrapper.get('.cartao-semana .contagem').text()).toBe('0 avaliações')
+  })
+
+  it('trocar de campus com a tela aberta: os cartões passam a ser a semana do campus novo', async () => {
+    const get = vi.spyOn(apiClient, 'get')
+    const wrapper = await montarHome(1)
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-avaliacoes').text()).toContain('/ 5 · esta semana'),
+    )
+    const barrasDoDarcy = wrapper.findAll('.barra-dia').length
+
+    usePreferenciasStore().escolherCampus(3)
+    await flushPromises()
+
+    // O Gama serve de segunda a sexta; o Darcy tem mais dias.
+    await vi.waitFor(() => expect(wrapper.findAll('.barra-dia')).toHaveLength(5))
+    expect(barrasDoDarcy).not.toBe(5)
+    expect(wrapper.get('.cartao-avaliacoes').text()).toContain('/ 5 · esta semana')
+    expect(textoDosCartoes(wrapper)).not.toContain('carregando…')
+    expect(get.mock.calls.map(([caminho]) => caminho)).toContain(
+      '/avaliacoes/resumo/?campus=3&data=2026-09-28',
+    )
+  })
+
+  it('com o servidor simulado: os cartões mostram a semana do campus', async () => {
+    const wrapper = await montarHome(3)
+
+    await vi.waitFor(() =>
+      expect(wrapper.get('.cartao-avaliacoes').text()).toContain('/ 5 · esta semana'),
+    )
+    // O Gama serve de segunda a sexta.
+    expect(wrapper.findAll('.barra-dia').map((dia) => dia.text())).toEqual([
+      'Seg',
+      'Ter',
+      'Qua',
+      'Qui',
+      'Sex',
+    ])
+    expect(wrapper.get('.cartao-semana .contagem').text()).not.toBe('0 avaliações')
+  })
+})
+
 describe('HomeView: atalho para o ranking (FE-13)', () => {
   it('o menu do perfil tem "Ranking do campus", levando ao ranking do campus lembrado', async () => {
     const wrapper = await montarHome(3)
@@ -315,5 +471,152 @@ describe('HomeView: "Sair da conta" no menu (RF03.3)', () => {
     expect(aviso.text()).toContain('o servidor não confirmou')
     expect(useAuthStore().estaAutenticado).toBe(false)
     expect(router.currentRoute.value.name).toBe('inicio')
+  })
+})
+
+describe('HomeView: previsão de pico no cartão Fila (FE-22, #269)', () => {
+  const faixa = (inicio, fim, ehPico = true) => ({
+    inicio,
+    fim,
+    nivel: ehPico ? 'longa' : 'curta',
+    ehPico,
+  })
+
+  const cartaoFila = (wrapper) => wrapper.get('.linha-cartoes a[href="/fila"]')
+
+  function prepararCardapio(troca = {}) {
+    trocarGet('/cardapio/', () => Promise.resolve(cardapioDaApi(troca)))
+  }
+
+  it('pede a previsão do campus, da refeição de hoje e da data correta', async () => {
+    prepararCardapio({ refeicao: 'jantar' })
+    const get = trocarGet('/fila/previsao/', () =>
+      Promise.resolve({
+        status: 'disponivel',
+        faixas: [faixa('18:30', '18:45')],
+      }),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => {
+      expect(get.mock.calls.map(([caminho]) => caminho)).toContain(
+        '/fila/previsao/?campus=1&refeicao=jantar&data=2026-10-04',
+      )
+      expect(cartaoFila(wrapper).text()).toContain('18h30 às 18h45')
+    })
+  })
+
+  it('mostra todos os picos em caso de empate', async () => {
+    prepararCardapio()
+    trocarGet('/fila/previsao/', () =>
+      Promise.resolve({
+        status: 'disponivel',
+        faixas: [faixa('11:00', '11:15', false), faixa('11:30', '11:45'), faixa('12:00', '12:15')],
+      }),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => {
+      const texto = cartaoFila(wrapper).text()
+      expect(texto).toContain('11h30 às 11h45')
+      expect(texto).toContain('12h às 12h15')
+      expect(texto).not.toContain('11h às 11h15')
+    })
+  })
+
+  it('formata tres picos empatados com virgulas e e antes do ultimo', async () => {
+    prepararCardapio()
+    trocarGet('/fila/previsao/', () =>
+      Promise.resolve({
+        status: 'disponivel',
+        faixas: [faixa('11:30', '11:45'), faixa('12:00', '12:15'), faixa('12:30', '12:45')],
+      }),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => {
+      expect(cartaoFila(wrapper).get('.valor-previsao').text()).toBe(
+        '11h30 às 11h45, 12h às 12h15 e 12h30 às 12h45',
+      )
+    })
+  })
+
+  it('mostra texto de reserva quando os dados são insuficientes', async () => {
+    prepararCardapio()
+    trocarGet('/fila/previsao/', () =>
+      Promise.resolve({
+        status: 'dados_insuficientes',
+        faixas: [],
+      }),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => {
+      expect(cartaoFila(wrapper).text()).toContain('Dados insuficientes')
+      expect(cartaoFila(wrapper).text()).not.toContain('Na próxima versão')
+    })
+  })
+
+  it('mostra texto de reserva quando a API falha', async () => {
+    prepararCardapio()
+    trocarGet('/fila/previsao/', () =>
+      Promise.reject(
+        new ApiError(500, {
+          codigo: 'erro_interno',
+          mensagem: 'Fora do ar.',
+        }),
+      ),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => {
+      expect(cartaoFila(wrapper).text()).toContain('Previsão indisponível')
+      expect(cartaoFila(wrapper).text()).not.toContain('Na próxima versão')
+    })
+  })
+
+  it('sem refeição hoje: não pede previsão de outro dia', async () => {
+    prepararCardapio({ data: '2026-10-05' })
+    const get = vi.spyOn(apiClient, 'get')
+
+    const wrapper = await montarHome(1)
+
+    expect(cartaoFila(wrapper).text()).toContain('Sem refeição hoje')
+    expect(get.mock.calls.some(([caminho]) => caminho.startsWith('/fila/previsao/'))).toBe(false)
+  })
+
+  it('atualiza a previsão quando o campus muda', async () => {
+    prepararCardapio()
+    trocarGet('/fila/previsao/', (caminho) =>
+      Promise.resolve({
+        status: 'disponivel',
+        faixas: caminho.includes('campus=3&')
+          ? [faixa('12:30', '12:45')]
+          : [faixa('11:30', '11:45')],
+      }),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => expect(cartaoFila(wrapper).text()).toContain('11h30 às 11h45'))
+
+    usePreferenciasStore().escolherCampus(3)
+
+    await vi.waitFor(() => {
+      expect(cartaoFila(wrapper).text()).toContain('12h30 às 12h45')
+      expect(cartaoFila(wrapper).text()).not.toContain('11h30 às 11h45')
+    })
+  })
+
+  it('continua levando à rota fila', async () => {
+    const wrapper = await montarHome(1)
+
+    expect(cartaoFila(wrapper).attributes('href')).toBe('/fila')
+    expect(router.resolve(cartaoFila(wrapper).attributes('href')).name).toBe('fila')
   })
 })

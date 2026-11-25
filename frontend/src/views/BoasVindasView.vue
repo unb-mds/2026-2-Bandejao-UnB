@@ -1,7 +1,26 @@
 <script setup>
+import { useRouter } from 'vue-router'
+import { useCardapioStore } from '@/stores/cardapio'
+import { usePreferenciasStore } from '@/stores/preferencias'
 import { ORDEM_REFEICOES, REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
-import AppLogo from '@/components/AppLogo.vue'
 import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
+import AppLogo from '@/components/AppLogo.vue'
+
+/**
+ * Primeira visita: entrar na conta ou escolher o campus aqui mesmo. Quem
+ * não permite a localização chega ao cardápio em 2 interações, "Agora não" e
+ * o campus (RNF03 da Release 2, #285). A escolha fica lembrada no aparelho
+ * (RN04), como no seletor.
+ */
+const router = useRouter()
+const cardapio = useCardapioStore()
+const preferencias = usePreferenciasStore()
+cardapio.carregarCampi()
+
+function escolher(id) {
+  preferencias.escolherCampus(id)
+  router.push({ name: 'campus-tela', params: { campusId: String(id) } })
+}
 </script>
 
 <template>
@@ -17,13 +36,13 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
     >
       <path
         d="M140 10 C100 60 40 100 10 200"
-        stroke="white"
+        style="stroke: var(--branco)"
         stroke-width="1.5"
         stroke-opacity="0.05"
       />
       <path
         d="M160 40 C120 80 60 120 20 200"
-        stroke="white"
+        style="stroke: var(--branco)"
         stroke-width="1"
         stroke-opacity="0.04"
       />
@@ -38,7 +57,7 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
     >
       <path
         d="M10 0 C40 50 80 100 120 160"
-        stroke="white"
+        style="stroke: var(--branco)"
         stroke-width="1.5"
         stroke-opacity="0.05"
       />
@@ -94,9 +113,44 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
         <RouterLink :to="{ name: 'login' }" class="botao botao--destaque"
           >Entrar na conta</RouterLink
         >
-        <RouterLink :to="{ name: 'campus' }" class="botao visitante"
-          >Continuar sem login</RouterLink
-        >
+
+        <p id="boas-vindas-campus" class="chamada-campus">
+          Ou escolha o campus para ver o cardápio sem login
+        </p>
+        <!-- Altura reservada: com os campi carregados, o "Entrar na conta" não sobe sob o dedo. -->
+        <div class="area-campi">
+          <p
+            v-if="cardapio.carregandoCampi || (!cardapio.campiCarregados && !cardapio.erroCampi)"
+            class="nota"
+            role="status"
+          >
+            Carregando campi…
+          </p>
+          <div v-else-if="cardapio.erroCampi && !cardapio.campi.length" class="nota" role="alert">
+            <p>Não foi possível carregar os campi. {{ cardapio.erroCampi }}</p>
+            <button
+              type="button"
+              class="botao-pequeno tentar"
+              @click="cardapio.carregarCampi({ forcar: true })"
+            >
+              Tentar novamente
+            </button>
+          </div>
+          <p v-else-if="!cardapio.campi.length" class="nota">
+            Nenhum campus disponível no momento.
+          </p>
+          <div v-else class="campi" role="group" aria-labelledby="boas-vindas-campus">
+            <button
+              v-for="campus in cardapio.campi"
+              :key="campus.id"
+              type="button"
+              class="botao visitante"
+              @click="escolher(campus.id)"
+            >
+              {{ campus.nome }}
+            </button>
+          </div>
+        </div>
         <p class="nota">Visitantes podem consultar o cardápio e as avaliações</p>
       </div>
     </div>
@@ -109,7 +163,9 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow: hidden;
+  /* Em paisagem (360 px de altura) a grade não cabe: a tela rola, em vez de cortar. */
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--verde-escuro);
 }
 
@@ -127,7 +183,7 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
 }
 
 .marca {
-  flex: 1;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -136,7 +192,7 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
 }
 
 .logo {
-  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(var(--sombra-logo));
 }
 
 .nome {
@@ -146,7 +202,7 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
   font-weight: 900;
   line-height: 1;
   letter-spacing: -1.5px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .slogan {
@@ -159,11 +215,33 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
 }
 
 .acoes {
+  flex-shrink: 0;
   padding: 0 24px 48px;
 }
 
+/* 3 fileiras de campi (5 campi em 2 colunas) e as 2 lacunas de 8 px. */
+.area-campi {
+  min-height: 150px;
+}
+
+.chamada-campus {
+  padding-top: 8px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--branco-70);
+}
+
+.campi {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .visitante {
+  padding: 12px;
+  font-size: 13px;
   font-weight: 600;
+  text-align: center;
   border: 1.5px solid var(--branco-20);
   color: var(--branco-70);
 }
@@ -171,7 +249,12 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
 .nota {
   font-size: 12px;
   text-align: center;
-  color: var(--branco-25);
+  color: var(--branco-70);
+}
+
+.tentar {
+  margin-top: 8px;
+  border: 1.5px solid var(--branco-70);
 }
 
 /* No celular, a entrada ocupa a tela como antes; o lado verde é só do desktop. */
@@ -205,7 +288,7 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
     flex-direction: column;
     overflow: hidden;
     padding: clamp(32px, 4vw, 62px) clamp(38px, 5vw, 78px) 36px;
-    color: #fff;
+    color: var(--branco);
     background: var(--verde-escuro);
   }
   .hero::before,
@@ -292,12 +375,12 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
     min-height: 96px;
     padding: 11px 13px;
     border: 1px solid var(--branco-08);
-    border-radius: 16px;
+    border-radius: var(--raio-lg);
     color: var(--branco-60);
     background: var(--branco-05);
   }
   .hero-refeicao--destaque {
-    color: #fff;
+    color: var(--branco);
     border-color: var(--dourado);
     background: var(--branco-08);
   }
@@ -375,7 +458,7 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
     padding: 0;
   }
   .acoes .botao--destaque {
-    color: #fff;
+    color: var(--branco);
     background: var(--verde-escuro);
     box-shadow: 0 10px 20px var(--sombra-escura);
   }
@@ -385,6 +468,16 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
   }
   .nota {
     color: var(--texto-suave);
+  }
+}
+
+@media (min-width: 1024px) {
+  .chamada-campus {
+    color: var(--texto-suave);
+  }
+
+  .tentar {
+    border-color: var(--borda);
   }
 }
 </style>

@@ -185,6 +185,71 @@ def test_banco_com_sublinhado_tambem_perde_o_all(rodar):
 
 
 @precisa_de_sh
+def test_grants_usam_o_nome_do_banco_escapado(rodar):
+    r"""#250: no GRANT de banco, o `_` é curinga. Sem o escape, `ru_db`
+    valeria também para `ruXdb`, `ru-db` etc."""
+    sql = rodar(MYSQL_DATABASE="ru_db").sql
+
+    assert re.search(r"GRANT [A-Z, ]+ ON `ru\\_db`\.\* TO 'app_bandejao'", sql)
+    assert re.search(r"GRANT [A-Z, ]+ ON `ru\\_db`\.\* TO 'equipe_moderacao'", sql)
+    assert not re.search(r"GRANT [A-Z, ]+ ON `ru_db`\.\*", sql)
+
+
+@precisa_de_sh
+def test_grants_escapam_tambem_o_percentual(rodar):
+    """O `%` também é curinga no GRANT de banco."""
+    sql = rodar(MYSQL_DATABASE="ru%db").sql
+
+    assert re.search(r"GRANT [A-Z, ]+ ON `ru\\%db`\.\* TO 'app_bandejao'", sql)
+    assert re.search(r"GRANT [A-Z, ]+ ON `ru\\%db`\.\* TO 'equipe_moderacao'", sql)
+    assert not re.search(r"GRANT [A-Z, ]+ ON `ru%db`\.\*", sql)
+
+
+@precisa_de_sh
+def test_rodado_de_novo_tira_os_grants_antigos_sem_escape(rodar):
+    """Na VM, que já tem o banco, o script roda de novo: os GRANTs antigos,
+    sem escape, saem do usuário da aplicação e do papel antes do novo."""
+    sql = rodar(MYSQL_DATABASE="ru_db").sql
+
+    revoke_app = "REVOKE IF EXISTS ALL PRIVILEGES ON `ru_db`.* FROM 'app_bandejao'"
+    revoke_papel = re.search(
+        r"REVOKE IF EXISTS [A-Z, ]+ ON `ru_db`\.\* FROM 'equipe_moderacao'", sql
+    )
+    assert revoke_app in sql
+    assert revoke_papel
+    # O papel precisa existir antes do REVOKE, e o REVOKE vem antes do GRANT.
+    assert (
+        sql.index("CREATE ROLE IF NOT EXISTS 'equipe_moderacao'") < revoke_papel.start()
+    )
+    assert revoke_papel.start() < sql.index("TO 'equipe_moderacao'", revoke_papel.end())
+
+
+@precisa_de_sh
+@pytest.mark.parametrize("banco", ["bandejao", "ru_db", "ru%db"])
+@pytest.mark.parametrize(
+    "destino", ["'app_bandejao'@'%'", "'equipe_moderacao'"], ids=["app", "papel"]
+)
+def test_todo_revoke_vem_antes_do_grant(rodar, banco, destino):
+    """Revisão do #298: com `bandejao` (o nome de produção, sem curinga), os
+    REVOKEs e o GRANT usam o mesmo nome. Um REVOKE depois do GRANT tiraria
+    todos os privilégios da aplicação, e o CI (`bandejao_ci`) não veria."""
+    sql = rodar(MYSQL_DATABASE=banco).sql
+
+    revokes = [
+        m.start()
+        for m in re.finditer(
+            rf"^REVOKE .* FROM {re.escape(destino)};$", sql, re.MULTILINE
+        )
+    ]
+    grant = re.search(
+        rf"^GRANT [A-Z, ]+ ON .* TO {re.escape(destino)};$", sql, re.MULTILINE
+    )
+    assert revokes, sql
+    assert grant, sql
+    assert max(revokes) < grant.start()
+
+
+@precisa_de_sh
 def test_valores_com_aspas_e_barras_viram_texto_no_sql(rodar):
     """Aspas, barra invertida, $(...) e crase não fecham o texto nem rodam."""
     resultado = rodar(

@@ -18,7 +18,7 @@ export const REFEICOES = {
 export const ORDEM_REFEICOES = ['cafe', 'almoco', 'jantar']
 
 /** "11:00" → "11h"; "14:30" → "14h30" */
-function formatarHora(hhmm) {
+export function formatarHora(hhmm) {
   const [h, m] = hhmm.split(':')
   return m === '00' ? `${Number(h)}h` : `${Number(h)}h${m}`
 }
