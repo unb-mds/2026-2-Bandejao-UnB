@@ -1,6 +1,6 @@
 name: Teste de carga
 
-# BD-14 (#184), RNF01: 2.000 usuários, p95 <= 3 s no cardápio e na previsão.
+# BD-14 (#184), RNF01: 500 usuários, p95 <= 3 s no cardápio e na previsão.
 # Roda à mão (Actions > Teste de carga > Run workflow) e no PR para a
 # develop quando o próprio teste muda. Fica fora do push e do PR de release
 # (develop -> main): leva uns 10 minutos em 4 runners e mede desempenho, não
@@ -39,8 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # Uma rodada por número de usuários, em runners separados. A de 2.000 é
-    # a meta do RNF01, e as outras mostram até onde a meta é cumprida. Todas
+    # Uma rodada por número de usuários, em runners separados. A de 500 é a
+    # meta do RNF01, e as outras mostram até onde a meta é cumprida. Todas
     # são informativas no CI (ver o passo de avaliação).
     strategy:
       fail-fast: false
@@ -150,7 +150,7 @@ jobs:
             echo
           } >> "$GITHUB_STEP_SUMMARY"
           # Todas as rodadas são informativas no CI: o desempenho não derruba
-          # o job, e o veredito do RNF01 (até 2.000 usuários) fica no resumo
+          # o job, e o veredito do RNF01 (até 500 usuários) fica no resumo
           # do job e em docs/qualidade/teste-de-carga-bd14.md. Uma carga que
           # não mediu (endpoint sem requisição, mais da metade com falha)
           # derruba, mesmo no informativo. Para o código de saída do

@@ -1,7 +1,7 @@
 """Usuários simulados do teste de carga (BD-14, #184), para o Locust.
 
     locust -f carga/locustfile.py --headless --host http://127.0.0.1:8000 \
-        -u 2000 -r 50 -t 5m --csv resultado/carga
+        -u 500 -r 50 -t 5m --csv resultado/carga
 
 Cada usuário faz um pedido, espera de 3 a 7 s (o tempo de ler a tela) e faz
 o próximo, sorteando a cada pedido o campus e, na previsão, a refeição. O

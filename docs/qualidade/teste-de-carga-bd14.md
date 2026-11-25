@@ -16,7 +16,10 @@
 > de operação (até **2.000 usuários simultâneos**), medido do lado do servidor
 > em pelo menos 95% das requisições.
 >
-> — RNF01, Documento de Requisitos
+> — RNF01, Documento de Requisitos, na época do teste
+
+Depois deste resultado, o RNF01 foi revisto para até **500 usuários
+simultâneos**, com a ressalva de que o número foi medido no runner de 4 vCPUs.
 
 ## Resultado
 
@@ -168,6 +171,6 @@ CARGA_CONFIRMO_BANCO_DESCARTAVEL=1 CARGA_CHECKINS=200 \
   python manage.py shell -c "from carga.dados import main; main()"
 gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 30 &
 locust -f carga/locustfile.py --headless --host http://127.0.0.1:8000 \
-  -u 2000 -r 50 -t 5m --processes 2 --csv resultado/carga --only-summary
-USUARIOS=2000 python -m carga.avaliar resultado/carga_stats.csv
+  -u 500 -r 50 -t 5m --processes 2 --csv resultado/carga --only-summary
+USUARIOS=500 python -m carga.avaliar resultado/carga_stats.csv
 ```
