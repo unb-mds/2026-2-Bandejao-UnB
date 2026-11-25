@@ -21,7 +21,8 @@
   --texto-suave: #7a6558;
   --texto-claro: #a8937e;
 
-  /* Texto sobre o cabeçalho verde */
+  /* Branco e suas transparências (texto, ícones e superfícies) */
+  --branco: #fff;
   --branco-90: rgba(255, 255, 255, 0.9);
   --branco-75: rgba(255, 255, 255, 0.75);
   --branco-70: rgba(255, 255, 255, 0.7);
@@ -51,6 +52,15 @@
   --alerta-borda: #e8d59a;
   --alerta-texto: #7a5c08;
 
+  /* Fundos escurecidos e sombras (#286) */
+  --fundo-dialogo: rgba(10, 26, 12, 0.55);
+  --sombra-cartao: 0 8px 32px rgba(10, 26, 12, 0.12);
+  --sombra-flutuante: 0 8px 24px rgba(10, 26, 12, 0.25);
+  --sombra-menu: 0 12px 32px rgba(0, 0, 0, 0.25);
+  --sombra-destaque: 0 10px 22px rgba(19, 43, 24, 0.14);
+  /* Sombra da ilustração, usada em drop-shadow(). */
+  --sombra-logo: 0 20px 40px rgba(0, 0, 0, 0.5);
+
   /* Níveis de fila (semântica independente da marca) */
   --fila-vazia: #1a7a3a;
   --fila-curta: #b8900a;
@@ -61,11 +71,25 @@
   --fonte-titulo: 'Nunito', system-ui, sans-serif;
   --fonte-texto: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  /* Raios */
+  /* Raios (o círculo, 50%, e a pílula, 999px, ficam escritos direto) */
+  --raio-2xs: 2px;
+  --raio-xs: 6px;
   --raio-sm: 8px;
   --raio-md: 12px;
   --raio-lg: 16px;
   --raio-xl: 24px;
+
+  /* Raios do prototipo desktop (FE-23) */
+  --raio-3: 3px;
+  --raio-5: 5px;
+  --raio-9: 9px;
+  --raio-10: 10px;
+  --raio-11: 11px;
+  --raio-13: 13px;
+  --raio-14: 14px;
+  --raio-18: 18px;
+  --raio-20: 20px;
+  --raio-28: 28px;
 
   /* Larguras a partir do tablet (mobile first, FE-20, RNF05) */
   --largura-conteudo: 1200px;
@@ -80,8 +104,8 @@
   --branco-30: rgba(255, 255, 255, 0.3);
   --branco-05: rgba(255, 255, 255, 0.05);
   --branco-02: rgba(255, 255, 255, 0.02);
-  --sombra-logo: rgba(0, 0, 0, 0.2);
-  --sombra-cartao: rgba(63, 43, 22, 0.06);
+  --sombra-logo-cor: rgba(0, 0, 0, 0.2);
+  --sombra-cartao-cor: rgba(63, 43, 22, 0.06);
   --sombra-escura: rgba(19, 43, 24, 0.15);
 }
 

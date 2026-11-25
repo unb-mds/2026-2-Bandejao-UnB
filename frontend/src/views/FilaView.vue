@@ -12,12 +12,16 @@ defineProps({
   refeicaoPrevisao: { type: String, required: true },
   dataPrevisao: { type: String, required: true },
   mostrarPrevisao: { type: Boolean, required: true },
+  /** Na tela "Fila do RU", o título já está no cabeçalho: o h2 não é repetido. */
+  tituloVisivel: { type: Boolean, default: true },
 })
 </script>
 
 <template>
   <section id="fila" class="secao-fila pilha-4" aria-labelledby="titulo-fila">
-    <h2 id="titulo-fila" class="titulo-fila">Fila do RU</h2>
+    <h2 v-if="tituloVisivel" id="titulo-fila" class="titulo-fila">
+      Fila do RU
+    </h2>
 
     <FilaPrevisao
       v-if="mostrarPrevisao"
@@ -28,7 +32,7 @@ defineProps({
 
     <RefeicaoEncerrada v-if="encerrada" :tipo-refeicao="tipoRefeicao" />
 
-    <section v-else class="pilha-3" aria-labelledby="titulo-checkin">
+    <section v-else class="pilha-3 checkin-fila" aria-labelledby="titulo-checkin">
       <p id="titulo-checkin" class="titulo-secao pequeno">
         Check-in · {{ REFEICOES[tipoRefeicao].rotulo }}
       </p>
@@ -93,7 +97,7 @@ defineProps({
     grid-column: 1 / -1;
     margin-top: 0;
   }
-  .secao-fila > section:not(:first-of-type),
+  .secao-fila > .checkin-fila,
   .como-funciona {
     grid-column: auto;
   }
@@ -104,7 +108,7 @@ defineProps({
   .como-funciona {
     align-self: start;
     padding: 20px;
-    border-radius: 18px;
+    border-radius: var(--raio-18);
   }
 }
 </style>

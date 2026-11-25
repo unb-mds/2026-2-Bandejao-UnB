@@ -110,16 +110,17 @@ declaradas no próprio script, e o `defineProps`, içado para fora do `setup()`,
 | RF17 Paleta e tipografia únicas | `src/assets/base.css` |
 | RNF05 PWA instalável (manifest + service worker) | `public/`, `src/pwa.js` |
 
-A **Fila** (RF11–RF13) é da Release 2: a tela existe, para manter a navegação do protótipo,
-mas mostra "Em breve".
+A **Fila do RU** (`/fila`, RF12 e RF13) mostra a previsão de pico e o check-in do campus
+lembrado; a mesma seção aparece embaixo do cardápio, na tela do campus.
 
 ## Navegação
 
 ```
 / ──(1ª visita)──► /boas-vindas ──► /login ──► /cadastro ──► /confirmar-email
-  └(campus salvo)► /cardapio            └────► /campus ──► /inicio
+  │             └─(escolhe o campus)┐
+  └(campus salvo)──────────────────► /campus/:campusId ──► /inicio
                                                               ├─► /cardapio
-                                                              ├─► /fila       (Em breve)
+                                                              ├─► /fila       (Fila do RU)
                                                               └─► /avaliacoes
 ```
 
@@ -174,11 +175,12 @@ com ou sem sessão, sem o `X-CSRFToken` certo responde `403 { codigo: "csrf_inva
 desloga). Erro sem `mensagem` (ex.: o `detail` em inglês do DRF) aparece com uma mensagem em
 português pelo status; as telas mostram erros com `mensagemDeErro(falha)`.
 
-Ainda no formato do MVP no simulado (entram no contrato nas tarefas FE-08, FE-09 e FE-E2):
-`GET /avaliacoes/?campus&data&refeicao`,
-`GET /avaliacoes/resumo/?campus`, `POST /avaliacoes/`, `POST /recuperar-senha/` e
-`POST /redefinir-senha/`. Valores usados: `campus` ∈ `darcy, ceilandia, gama, planaltina,
-fal`; `refeicao`/`tipo` ∈ `cafe, almoco, jantar`; datas em `AAAA-MM-DD`.
+Ainda no formato do MVP no simulado (entram no contrato na tarefa FE-E2):
+`POST /recuperar-senha/` e `POST /redefinir-senha/`. As avaliações seguem o contrato:
+`GET /avaliacoes/resumo/?campus&data` (uma lista por refeição do dia; só com o campus, o dia
+corrente), `GET /refeicoes/{refeicaoId}/avaliacoes/` e `POST /avaliacoes/`. Valores usados:
+`campus` = id numérico de `GET /campi/`; `refeicao`/`tipo` ∈ `cafe, almoco, jantar`; datas em
+`AAAA-MM-DD`.
 
 Os links enviados por e-mail devem apontar para `/confirmar-email?token=...` e
 `/redefinir-senha?token=...` no frontend.

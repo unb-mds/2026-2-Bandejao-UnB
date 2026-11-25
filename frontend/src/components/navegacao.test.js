@@ -7,6 +7,7 @@ import { usePreferenciasStore } from '@/stores/preferencias'
 import { reiniciarSimulacao } from '@/services/mock/servidor'
 import { ITENS_NAVEGACAO, ITENS_NAVEGACAO_TOPO, itemAtivo } from '@/constants/navegacao'
 import App from '@/App.vue'
+import BarraLateral from './BarraLateral.vue'
 import NavegacaoInferior from './NavegacaoInferior.vue'
 import NavegacaoTopo from './NavegacaoTopo.vue'
 
@@ -61,6 +62,8 @@ describe('itemAtivo', () => {
     ['Cardápio', null, false],
     ['Início', 'inicio', false],
     ['Perfil', 'inicio', false],
+    ['Perfil', 'progresso', true],
+    ['Perfil', 'fila', false],
   ])('%s na rota %s: %s', (rotulo, rota, esperado) => {
     expect(itemAtivo(item(rotulo), rota)).toBe(esperado)
   })
@@ -73,14 +76,46 @@ describe('itemAtivo', () => {
 })
 
 describe('NavegacaoTopo e NavegacaoInferior', () => {
-  it('as duas levam aos mesmos destinos, na mesma ordem (o topo não repete o Perfil)', async () => {
+  it('as duas levam aos mesmos destinos, na mesma ordem', async () => {
     const { wrapper: topo } = await montar(NavegacaoTopo)
     const { wrapper: inferior } = await montar(NavegacaoInferior)
 
-    const semPerfil = destinos(inferior).filter((d) => d.rotulo !== 'Perfil')
-    expect(destinos(topo)).toEqual(semPerfil)
+    expect(destinos(topo)).toEqual(destinos(inferior))
     expect(destinos(topo).map((d) => d.rotulo)).toEqual(ITENS_NAVEGACAO_TOPO.map((i) => i.rotulo))
     expect(new Set(destinos(topo).map((d) => d.href)).size).toBe(destinos(topo).length)
+  })
+
+  it.each([
+    ['NavegacaoTopo', NavegacaoTopo],
+    ['NavegacaoInferior', NavegacaoInferior],
+  ])('%s leva Perfil ao progresso e mantém Início', async (_nome, componente) => {
+    const { wrapper } = await montar(componente)
+
+    expect(destinos(wrapper)).toContainEqual({ rotulo: 'Perfil', href: '/progresso' })
+    expect(destinos(wrapper)).toContainEqual({ rotulo: 'Início', href: '/inicio' })
+  })
+
+  it.each([
+    ['NavegacaoTopo', NavegacaoTopo],
+    ['NavegacaoInferior', NavegacaoInferior],
+  ])('%s marca apenas Perfil na rota de progresso', async (_nome, componente) => {
+    const { wrapper } = await montar(componente, '/progresso')
+
+    const atuais = wrapper.findAll('[aria-current="page"]')
+    expect(atuais).toHaveLength(1)
+    expect(atuais[0].text()).toBe('Perfil')
+  })
+
+  it('a lateral mantém os destinos sem adicionar Perfil ao menu principal', async () => {
+    const { wrapper } = await montar(BarraLateral)
+
+    expect(destinos(wrapper).map((d) => d.href)).toEqual([
+      '/inicio',
+      '/cardapio',
+      '/fila',
+      '/avaliacoes',
+      '/ranking',
+    ])
   })
 
   it('na /inicio, a do topo marca "Início" como página atual', async () => {
@@ -201,5 +236,17 @@ describe('App: navegação do topo', () => {
     await flushPromises()
 
     expect(wrapper.findComponent(NavegacaoTopo).exists()).toBe(false)
+  })
+})
+
+describe('Tela "Fila do RU" (/fila)', () => {
+  it('as três navegações marcam "Fila", não "Cardápio"', async () => {
+    const { wrapper } = await montar(App, '/fila')
+
+    for (const componente of [BarraLateral, NavegacaoTopo, NavegacaoInferior]) {
+      const atuais = wrapper.getComponent(componente).findAll('nav a[aria-current="page"]')
+      expect(atuais).toHaveLength(1)
+      expect(atuais[0].text().trim()).toMatch(/^Fila/)
+    }
   })
 })

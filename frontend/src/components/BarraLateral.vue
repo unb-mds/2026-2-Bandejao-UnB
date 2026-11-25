@@ -6,18 +6,19 @@ import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { AVISO_SAIR_SEM_CONFIRMACAO, useSair } from '@/composables/sair'
 import { CANAL_CONTATO, EMAIL_CONTATO } from '@/constants/contato'
-import { ITENS_NAVEGACAO_TOPO, itemAtivo } from '@/constants/navegacao'
+import { ITENS_NAVEGACAO_LATERAL, itemAtivo } from '@/constants/navegacao'
 import AppLogo from './AppLogo.vue'
 import IconeSvg from './IconeSvg.vue'
 
 /**
  * Navegação do desktop (FE-23, protótipo desktop): a partir de 1024 px, no
- * lugar da `NavegacaoTopo`. Leva aos mesmos destinos, mostra o campus atual
- * (RN04) e a conta, e tem o canal de contato (RNF08).
+ * lugar da `NavegacaoTopo`. O menu principal não inclui Perfil: o atalho
+ * de conta leva a Meu progresso para usuários autenticados e ao login para
+ * visitantes. Mostra o campus atual (RN04) e o canal de contato (RNF08).
  */
 // O Ranking (RF27) só tinha atalho no menu do perfil da Início, que some no
 // desktop: aqui ele entra na navegação.
-const ITENS = [...ITENS_NAVEGACAO_TOPO, { rotulo: 'Ranking', rota: 'ranking', icone: 'trofeu' }]
+const ITENS = [...ITENS_NAVEGACAO_LATERAL, { rotulo: 'Ranking', rota: 'ranking', icone: 'trofeu' }]
 
 const route = useRoute()
 const router = useRouter()
@@ -133,7 +134,7 @@ async function sairDaConta() {
     overflow-x: hidden;
     overflow-y: auto;
     padding: 28px 20px 18px;
-    color: #fff;
+    color: var(--branco);
     background: var(--verde-escuro);
   }
 }
@@ -161,7 +162,7 @@ async function sairDaConta() {
   align-items: center;
   gap: 11px;
   margin: 0 8px 50px;
-  color: #fff;
+  color: var(--branco);
   text-decoration: none;
 }
 
@@ -202,7 +203,7 @@ nav {
   gap: 12px;
   margin: 4px 0;
   padding: 12px 13px;
-  border-radius: 11px;
+  border-radius: var(--raio-11);
   font-size: 13px;
   font-weight: 700;
   color: var(--branco-75);
@@ -210,7 +211,7 @@ nav {
   transition: 0.2s ease;
 }
 .item:hover {
-  color: #fff;
+  color: var(--branco);
   background: var(--branco-07);
   transform: translateX(2px);
 }
@@ -253,7 +254,7 @@ nav {
   text-decoration: none;
 }
 .atalho:hover {
-  color: #fff;
+  color: var(--branco);
 }
 
 .atalho--campus {
@@ -270,7 +271,7 @@ nav {
   place-items: center;
   width: 31px;
   height: 31px;
-  border-radius: 9px;
+  border-radius: var(--raio-9);
   color: var(--dourado);
   background: var(--branco-07);
 }
@@ -296,7 +297,7 @@ nav {
 .atalho-texto strong {
   margin-top: 3px;
   font-size: 12px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .atalho--conta .atalho-texto small {
@@ -328,7 +329,7 @@ nav {
   color: var(--branco-60);
 }
 .sair:hover:not(:disabled) {
-  color: #fff;
+  color: var(--branco);
 }
 
 .aviso-sair {
@@ -336,7 +337,7 @@ nav {
   z-index: 1;
   margin: 8px 6px 0;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--raio-10);
   font-size: 12px;
   line-height: 1.5;
   color: var(--erro-texto);

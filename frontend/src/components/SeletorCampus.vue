@@ -153,7 +153,7 @@ function escolher(id) {
 }
 
 .opcao--atual {
-  color: #fff;
+  color: var(--branco);
   background: var(--verde-escuro);
   border-color: var(--verde-escuro);
 }
@@ -179,7 +179,7 @@ function escolher(id) {
   font-weight: 900;
   font-size: 20px;
   letter-spacing: -0.5px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .subtitulo {
@@ -213,7 +213,7 @@ function escolher(id) {
   font-size: 12px;
   font-weight: 900;
   letter-spacing: -0.3px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .textos {
@@ -298,7 +298,7 @@ function escolher(id) {
   }
   .passos .passo--feito,
   .passos .passo--atual {
-    color: #fff;
+    color: var(--branco);
   }
   .passo--feito span {
     border-color: var(--dourado);
@@ -334,7 +334,7 @@ function escolher(id) {
   }
   .campus {
     min-height: 78px;
-    border-radius: 16px;
+    border-radius: var(--raio-lg);
   }
 }
 </style>

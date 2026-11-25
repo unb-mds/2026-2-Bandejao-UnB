@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Dúvida de organização/processo
-    url: https://github.com/SEU_ORG/SEU_REPO/discussions
-    about: Para dúvidas sobre Scrum, sprint ou processo — não é uma história nem um bug.
+  - name: Como contribuir
+    url: https://github.com/unb-mds/2026-2-Bandejao-UnB/blob/develop/CONTRIBUTING.md
+    about: Antes de abrir uma issue, veja o fluxo de trabalho, os templates e a Definition of Done.
+  - name: Dúvida sobre o uso do Bandejão
+    url: https://unb-mds.github.io/2026-2-Bandejao-UnB/#/guia-do-usuario
+    about: Guia do usuário, com solução de problemas e perguntas frequentes. Se não resolver, escreva para equipe@bandejaounb.com.br.

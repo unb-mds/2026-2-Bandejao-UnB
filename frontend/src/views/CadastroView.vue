@@ -159,7 +159,13 @@ async function criarConta() {
           <label class="aceite">
             <input v-model="aceitou" type="checkbox" class="visualmente-oculto" />
             <span class="caixa" :class="{ 'caixa--marcada': aceitou }" aria-hidden="true">
-              <IconeSvg v-if="aceitou" nome="check" :tamanho="11" cor="#fff" espessura="3.5" />
+              <IconeSvg
+                v-if="aceitou"
+                nome="check"
+                :tamanho="11"
+                cor="var(--branco)"
+                espessura="3.5"
+              />
             </span>
             <span class="texto-aceite">
               Li e aceito o
@@ -230,7 +236,7 @@ async function criarConta() {
 .tipo--ativo {
   background: var(--verde-escuro);
   border-color: var(--verde-escuro);
-  color: #fff;
+  color: var(--branco);
 }
 
 .privacidade {
@@ -252,7 +258,7 @@ async function criarConta() {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: var(--raio-xs);
   border: 2px solid var(--borda);
   transition: all 0.15s;
 }
