@@ -375,7 +375,9 @@ aplicadas na subida do backend. Os dados do banco e os certificados ficam nos
 volumes e não se perdem.
 
 Se o merge mudou algum arquivo de `deploy/cron/`, reinstale-o como em
-[Tarefas periódicas](#tarefas-periódicas-cron).
+[Tarefas periódicas](#tarefas-periódicas-cron). Se mudou
+`deploy/backup/bandejao-backup`, reinstale-o como em
+[Backup do banco](deploy/backup-banco.md).
 
 Se mudar só o `Caddyfile`, recrie o Caddy. Um `caddy reload` não basta
 depois de um `git pull`: o `Caddyfile` entra por bind mount de um arquivo só,
@@ -763,7 +765,8 @@ deploy automático grava no `/var/log/bandejao/deploy.log` (ver
 
   A outra saída é recriar o volume com `docker compose down -v`, que **apaga
   todos os dados do banco** e só deve ser usada antes de haver dados reais (e
-  depois de um backup). O backup diário do banco é a BD-15.
+  depois de um backup). O backup diário do banco está em
+  [Backup do banco](deploy/backup-banco.md) (BD-15).
 - **Não apague o volume `caddy_dados`.** Ele guarda os certificados, e o
   Let's Encrypt limita quantos certificados o mesmo domínio pode pedir por
   semana.
@@ -791,3 +794,28 @@ do `AI-USAGE.md`.
 | `.env` e `.env.db` | Permissão `600` |
 | Reinício da VM (`sudo reboot`) | Os três serviços voltaram sozinhos (`restart: unless-stopped`), e os dados do banco continuaram |
 | IP real atrás do Caddy (`NUM_PROXIES = 1`) | De uma rede, o 11º pedido de reenvio deu `429`. De outra rede (a própria VM), o pedido seguinte deu `200`: o limite conta cada IP separado |
+
+### Backup do banco (BD-15, 24/11/2026)
+
+Conferido na VM, na branch do PR #227 (`4e40f2b`), antes de o backup entrar na
+`main`:
+
+| Item | Resultado |
+|---|---|
+| `docker compose exec -T db timeout --version` | GNU coreutils 8.32: o `timeout` existe dentro do container `db` |
+| `sh deploy/backup/backup-banco.sh` | Saída 0; no log, `ok: bandejao-20261124T144124Z.sql.gz (39334 bytes; 3 cópia(s) guardada(s), prazo de 7 dias)`; `journalctl -t bandejao-backup -p err` sem entradas |
+| `sh deploy/backup/testar-restauracao.sh` | `OK`: 25 tabelas restauradas (produção: 25), 31 migrações, contas restauradas 2 (produção: 2) |
+
+**Rotação de 7 dias** (24/11/2026, 22h de Brasília; 01h UTC de 25/11), na branch
+do PR já com a quarta revisão (`97b3b66`): dois arquivos vazios com
+`bandejao-teste-` no nome foram criados com `touch -d` (um de 8 dias, um de 6
+dias) em `/var/backups/bandejao`, junto das 3 cópias reais. Depois do
+`sh deploy/backup/backup-banco.sh` (saída 0, cópia nova
+`bandejao-20261125T010337Z.sql.gz`, 39826 bytes), só o de 8 dias tinha saído; o
+de 6 dias e as cópias reais de 22/11 e 24/11 ficaram. O de 6 dias foi apagado
+à mão e a VM voltou para a `main`.
+
+A produção tem só 2 contas e nenhuma avaliação ou check-in, então a conferência
+de linhas por tabela ainda é pequena; ela vale mais quando houver uso. A
+instalação e a restauração de emergência estão em
+[Backup do banco](deploy/backup-banco.md).
