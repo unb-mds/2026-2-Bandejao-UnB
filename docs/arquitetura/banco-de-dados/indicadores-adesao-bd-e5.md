@@ -148,4 +148,13 @@ WHERE u.status = 'ativo';
 O backlog pede que as consultas "rodem em produção". Aqui ficam a data, quem
 rodou e o resultado de cada indicador (só números; nada pessoal).
 
-_Pendente: a registrar depois da execução com o SQL deste documento._
+**24/11/2026**, no MySQL de produção, por Luís (usuário próprio de banco), com o SQL deste documento na versão do PR #283 e `@inicio` em 28/10/2026 (`SELECT @inicio` conferido antes das consultas):
+
+| Indicador | Resultado |
+|---|---|
+| 1. Pergunta de saída respondida | 0 check-ins na janela, 0 respondidas, porcentagem `NULL` |
+| 2. Check-ins por usuário ativo por semana | 0 check-ins, 0 usuários ativos, média `NULL` |
+| 3. Sequência de 2 semanas ou mais | 3 contas ativas, 0 com sequência, 0,0% |
+| 4. Adesão ao ranking | 3 contas ativas, 1 no ranking, 33,3% |
+
+Como ler: ainda não há check-ins em produção (a Release 2 acabou de ir ao ar), então os indicadores 1 e 2 saem sem dado, como a consulta prevê; o `NULL` não é erro. O indicador 3 também sairia 0% por causa da BE-E6 (ver o aviso da consulta 3). Só o indicador 4 já tem número. Rodar de novo quando houver check-ins.
