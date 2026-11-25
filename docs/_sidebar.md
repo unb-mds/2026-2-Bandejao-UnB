@@ -1,4 +1,5 @@
 - [Início](README.md)
+- [Guia do usuário](guia-do-usuario.md)
 
 - **Requisitos**
   - [Documento de Visão](requisitos/documento-de-visao-bandejao.md)
