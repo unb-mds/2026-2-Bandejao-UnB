@@ -117,12 +117,18 @@ um MySQL temporário **sem rede** e com senha aleatória, restaura e compara:
 o número de tabelas (sem a de cache) tem que ser o da produção, o
 `django_migrations` não pode estar vazio e o `cadastro_usuario` não pode estar
 vazio nem ter menos da metade das contas da produção: um banco recriado gera
-um dump completo e sem contas, que não pode passar como backup bom. (Uma
+um dump completo e sem contas, que não pode passar como backup bom. (Se a
+produção também tem 0 contas, a restauração passa com um `AVISO`: ela prova a
+estrutura, mas não confere os dados.) (Uma
 tabela qualquer com linhas não basta: a de cache enche com uma tentativa de
 login.) Se uma consulta falhar, o erro do MySQL
 aparece na mensagem. Termina com `OK: a restauração de ... foi conferida.` O
 container temporário (e o volume dele) some sozinho, inclusive num Ctrl-C. A
 senha dele não aparece no `ps`. O banco de produção só é lido.
+
+Uma cópia **anterior a uma migration que cria tabela** falha na conferência do
+número de tabelas sem estar ruim. Depois de um deploy com migration nova, teste
+com a cópia mais recente, ou rode um backup antes.
 
 Anote o dia e o resultado em
 [Validação em produção](deploy/deploy-producao.md?id=validação-em-produção-20112026).
@@ -138,6 +144,18 @@ pode ter mais de 7 dias. O log (`/var/log/bandejao/backup-banco.log`) mostra,
 a cada dia, quantas cópias ficaram. No dia seguinte à instalação, confira
 também `journalctl -t bandejao-backup -p err` e que **não** há linha `crit`
 (o `-p err` inclui o `crit`).
+
+Para **provar a rotação sem esperar uma semana**, na VM, como `azureuser`:
+
+```bash
+touch -d '8 days ago' /var/backups/bandejao/bandejao-teste-8-dias.sql.gz
+touch -d '6 days ago' /var/backups/bandejao/bandejao-teste-6-dias.sql.gz
+sh deploy/backup/backup-banco.sh
+ls -la --time-style=long-iso /var/backups/bandejao
+```
+
+Só o arquivo de 8 dias pode sumir; o de 6 dias fica. Apague o de 6 dias à
+mão depois (`rm /var/backups/bandejao/bandejao-teste-6-dias.sql.gz`).
 
 ## Restaurar de verdade (emergência)
 
@@ -175,6 +193,12 @@ toca na produção.
   o backup diário guardado **fora da VM**; por ora ele não existe, e a cópia
   externa fica como evolução, fora do escopo do BD-15. Quando vier, tem que
   respeitar os mesmos 7 dias.
+- Os backups do **deploy automático** (`deploy/cd/deploy.sh`) ficam em
+  `~/backups`, guardados por **quantidade** (os 10 mais recentes e o
+  `ultimo-ok.sql.gz`), e não por idade: eles passam de 7 dias. O aviso de
+  privacidade diz que os dados somem de todas as cópias em até 7 dias, então
+  essas cópias são uma limitação conhecida, fora deste PR. A rotação por
+  idade nessa pasta fica para uma issue própria (mudança no `deploy.sh`).
 - O backup lê o banco no instante do dump. Um registro apagado depois (exclusão
   de conta, BD-12) continua nas cópias já feitas por até 7 dias, e é isso que
   o aviso de privacidade deve dizer.
