@@ -19,11 +19,12 @@
  * O `GET /cardapio/` segue o contrato da BE-11 (#214), com o 404
  * `campus_nao_encontrado` depois de todos os 400 (#217), mais o campo
  * `semServico` proposto na revisão da FE-08 (#219); o resumo do dia responde
- * 501, como o backend, depois de `simulacao.definirResumoDoDiaDisponivel(false)`.
+ * 501, para testar a defesa do front contra um backend sem a rota, depois de
+ * `simulacao.definirResumoDoDiaDisponivel(false)`.
  * As avaliações seguem o contrato da BE-13 (FE-09): `POST /avaliacoes/` e
  * `GET /refeicoes/{refeicaoId}/avaliacoes/`, com o `refeicaoId` do resumo do
- * dia; as duas respondem 501, como o backend hoje, depois de
- * `simulacao.definirAvaliacoesDisponiveis(false)`. O `GET /fila/previsao/`
+ * dia; as duas respondem 501, para testar a defesa do front contra um backend
+ * sem a BE-13, depois de `simulacao.definirAvaliacoesDisponiveis(false)`. O `GET /fila/previsao/`
  * (FE-11) segue o contrato da BE-15 (#236), com uma previsão de exemplo de
  * `./previsao.js`; `simulacao.definirPrevisaoDisponivel(false)` faz ele
  * responder 501, para testar a defesa do front contra um backend sem a rota.
@@ -33,11 +34,13 @@
  * desde a BE-17 (#239). Depois de
  * `simulacao.definirGamificacaoDisponivel(false)`, as três rotas respondem 501
  * (no ranking, só para um campus que existe), para testar a defesa do front.
- * Recuperação de senha, a lista `GET /avaliacoes/` e o resumo da semana da
- * HomeView (`GET /avaliacoes/resumo/` só com o campus) ainda têm o formato do
- * MVP: entram no contrato na FE-E2. A semana do cardápio por campus
- * (`/cardapio/<campus>/`) não existe mais: a Início usa o `GET /cardapio/`
- * (#251).
+ * O `GET /avaliacoes/resumo/` segue o backend: só com o campus, devolve a
+ * lista do dia corrente, e o 404 `campus_nao_encontrado` vem depois de todos
+ * os 400; a Início monta a semana com um pedido por dia (#259). A
+ * recuperação de senha ainda tem o formato do MVP e entra no contrato na
+ * FE-E2. Não existem mais a semana do cardápio por campus
+ * (`/cardapio/<campus>/`; a Início usa o `GET /cardapio/`, #251) nem a lista
+ * `GET /avaliacoes/` do MVP (o backend só tem o POST; #259).
  */
 import { ORDEM_REFEICOES, REFEICOES, mensagemForaDoHorario } from '@/constants/refeicoes'
 import { refeicaoPadrao } from '@/utils/cardapio'
@@ -588,72 +591,26 @@ function avaliacoesDaRefeicao(campus, data, refeicao, agora) {
   return { soma, quantidade, reais, comentarios: semente.comentarios }
 }
 
-function listarAvaliacoes(parametros, agora) {
-  const { data, refeicao } = parametros
-  const campus = idDoCampus(parametros.campus)
-  if (!campus || !REFEICOES[refeicao] || !data) {
-    return erro(400, 'parametros_invalidos', 'Informe campus, data e refeição.')
-  }
-  const { soma, quantidade, reais, comentarios } = avaliacoesDaRefeicao(
-    campus,
-    data,
-    refeicao,
-    agora,
-  )
-  const apelidoPorId = new Map(banco.estado.usuarios.map((u) => [u.id, u.apelido]))
-  const lista = [
-    ...reais.map((a) => ({
-      id: a.id,
-      apelido: apelidoPorId.get(a.usuarioId) ?? 'usuário removido',
-      nota: a.nota,
-      comentario: a.comentario,
-      criadaEm: a.atualizadaEm,
-    })),
-    ...comentarios,
-  ]
-    .filter((a) => a.comentario)
-    .sort((a, b) => b.criadaEm.localeCompare(a.criadaEm))
+const PARAMETROS_DO_RESUMO = ['campus', 'data']
 
-  const usuario = usuarioDaSessao()
-  const minha = usuario ? reais.find((a) => a.usuarioId === usuario.id) : null
-  return ok({
-    media: quantidade ? soma / quantidade : null,
-    quantidade,
-    avaliacoes: lista,
-    minha: minha ? { nota: minha.nota, comentario: minha.comentario } : null,
-  })
-}
-
-function resumoSemana(parametros, agora) {
-  const campus = idDoCampus(parametros.campus)
-  if (parametros.data !== undefined) {
-    if (!campus || !ehDataISO(parametros.data)) {
-      return erro(400, 'parametros_invalidos', 'Parâmetros do resumo inválidos.')
-    }
-    if (!resumoDoDiaDisponivel) return { status: 501, dados: null }
-    return resumoDoDia(campus, parametros.data, agora)
+/**
+ * GET /avaliacoes/resumo/ (RF20.3), como o `ResumoDoDiaView` do backend: a
+ * lista do dia, com o dia corrente quando a `data` não vem. Todos os 400
+ * antes do 404 `campus_nao_encontrado`, como no cardápio (#217); a semana
+ * do MVP não existe mais (#259).
+ */
+function resumoDoDiaPedido(parametros, agora) {
+  if (
+    !/^\d+$/.test(parametros.campus ?? '') ||
+    Object.keys(parametros).some((nome) => !PARAMETROS_DO_RESUMO.includes(nome)) ||
+    (parametros.data !== undefined && !dataNaFaixa(parametros.data))
+  ) {
+    return erro(400, 'parametros_invalidos', 'Parâmetros do resumo inválidos.')
   }
-  if (!campus) return erro(404, 'campus_nao_encontrado', 'Campus não encontrado.')
-  const { dias } = montarCardapioSemana(campus, agora)
-  let somaSemana = 0
-  let quantidadeSemana = 0
-  const resumoDias = dias.map((dia) => {
-    let soma = 0
-    let quantidade = 0
-    for (const { tipo } of dia.refeicoes) {
-      const parcial = avaliacoesDaRefeicao(campus, dia.data, tipo, agora)
-      soma += parcial.soma
-      quantidade += parcial.quantidade
-    }
-    somaSemana += soma
-    quantidadeSemana += quantidade
-    return { data: dia.data, media: quantidade ? soma / quantidade : null, quantidade }
-  })
-  return ok({
-    media: quantidadeSemana ? somaSemana / quantidadeSemana : null,
-    quantidade: quantidadeSemana,
-    dias: resumoDias,
-  })
+  const campus = idDoCampus(parametros.campus.replace(/^0+(?=\d)/, ''))
+  if (!campus) return erro(404, 'campus_nao_encontrado', MENSAGEM_CAMPUS_INEXISTENTE)
+  if (!resumoDoDiaDisponivel) return { status: 501, dados: null }
+  return resumoDoDia(campus, parametros.data ?? hojeISO(agora), agora)
 }
 
 /** Refeição do simulado pelo `refeicaoId` do resumo do dia, ou null. */
@@ -933,8 +890,11 @@ const ROTAS = [
   ['POST', /^\/redefinir-senha\/$/, ({ corpo, agora }) => redefinirSenha(corpo, agora)],
   ['GET', /^\/campi\/$/, () => listarCampi()],
   ['GET', /^\/cardapio\/$/, ({ parametros, agora }) => cardapioFiltrado(parametros, agora)],
-  ['GET', /^\/avaliacoes\/resumo\/$/, ({ parametros, agora }) => resumoSemana(parametros, agora)],
-  ['GET', /^\/avaliacoes\/$/, ({ parametros, agora }) => listarAvaliacoes(parametros, agora)],
+  [
+    'GET',
+    /^\/avaliacoes\/resumo\/$/,
+    ({ parametros, agora }) => resumoDoDiaPedido(parametros, agora),
+  ],
   ['POST', /^\/avaliacoes\/$/, ({ corpo, agora }) => avaliar(corpo, agora)],
   [
     'GET',

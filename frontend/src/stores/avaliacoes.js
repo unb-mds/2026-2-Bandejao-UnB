@@ -2,8 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { ApiError, apiClient, mensagemDeErro } from '@/services/apiClient'
 import { repassarPontos } from '@/stores/gamificacao'
-
-const chaveRefeicao = ({ campus, data, refeicao }) => `${campus}|${data}|${refeicao}`
+import { inicioDaSemana, somarDias } from '@/utils/datas'
 
 const MENSAGEM_INDISPONIVEL_NO_SERVIDOR =
   'As avaliações ainda não estão disponíveis. Tente de novo mais tarde.'
@@ -38,18 +37,22 @@ const FALHAS_DO_ENVIO = {
  *
  * O resumo do dia dá o `refeicaoId` de cada refeição;
  * `GET /api/refeicoes/{refeicaoId}/avaliacoes/` dá a média, a quantidade e os
- * comentários; `POST /api/avaliacoes/` cria ou edita (upsert). Enquanto o
- * backend responde 501 nessas rotas, a situação fica 'indisponivel', sem erro.
+ * comentários; `POST /api/avaliacoes/` cria ou edita (upsert). Se um backend
+ * sem essas rotas responder 501, a situação fica 'indisponivel', sem erro.
  *
  * O contrato não tem "minha avaliação": ela vem da resposta do POST e, depois
  * de recarregar a página, do comentário com o apelido da sessão (o apelido é
  * único). Não acha a avaliação ocultada pela moderação, que não aparece na
- * lista. `carregar`, `carregarResumo` e `daRefeicao` são do formato antigo da
- * API, ainda usados pela HomeView.
+ * lista.
+ *
+ * O resumo da semana da Início (#259) não tem rota própria: o backend só tem
+ * o resumo do dia, então `carregarResumoDaSemana` pede um por dia e junta.
  */
 export const useAvaliacoesStore = defineStore('avaliacoes', () => {
-  const porRefeicao = ref({})
-  const resumoPorCampus = ref({})
+  /** campus → `{ situacao, resumo, erro }` do resumo da semana (ver `carregarResumoDaSemana`). */
+  const semanaPorCampus = ref({})
+  /** campus → último pedido da semana: uma resposta antiga não sobrescreve a nova. */
+  const pedidoDaSemana = {}
   /** refeicaoId → `{ resumoAvaliacoes, comentarios }` (schema AvaliacoesDaRefeicao). */
   const daRefeicaoPorId = ref({})
   /** refeicaoId → 'carregando' | 'carregado' | 'indisponivel' (501) | 'erro'. */
@@ -64,7 +67,6 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
   const rascunhos = {}
   const resumoDoDia = ref({})
   const situacaoDoResumo = ref({})
-  const erro = ref(null)
 
   function daResumoDoDia(campus, data) {
     return resumoDoDia.value[`${campus}|${data}`] ?? null
@@ -97,28 +99,48 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
     return daResumoDoDia(campus, data)
   }
 
-  function daRefeicao(alvo) {
-    return porRefeicao.value[chaveRefeicao(alvo)] ?? null
+  /**
+   * `{ situacao, resumo, erro }` da semana do campus, ou null antes do
+   * primeiro pedido. `situacao`: 'carregando' | 'carregado' | 'erro';
+   * `resumo`: `{ media, quantidade, dias }` (só em 'carregado'); `erro`:
+   * `{ mensagem }` (só em 'erro').
+   */
+  function estadoDaSemana(campus) {
+    return semanaPorCampus.value[campus] ?? null
   }
 
-  async function carregar(alvo) {
-    erro.value = null
-    const parametros = new URLSearchParams(alvo).toString()
+  /**
+   * Resumo da semana de `agora` (segunda a domingo, como o backend) para os
+   * cartões da Início: um `GET /api/avaliacoes/resumo/?campus=…&data=…` por
+   * dia. Dia sem nenhuma refeição (sem serviço ou sem cardápio) fica de fora;
+   * dia com refeição e sem avaliação entra com a média null. A média é
+   * ponderada pela quantidade de cada refeição.
+   *
+   * Qualquer dia que falhe, ou que venha fora do formato, faz a semana toda
+   * virar 'erro': um resumo parcial passaria por "menos avaliações".
+   *
+   * Cada pedido começa do zero: não mantém o resumo da recarga anterior, e se
+   * falhar vira 'erro' (decisão da revisão do PR #288). Manter o número antigo
+   * esconderia a falha; a tela mostra "carregando…" a cada volta à Início.
+   * Devolve o resumo, ou null se falhou.
+   */
+  async function carregarResumoDaSemana(campus, agora = new Date()) {
+    const inicio = inicioDaSemana(agora)
+    const datas = Array.from({ length: 7 }, (_, dia) => somarDias(inicio, dia))
+    const pedido = {}
+    pedidoDaSemana[campus] = pedido
+    semanaPorCampus.value[campus] = { situacao: 'carregando', resumo: null, erro: null }
+    let estado
     try {
-      porRefeicao.value[chaveRefeicao(alvo)] = await apiClient.get(`/avaliacoes/?${parametros}`)
+      const listas = await Promise.all(datas.map((data) => pedirResumoDoDia(campus, data)))
+      estado = { situacao: 'carregado', resumo: juntarSemana(datas, listas), erro: null }
     } catch (falha) {
-      erro.value = mensagemDeErro(falha)
+      // `mensagemDeErro` já registra no console o que não é erro da API.
+      if (falha instanceof ApiError) console.error('Falha ao carregar o resumo da semana:', falha)
+      estado = { situacao: 'erro', resumo: null, erro: { mensagem: mensagemDeErro(falha) } }
     }
-    return daRefeicao(alvo)
-  }
-
-  async function carregarResumo(campus) {
-    try {
-      resumoPorCampus.value[campus] = await apiClient.get(`/avaliacoes/resumo/?campus=${campus}`)
-    } catch (falha) {
-      erro.value = mensagemDeErro(falha)
-    }
-    return resumoPorCampus.value[campus] ?? null
+    if (pedidoDaSemana[campus] === pedido) semanaPorCampus.value[campus] = estado
+    return estado.resumo
   }
 
   function avaliacoesDaRefeicao(refeicaoId) {
@@ -243,7 +265,6 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
 
   /** Após login/logout, a "minha avaliação" de cada refeição muda. */
   function limparCache() {
-    porRefeicao.value = {}
     daRefeicaoPorId.value = {}
     situacaoPorId.value = {}
     erroPorId.value = {}
@@ -251,16 +272,12 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
   }
 
   return {
-    porRefeicao,
-    resumoPorCampus,
     resumoDoDia,
-    erro,
     daResumoDoDia,
     situacaoDoResumoDoDia,
     carregarResumoDoDia,
-    daRefeicao,
-    carregar,
-    carregarResumo,
+    estadoDaSemana,
+    carregarResumoDaSemana,
     avaliacoesDaRefeicao,
     situacaoDaRefeicao,
     erroDaRefeicao,
@@ -272,6 +289,48 @@ export const useAvaliacoesStore = defineStore('avaliacoes', () => {
     limparCache,
   }
 })
+
+const ehNumeroOuNull = (valor) => valor === null || Number.isFinite(valor)
+
+/**
+ * GET /api/avaliacoes/resumo/ de um dia, conferido: uma lista de
+ * `{ media, quantidade }`. Outra forma levanta `TypeError`.
+ */
+async function pedirResumoDoDia(campus, data) {
+  const parametros = new URLSearchParams({ campus: String(campus), data })
+  const resposta = await apiClient.get(`/avaliacoes/resumo/?${parametros}`)
+  const valida =
+    Array.isArray(resposta) &&
+    resposta.every((linha) => Number.isInteger(linha?.quantidade) && ehNumeroOuNull(linha.media))
+  if (!valida) throw new TypeError(`Resposta inesperada de GET /api/avaliacoes/resumo/ (${data}).`)
+  return resposta
+}
+
+/** Soma de nota (média × quantidade) e quantidade de uma lista de resumos. */
+function somar(linhas) {
+  return linhas.reduce(
+    (total, { media, quantidade }) => ({
+      soma: total.soma + (quantidade ? media * quantidade : 0),
+      quantidade: total.quantidade + quantidade,
+    }),
+    { soma: 0, quantidade: 0 },
+  )
+}
+
+const media = ({ soma, quantidade }) => (quantidade ? soma / quantidade : null)
+
+/** `{ media, quantidade, dias }` da semana, a partir do resumo de cada dia. */
+function juntarSemana(datas, listas) {
+  const dias = datas
+    .map((data, indice) => ({ data, ...somar(listas[indice]), refeicoes: listas[indice].length }))
+    .filter((dia) => dia.refeicoes > 0)
+  const semana = somar(dias.map((dia) => ({ media: media(dia), quantidade: dia.quantidade })))
+  return {
+    media: media(semana),
+    quantidade: semana.quantidade,
+    dias: dias.map((dia) => ({ data: dia.data, media: media(dia), quantidade: dia.quantidade })),
+  }
+}
 
 function desfechoDaFalha(falha) {
   if (!(falha instanceof ApiError)) {
