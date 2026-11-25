@@ -84,13 +84,13 @@ fi
 
 agora() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
 
-# A entrada é fechada (</dev/null): o comando do Django não lê nada, e num
-# terminal (rodando à mão, por SSH) o `docker compose exec -T` herdaria o
-# teclado. Como o `timeout` o põe em segundo plano, o kernel o pararia com
-# SIGTTIN, sem saída e com o log só no `início`, e a trava ficaria presa até o
+# A entrada é vazia (</dev/null, o fim do arquivo na hora): o comando do Django
+# não lê nada, e num terminal (rodando à mão, por SSH) o `docker compose
+# exec -T` herdaria o terminal. Como o `timeout` o põe em segundo plano, o
+# kernel o pararia com SIGTTIN (estado `T`), e a trava ficaria presa até o
 # limite do cliente. Pelo cron não há terminal, por isso lá nunca aconteceu.
-# Não troque por `timeout --foreground`: ele deixa de encerrar os filhos do
-# docker, e o limite do cliente perde o efeito.
+# Não troque por `timeout --foreground`: o limite do cliente ainda encerra o
+# `docker`, mas um filho dele pode continuar vivo e segurando a trava.
 rodar() {
     timeout --kill-after=60 "$limite_cliente" \
         docker compose exec -T backend \

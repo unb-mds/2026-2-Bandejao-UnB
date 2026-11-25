@@ -669,10 +669,11 @@ sh deploy/cron/rodar-comando.sh excluir_cadastros_pendentes </dev/null
 tail -n 5 /var/log/bandejao/*.log
 ```
 
-O `</dev/null` evita que o comando leia o terminal. A partir da correção da
-BD-07 (24/11/2026) o script já fecha a entrada sozinho e o `</dev/null` é
-só uma garantia; numa VM com a versão anterior, sem ele o comando trava
-(veja "Comando parado" abaixo).
+O `</dev/null` evita que o comando leia o terminal. A correção da BD-07
+(24/11/2026) faz o script usar a entrada vazia sozinho, mas ela só chega à VM
+com a release `develop` → `main`, pelo deploy automático. Até lá, sem o
+`</dev/null` o comando trava (veja "Comando parado" abaixo); depois, ele é só
+uma garantia.
 
 Com `sudo`, o log e a trava passam a ser do root, e o cron do `azureuser` não
 consegue mais gravar: a tarefa para e só deixa o erro no syslog (status 73).
@@ -700,20 +701,31 @@ Os status 1, 2 e 73 saem antes do log, então a execução não aparece no
 arquivo do comando. Se o log não tiver a execução esperada, veja o
 `journalctl -t bandejao-cron`.
 
-**Comando parado, sem saída, e o log só com `início`.** Foi o que aconteceu ao
+**Comando parado: o log só tem `início` e não avança.** Foi o que aconteceu ao
 rodar à mão, por SSH, a versão antiga do script (sem o `</dev/null`): o
-`docker compose` ficava parado esperando o terminal. Pelo cron isso não
-acontece. Para ver e destravar:
+`docker compose` era parado pelo kernel ao tentar ler o terminal (estado `T`).
+A saída do comando sempre vai para o log, então o sinal não é "sem saída": é o
+estado `T`. Pelo cron isso não acontece. Para ver e destravar, **abra outra
+sessão SSH** (a travada não responde):
 
 ```bash
-ps -eo pid,pgid,stat,cmd | grep "[d]ocker compose"   # estado T = parado
-kill -KILL -<pgid>                                   # encerra o grupo do timeout
+ps -eo pid,pgid,stat,cmd | grep "[d]ocker compose exec"
+kill -KILL -<pgid>
 ```
 
-Se não achar o grupo, feche a sessão SSH. Enquanto o comando parado seguir
-vivo, ele segura a trava, e as execuções do cron do mesmo comando saem como
-75 (pulado) até o limite de 130 min. Depois do `git pull` com a correção,
-isso não se repete.
+Use o `pgid` da linha com estado `T` ou `Tl` e confira, no fim dela, que o
+comando é o que travou (por exemplo `... manage.py clearsessions`). O `timeout`
+do mesmo grupo aparece como `S`; tarefas saudáveis do cron e outros
+`docker compose` não são o alvo.
+
+O `kill` encerra só o cliente `docker` e libera a trava; ele **não** encerra o
+Django dentro do container. Se o comando já tinha começado, ele segue rodando
+até o limite de 2 h, e uma nova execução pode rodar junto. Confira antes com
+`docker compose top backend | grep manage.py`. Se você matar o cliente, o status
+137 que aparecer no log vem do próprio `kill`. Enquanto o comando parado seguir
+vivo, ele segura a trava, e as execuções do cron do mesmo comando saem como 75
+(pulado) até o limite de 130 min. Depois que a correção estiver na VM, isso não
+se repete.
 
 Todo status diferente de 0 também vai para o syslog, com a tag
 `bandejao-cron`. O status 75 vai como aviso, e os outros, como erro. A VM não

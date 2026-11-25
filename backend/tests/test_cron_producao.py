@@ -346,22 +346,43 @@ def test_roda_o_comando_no_container_com_tempo_limite(rodar):
 @precisa_de_sh
 def test_nao_le_o_terminal_ao_rodar_a_mao(rodar, ambiente):
     """Rodando à mão por SSH, a entrada é o terminal, aberta e sem dados. O
-    `docker compose exec -T` ficava lendo dela e o script travava em silêncio.
-    Aqui a entrada é um pipe que ninguém fecha: se o script a repassar ao
-    docker, o `cat` do docker falso espera e o teste estoura o tempo."""
-    processo = rodar("clearsessions", fundo=True, LER_STDIN="1", stdin=subprocess.PIPE)
+    `docker compose exec -T`, posto em segundo plano pelo `timeout`, era parado
+    pelo kernel (SIGTTIN) ao tentar ler dela, e o script ficava preso. Um pipe
+    que ninguém fecha faz o papel do terminal: se o script o repassar ao
+    docker, o `cat` do docker falso espera, e o limite do cliente (5 s) encerra
+    o docker e derruba o teste logo, sem deixar processo órfão."""
+    processo = rodar(
+        "clearsessions",
+        fundo=True,
+        LER_STDIN="1",
+        stdin=subprocess.PIPE,
+        BANDEJAO_TEMPO_LIMITE_CLIENTE="5s",
+    )
     try:
         status = processo.wait(timeout=20)
     except subprocess.TimeoutExpired:
         processo.kill()
         processo.wait()
-        pytest.fail("o script ficou esperando a entrada: o docker leu o terminal")
+        pytest.fail("o script ficou esperando a entrada repassada ao docker")
     finally:
         processo.stdin.close()
 
-    assert status == 0
+    assert status == 0, f"status {status}: o docker esperou a entrada (124 = limite)"
     stdin_do_docker = ambiente["docker"].with_name("docker.txt.stdin")
     assert stdin_do_docker.read_text(encoding="utf-8") == ""
+
+
+def test_timeout_do_cliente_nao_usa_o_foreground():
+    """O `--foreground` junto com o `</dev/null` passa em todos os outros
+    testes: ele mantém o `timeout` no grupo do terminal, mas um filho do
+    `docker` pode sobreviver ao limite e segurar a trava. O aviso do script
+    (comentário) não conta."""
+    codigo = [
+        linha
+        for linha in SCRIPT.read_text(encoding="utf-8").splitlines()
+        if not linha.lstrip().startswith("#")
+    ]
+    assert not any("--foreground" in linha for linha in codigo)
 
 
 @precisa_de_sh
