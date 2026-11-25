@@ -1165,6 +1165,30 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
 - Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
 
+## Correção da navegação do Perfil (#297)
+
+- Issue: [#297](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/297). PR: [#301](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/301).
+- Ferramenta: ChatGPT (OpenAI).
+- Apoio: análise da navegação e geração de patches para os testes de regressão e a correção da rota do Perfil, com atualização dos comentários e separação dos itens da barra lateral.
+- Escopo: Perfil aponta para `/progresso` no celular e no tablet, com `aria-current` na página atual. A navegação lateral mantém seus destinos anteriores e o atalho de conta. Sem alteração de API ou de autenticação.
+- TDD: patches separados para testes e implementação; execução e validação a cargo da autora.
+- Validação local:
+  - TDD (RED): 6 falhas esperadas e 29 testes aprovados.
+  - TDD (GREEN): 35/35 testes aprovados.
+  - Suíte completa: 1.125/1.125 testes aprovados em 43 arquivos.
+  - Lint: 0 erros e 0 warnings.
+  - Build de produção: aprovado.
+  - Cobertura: statements 95,55%; branches 93,02%; functions 95,39%; lines 96,52%.
+  - Cobertura de 100% em navegacao.js, NavegacaoInferior.vue, NavegacaoTopo.vue e BarraLateral.vue.
+  - Conferência visual: realizada parcialmente pela autora no navegador. A instabilidade do equipamento impediu a conclusão documentada de todos os cenários e a obtenção de capturas de tela.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/301#issuecomment-7151522260).
+- Ajustes da revisão com apoio do ChatGPT:
+  - Atualização do C4 do frontend com os destinos das navegações superior e lateral.
+  - Atualização do checklist de qualidade do frontend.
+  - Correção do comentário da BarraLateral.vue.
+  - Inclusão do link do PR, da revisão humana e da situação neste registro.
+  - Alinhamento dos registros de validação visual com as verificações efetivamente realizadas.
+- Situação: ajustes de documentação e comentários da revisão aplicados; aguardando recheck e complementação da validação visual.
 ## #250 — GRANT com o nome do banco escapado no `10-usuarios.sh`
 
 - Issue: [#250](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/250), achada na revisão do [#246](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/246) (#209). PR: [#298 — fix(banco): GRANT com o nome do banco escapado (#250)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/298).

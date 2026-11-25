@@ -64,7 +64,7 @@ O guia são os tokens de `frontend/src/assets/base.css` (paleta, tipografia, rai
 | Tipografia: títulos em `--fonte-titulo` (Nunito) e texto em `--fonte-texto` (Inter), sem `font-family` solta | ✅ | ✅ |
 | Raios: escala semântica (`--raio-2xs` a `--raio-xl`), tokens numéricos, círculo (`50%`) e pílula (`999px`) | ✅ (validação automatizada; PR #290) | ✅ (validação automatizada; PR #290) |
 | Larguras: no desktop, a lateral de 246 px (`--largura-lateral`) e o conteúdo na largura que sobra; formulários de conta com 470 px (tablet: cartão até `--largura-formulario`, 480 px) | não se aplica | ✅ |
-| Navegação: `NavegacaoInferior` no celular, `NavegacaoTopo` de 768 a 1023 px e `BarraLateral` a partir de 1024 px (FE-23), com os mesmos destinos | ✅ | ✅ |
+| Navegação: `NavegacaoInferior` no celular, `NavegacaoTopo` de 768 a 1023 px e `BarraLateral` a partir de 1024 px (FE-23). Perfil leva a Meu progresso no celular e no tablet (#297); no desktop, o atalho de conta leva a Meu progresso para usuários autenticados e ao login para visitantes, sem duplicar o Perfil no menu principal | ✅ | ✅ |
 | Foco visível (`:focus-visible`), dourado sobre o verde | ✅ | ✅ |
 | Mesma distribuição de informação entre as telas: cabeçalho verde nas telas internas (no desktop, a Início tem a barra do topo clara) e cartões em `--cartao` sobre o bege (no desktop, o creme) | ✅ | ✅ |
 
