@@ -527,6 +527,28 @@ describe('HomeView: previsão de pico no cartão Fila (FE-22, #269)', () => {
     })
   })
 
+  it('formata tres picos empatados com virgulas e e antes do ultimo', async () => {
+    prepararCardapio()
+    trocarGet('/fila/previsao/', () =>
+      Promise.resolve({
+        status: 'disponivel',
+        faixas: [
+          faixa('11:30', '11:45'),
+          faixa('12:00', '12:15'),
+          faixa('12:30', '12:45'),
+        ],
+      }),
+    )
+
+    const wrapper = await montarHome(1)
+
+    await vi.waitFor(() => {
+      expect(cartaoFila(wrapper).get('.valor-previsao').text()).toBe(
+        '11h30 às 11h45, 12h às 12h15 e 12h30 às 12h45',
+      )
+    })
+  })
+
   it('mostra texto de reserva quando os dados são insuficientes', async () => {
     prepararCardapio()
     trocarGet('/fila/previsao/', () =>
