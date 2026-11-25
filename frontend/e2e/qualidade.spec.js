@@ -12,7 +12,10 @@ import { contaDoFluxo, entrar } from './apoio/contas'
 const PRATO_DO_GAMA = 'Silveirinha de carne'
 
 const cardapioDoGama = (page) =>
-  page.getByRole('region', { name: 'Cardápio' }).getByText(PRATO_DO_GAMA)
+  page
+    .getByRole('region', { name: 'Cardápio' })
+    .getByRole('listitem')
+    .filter({ hasText: PRATO_DO_GAMA })
 
 // Cada toque é conferido pela tela que ele abre: um passo a mais ou a menos
 // falha no passo certo. O aviso de localização (RF19) conta como interação
@@ -161,12 +164,58 @@ test.describe('RNF03 e FE-20: nenhuma tela passa da largura da janela', () => {
       ...TELAS_SEM_LOGIN.filter(({ rota }) =>
         [`/campus/${GAMA.id}`, '/inicio', '/avaliacoes', `/ranking/${GAMA.id}`].includes(rota),
       ),
-      { rota: '/progresso', pronta: (page) => page.getByText(conta.apelido) },
+      { rota: '/progresso', pronta: (page) => page.getByRole('banner').getByText(conta.apelido) },
     ]
     for (const { rota, pronta } of telas) {
       await page.goto(rota)
       await expect(pronta(page), `${rota} não carregou`).toBeVisible()
       expect.soft(await elementosQuePassam(page), `${rota} passa da largura`).toEqual([])
     }
+  })
+})
+
+// FE-23: o que depende da largura real da janela (o jsdom não aplica as
+// regras de largura, então isto fica no e2e).
+test.describe('FE-23: layout do desktop', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript((campusId) => {
+      localStorage.setItem(
+        'bandejao:preferencias',
+        JSON.stringify({ campusId, avisoLocalizacaoAdiado: true }),
+      )
+    }, GAMA.id)
+  })
+
+  test('a lateral só aparece a partir de 1024 px, e a barra do topo de 768 a 1023 px', async ({
+    page,
+  }) => {
+    for (const [largura, lateral, topo] of [
+      [360, false, false],
+      [768, false, true],
+      [1023, false, true],
+      [1024, true, false],
+      [1366, true, false],
+    ]) {
+      await page.setViewportSize({ width: largura, height: 800 })
+      await page.goto(`/campus/${GAMA.id}`)
+      await expect(cardapioDoGama(page)).toBeVisible()
+      const barraLateral = page.locator('.barra-lateral')
+      const barraTopo = page.locator('.navegacao-topo')
+      await (lateral ? expect(barraLateral).toBeVisible() : expect(barraLateral).toBeHidden())
+      await (topo ? expect(barraTopo).toBeVisible() : expect(barraTopo).toBeHidden())
+    }
+  })
+
+  test('cadastro numa janela baixa: o topo da tela continua alcançável', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'só o desktop divide a tela de conta')
+    await page.setViewportSize({ width: 1366, height: 650 })
+    await page.goto('/cadastro')
+    await page.getByRole('radio', { name: 'Aluno' }).click()
+    await page.locator('.area-tela').evaluate((area) => area.scrollTo(0, 0))
+
+    const voltar = await page.getByRole('button', { name: 'Voltar' }).boundingBox()
+    expect(voltar.y).toBeGreaterThanOrEqual(0)
   })
 })

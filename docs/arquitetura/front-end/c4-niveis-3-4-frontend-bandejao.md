@@ -63,9 +63,10 @@ flowchart TB
   subgraph frontend["📱 PWA (Frontend) — Vue 3 + Vite"]
     app["🖼️ App (raiz)
 Casca do app: monta os avisos
-globais e a NavegacaoTopo (tablet e
-desktop). A NavegacaoInferior (celular)
-é montada por cada tela."]
+globais, a NavegacaoTopo (tablet),
+a BarraLateral e a AsideConta
+(desktop). A NavegacaoInferior
+(celular) é montada por cada tela."]
     router["🧭 Router
 Vue Router — rotas nomeadas e
 lazy-loaded (ver Estratégia de roteamento)."]
@@ -141,15 +142,33 @@ Aviso '+10 pontos' (RF24.2)."]
 - **Um só frontend, mobile first, com três pontos de quebra (FE-20, RNF05):**
   celular até 767 px, tablet de 768 a 1023 px e desktop a partir de 1024 px.
   No celular, cada tela ocupa a tela inteira e a `NavegacaoInferior` aparece
-  em Cardápio, Fila e Avaliações. A partir de 768 px, a `NavegacaoTopo`
+  em Cardápio, Fila e Avaliações. No tablet (768 a 1023 px), a `NavegacaoTopo`
   (montada no `App.vue`, menos na boas-vindas) leva aos mesmos destinos
   (`constants/navegacao.js`), sem repetir o "Perfil" (atalho para a Início,
   que ela marca como página atual), mais o canal de contato (RNF08), e as telas de
-  formulário viram um cartão centralizado de até 480 px, que cresce com o
-  conteúdo (numa janela baixa, quem rola é a página). A partir de 1024 px,
-  o conteúdo tem largura máxima de 1200 px, centralizada. As larguras são
-  tokens do guia de estilo (`--largura-conteudo` e `--largura-formulario` em
-  `assets/base.css`, RF17). Foco visível (`:focus-visible`) e `:hover` valem em todas as telas:
+  formulário viram um cartão centralizado de até 480 px (`--largura-formulario`),
+  que cresce com o conteúdo (numa janela baixa, quem rola é a página).
+- **Desktop, a partir de 1024 px (FE-23, protótipo desktop):** desenho próprio,
+  não o do tablet esticado.
+  - A `BarraLateral` (246 px, `--largura-lateral`, à esquerda) substitui a
+    `NavegacaoTopo`: leva aos mesmos destinos e ao Ranking, e mostra o campus
+    atual, a conta, o "Sair da conta" (como o `BotaoSair`) e o contato.
+  - Telas internas: cabeçalho verde de 112 px e conteúdo em cartões sobre o
+    creme, na largura que sobra ao lado da lateral (o teto de 1200 px do
+    `--largura-conteudo` deixa de valer). A Início é a exceção: barra do topo
+    clara, com a saudação e a data.
+  - Telas de entrada (boas-vindas, escolha do campus sem campus escolhido e
+    telas de conta): sem a lateral, com o lado verde à esquerda, em proporções
+    desiguais (cerca de 1,4 para 0,8 na boas-vindas e 0,85 para 1,15 nas de
+    conta). Nas de conta, o lado verde é a `AsideConta`, montada no `App.vue`,
+    e o formulário tem 470 px, sem cartão. A escolha do campus aberta por
+    "Trocar" (já há campus) mostra a lateral, para ter saída.
+  - A logo (`AppLogo`) e as ilustrações das refeições (`IlustracaoRefeicao`)
+    são imagens em `assets/marca/` e `assets/refeicoes/`. O destaque do
+    cardápio vem de `destaqueDaRefeicao` (`utils/cardapio.js`), que respeita os
+    marcadores evitados e a dieta.
+- **Comum aos três:** as larguras e as cores são tokens do guia de estilo
+  (`assets/base.css`, RF17). Foco visível (`:focus-visible`) e `:hover` valem em todas as telas:
   nada depende só de toque. Nas superfícies verdes, a classe `fundo-escuro`
   deixa o anel de foco dourado.
 - **`HomeView`, `BoasVindasView` e `NotFoundView`** existem no código, mas

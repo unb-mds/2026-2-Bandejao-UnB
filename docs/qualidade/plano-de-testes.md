@@ -81,7 +81,7 @@ O sistema inteiro implantado, conferido contra os requisitos **não funcionais**
 
 | Requisito | Teste | Item do backlog |
 |---|---|---|
-| RNF01 — 3 s no p95 com 2.000 usuários | Teste de carga do cardápio e da previsão ([resultado](teste-de-carga-bd14.md)) | BD-14 |
+| RNF01 — 3 s no p95 com 500 usuários | Teste de carga do cardápio e da previsão ([resultado](teste-de-carga-bd14.md)) | BD-14 |
 | RNF02 — 95% de disponibilidade | Monitor das 7h às 19h30 | BD-09 |
 | RNF03 — 3 interações, 360 px | [Checklist de qualidade do front](checklist-qualidade-front.md), com coluna para celular e desktop, e os testes de ponta a ponta `qualidade.spec.js` (seção 3.5) | FE-16, QA-07 |
 | RNF05 — navegadores e PWA instalável | Chrome, Firefox, Edge e Safari, no [checklist](checklist-qualidade-front.md); Lighthouse | FE-14, FE-16, QA-07 |

@@ -60,4 +60,35 @@ const emit = defineEmits(['escolher'])
   font-size: 10px;
   font-weight: 600;
 }
+
+/* Desktop (FE-23): pílula clara, à direita dos dias, com o horário embaixo. */
+@media (min-width: 1024px) {
+  .refeicoes {
+    justify-self: end;
+    width: min(100%, 405px);
+    padding: 4px;
+    border: 1px solid var(--borda);
+    border-radius: 13px;
+    background: var(--cartao);
+  }
+  .refeicao {
+    align-items: flex-start;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: 9px;
+    text-align: left;
+    color: var(--texto-suave);
+  }
+  .refeicao--ativa {
+    color: #fff;
+    background: var(--verde-escuro);
+  }
+  .refeicao .rotulo {
+    font-size: 12px;
+    color: inherit;
+  }
+  .refeicao .nota {
+    font-size: 11px;
+  }
+}
 </style>

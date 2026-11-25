@@ -63,10 +63,10 @@ O guia são os tokens de `frontend/src/assets/base.css` (paleta, tipografia, rai
 | Paleta: as cores da marca, do texto e do feedback vêm dos tokens | ⚠️ (bug 2) | ⚠️ (bug 2) |
 | Tipografia: títulos em `--fonte-titulo` (Nunito) e texto em `--fonte-texto` (Inter), sem `font-family` solta | ✅ | ✅ |
 | Raios: `--raio-sm` a `--raio-xl` e o formato de pílula (`999px`) | ⚠️ (bug 2) | ⚠️ (bug 2) |
-| Larguras: conteúdo até `--largura-conteudo` (1200 px) e formulários até `--largura-formulario` (480 px) | não se aplica | ✅ |
-| Navegação: `NavegacaoInferior` no celular e `NavegacaoTopo` a partir de 768 px, com os mesmos destinos | ✅ | ✅ |
+| Larguras: no desktop, a lateral de 246 px (`--largura-lateral`) e o conteúdo na largura que sobra; formulários de conta com 470 px (tablet: cartão até `--largura-formulario`, 480 px) | não se aplica | ✅ |
+| Navegação: `NavegacaoInferior` no celular, `NavegacaoTopo` de 768 a 1023 px e `BarraLateral` a partir de 1024 px (FE-23), com os mesmos destinos | ✅ | ✅ |
 | Foco visível (`:focus-visible`), dourado sobre o verde | ✅ | ✅ |
-| Mesma distribuição de informação entre as telas: cabeçalho verde, cartões em `--cartao` sobre o bege | ✅ | ✅ |
+| Mesma distribuição de informação entre as telas: cabeçalho verde nas telas internas (no desktop, a Início tem a barra do topo clara) e cartões em `--cartao` sobre o bege (no desktop, o creme) | ✅ | ✅ |
 
 **Bug 2 (baixa prioridade):** cores e raios fora dos tokens. Visualmente as telas são coerentes; o que falta é o token.
 
