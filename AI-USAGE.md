@@ -990,7 +990,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação depois dos ajustes: o spec rodado contra o servidor simulado, com uma cópia que troca a conta e o prato da fixture pelos do simulado: os testes sem login, o controle e a primeira visita passaram, e os dois `test.fail()` falharam onde deviam. O teste com login não roda no simulado, que perde a sessão ao recarregar; na pilha real, [run do `ponta-a-ponta`](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45439504101). `npm run lint:ci` sem achados.
 - Situação: ajustes da revisão aplicados; aguardando o recheck.
 
-<<<<<<< HEAD
 ## #259 — Início: cartões "Avaliações" e "Satisfação da semana" pelo resumo do dia
 
 - Issue: [#259](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/259). PR: [#288](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/288). Relacionada: [#251](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/251) (PR [#257](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257)).
@@ -1014,9 +1013,17 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - trechos que diziam que o backend responde 501 (cabeçalho do `servidor.js`, doc da store e C4) agora dizem que é a defesa contra um backend sem a rota; no C4, "o formato de semana do MVP" no lugar de "o resumo da semana";
   - o texto "campus inexistente dava 400" (só valia com `data`) também precisa ser corrigido na descrição do PR.
 - Validação depois dos ajustes: `npm run lint:ci` sem achados, `npm run test:ci` com 1.089 testes passando (96,41% de linhas / 92,79% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
-- Conferência com o backend real (critério de aceite da #259): **pendente**. Não foi feita no ambiente da IA; a autora roda a pilha, abre `/inicio` e registra aqui o resultado.
-- Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12 e a conferência com o backend real.
-=======
+- Conferência com o backend real (critério de aceite da #259): realizada em 24 e 25/11/2026, no commit `55dc763`, com Django 6.1.1, Python 3.13.5, SQLite e `VITE_USE_MOCK=false`, sem Docker.
+  - Campus Gama, com 622 objetos carregados de 5 fixtures.
+  - Sem avaliações: estado vazio correto e 0 avaliações.
+  - Oito requisições de resumo com HTTP 200, confirmadas no Network e no terminal do Django, abrangendo 23 a 29/11 e uma consulta adicional para o dia atual.
+  - Primeira avaliação de 4 estrelas: HTTP 201, média 4,0 e contagem 1.
+  - Segunda avaliação de 2 estrelas: HTTP 201, média 3,0 e contagem 2.
+  - Backend desligado: mensagens de erro corretas nos dois cartões, sem confundir falha com ausência de avaliações.
+  - Backend religado: média 3,0 e contagem 2 restauradas, inclusive após a virada do dia.
+  - Limitação: SQLite, não o MySQL de produção.
+  - Apoio do ChatGPT (OpenAI): orientação na execução do roteiro fornecido pelo revisor, interpretação dos logs e documentação dos resultados. Testes executados manualmente pela autora.
+- Situação: ajustes da revisão aplicados e conferência com o backend real concluída. Aguardando recheck do AlvaroBento12.
 ## FE-23 — Novo design do desktop, nova logo e ilustrações das refeições
 
 - Issue: [#291](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/291). PR: [#293 — FE-23: Novo design do desktop, nova logo e ilustrações das refeições](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/293).
@@ -1059,7 +1066,6 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - os exemplos de comando (`teste-de-carga-bd14.md` e docstring do `locustfile.py`) usam 500.
 - Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
 - Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
->>>>>>> origin/develop
 
 ### Issue #259 — Ajustes da revisão do PR #288
 
@@ -1086,8 +1092,17 @@ Validações executadas localmente:
 - Cobertura de funções: 95,51%.
 - Cobertura de instruções: 95,62%.
 
-Pendência:
-A validação manual da rota /inicio com o backend real não foi
-executada, pois o comando Docker não está disponível no ambiente
-local. O critério de aceite correspondente permanece pendente.
+Validação com o backend real concluída em 24 e 25/11/2026:
+- Django e SQLite executados localmente, sem Docker.
+- Frontend com VITE_USE_MOCK=false.
+- Estado sem avaliações exibido corretamente.
+- Oito requisições de resumo com HTTP 200.
+- Primeira avaliação de 4 estrelas: média 4,0 e contagem 1.
+- Segunda avaliação de 2 estrelas: média 3,0 e contagem 2.
+- Mensagens de erro corretas com o backend desligado.
+- Recuperação dos dados após religar o backend.
+- Todos os cenários do roteiro fornecido pelo revisor foram aprovados.
+- Limitação: ambiente SQLite, sem validação no MySQL de produção.
+
+O critério de aceite referente à validação com o backend real foi atendido. Aguardando recheck do revisor.
 
