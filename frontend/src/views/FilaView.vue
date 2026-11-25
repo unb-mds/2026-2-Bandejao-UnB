@@ -12,12 +12,16 @@ defineProps({
   refeicaoPrevisao: { type: String, required: true },
   dataPrevisao: { type: String, required: true },
   mostrarPrevisao: { type: Boolean, required: true },
+  /** Na tela "Fila do RU", o título já está no cabeçalho: o h2 fica só para leitores de tela. */
+  tituloVisivel: { type: Boolean, default: true },
 })
 </script>
 
 <template>
   <section id="fila" class="secao-fila pilha-4" aria-labelledby="titulo-fila">
-    <h2 id="titulo-fila" class="titulo-fila">Fila do RU</h2>
+    <h2 id="titulo-fila" class="titulo-fila" :class="{ 'visualmente-oculto': !tituloVisivel }">
+      Fila do RU
+    </h2>
 
     <FilaPrevisao
       v-if="mostrarPrevisao"
