@@ -26,7 +26,7 @@
  * Só usa a biblioteca padrão do Node.
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync, statSync } from 'node:fs'
+import { readFileSync, realpathSync, statSync } from 'node:fs'
 import { join, posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -289,10 +289,13 @@ function comandoEscore(caminho, { minimo, porModulo }) {
   return abaixo.length ? 1 : 0
 }
 
-/** Valor do `--minimo` (padrão 50), ou null se for inválido. */
-function lerMinimo(argumentos) {
+/**
+ * Valor do `--minimo` (o `padrao` se a opção não vier), ou null se for
+ * inválido. Exportada para o `cobertura.mjs` (FE-19) validar igual.
+ */
+export function lerMinimo(argumentos, padrao = 50) {
   const indice = argumentos.indexOf('--minimo')
-  if (indice < 0) return 50
+  if (indice < 0) return padrao
   const valor = argumentos[indice + 1]
   // Sem `Number('')` (que dá 0) nem outra opção no lugar do número.
   if (valor === undefined || valor.trim() === '' || valor.startsWith('--')) return null
@@ -317,6 +320,8 @@ export function principal([comando, ...argumentos]) {
   return 2
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// `realpathSync`: chamado por um link simbólico, o argv[1] não é o caminho real
+// do módulo, e sem isso o script não rodaria e sairia com 0.
+if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
   process.exitCode = principal(process.argv.slice(2))
 }

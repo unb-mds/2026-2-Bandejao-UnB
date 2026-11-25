@@ -1,5 +1,7 @@
 <script setup>
+import { ORDEM_REFEICOES, REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
 import AppLogo from '@/components/AppLogo.vue'
+import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
 </script>
 
 <template>
@@ -42,18 +44,61 @@ import AppLogo from '@/components/AppLogo.vue'
       />
     </svg>
 
-    <div class="marca">
-      <div class="logo">
-        <AppLogo :tamanho="110" />
+    <!-- Desktop (FE-23): o lado verde do protótipo, com a chamada e as refeições. -->
+    <section class="hero">
+      <div class="hero-marca">
+        <AppLogo :tamanho="52" />
+        <span>
+          <strong>bandejão</strong>
+          <small>Restaurante Universitário · UnB</small>
+        </span>
       </div>
-      <h1 class="nome">bandejão</h1>
-      <p class="slogan">Seu restaurante universitário na palma da mão</p>
-    </div>
+      <div class="hero-texto">
+        <p class="sobretitulo">O Restaurante Universitário na sua rotina</p>
+        <h2 class="hero-titulo">Comer bem no campus ficou mais simples.</h2>
+        <p class="hero-descricao">
+          Descubra o cardápio do dia, escolha o melhor horário e compartilhe sua experiência com a
+          comunidade.
+        </p>
+      </div>
+      <ul class="hero-refeicoes" aria-label="Refeições do RU">
+        <li
+          v-for="refeicao in ORDEM_REFEICOES"
+          :key="refeicao"
+          class="hero-refeicao"
+          :class="{ 'hero-refeicao--destaque': refeicao === 'almoco' }"
+        >
+          <IlustracaoRefeicao :refeicao="refeicao" />
+          <span>{{ REFEICOES[refeicao].rotulo }}</span>
+          <small>{{ horarioRefeicao(refeicao) }}</small>
+        </li>
+      </ul>
+    </section>
 
-    <div class="acoes pilha-3">
-      <RouterLink :to="{ name: 'login' }" class="botao botao--destaque">Entrar na conta</RouterLink>
-      <RouterLink :to="{ name: 'campus' }" class="botao visitante">Continuar sem login</RouterLink>
-      <p class="nota">Visitantes podem consultar o cardápio e as avaliações</p>
+    <div class="entrada">
+      <div class="marca">
+        <div class="logo">
+          <AppLogo :tamanho="110" />
+        </div>
+        <h1 class="nome">bandejão</h1>
+        <p class="slogan">Seu restaurante universitário na palma da mão</p>
+        <p class="sobretitulo entrada-rotulo">Bem-vindo ao Bandejão</p>
+        <h2 class="entrada-titulo">Como você quer continuar?</h2>
+        <p class="entrada-descricao">
+          Entre para avaliar refeições e participar do ranking, ou consulte as informações como
+          visitante.
+        </p>
+      </div>
+
+      <div class="acoes pilha-3">
+        <RouterLink :to="{ name: 'login' }" class="botao botao--destaque"
+          >Entrar na conta</RouterLink
+        >
+        <RouterLink :to="{ name: 'campus' }" class="botao visitante"
+          >Continuar sem login</RouterLink
+        >
+        <p class="nota">Visitantes podem consultar o cardápio e as avaliações</p>
+      </div>
     </div>
   </div>
 </template>
@@ -127,5 +172,219 @@ import AppLogo from '@/components/AppLogo.vue'
   font-size: 12px;
   text-align: center;
   color: var(--branco-25);
+}
+
+/* No celular, a entrada ocupa a tela como antes; o lado verde é só do desktop. */
+.entrada {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.hero,
+.entrada-rotulo,
+.entrada-titulo,
+.entrada-descricao {
+  display: none;
+}
+
+/* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
+@media (min-width: 1024px) {
+  .boas-vindas {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(420px, 0.8fr);
+    background: var(--creme);
+  }
+  .deco {
+    display: none;
+  }
+
+  .hero {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: clamp(32px, 4vw, 62px) clamp(38px, 5vw, 78px) 36px;
+    color: #fff;
+    background: var(--verde-escuro);
+  }
+  .hero::before,
+  .hero::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .hero::before {
+    width: 650px;
+    height: 650px;
+    right: -300px;
+    top: -300px;
+    border: 1px solid var(--branco-07);
+    box-shadow:
+      0 0 0 75px var(--branco-02),
+      0 0 0 150px var(--branco-02);
+  }
+  .hero::after {
+    width: 430px;
+    height: 430px;
+    left: -280px;
+    bottom: -160px;
+    border: 1px solid var(--branco-10);
+    box-shadow: 0 0 0 45px var(--branco-02);
+  }
+  .hero-marca {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .hero-marca strong,
+  .hero-marca small {
+    display: block;
+  }
+  .hero-marca strong {
+    font: 900 25px / 1 var(--fonte-titulo);
+    letter-spacing: -0.045em;
+  }
+  .hero-marca small {
+    margin-top: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--branco-60);
+  }
+  .hero-texto {
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+    margin: auto 0 42px;
+  }
+  .hero-titulo {
+    max-width: 740px;
+    font: 900 clamp(46px, 5.2vw, 78px) / 0.98 var(--fonte-titulo);
+    letter-spacing: -0.06em;
+    text-wrap: balance;
+  }
+  .hero-descricao {
+    max-width: 560px;
+    margin-top: 25px;
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--branco-60);
+  }
+  .hero-refeicoes {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 11px;
+    list-style: none;
+  }
+  .hero-refeicao {
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    grid-template-rows: 1fr 1fr;
+    align-items: end;
+    gap: 0 12px;
+    min-height: 96px;
+    padding: 11px 13px;
+    border: 1px solid var(--branco-08);
+    border-radius: 16px;
+    color: var(--branco-60);
+    background: var(--branco-05);
+  }
+  .hero-refeicao--destaque {
+    color: #fff;
+    border-color: var(--dourado);
+    background: var(--branco-08);
+  }
+  .hero-refeicao > :first-child {
+    grid-row: 1 / -1;
+  }
+  .hero-refeicao > span {
+    font: 800 12px var(--fonte-titulo);
+  }
+  .hero-refeicao > small {
+    align-self: start;
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--branco-60);
+  }
+
+  .entrada {
+    justify-content: center;
+    width: 100%;
+    max-width: 390px;
+    margin: 0 auto;
+    padding: 40px 0;
+    color: var(--texto-escuro);
+  }
+  .entrada :focus-visible {
+    outline-color: var(--verde-escuro);
+  }
+  .marca {
+    flex: 0 0 auto;
+    align-items: flex-start;
+    padding: 0;
+  }
+  .logo {
+    margin-bottom: 38px;
+    filter: none;
+  }
+  .logo :deep(img) {
+    width: 112px;
+    height: 72px;
+  }
+  .slogan {
+    display: none;
+  }
+  /* O h1 da página continua sendo o nome do app, fora da vista no desktop. */
+  .nome {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .entrada-rotulo,
+  .entrada-titulo,
+  .entrada-descricao {
+    display: block;
+  }
+  .entrada-rotulo {
+    color: var(--texto-rotulo);
+  }
+  .entrada-titulo {
+    max-width: 360px;
+    font: 900 34px / 1.05 var(--fonte-titulo);
+    letter-spacing: -0.04em;
+    color: var(--verde-escuro);
+  }
+  .entrada-descricao {
+    margin: 15px 0 30px;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--texto-suave);
+  }
+  .acoes {
+    padding: 0;
+  }
+  .acoes .botao--destaque {
+    color: #fff;
+    background: var(--verde-escuro);
+    box-shadow: 0 10px 20px var(--sombra-escura);
+  }
+  .visitante {
+    border-color: var(--borda);
+    color: var(--texto-suave);
+  }
+  .nota {
+    color: var(--texto-suave);
+  }
 }
 </style>

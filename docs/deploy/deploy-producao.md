@@ -744,6 +744,10 @@ deploy automático grava no `/var/log/bandejao/deploy.log` (ver
 
 ## Cuidados
 
+- **Monitor de disponibilidade.** Dois monitores externos (site e
+  `/api/campi/`) avisam por e-mail quando o serviço cai. O que fazer ao
+  receber o alerta está em
+  [Monitor de disponibilidade](operacao/monitor-disponibilidade.md).
 - **Merge na `main` é deploy em produção.** Com o
   [Deploy automático (CD)](#deploy-automático-cd), todo push na `main`, por
   PR ou direto, vai para o site assim que o CI do commit passa. A `main` só

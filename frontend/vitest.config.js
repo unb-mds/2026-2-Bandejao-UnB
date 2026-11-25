@@ -1,6 +1,8 @@
 import { fileURLToPath } from 'node:url'
 import { mergeConfig, defineConfig, configDefaults } from 'vitest/config'
 import viteConfig from './vite.config.js'
+import { ARQUIVOS_CRITICOS } from './scripts/mutacao.mjs'
+import { MINIMO_COBERTURA } from './scripts/cobertura.mjs'
 
 export default mergeConfig(
   viteConfig,
@@ -16,22 +18,17 @@ export default mergeConfig(
         exclude: ['src/**/*.test.js', 'src/services/mock/**'],
         reporter: ['text-summary', 'text', 'html', 'json-summary'],
         // Meta do RNF06 (Plano de Testes 1 e 2): 70% de linhas em cada arquivo
-        // crítico. Os da gamificação entram aqui no PR que os criar (a
-        // gamificacaoStore e o PontosAviso entraram na FE-10). O resto é
-        // medido, sem meta.
+        // crítico (MINIMO_COBERTURA, scripts/cobertura.mjs). A lista é a mesma
+        // da mutação (scripts/mutacao.mjs), para a cobertura e a mutação não
+        // divergirem: um arquivo crítico novo entra nas duas portas de uma vez.
+        // O resto é medido, sem meta.
+        //
+        // Atenção: uma chave daqui que não casa com nenhum arquivo é avaliada
+        // sobre 0 de 0 linhas, que conta como 100%, sem aviso. Arquivo crítico
+        // ausente é pego pelo scripts/cobertura.mjs (saída 2) no job
+        // `testes (front)` e pelo teste "todo arquivo crítico existe".
         thresholds: Object.fromEntries(
-          [
-            'src/services/apiClient.js',
-            'src/stores/auth.js',
-            'src/stores/cardapio.js',
-            'src/stores/avaliacoes.js',
-            'src/stores/fila.js',
-            'src/stores/gamificacao.js',
-            'src/components/PontosAviso.vue',
-            'src/services/leituraPosicao.js',
-            'src/utils/cardapio.js',
-            'src/router/index.js',
-          ].map((arquivo) => [arquivo, { lines: 70 }]),
+          ARQUIVOS_CRITICOS.map((arquivo) => [arquivo, { lines: MINIMO_COBERTURA }]),
         ),
       },
     },

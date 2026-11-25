@@ -4,3 +4,8 @@ dist
 coverage
 .eslintcache
 *.local
+# Testes de ponta a ponta (FE-18): não entram na imagem do PWA.
+e2e
+test-results
+playwright-report
+playwright.config.js

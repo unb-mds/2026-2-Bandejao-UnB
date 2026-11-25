@@ -99,4 +99,10 @@ const subtitulo = computed(() =>
 .corpo {
   padding: 16px;
 }
+
+@media (min-width: 1024px) {
+  .corpo {
+    padding: 27px clamp(28px, 4vw, 62px) 50px;
+  }
+}
 </style>
