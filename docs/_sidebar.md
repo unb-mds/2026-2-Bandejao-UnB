@@ -50,6 +50,7 @@
 
 - **Deploy**
   - [Deploy de produção](deploy/deploy-producao.md)
+  - [Backup do banco](deploy/backup-banco.md)
 
 - **Operação**
   - [Monitor de disponibilidade](operacao/monitor-disponibilidade.md)
