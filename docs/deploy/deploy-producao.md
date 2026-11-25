@@ -664,10 +664,15 @@ Rode cada comando uma vez à mão, pelo mesmo script do cron, **como
 `azureuser` e sem `sudo`**, e veja o log:
 
 ```bash
-sh deploy/cron/rodar-comando.sh clearsessions
-sh deploy/cron/rodar-comando.sh excluir_cadastros_pendentes
+sh deploy/cron/rodar-comando.sh clearsessions </dev/null
+sh deploy/cron/rodar-comando.sh excluir_cadastros_pendentes </dev/null
 tail -n 5 /var/log/bandejao/*.log
 ```
+
+O `</dev/null` evita que o comando leia o terminal. A partir da correção da
+BD-07 (24/11/2026) o script já fecha a entrada sozinho e o `</dev/null` é
+só uma garantia; numa VM com a versão anterior, sem ele o comando trava
+(veja "Comando parado" abaixo).
 
 Com `sudo`, o log e a trava passam a ser do root, e o cron do `azureuser` não
 consegue mais gravar: a tarefa para e só deixa o erro no syslog (status 73).
@@ -694,6 +699,21 @@ Cada execução grava no log do comando:
 Os status 1, 2 e 73 saem antes do log, então a execução não aparece no
 arquivo do comando. Se o log não tiver a execução esperada, veja o
 `journalctl -t bandejao-cron`.
+
+**Comando parado, sem saída, e o log só com `início`.** Foi o que aconteceu ao
+rodar à mão, por SSH, a versão antiga do script (sem o `</dev/null`): o
+`docker compose` ficava parado esperando o terminal. Pelo cron isso não
+acontece. Para ver e destravar:
+
+```bash
+ps -eo pid,pgid,stat,cmd | grep "[d]ocker compose"   # estado T = parado
+kill -KILL -<pgid>                                   # encerra o grupo do timeout
+```
+
+Se não achar o grupo, feche a sessão SSH. Enquanto o comando parado seguir
+vivo, ele segura a trava, e as execuções do cron do mesmo comando saem como
+75 (pulado) até o limite de 130 min. Depois do `git pull` com a correção,
+isso não se repete.
 
 Todo status diferente de 0 também vai para o syslog, com a tag
 `bandejao-cron`. O status 75 vai como aviso, e os outros, como erro. A VM não
