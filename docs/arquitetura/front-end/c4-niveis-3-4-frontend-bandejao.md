@@ -132,7 +132,9 @@ Aviso '+10 pontos' (RF24.2)."]
 - **`CampusView` substitui `CardapioView` e `FilaView`** (Release 2, RF20):
   as duas telas do MVP viram **seções** de uma única tela do campus,
   detalhada em 3a.2. O login leva a ela (RF03.4) e a raiz `/` também
-  (RN04).
+  (RN04). A seção da fila também tem tela própria, a `FilaTelaView` em
+  `/fila`, destino do item "Fila" das navegações; as duas usam o composable
+  `useFilaDoCampus` para a refeição do check-in e da previsão.
 - **O seletor de campus do MVP passou a ser o componente `SeletorCampus`**
   (FE-07), na rota `/campus`: é o destino do "Trocar" da tela do campus e da
   primeira escolha. A lista vem do `GET /api/campi/`, com o `id` inteiro e o
@@ -694,7 +696,8 @@ formaliza os padrões nele observados e os estende para a Release 2:
 | `/` | — (redireciona) | Resolve o campus pela RN04 e vai para `/campus/:campusId`; na primeira visita, para as boas-vindas, que levam ao seletor |
 | `/campus` | `SeletorCampus` | Quando a RN04 não resolve nenhum campus; destino do "Trocar" da tela do campus |
 | `/campus/:campusId` | `CampusView` | Tela do campus (RF20). Destino do login (RF03.4) |
-| `/cardapio`, `/fila` | — (redireciona) | Rotas do MVP mantidas para links antigos: vão para a tela do campus lembrado (`/fila` com `#fila`) ou, sem campus, para `/campus` |
+| `/cardapio` | — (redireciona) | Rota do MVP mantida para links antigos: vai para a tela do campus lembrado ou, sem campus, para `/campus` |
+| `/fila` | `FilaTelaView` | Tela "Fila do RU": a previsão de pico e o check-in do campus lembrado (RF12, RF13), com a mesma seção `FilaView` da tela do campus, sem o cardápio. Destino do item "Fila" das navegações; sem campus, `/campus` |
 | `/cardapio/:campusId` | — (redireciona) | Link antigo: aceita o id ou o nome antigo (`darcy`, `ceilandia`, `gama`, `planaltina`, `fal`, os `pk` 1 a 5) e abre aquele campus, nunca o lembrado; outro valor cai no 404 |
 | `/avaliacoes` | `AvaliacoesView` | Histórico (RF16) |
 | `/progresso` | `ProgressoView` | **Nova.** Meu progresso (RF26.2) |

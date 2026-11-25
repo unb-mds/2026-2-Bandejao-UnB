@@ -1032,3 +1032,14 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - os exemplos de comando (`teste-de-carga-bd14.md` e docstring do `locustfile.py`) usam 500.
 - Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
 - Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
+
+## Tela da fila (`/fila`)
+
+- Issue: sem issue (pedido direto da equipe). PR: #___.
+- Ferramenta: Claude (Anthropic).
+- Problema: o item "Fila" das navegações levava à tela do campus com `#fila`. A fila ficava embaixo do cardápio, a navegação marcava "Cardápio", e, com o cardápio carregando depois da rolagem, a fila saía da vista: no celular e no desktop, parecia que a tela da fila não existia.
+- Apoio: tela própria `FilaTelaView` em `/fila` (cabeçalho "Fila do RU" com o campus, voltar para a tela do campus, a seção `FilaView` e o contato), com a rota exigindo campus; o composable `useFilaDoCampus`, com a refeição do check-in e da previsão que estava dentro da `CampusView`, agora usado pelas duas telas; o título da `FilaView` só para leitores de tela quando o cabeçalho já o mostra; C4 do front e README. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD: os testes da tela, da rota e da navegação num commit anterior à correção, com 5 falhando sem ela.
+- Validação: `npm run test:ci` com 1.123 testes passando, `npm run lint:ci` sem achados; no navegador, a 360 e a 1366 px, o clique em "Fila" abre `/fila` com o item "Fila" marcado e sem nada passando da largura da janela.
+- Revisão humana: pendente.
+- Situação: aguardando revisão.
