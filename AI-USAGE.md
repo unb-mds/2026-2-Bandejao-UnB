@@ -1264,3 +1264,31 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Pendente: conferencia visual da estabilidade do login durante o carregamento dos campi.
 - E2E com backend real nao executado localmente por indisponibilidade do Docker; aguardando CI.
 - Os comandos sugeridos pela IA foram executados pela autora.
+
+## FE-22 — Previsão de pico real no cartão Fila da tela inicial
+
+- Issue: [#269](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/269). PR: [#305](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/305).
+- Ferramenta: ChatGPT (OpenAI).
+- Apoio: análise da issue, elaboração dos testes, implementação da previsão de pico na HomeView e orientação para validação local.
+- Implementação: reutilização da filaStore, com campus lembrado, refeição de hoje e data atual. Exibição dos horários de pico, inclusive empates, e tratamento de dados insuficientes, ausência de refeição e falha da API.
+- Escopo: mantidos o cartão Fila, suas classes principais e a navegação para a rota fila. Ajustado o tamanho do texto para acomodar os horários.
+- TDD: testes escritos antes da implementação. Fase RED com 6 falhas esperadas e 18 testes passando (commit `788cb83`). Fase GREEN com 24 testes da HomeView passando (commit `fd66bf0`).
+- Revisão humana: [AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/305#issuecomment-7153448234).
+- Ajustes da revisão, com apoio do ChatGPT:
+  - Formatação de três ou mais picos empatados com vírgulas e "e" antes do último, seguindo a regra da FilaPrevisao.
+  - Teste de regressão com três picos empatados: RED com 30 testes aprovados e uma falha esperada; GREEN com 31 testes aprovados.
+  - Exportação e reutilização de formatarHora de constants/refeicoes.js, removendo a duplicação de horaPico na HomeView.
+  - Correção de trocarGet com reserva para getOriginal quando o spy não possui implementação.
+  - Atualização com a develop e resolução do conflito no AI-USAGE.md, preservando os registros existentes (commit `27ca4bd`).
+  - Consolidação da documentação e dos resultados da validação.
+- Validação local:
+  - Antes da revisão: 1.125 testes aprovados em 43 arquivos, lint e build aprovados.
+  - Cobertura inicial: 96,56% de linhas, 95,61% de instruções, 95,44% de funções e 92,98% de ramificações. HomeView com 96,55% de cobertura de linhas.
+  - Após a revisão: 1.160 testes aprovados em 44 arquivos, incluindo os 31 testes da HomeView.
+  - Lint com zero erros e avisos, build de produção aprovado e Prettier aplicado aos arquivos alterados.
+  - Cobertura após a revisão: 96,62% de linhas, 95,65% de instruções, 95,58% de funções e 93,06% de ramificações.
+  - HomeView com 96,72% de cobertura de linhas.
+  - Conferência visual anterior à revisão: capturas em 360 e 1366 px, campus Gama, com previsão de pico de 7h45 às 8h, sem cortes visíveis no cartão.
+- Limites: integração com backend real, medição explícita de rolagem horizontal e CI após os ajustes ainda não confirmadas. A alteração opcional na FilaPrevisao foi mantida fora do escopo.
+- Participação humana: execução dos comandos, aplicação das alterações, testes e commits no ambiente local.
+- Situação: ajustes solicitados na revisão aplicados e validados localmente; aguardando recheck.
