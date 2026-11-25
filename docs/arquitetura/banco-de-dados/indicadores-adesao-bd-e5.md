@@ -7,7 +7,9 @@ ferramenta de análise e sem tela administrativa), quatro indicadores
 descritivos de adesão. Este documento traz as quatro consultas. O teste lê os
 blocos `sql` **deste arquivo** e os executa nos dois bancos do CI (SQLite e
 MySQL 8.4) sobre dados com resposta conhecida; por isso o texto abaixo não
-pode divergir do que foi testado.
+pode divergir do que foi testado. O `SET @inicio` só roda no MySQL (no SQLite o
+teste confere apenas o texto dele), e, nas consultas, o teste troca `@inicio`
+por um parâmetro com a mesma data.
 
 ## Como rodar em produção
 
@@ -31,7 +33,8 @@ SET @inicio = DATE(UTC_TIMESTAMP() - INTERVAL 3 HOUR) - INTERVAL 27 DAY;
 
 Depois, colar uma consulta por vez, **na mesma sessão** (a variável vale só
 nela). As quatro só **leem** o banco (`SELECT`). Não gravam nem mostram
-matrícula, e-mail ou apelido: o resultado são contagens e uma porcentagem.
+matrícula, e-mail ou apelido: o resultado são contagens e uma porcentagem (no
+indicador 2, uma média).
 
 ## Definições usadas
 
