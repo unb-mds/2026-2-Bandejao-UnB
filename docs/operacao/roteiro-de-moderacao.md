@@ -18,6 +18,7 @@ docker compose exec db mysql -u <seu-usuário> -p bandejao
 3. Padrão de toda mudança:
 
 ```sql
+ROLLBACK;                -- descarta qualquer transação que tenha ficado aberta
 START TRANSACTION;
 -- 1. conferir o alvo (SELECT)
 -- 2. UPDATE com WHERE pela chave (id), nunca sem WHERE
@@ -28,16 +29,19 @@ START TRANSACTION;
 Regras:
 
 - **O `COMMIT` nunca vem escrito nos blocos.** Ao colar um bloco no cliente `mysql`, um erro numa linha não interrompe as seguintes; um `COMMIT` colado junto gravaria uma mudança pela metade. Por isso o bloco para antes: confira o resultado e só então digite `COMMIT;` (ou `ROLLBACK;`).
+- **Todo bloco começa com `ROLLBACK;`.** No MySQL, o `START TRANSACTION` faz `COMMIT` da transação que estiver aberta. Se você colar um bloco duas vezes, ou colar outro depois de um que ficou sem resposta, o `ROLLBACK;` do começo descarta o que estava pendente, em vez de gravá-lo pela metade.
 - O `UPDATE` sempre filtra pela chave (o `id` da linha) e deve afetar **1 linha**; se afetar outro número, ou se qualquer comando do bloco der erro, digite `ROLLBACK;`.
+- **Não deixe uma transação aberta e parada.** Ela segura travas nas linhas, e quem precisar delas (o site, por exemplo) fica esperando. Termine sempre com `COMMIT;` ou `ROLLBACK;` antes de sair do `mysql`. Sair sem `COMMIT;` desfaz a mudança, sem aviso.
 - Não leve ids, matrículas ou e-mails para fora da VM (por exemplo, para um chat). A equipe decidiu não manter registro manual das ações de moderação ([ADR 0004](arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md), Consequências).
 
-> O SQL direto **não muda** `atualizado_em` (o `auto_now` é do Django), e isso é desejado: veja a [operação 4](#4-corrigir-pontos).
+> O SQL direto **não muda** `atualizado_em` (o `auto_now` é do Django), e isso é desejado: veja a [operação 4](#_4-corrigir-pontos).
 
 ## 1. Ocultar uma avaliação
 
-Quando: comentário ofensivo ou abusivo. A avaliação continua no banco, mas some das listas e das médias, e uma avaliação oculta deixa de pontuar.
+Quando: comentário ofensivo ou abusivo. A avaliação continua no banco, mas some das listas e das médias.
 
 ```sql
+ROLLBACK;
 START TRANSACTION;
 
 SELECT id, usuario_id, refeicao_id, nota, comentario, oculta
@@ -50,13 +54,27 @@ SELECT id, oculta FROM avaliacao_avaliacao WHERE id = <id>;
 -- confira o resultado acima; se estiver certo, digite: COMMIT;   senão: ROLLBACK;
 ```
 
-Para desfazer: o mesmo `UPDATE` com `oculta = 0`. Os pontos já concedidos pela avaliação **não** voltam sozinhos; se a equipe decidir retirá-los, use a [operação 4](#4-corrigir-pontos). Se os pontos já tinham sido retirados pela operação 4 e a avaliação voltar a ser exibida, devolva-os também, com a mesma operação 4 e `+ <n>` no lugar de `- <n>`, nas duas tabelas.
+Ocultar **não retira os pontos** que a avaliação já deu. Se a equipe decidir retirá-los, use a [operação 4](#_4-corrigir-pontos), depois de ocultar.
+
+**Para desfazer** (voltar a exibir a avaliação):
+
+```sql
+ROLLBACK;
+START TRANSACTION;
+UPDATE avaliacao_avaliacao SET oculta = 0 WHERE id = <id> AND oculta = 1;
+-- esperado: 1 row affected
+SELECT id, oculta FROM avaliacao_avaliacao WHERE id = <id>;
+-- confira o resultado acima; se estiver certo, digite: COMMIT;   senão: ROLLBACK;
+```
+
+Se os pontos já tinham sido retirados pela operação 4, devolva-os também, com o mesmo bloco da operação 4 e `+ <n>` no lugar de `- <n>`, nas duas tabelas.
 
 ## 2. Suspender e reativar uma conta
 
-Conta suspensa não entra: o login é recusado e as sessões abertas caem na próxima requisição ([ADR 0007](arquitetura/adr/0007-sessao-autenticada-por-cookie-httponly.md)). Os dados e as avaliações ficam.
+Conta suspensa não entra: o login é recusado e as sessões abertas caem na próxima requisição ([ADR 0007](arquitetura/adr/0007-sessao-autenticada-por-cookie-httponly.md)). Os dados e as avaliações ficam. As sessões **não são apagadas**: se a conta for reativada em até 14 dias (a duração da sessão), as que estavam abertas podem voltar a valer. Para encerrá-las de vez, é preciso excluir a conta ([operação 3](#_3-excluir-uma-conta)).
 
 ```sql
+ROLLBACK;
 START TRANSACTION;
 
 SELECT id, apelido, status, email_confirmado
@@ -69,54 +87,123 @@ SELECT id, status FROM cadastro_usuario WHERE id = <id>;
 -- confira o resultado acima; se estiver certo, digite: COMMIT;   senão: ROLLBACK;
 ```
 
-Para reativar: `SET status = 'ativo' WHERE id = <id> AND status = 'suspenso'`. Nunca troque `pendente` por `ativo` à mão: pendente significa e-mail não confirmado.
+**Para reativar:**
+
+```sql
+ROLLBACK;
+START TRANSACTION;
+UPDATE cadastro_usuario SET status = 'ativo' WHERE id = <id> AND status = 'suspenso';
+-- esperado: 1 row affected
+SELECT id, status FROM cadastro_usuario WHERE id = <id>;
+-- confira o resultado acima; se estiver certo, digite: COMMIT;   senão: ROLLBACK;
+```
+
+Nunca troque `pendente` por `ativo` à mão: pendente significa e-mail não confirmado. Uma conta `pendente` também não se suspende (o `UPDATE` acima afeta 0 linhas): se ela precisar sair, exclua-a pela [operação 3](#_3-excluir-uma-conta).
 
 ## 3. Excluir uma conta
 
-Quando: solicitação do titular (RNF07, LGPD) ou decisão da moderação. **Nunca** apague a conta com `DELETE` direto: o apagamento em cascata dos contadores e o `SET NULL` das avaliações são feitos pelo código (BD-12). Use o comando, que roda com o usuário da aplicação, dentro do container `backend` (não com o seu usuário MySQL).
+Quando: solicitação do titular (RNF07, LGPD) ou decisão da moderação. **Nunca** apague a conta com `DELETE` direto: o apagamento em cascata dos contadores e o `SET NULL` das avaliações são feitos pelo código (BD-12). Use o comando `remover_conta`, que roda com o usuário da aplicação, dentro do container `backend` (não com o seu usuário MySQL) e **não pede confirmação**.
 
-**A exclusão não tem desfazer.** Antes de rodar, tire um backup à mão e confira o `id` duas vezes:
+**A exclusão não tem desfazer.** Siga os passos nesta ordem.
+
+**Passo 1. Confira que o `id` é da pessoa certa**, no `mysql`:
+
+```sql
+SELECT id, apelido, email_institucional, status, criado_em
+FROM cadastro_usuario WHERE id = <conta_id>;
+```
+
+Compare com o pedido (apelido e e-mail institucional). Se não bater, pare.
+
+**Passo 2. Suspenda a conta** ([operação 2](#_2-suspender-e-reativar-uma-conta)), para ela não criar avaliações enquanto você trabalha: uma avaliação criada depois do passo 4 e antes do comando ficaria sem dono e não poderia mais ser apagada a pedido do titular. Conta `pendente` não tem avaliações: pule este passo.
+
+**Passo 3. Tire um backup à mão**, na VM (fora do `mysql`):
 
 ```bash
 cd ~/2026-2-Bandejao-UnB
 mkdir -p ~/backups
+set -o pipefail
+arq=~/backups/antes-remover-conta-$(date -u +%Y%m%dT%H%M%SZ).sql.gz
 (umask 077 && docker compose exec -T db sh -c \
     'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -uroot bandejao --single-transaction --routines --events --triggers' |
-    gzip > ~/backups/antes-remover-conta-$(date -u +%Y%m%dT%H%M%SZ).sql.gz)
-ls -l ~/backups/antes-remover-conta-*.sql.gz | tail -1     # o tamanho não pode ser 0
-zcat "$(ls -1 ~/backups/antes-remover-conta-*.sql.gz | tail -1)" | tail -1   # esperado: "-- Dump completed ..."
+    gzip > "$arq") &&
+    [ "$(zcat "$arq" | tail -n 1 | cut -c1-17)" = "-- Dump completed" ] &&
+    echo "BACKUP OK: $arq" && ls -l "$arq" || echo "BACKUP FALHOU: não continue"
+set +o pipefail
 ```
 
-**Se o titular pediu que as avaliações dele também sejam apagadas** ([ADR 0004](arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md), revisão de 14/11), apague-as **antes** do comando, porque depois dele o `usuario_id` das avaliações vira `NULL` e não dá mais para achá-las:
+Só continue se aparecer `BACKUP OK`. Um dump vazio gera um arquivo `.gz` de poucos bytes, por isso a conferência é a última linha do dump, e não o tamanho.
+
+**Este backup guarda os dados de quem pediu a exclusão.** Apague-o depois de conferir que a exclusão deu certo (passo 7) e, no máximo, em 7 dias, para cumprir o prazo do [aviso de privacidade](requisitos/aviso-de-privacidade.md). Os backups do deploy automático (`~/backups/deploy-*.sql.gz`, os 10 mais recentes, mais o `ultimo-ok.sql.gz`) são guardados por quantidade, e não por idade, então também podem passar de 7 dias: é uma limitação conhecida, tratada fora deste roteiro.
+
+**Passo 4. Se o titular pediu que as avaliações dele também sejam apagadas** ([ADR 0004](arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md), revisão de 14/11), apague-as **antes** do comando, porque depois dele o `usuario_id` das avaliações vira `NULL` e não dá mais para achá-las. No `mysql`:
 
 ```sql
+ROLLBACK;
 START TRANSACTION;
 SELECT COUNT(*) FROM avaliacao_avaliacao WHERE usuario_id = <conta_id>;
 DELETE FROM avaliacao_avaliacao WHERE usuario_id = <conta_id>;
 SELECT COUNT(*) FROM avaliacao_avaliacao WHERE usuario_id = <conta_id>;  -- esperado: 0
--- confira o resultado acima; se estiver certo, digite: COMMIT;   senão: ROLLBACK;
+-- se o último número for 0, digite: COMMIT;   senão: ROLLBACK;
 ```
 
-Sem esse pedido, pule o bloco acima: as avaliações ficam e passam a aparecer como "usuário removido". Depois, a exclusão da conta:
+Aqui o `COMMIT;` é **obrigatório** antes de sair do `mysql`: sem ele, o `DELETE` é desfeito sem aviso, e o comando do passo 5 anonimizaria as avaliações em vez de apagá-las. Depois do `COMMIT;`, abra uma **conexão nova** (saia do `mysql` e entre de novo) e confira que a contagem continua 0:
+
+```sql
+SELECT COUNT(*) FROM avaliacao_avaliacao WHERE usuario_id = <conta_id>;  -- esperado: 0
+```
+
+Sem esse pedido do titular, pule este passo: as avaliações ficam e passam a aparecer como "usuário removido".
+
+**Passo 5. Exclua a conta**, na VM:
 
 ```bash
+cd ~/2026-2-Bandejao-UnB
 docker compose exec backend python manage.py remover_conta <conta_id>
 ```
 
-Na mesma transação, o comando apaga os contadores de gamificação (a conta sai do ranking), tira a conta e a hora exata dos registros de fila, encerra as sessões e apaga a conta com os tokens. A matrícula, o e-mail e o apelido ficam livres para um novo cadastro. Se a conta não existe, o comando termina com erro (`A conta <id> não existe.`) e nada muda; se já foi excluída, termina com erro (`... já foi excluída.`). Confira depois:
+Na mesma transação, o comando apaga os contadores de gamificação (a conta sai do ranking), tira a conta e a hora exata dos registros de fila, encerra as sessões e apaga a conta com os tokens. A matrícula, o e-mail e o apelido ficam livres para um novo cadastro. Se a conta não existe, o comando termina com erro (`A conta <id> não existe.`) e nada muda. Rodar de novo numa conta já excluída dá o mesmo erro; a mensagem `... já foi excluída.` só aparece se duas exclusões rodarem ao mesmo tempo.
+
+**Passo 6. Confira**, no `mysql`:
 
 ```sql
-SELECT COUNT(*) FROM cadastro_usuario WHERE id = <conta_id>;           -- esperado: 0
-SELECT COUNT(*) FROM gamificacao_pontuacaousuario WHERE usuario_id = <conta_id>;  -- esperado: 0
+SELECT
+  (SELECT COUNT(*) FROM cadastro_usuario WHERE id = <conta_id>) AS conta,
+  (SELECT COUNT(*) FROM cadastro_token WHERE usuario_id = <conta_id>) AS tokens,
+  (SELECT COUNT(*) FROM gamificacao_pontuacaousuario WHERE usuario_id = <conta_id>) AS pontos_totais,
+  (SELECT COUNT(*) FROM gamificacao_pontossemestrecampus WHERE usuario_id = <conta_id>) AS pontos_semestre,
+  (SELECT COUNT(*) FROM fila_checkin WHERE usuario_id = <conta_id>) AS checkins,
+  (SELECT COUNT(*) FROM fila_tentativacheckin WHERE usuario_id = <conta_id>) AS tentativas,
+  (SELECT COUNT(*) FROM avaliacao_avaliacao WHERE usuario_id = <conta_id>) AS avaliacoes;
+-- esperado: tudo 0 (avaliacoes pode ser maior que 0 se o titular não pediu para apagá-las:
+-- elas ficam, mas com usuario_id vazio, então a contagem por esse id continua 0)
 ```
 
-O único caminho de volta é restaurar um backup. Hoje existem os backups feitos a cada deploy (`~/backups/deploy-*.sql.gz`, os 10 mais recentes, mais o `ultimo-ok.sql.gz`) e o que você tirou acima; só serve para uma conta que já existia na data do backup. O backup diário de 7 dias (BD-15) passa a valer quando estiver instalado na VM ([backup do banco](deploy/backup-banco.md)); até lá, não conte com ele.
+**Passo 7. Apague o backup do passo 3**, na VM, quando tudo estiver conferido:
+
+```bash
+rm -f ~/backups/antes-remover-conta-<data-do-backup>.sql.gz
+```
+
+**Se algo der errado**, a volta é restaurar um backup, e ela traz o **banco inteiro**, não só esta conta: as outras contas e os pontos voltam ao estado da data do backup, e o que mudou depois se perde. Os backups do deploy (`deploy-*.sql.gz`) são do servidor todo (`--all-databases`). O guia do backup (`docs/deploy/backup-banco.md`, que entra com o BD-15) explica o procedimento de emergência. O backup diário de 7 dias (BD-15) só passa a valer quando estiver instalado na VM; até lá, conte só com os do deploy e com o que você tirou no passo 3.
 
 ## 4. Corrigir pontos
 
 Quando: erro de pontuação (limitação L14: erros só se corrigem por ajuste manual) ou retirada de pontos de uma avaliação oculta. Há **duas** tabelas e as duas devem ficar coerentes: o total da conta e os pontos do semestre no campus.
 
+**Antes, confira se a avaliação chegou a dar pontos.** Sem check-in na refeição, a avaliação não pontua:
+
 ```sql
+SELECT a.id, a.usuario_id, a.pontos_concedidos_em, r.campus_id, r.data
+FROM avaliacao_avaliacao a
+JOIN cardapio_refeicao r ON r.id = a.refeicao_id
+WHERE a.id = <id_da_avaliacao>;
+```
+
+Se `pontos_concedidos_em` for `NULL`, a avaliação nunca deu pontos: **não retire nada**. Se tiver data, anote o `campus_id` e o semestre da `data` da refeição (formato `2026.2`): a linha certa de `gamificacao_pontossemestrecampus` é a desse campus e desse semestre.
+
+```sql
+ROLLBACK;
 START TRANSACTION;
 
 SELECT usuario_id, pontos_totais, sequencia_atual, atualizado_em
@@ -142,28 +229,29 @@ SELECT pontos FROM gamificacao_pontossemestrecampus WHERE id = <id_da_linha>;
 
 Cuidados:
 
-- A linha certa de `gamificacao_pontossemestrecampus` é a do campus e do semestre em que o ponto foi dado. Confira no primeiro `SELECT` e use o `id` dela, junto com o `usuario_id` da conta.
+- Confira no primeiro `SELECT` da segunda tabela o campus e o semestre de cada linha, e use o `id` da linha certa, junto com o `usuario_id` da conta.
 - Os pontos não podem ficar negativos (restrição `CHECK >= 0` nas duas tabelas). Se o primeiro `UPDATE` passar e o segundo falhar por isso, o total já foi mudado e a outra tabela não: digite `ROLLBACK;`. Por isso o `COMMIT` fica de fora.
 - Tirar pontos de `pontos_totais` pode baixar a patente da conta.
 - `atualizado_em` de `gamificacao_pontossemestrecampus` é o **desempate do ranking**. Corrigir pontos não deve mexer nele; só quem pontua muda esse campo.
-- Se a conta não tem linha em `gamificacao_pontuacaousuario`, nada a corrigir. Para devolver pontos, use o mesmo bloco com `+ <n>`.
+- Se a conta não tem linha em `gamificacao_pontuacaousuario`, nada a corrigir.
+- Para **devolver** pontos, use o mesmo bloco com `+ <n>`. Se faltar a linha do campus e do semestre, o segundo `UPDATE` afeta 0 linhas: faça `ROLLBACK;` e não crie a linha à mão, avise a equipe.
 
 ## 5. Matrícula contestada
 
-Quando: alguém diz que uma conta foi criada com a matrícula ou o SIAPE dele (L01). O sistema não valida a matrícula contra a universidade, então a resolução é manual. A matrícula é guardada em texto claro ([ADR 0008](arquitetura/adr/0008-matricula-siape-em-texto-claro.md)) e se recupera a partir do apelido.
+Quando: alguém diz que uma conta foi criada com a matrícula ou o SIAPE dele (L01). O sistema não valida a matrícula contra a universidade, então a resolução é manual. A matrícula é guardada em texto claro ([ADR 0008](arquitetura/adr/0008-matricula-siape-em-texto-claro.md)). Quem contesta sabe a matrícula, e não o apelido: busque pela matrícula, que é única (`matricula_siape`).
 
 ```sql
 SELECT id, apelido, matricula_siape, status, email_institucional, criado_em
-FROM cadastro_usuario WHERE apelido_normalizado = '<apelido>';
+FROM cadastro_usuario WHERE matricula_siape = '<matrícula>';
 ```
 
-O `apelido` não é único; o que é único é o `apelido_normalizado`, que é o apelido sem acentos e em minúsculas. Escreva o apelido assim na busca e ela devolve no máximo 1 linha, qualquer que seja a collation.
+Se a busca vier vazia, nenhuma conta usa essa matrícula. Para achar pelo apelido (uma avaliação problemática, por exemplo), use `WHERE apelido_normalizado = '<apelido>'`: o `apelido` não é único; o que é único é o `apelido_normalizado`, que é o apelido sem acentos e em minúsculas.
 
 Passos:
 
 1. Peça ao contestante uma prova de que a matrícula é dele (o canal de contato do site) e compare com o e-mail institucional da conta.
-2. Se a contestação procede: [suspenda a conta](#2-suspender-e-reativar-uma-conta) e, depois, [exclua](#3-excluir-uma-conta) se for o caso. Isso libera a matrícula para o titular real se cadastrar (`matricula_siape` é única).
-3. Se não procede: registre no grupo e responda ao contestante.
+2. Se a contestação procede: [suspenda a conta](#_2-suspender-e-reativar-uma-conta) e, depois, [exclua](#_3-excluir-uma-conta) se for o caso. Isso libera a matrícula para o titular real se cadastrar (`matricula_siape` é única). Se a conta estiver `pendente`, ela não pode ser suspensa: vá direto à exclusão.
+3. Se não procede: responda ao contestante pelo canal de contato. Não há registro da decisão ([ADR 0004](arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md)).
 
 Não envie a matrícula de uma conta a terceiros.
 
@@ -180,7 +268,7 @@ Há duas portas, e a lista abaixo cobre as duas:
 | Álvaro | `alvaro` | `equipe_moderacao` | sim | 24/11/2026 |
 | Luís | `luis` | `equipe_moderacao` | sim | 24/11/2026 |
 
-- **SSH:** é um único usuário, `azureuser`, com uma chave por pessoa em `~/.ssh/authorized_keys`. Quem entra na VM e tem acesso ao Docker consegue ler a senha do `root` do MySQL ([Acesso da equipe](deploy/deploy-producao.md?id=acesso-da-equipe)). Por isso a chave SSH vale tanto quanto o usuário MySQL.
-- **MySQL:** cada pessoa tem usuário próprio (`SELECT user, host FROM mysql.user;`). O `root` é só para administração.
+- **SSH:** é um único usuário, `azureuser`, com uma chave por pessoa em `~/.ssh/authorized_keys`, mais a chave do deploy automático (GitHub Actions), que não é de uma pessoa. Quem entra na VM e tem acesso ao Docker consegue ler a senha do `root` do MySQL ([Acesso da equipe](deploy/deploy-producao.md?id=acesso-da-equipe)). Por isso a chave SSH vale tanto quanto o usuário MySQL.
+- **MySQL:** cada pessoa tem usuário próprio. O `root` é só para administração. A lista de usuários (`SELECT user, host FROM mysql.user;`) só se vê como `root` (o papel `equipe_moderacao` não lê essa tabela).
 
-Hoje há dois usuários individuais; quem precisar moderar pede ao grupo para criar o seu (veja o deploy de produção). Quando alguém sair da equipe, remova a chave e o usuário no mesmo dia e atualize a data da conferência. Sem isso, a lista envelhece em silêncio.
+Hoje há dois usuários individuais; quem precisar moderar pede ao grupo para criar o seu (veja o deploy de produção). Quando alguém sair da equipe, no mesmo dia: remova a chave dela do `authorized_keys`, remova o usuário MySQL **e troque a senha do `root`** (quem esteve na VM pôde lê-la), e atualize a data da conferência. Sem isso, a lista envelhece em silêncio.
