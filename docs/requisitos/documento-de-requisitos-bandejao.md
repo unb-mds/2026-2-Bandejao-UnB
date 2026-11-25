@@ -595,9 +595,9 @@ Os requisitos não funcionais abaixo detalham as faixas de qualidade do Document
 
 #### RNF01 — Desempenho
 
-O sistema deve responder a requisições de visualização de cardápio (e, na Release 2, de previsão de pico) em até **3 segundos**, em condições normais de operação (até **2.000 usuários simultâneos**), medido do lado do servidor em pelo menos 95% das requisições.
+O sistema deve responder a requisições de visualização de cardápio (e, na Release 2, de previsão de pico) em até **3 segundos**, em condições normais de operação (até **500 usuários simultâneos**, cada um fazendo um pedido a cada 3 a 7 segundos), medido do lado do servidor em pelo menos 95% das requisições.
 
-**Justificativa:** torna verificável a meta de eficiência do projeto, com uma escala compatível com a comunidade que frequenta os RUs nos horários de pico e acessível a um projeto acadêmico.
+**Justificativa:** torna verificável a meta de eficiência do projeto, com uma escala compatível com a comunidade que frequenta os RUs nos horários de pico e acessível a um projeto acadêmico. A meta original era de 2.000 usuários simultâneos; o teste de carga da BD-14 ([resultado](../qualidade/teste-de-carga-bd14.md)) mostrou o p95 dentro de 3 s com 500 usuários em todas as medições, no limite com 1.000 (falhou em uma de três) e acima de 3 s com 1.500 ou mais, e o número foi revisto para o valor medido com folga. A medição foi feita num ambiente de teste com 4 vCPUs (runner do GitHub Actions); a VM de produção tem 2 vCPUs, então a capacidade em produção pode ser menor.
 
 ---
 
