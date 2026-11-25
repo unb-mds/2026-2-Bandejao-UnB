@@ -333,6 +333,9 @@ describe('HomeView: cartões "Avaliações" e "Satisfação da semana" (#259)', 
       expect(wrapper.get('.cartao-avaliacoes').text()).toContain('sem avaliações ainda'),
     )
     expect(wrapper.get('.cartao-semana .contagem').text()).toBe('0 avaliações')
+    expect(
+      wrapper.get('.cartao-semana').findComponent({ name: 'EstrelasNota' }).exists(),
+    ).toBe(false)
     expect(textoDosCartoes(wrapper)).not.toContain('Não foi possível')
   })
 
