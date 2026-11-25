@@ -1016,6 +1016,40 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Ressalva do ensaio: o ensaio do backup manual em produção foi feito com o bloco antigo. O bloco novo, com `pipefail` e `$arq`, só foi testado com um `docker` falso. Nenhuma das três revisões mudou isso.
 - Situação: aguardando nova revisão.
 
+## #286 — Cores e raios pelos tokens do guia de estilo (RF17)
+
+- Issue: [#286](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/286). PR: [#290](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/290). Relacionada: FE-16 ([#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192), PR [#287](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287)).
+- Ferramenta: Claude (Anthropic), em 24/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Apoio:
+  - tokens novos no `base.css`: `--branco`, `--fundo-dialogo`, `--sombra-cartao`, `--sombra-flutuante`, `--sombra-menu`, `--sombra-destaque`, `--sombra-logo`, `--raio-xs` (6 px) e `--raio-2xs` (2 px);
+  - o `#fff` dos 18 arquivos virou `var(--branco)` (também no `cor` do `IconeSvg`, que vai para o `style`); as 9 cores `rgb()`/`rgba()` viraram tokens, e a `ProgressoView` passou a usar o `--branco-75`; a `.caixa` da `CadastroView` usa o `--raio-xs`, e as barras do gráfico da `HomeView`, o `--raio-2xs`;
+  - teste-guarda `src/assets/guiaDeEstilo.test.js`: lê do disco todos os `.vue` e `.css` de `src/` (menos o `base.css`; inclui o `AppLogo`) e falha com qualquer cor hexadecimal ou `rgb()`/`rgba()` solta e com raio fora dos tokens (aceita o círculo, 50%, e a pílula, 999px). Os arquivos são lidos com `node:fs` porque o `?raw` de um `.css` chega vazio no Vitest.
+- Mudança visual: duas, pequenas. O fundo escurecido da gaveta de filtros (`FiltroCardapio`) passou do preto a 50% para o `--fundo-dialogo` do aviso de localização (verde-escuro a 55%), e as duas sombras quase iguais do aviso no desktop ficaram numa só (`--sombra-destaque`): no botão primário, o desfoque passou de 20px para 22px e a opacidade de 15% para 14%; a sombra do ícone manteve os valores. Os demais valores foram preservados no código após a correção das três sombras.
+- Revisão do PR #290: os traços decorativos da `BoasVindasView` e da `HomeView` passam a usar `--branco` via `style`; o teste ignora comentários, verifica referências a tokens e amplia a guarda para hsl/hsla e branco literal em atributos SVG. O 50% e o 999px continuam escritos direto.
+- TDD: `aca31c4` (teste, 8 falhando: 33 brancos, 9 `rgb()`/`rgba()` e 2 raios, os números da issue) → código no commit seguinte.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 1.071 testes passando (96,36% de linhas / 92,74% de ramos) e `npm run build` sem erro.
+- Revisão com apoio do ChatGPT (OpenAI), em 24/11/2026: geração do patch de ajustes e atualização do checklist da FE-16, já integrada à develop. A validação local acima refere-se à versão anterior à revisão. Após a revisão: 12/12 testes do guia de estilo e 1.074/1.074 testes da suíte completa (42 arquivos), com 96,36% de linhas e 92,74% de ramos; `npm run lint:ci` sem erros ou avisos e `npm run build` aprovado.
+- Commit `f1edef8`: adequação dos estilos da FE-23 aos tokens do guia de estilo, incluindo raios numéricos na faixa de `--raio-3` a `--raio-28` e tokens de cor `--sombra-logo-cor` e `--sombra-cartao-cor`. O commit foi realizado com apoio do ChatGPT (OpenAI) na adequação dos estilos aos tokens do guia de estilo, com aplicação das alterações pela autora.
+- Segunda revisão do PR #290, com apoio do ChatGPT (OpenAI), em 25/11/2026:
+  - atualização da branch com a develop (`948a3d7`);
+  - correção das sombras de `AppLogo.vue`, `IlustracaoRefeicao.vue` e `RankingView.vue`, utilizando os tokens de cor adequados;
+  - inclusão do AppLogo no teste-guarda, verificação de sombras completas e detecção de tokens duplicados;
+  - TDD: commit `e40773c` (RED: 12 testes aprovados e uma falha esperada, identificando os três usos incorretos); commit `d7a95c8` (GREEN: 13/13 testes aprovados);
+  - decisão sobre os raios: manutenção da escala semântica e dos tokens numéricos introduzidos na FE-23, preservando os valores existentes;
+  - limites do teste-guarda: análise textual, não um parser CSS/JS completo; a verificação de sombras depende do formato das declarações, e casos mais complexos de sintaxe permanecem fora da cobertura integral.
+- Validação local da segunda revisão: 1.131/1.131 testes aprovados em 44 arquivos, cobertura de statements de 95,55%, branches de 93,03%, functions de 95,39% e lines de 96,52%. Lint sem erros ou warnings e build aprovado. Após o ajuste de tokens duplicados, o teste-guarda e o lint foram executados novamente com sucesso.
+- Validação visual parcial: telas de início e ranking conferidas no desktop com servidor simulado. Valores computados das sombras, conferência móvel e E2E local não confirmados.
+- Atualização com a develop em 25/11/2026, com apoio do ChatGPT (OpenAI):
+  - resolução dos conflitos no AI-USAGE.md e no checklist de qualidade do frontend, preservando os registros da BD-13 e as correções da FE-16;
+  - integração das alterações da HomeView e da BoasVindasView sem necessidade de correções adicionais nos tokens;
+  - teste-guarda: 13/13 testes aprovados, incluindo referências a tokens, cores literais, raios, sombras e tokens duplicados;
+  - validação local: 1.165/1.165 testes aprovados em 45 arquivos;
+  - cobertura: 96,57% de linhas, 93,11% de ramos, 95,53% de funções e 95,63% de instruções;
+  - lint sem erros ou avisos e build de produção aprovado;
+  - comandos executados pela autora no ambiente local.
+- Limites da atualização: não foram repetidas as verificações visuais, os testes E2E e os testes do backend. CI remoto ainda não confirmado.
+- Situação: conflitos resolvidos e validação automatizada do frontend aprovada; aguardando nova revisão do PR #290.
+
 ## FE-16 — Checklist de qualidade no celular e no desktop
 
 - Issue: [#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192). PR: [#287 — FE-16: Checklist de qualidade no celular e no desktop](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287). Bugs abertos: #285 e #286.
@@ -1059,6 +1093,47 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação depois dos ajustes: `npm run lint:ci` sem achados, `npm run test:ci` com 1.069 testes passando (96,38% de linhas / 92,79% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
 - Pendente (não foi feito no ambiente da IA): rodar o e2e de novo (`qualidade.spec.js`, Playwright) e conferir a boas-vindas a 360×640 e 640×360 no navegador, com os campi carregando e carregados. O resultado entra aqui.
 - Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12, o e2e e a conferência visual.
+
+## #259 — Início: cartões "Avaliações" e "Satisfação da semana" pelo resumo do dia
+
+- Issue: [#259](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/259). PR: [#288](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/288). Relacionada: [#251](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/251) (PR [#257](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257)).
+- Ferramenta: Claude (Anthropic), em 24/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Fonte do resumo da semana: opção **(b)** da issue, o front monta a semana com um `GET /api/avaliacoes/resumo/?campus=…&data=…` por dia, de segunda a domingo (`inicioDaSemana`, como o backend). Sem rota nova no backend e sem mudança no `openapi.yaml`, que a BE-18 fechou como a v1.
+- Apoio:
+  - `carregarResumoDaSemana` e `estadoDaSemana` na `avaliacoesStore`: estado por campus (`carregando`, `carregado` ou `erro`, com `{ mensagem }` de `mensagemDeErro`), resposta de cada dia conferida (lista de `{ media, quantidade }`), média ponderada pela quantidade, dia sem nenhuma refeição fora do gráfico, nenhum resumo parcial se um dia falhar e resposta antiga que não sobrescreve a nova;
+  - `HomeView`: "Não foi possível carregar as avaliações da semana." no lugar do gráfico e "Não foi possível carregar" no cartão "Avaliações", separados de "sem avaliações ainda"; "carregando…" enquanto pede;
+  - simulado: `GET /avaliacoes/resumo/` só com o campus devolve a lista do dia corrente, com os 400 antes do 404 `campus_nao_encontrado` (antes, com `data`, o campus inexistente dava 400) e `campus=01` valendo o campus 1, como o backend; saíram o resumo da semana do MVP e a lista `GET /avaliacoes/` (o backend só tem o POST, e a lista só era usada nos testes), com o comentário do topo do `servidor.js` atualizado;
+  - saíram da store `carregar`, `daRefeicao`, `carregarResumo`, `resumoPorCampus` e o `erro` compartilhado, que só eles usavam;
+  - C4 (texto do fluxo do cardápio e tabela das stores). Os diagramas não mudam: a `HomeView` fica fora deles.
+- TDD: `90aeba3` (testes, 27 falhando) → `c5aa8ab` (código) → `81acd6c` (docs).
+- Validação local (antes da revisão): `npm run lint:ci` sem achados, `npm run test:ci` com 1.086 testes passando (96,4% de linhas / 92,84% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Funcionamento do resumo: a Início faz 8 pedidos públicos de resumo: os 7 dias da semana e o de hoje do cartão "Cardápio de hoje", que sai duas vezes; a `media` de cada refeição vem do `Avg` sem arredondar, então a média da semana ponderada pela quantidade é a média de todas as notas visíveis, sem as ocultadas pela moderação.
+- Ajustes da revisão do AlvaroBento12, código gerado pela IA:
+  - conflito com a `develop` resolvido neste `AI-USAGE.md` (as seções da FE-16 e da #259 ficaram);
+  - **"0 avaliações" falso:** enquanto a semana carrega, o cartão "Satisfação da semana" mostra "carregando…", sem contagem, gráfico nem média, e o cartão "Avaliações" não mostra estrelas sem média (antes anunciavam "Nota 0.0 de 5");
+  - **testes:** "carregando…" nos dois cartões; troca de campus com a tela aberta; o stub do resumo do domingo agora só devolve a lista para `data=2026-10-04`; o `console.error` do `ApiError` conferido com `toHaveBeenCalledTimes(1)`. As quatro mutações da revisão (legenda, semana só na montagem, cartão de hoje lendo outro dia, sem o `console.error`), aplicadas uma a uma, passaram a derrubar um teste;
+  - **recarga:** decisão de não manter o resumo anterior. Cada volta à Início pede de novo e mostra "carregando…"; se a recarga falhar, aparece o erro, e não um número desatualizado. Registrada no comentário de `carregarResumoDaSemana`;
+  - `frontend/README.md` sem as rotas do MVP de avaliações e sem os slugs de campus (o `campus` é o id de `GET /campi/`);
+  - trechos que diziam que o backend responde 501 (cabeçalho do `servidor.js`, doc da store e C4) agora dizem que é a defesa contra um backend sem a rota; no C4, "o formato de semana do MVP" no lugar de "o resumo da semana";
+  - o texto "campus inexistente dava 400" (só valia com `data`) também precisa ser corrigido na descrição do PR.
+- Validação depois dos ajustes: `npm run lint:ci` sem achados, `npm run test:ci` com 1.089 testes passando (96,41% de linhas / 92,79% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Conferência com o backend real (critério de aceite da #259): realizada em 24 e 25/11/2026, no commit `55dc763`, com Django 6.1.1, Python 3.13.5, SQLite e `VITE_USE_MOCK=false`, sem Docker.
+  - Campus Gama, com 622 objetos carregados de 5 fixtures.
+  - Sem avaliações: estado vazio correto e 0 avaliações.
+  - Oito requisições de resumo com HTTP 200, confirmadas no Network e no terminal do Django, abrangendo 23 a 29/11 e uma consulta adicional para o dia atual.
+  - Primeira avaliação de 4 estrelas: HTTP 201, média 4,0 e contagem 1.
+  - Segunda avaliação de 2 estrelas: HTTP 201, média 3,0 e contagem 2.
+  - Backend desligado: mensagens de erro corretas nos dois cartões, sem confundir falha com ausência de avaliações.
+  - Backend religado: média 3,0 e contagem 2 restauradas, inclusive após a virada do dia.
+  - Limitação: SQLite, não o MySQL de produção.
+  - Apoio do ChatGPT (OpenAI): orientação na execução do roteiro fornecido pelo revisor, interpretação dos logs e documentação dos resultados. Testes executados manualmente pela autora.
+- Ajustes da segunda revisão, com apoio do ChatGPT (OpenAI), em 24/11/2026:
+  - interpretação da revisão, elaboração dos patches de correção e teste de regressão, orientação para execução dos testes e comandos Git;
+  - atualização com a develop e resolução do conflito no AI-USAGE.md;
+  - ocultação das estrelas do cartão "Satisfação da semana" quando não há média, com verificação de regressão no teste existente.
+- Validação após a segunda revisão: `npm run lint:ci` sem erros ou avisos, `npm run test:ci` com 1.145 testes aprovados em 43 arquivos e `npm run build` aprovado. Cobertura de linhas: 96,56%; ramos: 93,06%; funções: 95,51%; statements: 95,62%.
+- Situação: código aprovado pelo AlvaroBento12 no head `cb11922`; ajustes finais de documentação aplicados.
+
 ## FE-23 — Novo design do desktop, nova logo e ilustrações das refeições
 
 - Issue: [#291](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/291). PR: [#293 — FE-23: Novo design do desktop, nova logo e ilustrações das refeições](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/293).
@@ -1102,6 +1177,74 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
 - Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
 
+## Tela da fila (`/fila`)
+- Issue: sem issue (pedido direto da equipe). PR: #302.
+- Ferramentas: Claude (Anthropic) e ChatGPT (OpenAI).
+- Problema: o item "Fila" das navegações levava à tela do campus com `#fila`. A fila ficava embaixo do cardápio, a navegação marcava "Cardápio", e, com o cardápio carregando depois da rolagem, a fila saía da vista: no celular e no desktop, parecia que a tela da fila não existia.
+- Apoio inicial (Claude): tela própria `FilaTelaView` em `/fila` (cabeçalho "Fila do RU" com o campus, voltar para a tela do campus, a seção `FilaView` e o contato), com a rota exigindo campus; o composable `useFilaDoCampus`, compartilhado pelas duas telas; C4 do front e README. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD inicial: os testes da tela, da rota e da navegação num commit anterior à correção, com 5 falhando sem ela.
+- Validação inicial: `npm run test:ci` com 1.123 testes passando, `npm run lint:ci` sem achados; conferência no navegador a 360 e a 1366 px, conforme registrado na implementação inicial.
+- Revisão humana: [revisão de Álvaro](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/302#pullrequestreview-6051341271), com solicitação de alterações.
+- Apoio na revisão (ChatGPT), em 25/11/2026:
+  - independência da refeição e da data da previsão da fila em relação à seleção do cardápio;
+  - tratamento de campus inexistente e falha no carregamento dos campi, com opção de tentar novamente;
+  - atualização do card da fila na Home, removendo a indicação de funcionalidade futura;
+  - reforço dos testes das três navegações e inclusão de testes de regressão;
+  - verificação de que a tela da fila não solicita o cardápio;
+  - correção da duplicidade de títulos para leitores de tela;
+  - reversão de alterações exclusivamente de formatação apontadas na revisão;
+  - substituição das ilustrações de café da manhã, almoço e jantar, compartilhadas pelas versões desktop e mobile, utilizando as imagens fornecidas pela autora;
+  - auxílio na atualização deste registro.
+- Decisão humana: manter a arquitetura existente, utilizar as ilustrações fornecidas e aplicar as correções na mesma branch do PR #302.
+- Validação após os ajustes, executada pela autora:
+  - `npm run test:ci -- --maxWorkers=1 --no-file-parallelism`: 44 arquivos de teste e 1.128 testes passando;
+  - cobertura: 95,69% de instruções, 93,24% de ramificações, 95,63% de funções e 96,67% de linhas;
+  - `npm run lint:ci`: nenhum erro ou aviso;
+  - `npm run build`: concluído com sucesso.
+- Limitações: a conferência visual dos novos ajustes com os protótipos do Figma, nas versões desktop e mobile, e a validação manual do check-in autenticado ainda estão pendentes. O equipamento da autora apresentou travamentos durante as tentativas de execução local.
+- Situação: ajustes da revisão aplicados e validados por testes automatizados; aguardando conferência visual e nova revisão.
+
+### Segunda rodada de revisão
+
+- **Ferramenta utilizada:** ChatGPT, com integração ao Figma.
+- **Contexto:** segunda revisão do PR #302, que apontou alterações visuais na Home e no Cardápio mobile ainda não conferidas com os protótipos.
+- **Ajustes realizados:**
+  - Consulta ao código-fonte dos protótipos desktop e mobile.
+  - Adequação da visibilidade da ilustração na Home.
+  - Ajuste das proporções, dos espaçamentos e da responsividade do cartão de destaque do Cardápio mobile.
+  - Preservação integral dos três arquivos PNG, sem compressão, conversão ou substituição.
+  - Preservação das correções funcionais aprovadas na primeira revisão.
+- **Decisão humana:** manter as alterações visuais e as ilustrações no próprio PR #302, sem abertura de um PR separado.
+- **Validação realizada:**
+  - Lint: zero erros e zero avisos.
+  - Testes específicos: 46 de 46 aprovados.
+  - Build de produção concluído com sucesso.
+  - `git diff --check` sem problemas.
+- **Validação pendente:** conferência visual da aplicação renderizada a 360 px e 1366 px, devido às limitações de hardware do equipamento utilizado. A comparação com o código-fonte dos protótipos não substitui essa conferência.
+## Correção da navegação do Perfil (#297)
+
+- Issue: [#297](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/297). PR: [#301](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/301).
+- Ferramenta: ChatGPT (OpenAI).
+- Apoio: análise da navegação e geração de patches para os testes de regressão e a correção da rota do Perfil, com atualização dos comentários e separação dos itens da barra lateral.
+- Escopo: Perfil aponta para `/progresso` no celular e no tablet, com `aria-current` na página atual. A navegação lateral mantém seus destinos anteriores e o atalho de conta. Sem alteração de API ou de autenticação.
+- TDD: patches separados para testes e implementação; execução e validação a cargo da autora.
+- Validação local:
+  - TDD (RED): 6 falhas esperadas e 29 testes aprovados.
+  - TDD (GREEN): 35/35 testes aprovados.
+  - Suíte completa: 1.125/1.125 testes aprovados em 43 arquivos.
+  - Lint: 0 erros e 0 warnings.
+  - Build de produção: aprovado.
+  - Cobertura: statements 95,55%; branches 93,02%; functions 95,39%; lines 96,52%.
+  - Cobertura de 100% em navegacao.js, NavegacaoInferior.vue, NavegacaoTopo.vue e BarraLateral.vue.
+  - Conferência visual: realizada parcialmente pela autora no navegador. A instabilidade do equipamento impediu a conclusão documentada de todos os cenários e a obtenção de capturas de tela.
+- Revisão humana: [revisão de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/301#issuecomment-7151522260).
+- Ajustes da revisão com apoio do ChatGPT:
+  - Atualização do C4 do frontend com os destinos das navegações superior e lateral.
+  - Atualização do checklist de qualidade do frontend.
+  - Correção do comentário da BarraLateral.vue.
+  - Inclusão do link do PR, da revisão humana e da situação neste registro.
+  - Alinhamento dos registros de validação visual com as verificações efetivamente realizadas.
+- Situação: ajustes de documentação e comentários da revisão aplicados; aguardando recheck e complementação da validação visual.
 ## #250 — GRANT com o nome do banco escapado no `10-usuarios.sh`
 
 - Issue: [#250](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/250), achada na revisão do [#246](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/246) (#209). PR: [#298 — fix(banco): GRANT com o nome do banco escapado (#250)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/298).
@@ -1133,3 +1276,31 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Pendente: conferencia visual da estabilidade do login durante o carregamento dos campi.
 - E2E com backend real nao executado localmente por indisponibilidade do Docker; aguardando CI.
 - Os comandos sugeridos pela IA foram executados pela autora.
+
+## FE-22 — Previsão de pico real no cartão Fila da tela inicial
+
+- Issue: [#269](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/269). PR: [#305](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/305).
+- Ferramenta: ChatGPT (OpenAI).
+- Apoio: análise da issue, elaboração dos testes, implementação da previsão de pico na HomeView e orientação para validação local.
+- Implementação: reutilização da filaStore, com campus lembrado, refeição de hoje e data atual. Exibição dos horários de pico, inclusive empates, e tratamento de dados insuficientes, ausência de refeição e falha da API.
+- Escopo: mantidos o cartão Fila, suas classes principais e a navegação para a rota fila. Ajustado o tamanho do texto para acomodar os horários.
+- TDD: testes escritos antes da implementação. Fase RED com 6 falhas esperadas e 18 testes passando (commit `788cb83`). Fase GREEN com 24 testes da HomeView passando (commit `fd66bf0`).
+- Revisão humana: [AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/305#issuecomment-7153448234).
+- Ajustes da revisão, com apoio do ChatGPT:
+  - Formatação de três ou mais picos empatados com vírgulas e "e" antes do último, seguindo a regra da FilaPrevisao.
+  - Teste de regressão com três picos empatados: RED com 30 testes aprovados e uma falha esperada; GREEN com 31 testes aprovados.
+  - Exportação e reutilização de formatarHora de constants/refeicoes.js, removendo a duplicação de horaPico na HomeView.
+  - Correção de trocarGet com reserva para getOriginal quando o spy não possui implementação.
+  - Atualização com a develop e resolução do conflito no AI-USAGE.md, preservando os registros existentes (commit `27ca4bd`).
+  - Consolidação da documentação e dos resultados da validação.
+- Validação local:
+  - Antes da revisão: 1.125 testes aprovados em 43 arquivos, lint e build aprovados.
+  - Cobertura inicial: 96,56% de linhas, 95,61% de instruções, 95,44% de funções e 92,98% de ramificações. HomeView com 96,55% de cobertura de linhas.
+  - Após a revisão: 1.160 testes aprovados em 44 arquivos, incluindo os 31 testes da HomeView.
+  - Lint com zero erros e avisos, build de produção aprovado e Prettier aplicado aos arquivos alterados.
+  - Cobertura após a revisão: 96,62% de linhas, 95,65% de instruções, 95,58% de funções e 93,06% de ramificações.
+  - HomeView com 96,72% de cobertura de linhas.
+  - Conferência visual anterior à revisão: capturas em 360 e 1366 px, campus Gama, com previsão de pico de 7h45 às 8h, sem cortes visíveis no cartão.
+- Limites: integração com backend real, medição explícita de rolagem horizontal e CI após os ajustes ainda não confirmadas. A alteração opcional na FilaPrevisao foi mantida fora do escopo.
+- Participação humana: execução dos comandos, aplicação das alterações, testes e commits no ambiente local.
+- Situação: ajustes solicitados na revisão aplicados e validados localmente; aguardando recheck.

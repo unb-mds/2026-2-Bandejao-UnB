@@ -1,13 +1,11 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { ID_CAMPUS_COM_EXECUTIVO, idDeCampusValido } from '@/constants/campi'
-import { ORDEM_REFEICOES, REFEICOES } from '@/constants/refeicoes'
 import { abrirAvisoLocalizacao } from '@/composables/avisoLocalizacao'
-import { refeicaoPadrao } from '@/utils/cardapio'
-import { hojeISO, minutosAgora, minutosDoDia } from '@/utils/datas'
+import { useFilaDoCampus } from '@/composables/filaDoCampus'
 import AvisoExecutivo from '@/components/AvisoExecutivo.vue'
 import ContatoEquipe from '@/components/ContatoEquipe.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
@@ -19,13 +17,9 @@ const props = defineProps({
   campusId: { type: String, required: true },
 })
 
-const INTERVALO_DO_RELOGIO = 30 * 1000
-
 const route = useRoute()
 const cardapio = useCardapioStore()
 const preferencias = usePreferenciasStore()
-const agora = ref(new Date())
-let relogio = null
 
 const id = computed(() => idDeCampusValido(props.campusId))
 const campus = computed(() => cardapio.buscarCampus(id.value))
@@ -40,36 +34,12 @@ const falhaNosCampi = computed(
 )
 const temExecutivo = computed(() => !naoEncontrado.value && id.value === ID_CAMPUS_COM_EXECUTIVO)
 
-const refeicaoDaFila = computed(() => {
-  const selecionada = preferencias.refeicaoSelecionada
-  if (preferencias.dataSelecionada === hojeISO(agora.value) && REFEICOES[selecionada]) {
-    return selecionada
-  }
-  return refeicaoPadrao(ORDEM_REFEICOES, agora.value)
-})
-const refeicaoEncerrada = computed(
-  () => minutosAgora(agora.value) > minutosDoDia(REFEICOES[refeicaoDaFila.value].fim),
-)
-const dataDaPrevisao = computed(() => preferencias.dataSelecionada ?? hojeISO(agora.value))
-const refeicaoDaPrevisao = computed(() =>
-  REFEICOES[preferencias.refeicaoSelecionada]
-    ? preferencias.refeicaoSelecionada
-    : refeicaoDaFila.value,
-)
-const mostrarPrevisao = computed(() => {
-  const hoje = hojeISO(agora.value)
-  if (dataDaPrevisao.value !== hoje) return dataDaPrevisao.value > hoje
-  return !refeicaoEncerrada.value || refeicaoDaPrevisao.value !== refeicaoDaFila.value
-})
+const { refeicaoDaFila, refeicaoEncerrada, dataDaPrevisao, refeicaoDaPrevisao, mostrarPrevisao } =
+  useFilaDoCampus()
 
 onMounted(() => {
   cardapio.carregarCampi()
-  relogio = setInterval(() => {
-    agora.value = new Date()
-  }, INTERVALO_DO_RELOGIO)
 })
-
-onBeforeUnmount(() => clearInterval(relogio))
 
 watch(
   () => route.hash,
@@ -185,7 +155,7 @@ watch(
   margin-top: 12px;
   font-size: 13px;
   line-height: 1.5;
-  color: #fff;
+  color: var(--branco);
 }
 
 .falha-campi .botao-pequeno {

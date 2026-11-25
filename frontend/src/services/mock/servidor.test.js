@@ -702,11 +702,54 @@ describe('GET /avaliacoes/resumo/?campus=&data= (resumo do dia)', () => {
     expect(dados).toEqual([])
   })
 
-  it('campus inexistente: 400 parametros_invalidos, como no contrato', async () => {
-    const { status, dados } = await get('/avaliacoes/resumo/?campus=99&data=2026-09-28')
+  it('só com o campus: a lista do dia corrente, como o backend (#259)', async () => {
+    const soCampus = await get('/avaliacoes/resumo/?campus=1')
+    const hoje = await get('/avaliacoes/resumo/?campus=1&data=2026-09-28')
 
-    expect(status).toBe(400)
-    expect(dados.codigo).toBe('parametros_invalidos')
+    expect(soCampus.status).toBe(200)
+    expect(Array.isArray(soCampus.dados)).toBe(true)
+    expect(soCampus.dados).toEqual(hoje.dados)
+  })
+
+  it.each(['000', '99', '0099'])(
+    'campus %s, só dígitos e inexistente: 404 campus_nao_encontrado, como o backend (#259)',
+    async (campus) => {
+      const resposta = await get(`/avaliacoes/resumo/?campus=${campus}&data=2026-09-28`)
+
+      expect(resposta.status).toBe(404)
+      expect(resposta.dados).toEqual({
+        codigo: 'campus_nao_encontrado',
+        mensagem: 'Não existe campus com esse id.',
+      })
+    },
+  )
+
+  it('campus 01 vale o campus 1, como o `ler_id_do_campus` do backend', async () => {
+    const zero = await get('/avaliacoes/resumo/?campus=01&data=2026-09-28')
+    const um = await get('/avaliacoes/resumo/?campus=1&data=2026-09-28')
+
+    expect(zero.status).toBe(200)
+    expect(zero.dados).toEqual(um.dados)
+  })
+
+  it.each([
+    ['sem campus', '/avaliacoes/resumo/'],
+    ['sem campus, com a data', '/avaliacoes/resumo/?data=2026-09-28'],
+    ['campus que não é só dígitos', '/avaliacoes/resumo/?campus=darcy'],
+    ['data inválida', '/avaliacoes/resumo/?campus=1&data=2026-02-30'],
+    ['parâmetro fora do contrato', '/avaliacoes/resumo/?campus=1&refeicao=almoco'],
+    ['campus inexistente e data inválida', '/avaliacoes/resumo/?campus=99&data=ontem'],
+  ])('%s: 400 parametros_invalidos, antes do 404 do campus', async (_caso, caminho) => {
+    const resposta = await get(caminho)
+
+    expect(resposta.status).toBe(400)
+    expect(resposta.dados.codigo).toBe('parametros_invalidos')
+  })
+
+  it('o resumo da semana do MVP ({ media, quantidade, dias }) não existe mais (#259)', async () => {
+    const { dados } = await get('/avaliacoes/resumo/?campus=1')
+
+    expect(dados).not.toHaveProperty('dias')
   })
 
   it('simulacao.definirResumoDoDiaDisponivel(false): 501 sem corpo, como o backend hoje', async () => {
@@ -715,6 +758,13 @@ describe('GET /avaliacoes/resumo/?campus=&data= (resumo do dia)', () => {
     const resposta = await get('/avaliacoes/resumo/?campus=1&data=2026-09-28')
 
     expect(resposta.status).toBe(501)
+  })
+
+  it('a lista GET /avaliacoes/ do MVP não existe mais: o backend só tem o POST (#259)', async () => {
+    const { status, dados } = await get('/avaliacoes/?campus=3&data=2026-09-28&refeicao=almoco')
+
+    expect(status).toBe(404)
+    expect(dados.codigo).toBe('nao_encontrado')
   })
 
   it('reiniciarSimulacao volta o resumo do dia a responder', async () => {

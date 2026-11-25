@@ -341,7 +341,7 @@ function limparFiltros() {
   font-family: var(--fonte-titulo);
   font-weight: 900;
   font-size: 16px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .botao-filtro {
@@ -365,7 +365,7 @@ function limparFiltros() {
   font-size: 9px;
   font-weight: 900;
   background: var(--dourado);
-  color: #fff;
+  color: var(--branco);
 }
 
 .barra-avaliacao {
@@ -532,11 +532,41 @@ function limparFiltros() {
   color: var(--texto-claro);
 }
 
-/* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
+/* Destaque da refeição (protótipo mobile). */
 .destaque {
-  display: none;
+  display: grid;
+  grid-template-columns: minmax(0, 54fr) minmax(0, 38fr);
+  align-items: end;
+  gap: 12px;
+  padding: 20px;
+  margin: 12px 16px;
+  color: var(--branco);
+  background: var(--verde-escuro);
+  border-radius: var(--raio-xl);
+}
+.destaque-texto {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.destaque-prato {
+  font: 900 20px / 1.2 var(--fonte-titulo);
+  margin-top: 8px;
+}
+.destaque-resumo {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--branco-60);
+}
+@media (max-width: 1023px) {
+  .destaque-arte {
+    width: 100%;
+    height: 92px;
+    aspect-ratio: auto;
+  }
 }
 
+/* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
 @media (min-width: 1024px) {
   /* Dias e refeição viram duas pílulas claras sobre o creme. */
   .cabecalho-cardapio {
@@ -563,7 +593,7 @@ function limparFiltros() {
     min-height: 40px;
     padding: 0 13px;
     border: 1px solid var(--borda);
-    border-radius: 11px;
+    border-radius: var(--raio-11);
     background: var(--cartao);
   }
   /* O IconeSvg recebe a cor branca por prop (style inline) para o celular. */
@@ -592,10 +622,10 @@ function limparFiltros() {
     gap: 32px;
     min-height: 300px;
     overflow: hidden;
-    margin-bottom: 14px;
+    margin: 0 0 14px;
     padding: 40px;
-    border-radius: 28px;
-    color: #fff;
+    border-radius: var(--raio-28);
+    color: var(--branco);
     background: var(--verde-escuro);
     box-shadow: 0 18px 40px var(--sombra-escura);
   }
@@ -650,15 +680,15 @@ function limparFiltros() {
   .categoria {
     padding: 20px;
     border: 1px solid var(--borda);
-    border-radius: 18px;
+    border-radius: var(--raio-18);
     background: var(--cartao);
-    box-shadow: 0 6px 18px var(--sombra-cartao);
+    box-shadow: 0 6px 18px var(--sombra-cartao-cor);
   }
   .aviso-alteracao {
     grid-column: 1 / -1;
     padding: 16px 20px;
     border: 1px solid var(--alerta-borda);
-    border-radius: 14px;
+    border-radius: var(--raio-14);
     text-align: left;
     color: var(--alerta-texto);
     background: var(--alerta-fundo);

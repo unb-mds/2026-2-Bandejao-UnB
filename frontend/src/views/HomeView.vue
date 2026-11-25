@@ -2,10 +2,11 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useFilaStore } from '@/stores/fila'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
 import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
-import { REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
+import { REFEICOES, formatarHora, horarioRefeicao } from '@/constants/refeicoes'
 import { CANAL_CONTATO } from '@/constants/contato'
 import { dataCurta, dataPorExtenso, diaCurto, hojeISO, saudacao } from '@/utils/datas'
 import { formatarNota, resumoRefeicao } from '@/utils/cardapio'
@@ -19,6 +20,7 @@ import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
 /** Tela inicial (protótipo): resumo do dia, fila, avaliações e satisfação da semana. */
 const router = useRouter()
 const auth = useAuthStore()
+const fila = useFilaStore()
 const avaliacoes = useAvaliacoesStore()
 const cardapio = useCardapioStore()
 cardapio.carregarCampi()
@@ -41,6 +43,49 @@ const tipoHoje = computed(() => {
     resposta?.status === 'publicado' && !resposta.semServico && resposta.data === hoje
   return servidoHoje ? resposta.refeicao : null
 })
+const pedidoPrevisao = computed(() =>
+  campusId.value && tipoHoje.value
+    ? { campus: campusId.value, refeicao: tipoHoje.value, data: hoje }
+    : null,
+)
+
+const estadoPrevisao = computed(() =>
+  pedidoPrevisao.value ? fila.estadoDaPrevisao(pedidoPrevisao.value) : null,
+)
+
+watch(
+  pedidoPrevisao,
+  (pedido) => {
+    if (pedido) fila.carregarPrevisao(pedido)
+  },
+  { immediate: true },
+)
+
+const textoPrevisao = computed(() => {
+  if (erroHoje.value) return 'Previsão indisponível'
+  if (!cardapioHoje.value) return 'Carregando previsão…'
+  if (!tipoHoje.value) return 'Sem refeição hoje'
+
+  const estado = estadoPrevisao.value
+  if (['erro', 'indisponivel'].includes(estado?.situacao)) {
+    return 'Previsão indisponível'
+  }
+
+  const previsao = estado?.previsao
+  if (!previsao) return 'Carregando previsão…'
+  if (previsao.status === 'dados_insuficientes') {
+    return 'Dados insuficientes'
+  }
+
+  const picos = (previsao.faixas ?? [])
+    .filter((faixa) => faixa.ehPico)
+    .map((faixa) => `${formatarHora(faixa.inicio)} às ${formatarHora(faixa.fim)}`)
+
+  if (!picos.length) return 'Previsão indisponível'
+  if (picos.length === 1) return picos[0]
+  return `${picos.slice(0, -1).join(', ')} e ${picos.at(-1)}`
+})
+
 const linhasResumo = computed(() =>
   tipoHoje.value ? resumoRefeicao(cardapioHoje.value.categorias) : [],
 )
@@ -65,7 +110,22 @@ const notaHoje = computed(() => {
   return resumoDoDia.find((r) => r.tipo === tipoHoje.value)?.media ?? null
 })
 
-const resumo = computed(() => avaliacoes.resumoPorCampus[campusId.value] ?? null)
+/**
+ * Semana dos cartões "Avaliações" e "Satisfação da semana" (#259): montada na
+ * store com o resumo de cada dia. Na falha, os cartões dizem que não
+ * carregou, em vez de "sem avaliações ainda".
+ */
+const semana = computed(() => avaliacoes.estadoDaSemana(campusId.value))
+const resumo = computed(() => semana.value?.resumo ?? null)
+const erroSemana = computed(() => semana.value?.situacao === 'erro')
+const carregandoSemana = computed(() => !semana.value || semana.value.situacao === 'carregando')
+/** Só com a semana carregada o cartão mostra contagem, gráfico e média: antes, seria um falso "0 avaliações". */
+const semanaPronta = computed(() => !erroSemana.value && !carregandoSemana.value)
+const legendaAvaliacoes = computed(() => {
+  if (erroSemana.value) return 'Não foi possível carregar'
+  if (carregandoSemana.value) return 'carregando…'
+  return resumo.value?.media != null ? '/ 5 · esta semana' : 'sem avaliações ainda'
+})
 const barras = computed(() => {
   const dias = resumo.value?.dias ?? []
   const maior = Math.max(...dias.map((d) => d.media ?? 0))
@@ -83,7 +143,7 @@ watch(
     if (!id) return
     cardapio.carregarRefeicao({ campus: id, dia: hoje })
     avaliacoes.carregarResumoDoDia(id, hoje)
-    avaliacoes.carregarResumo(id)
+    avaliacoes.carregarResumoDaSemana(id)
   },
   { immediate: true },
 )
@@ -125,14 +185,14 @@ async function sair() {
       >
         <path
           d="M350 0 C280 60 180 100 120 180"
-          stroke="white"
+          style="stroke: var(--branco)"
           stroke-width="1.5"
           stroke-opacity="0.04"
           fill="none"
         />
         <path
           d="M380 20 C310 70 210 110 140 180"
-          stroke="white"
+          style="stroke: var(--branco)"
           stroke-width="1"
           stroke-opacity="0.03"
           fill="none"
@@ -278,13 +338,18 @@ async function sair() {
             <span class="ponto" />
             <span class="rotulo">Fila</span>
           </div>
-          <p class="pequeno-valor">Em breve</p>
+          <p class="pequeno-valor valor-previsao" aria-live="polite">
+            {{ textoPrevisao }}
+          </p>
           <p class="pequeno-legenda">previsão de pico</p>
-          <p class="pequeno-rodape pequeno-rodape--suave">Na próxima versão</p>
+          <p class="pequeno-rodape pequeno-rodape--suave">Ver fila do RU</p>
         </RouterLink>
 
         <!-- Avaliações -->
-        <RouterLink :to="{ name: 'avaliacoes' }" class="cartao cartao-clicavel cartao-pequeno">
+        <RouterLink
+          :to="{ name: 'avaliacoes' }"
+          class="cartao cartao-clicavel cartao-pequeno cartao-avaliacoes"
+        >
           <div class="pequeno-topo">
             <IconeSvg
               nome="estrela"
@@ -295,11 +360,9 @@ async function sair() {
             <span class="rotulo">Avaliações</span>
           </div>
           <p class="pequeno-valor">{{ formatarNota(resumo?.media) }}</p>
-          <p class="pequeno-legenda">
-            {{ resumo?.media ? '/ 5 · esta semana' : 'sem avaliações ainda' }}
-          </p>
+          <p class="pequeno-legenda">{{ legendaAvaliacoes }}</p>
           <div class="pequeno-rodape">
-            <EstrelasNota :valor="resumo?.media ?? 0" :tamanho="11" />
+            <EstrelasNota v-if="resumo?.media != null" :valor="resumo.media" :tamanho="11" />
           </div>
         </RouterLink>
       </div>
@@ -308,10 +371,14 @@ async function sair() {
       <RouterLink :to="{ name: 'avaliacoes' }" class="cartao cartao-clicavel cartao-semana">
         <div class="semana-topo">
           <p class="titulo-secao">Satisfação da semana</p>
-          <span class="contagem">{{ resumo?.quantidade ?? 0 }} avaliações</span>
+          <span v-if="semanaPronta" class="contagem">{{ resumo.quantidade }} avaliações</span>
         </div>
 
-        <div class="grafico" role="img" aria-label="Nota média por dia da semana">
+        <p v-if="erroSemana" class="semana-erro" role="alert">
+          Não foi possível carregar as avaliações da semana.
+        </p>
+        <p v-else-if="carregandoSemana" class="semana-carregando">carregando…</p>
+        <div v-else class="grafico" role="img" aria-label="Nota média por dia da semana">
           <div v-for="barra in barras" :key="barra.dia" class="barra-coluna">
             <span class="barra-valor">{{ barra.media ? formatarNota(barra.media) : '–' }}</span>
             <div
@@ -323,8 +390,8 @@ async function sair() {
           </div>
         </div>
 
-        <div class="semana-media">
-          <EstrelasNota :valor="resumo?.media ?? 0" :tamanho="13" />
+        <div v-if="semanaPronta" class="semana-media">
+          <EstrelasNota v-if="resumo?.media != null" :valor="resumo.media" :tamanho="13" />
           <span class="semana-nota">{{ formatarNota(resumo?.media) }} / 5</span>
           <span class="semana-legenda">média geral</span>
         </div>
@@ -370,7 +437,7 @@ async function sair() {
   font-weight: 900;
   font-size: 16px;
   letter-spacing: -0.3px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .campus-atual {
@@ -392,7 +459,7 @@ async function sair() {
   font-size: 14px;
   font-weight: 900;
   background: var(--branco-10);
-  color: #fff;
+  color: var(--branco);
 }
 
 .menu-fundo {
@@ -410,7 +477,7 @@ async function sair() {
   padding: 12px;
   border-radius: var(--raio-lg);
   background: var(--cartao);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--sombra-menu);
 }
 
 .menu-apelido {
@@ -457,7 +524,7 @@ async function sair() {
   font-size: 28px;
   line-height: 1.25;
   letter-spacing: -0.5px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .aviso-sair {
@@ -501,7 +568,7 @@ async function sair() {
   font-size: 10px;
   font-weight: 900;
   background: var(--verde-escuro);
-  color: #fff;
+  color: var(--branco);
 }
 
 .horario {
@@ -611,6 +678,12 @@ async function sair() {
   color: var(--texto-escuro);
 }
 
+.valor-previsao {
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .pequeno-legenda {
   margin-top: 4px;
   font-size: 12px;
@@ -669,7 +742,7 @@ async function sair() {
 
 .barra {
   width: 100%;
-  border-radius: 2px 2px 0 0;
+  border-radius: var(--raio-2xs) var(--raio-2xs) 0 0;
   background: var(--borda);
 }
 .barra--destaque {
@@ -694,6 +767,12 @@ async function sair() {
   color: var(--texto-escuro);
 }
 
+.semana-erro,
+.semana-carregando {
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
 .semana-legenda {
   font-size: 12px;
   color: var(--texto-claro);
@@ -711,7 +790,10 @@ async function sair() {
 }
 
 /* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
-.topo-desktop,
+.topo-desktop {
+  display: none;
+}
+
 .hoje-arte {
   display: none;
 }
@@ -768,12 +850,12 @@ async function sair() {
     min-height: 40px;
     padding: 0 13px;
     border: 1px solid var(--borda);
-    border-radius: 11px;
+    border-radius: var(--raio-11);
     font-size: 12px;
     font-weight: 700;
     color: var(--texto-suave);
     background: var(--cartao);
-    box-shadow: 0 4px 14px var(--sombra-cartao);
+    box-shadow: 0 4px 14px var(--sombra-cartao-cor);
   }
 
   .cartoes {
@@ -793,7 +875,7 @@ async function sair() {
 
   .cartao {
     border-radius: var(--raio-xl);
-    box-shadow: 0 8px 22px var(--sombra-cartao);
+    box-shadow: 0 8px 22px var(--sombra-cartao-cor);
   }
 
   /* Cardápio de hoje: o cartão verde grande, com a ilustração da refeição. */
@@ -809,7 +891,7 @@ async function sair() {
     padding: 32px;
     border: 0;
     text-align: left;
-    color: #fff;
+    color: var(--branco);
     background: var(--verde-escuro);
   }
   .cartao-hoje::before {
@@ -848,10 +930,10 @@ async function sair() {
     font-size: clamp(28px, 2.6vw, 38px);
     line-height: 1.02;
     letter-spacing: -0.045em;
-    color: #fff;
+    color: var(--branco);
   }
   .cartao-hoje .hoje-nota span {
-    color: #fff;
+    color: var(--branco);
   }
   .cartao-hoje .hoje-linhas {
     border-top: 0;

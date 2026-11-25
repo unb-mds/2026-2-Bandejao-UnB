@@ -26,6 +26,6 @@ defineProps({
   display: block;
   flex: 0 0 auto;
   object-fit: contain;
-  filter: drop-shadow(0 9px 14px var(--sombra-logo));
+  filter: drop-shadow(0 9px 14px var(--sombra-logo-cor));
 }
 </style>

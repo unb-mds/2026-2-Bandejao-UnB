@@ -53,7 +53,7 @@ defineProps({
 }
 
 .linha--podio .posicao {
-  color: #fff;
+  color: var(--branco);
   background: var(--dourado);
 }
 
