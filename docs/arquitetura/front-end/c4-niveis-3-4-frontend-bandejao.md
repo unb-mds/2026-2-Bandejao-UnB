@@ -134,8 +134,9 @@ Aviso '+10 pontos' (RF24.2)."]
   detalhada em 3a.2. O login leva a ela (RF03.4) e a raiz `/` também
   (RN04).
 - **O seletor de campus do MVP passou a ser o componente `SeletorCampus`**
-  (FE-07), na rota `/campus`: é o destino do "Trocar" da tela do campus e da
-  primeira escolha. A lista vem do `GET /api/campi/`, com o `id` inteiro e o
+  (FE-07), na rota `/campus`: é o destino do "Trocar" da tela do campus e dos
+  links antigos sem campus lembrado. Na primeira visita, a escolha é feita
+  nas boas-vindas (#285), com a mesma lista. A lista vem do `GET /api/campi/`, com o `id` inteiro e o
   nome do banco. O nome `CampusView` ficou com a tela do campus, e
   `CardapioView` e `FilaView` viraram as seções dela.
 - **Um só frontend, mobile first, com três pontos de quebra (FE-20, RNF05):**
@@ -171,8 +172,10 @@ Aviso '+10 pontos' (RF24.2)."]
   nada depende só de toque. Nas superfícies verdes, a classe `fundo-escuro`
   deixa o anel de foco dourado.
 - **`HomeView`, `BoasVindasView` e `NotFoundView`** existem no código, mas
-  ficam de fora do diagrama por não agregarem componentes próprios — são
-  apenas destino de rota.
+  ficam de fora do diagrama por não agregarem componentes próprios. A
+  `HomeView` e a `NotFoundView` são apenas destino de rota; a `BoasVindasView`
+  também usa o `cardapioStore` (`GET /api/campi/`) e o `preferenciasStore`
+  (a escolha do campus lembrada, RN04), por causa da escolha do campus (#285).
 - **`authViews` agrupa cinco telas com pesos bem diferentes**: `CadastroView`
   e `ConfirmarEmailView` concentram a maior parte da complexidade do épico
   Login (RF01/RF02) — por isso são elas que ganham detalhamento em Nível 4
@@ -687,11 +690,12 @@ formaliza os padrões nele observados e os estende para a Release 2:
 - **Campus como parâmetro de rota, não só de estado**: `/campus/:campusId`
   permite compartilhar/favoritar o link de um campus. A raiz `/` resolve o
   campus pela RN04 (escolha manual depois da última detecção → campus
-  detectado → campus lembrado → seletor) e leva à tela do campus.
+  detectado → campus lembrado) e leva à tela do campus; na primeira visita,
+  sem nenhum campus, leva às boas-vindas (#285), e não ao seletor.
 
 | Rota | View | Observação |
 |---|---|---|
-| `/` | — (redireciona) | Resolve o campus pela RN04 e vai para `/campus/:campusId`; na primeira visita, para as boas-vindas, que levam ao seletor |
+| `/` | — (redireciona) | Resolve o campus pela RN04 e vai para `/campus/:campusId`; na primeira visita, para as boas-vindas, que têm o "Entrar na conta" e a escolha do campus (sem a localização, 2 interações até o cardápio: "Agora não" e o campus, RNF03, #285) |
 | `/campus` | `SeletorCampus` | Quando a RN04 não resolve nenhum campus; destino do "Trocar" da tela do campus |
 | `/campus/:campusId` | `CampusView` | Tela do campus (RF20). Destino do login (RF03.4) |
 | `/cardapio`, `/fila` | — (redireciona) | Rotas do MVP mantidas para links antigos: vão para a tela do campus lembrado (`/fila` com `#fila`) ou, sem campus, para `/campus` |
