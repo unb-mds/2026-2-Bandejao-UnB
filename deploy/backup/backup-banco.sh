@@ -71,8 +71,11 @@ limite_cliente=${BANDEJAO_TEMPO_LIMITE_CLIENTE:-35m}
 log=$logs/backup-banco.log
 
 case $retencao in
-    '' | *[!0-9]* | 0)
-        falha "BANDEJAO_RETENCAO_DIAS inválido: '$retencao' (use um número de dias, 1 ou mais)"
+    '' | *[!0-9]* | 0* | ?????*)
+        # Zero à esquerda fica de fora: `00` dava minutos negativos e a
+        # rotação apagava todas as cópias, `08` quebrava a conta do `sh` e
+        # `010` era lido como octal. Mais de 4 dígitos estoura a conta.
+        falha "BANDEJAO_RETENCAO_DIAS inválido: '$retencao' (use um número de dias de 1 a 9999, sem zero à esquerda)"
         exit 2
         ;;
 esac
@@ -89,11 +92,11 @@ umask 077
 # Sem cópia, ou com a mais nova velha demais, é o único caso em que o prazo
 # da rotação deixa a pasta sem backup útil: avisa alto.
 conferir_pasta() {
-    total=$(find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' | wc -l | tr -d ' ')
+    total=$(find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' 2>/dev/null | wc -l | tr -d ' ')
     if [ "$total" -eq 0 ]; then
-        aviso "SEM NENHUMA CÓPIA em $backups: o backup falhou e a rotação apagou o resto" user.crit
-    elif [ -z "$(find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' -mmin -1560 | head -n 1)" ]; then
-        aviso "a cópia mais nova de $backups tem mais de 26 h: o backup de hoje falhou" user.crit
+        aviso "SEM NENHUMA CÓPIA em $backups: o backup não foi feito (ver o log) ou a rotação apagou o resto" user.crit
+    elif [ -z "$(find "$backups" -maxdepth 1 -type f -name 'bandejao-*.sql.gz' -mmin -1560 2>/dev/null | head -n 1)" ]; then
+        aviso "a cópia mais nova de $backups tem mais de 26 h: o backup de hoje não foi feito (falhou ou foi pulado)" user.crit
     fi
 }
 
@@ -116,11 +119,11 @@ fi
 
 if [ ! -d "$backups" ]; then
     falha "backup: $backups não existe (criar com: sudo install -d -m 700 -o azureuser -g azureuser $backups)"
-    exit 1
+    sair_com 1
 fi
 if [ ! -w "$backups" ]; then
     falha "backup: sem permissão de escrita em $backups (o script rodou com sudo? ver o guia)"
-    exit 1
+    sair_com 1
 fi
 chmod 700 "$backups" 2>/dev/null || true
 

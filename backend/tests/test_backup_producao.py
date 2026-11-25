@@ -389,13 +389,27 @@ def test_retencao_configuravel(rodar, ambiente):
 
 
 @precisa_de_sh
-@pytest.mark.parametrize("valor", ["0", "-1", "sete", "7d"])
+@pytest.mark.parametrize(
+    "valor",
+    # `00` dava minutos negativos e apagava tudo; `08` quebrava a conta do sh;
+    # `010` era lido como octal (8 dias); 5 dígitos estouram a conta.
+    ["0", "00", "08", "010", "-1", "sete", "7d", "12345"],
+)
 def test_retencao_invalida_sai_com_2_sem_apagar_nada(rodar, ambiente, valor):
     velha = criar_copia(ambiente, "bandejao-20261101T064500Z.sql.gz", 20 * DIA)
+    recente = criar_copia(ambiente, "bandejao-20261124T064500Z.sql.gz", 3600)
     resultado = rodar(BANDEJAO_RETENCAO_DIAS=valor)
     assert resultado.returncode == 2
     assert resultado.docker is None
     assert velha.exists()
+    assert recente.exists()
+
+
+@precisa_de_sh
+@pytest.mark.parametrize("valor", ["1", "7", "30", "9999"])
+def test_retencao_valida_nao_e_barrada(rodar, ambiente, valor):
+    resultado = rodar(BANDEJAO_RETENCAO_DIAS=valor)
+    assert resultado.returncode == 0, resultado.stderr
 
 
 @precisa_de_sh
@@ -412,6 +426,8 @@ def test_pasta_de_backup_inexistente_explica_como_criar(rodar, ambiente):
     assert resultado.returncode == 1
     assert "install -d -m 700" in resultado.stderr
     assert resultado.docker is None
+    # Sem pasta não há backup útil: avisa alto, como nos outros casos.
+    assert any("user.crit" in linha for linha in resultado.logger)
 
 
 @precisa_de_sh
@@ -427,6 +443,7 @@ def test_pasta_sem_escrita_avisa_do_sudo(rodar, ambiente):
     assert resultado.returncode == 1
     assert "sem permissão de escrita" in resultado.stderr
     assert resultado.docker is None
+    assert any("user.crit" in linha for linha in resultado.logger)
 
 
 GZIP_QUE_FALHA_NO_TESTE = """#!/bin/sh
@@ -776,7 +793,10 @@ def test_saida_75_com_copia_velha_demais_avisa_com_crit(rodar, ambiente):
         fcntl.flock(aberto, fcntl.LOCK_EX | fcntl.LOCK_NB)
         resultado = rodar()
     assert resultado.returncode == 75
-    assert any("user.crit" in linha for linha in resultado.logger)
+    crit = [linha for linha in resultado.logger if "user.crit" in linha]
+    assert crit
+    # Pulado não é falha: a mensagem não pode afirmar que o backup falhou.
+    assert "falhou ou foi pulado" in crit[0]
 
 
 @precisa_de_sh
@@ -990,6 +1010,26 @@ def test_restauracao_compara_as_contas_com_a_producao(
     assert (resultado.returncode == 0) is passa
     if not passa:
         assert "menos da metade" in resultado.stderr
+
+
+@precisa_de_sh
+def test_restauracao_com_zero_contas_nos_dois_lados_passa_com_aviso(
+    restaurar, ambiente
+):
+    """Sem contas na produção não há o que comparar: passa, mas avisa que só a
+    estrutura foi provada."""
+    criar_copia(ambiente, "bandejao-20261120T064500Z.sql.gz", 1 * DIA)
+    resultado = restaurar(USUARIOS_TEMP="0", USUARIOS_PROD="0")
+    assert resultado.returncode == 0, resultado.stderr
+    assert "AVISO" in resultado.stdout and "0 contas" in resultado.stdout
+
+
+@precisa_de_sh
+def test_restauracao_com_contas_nao_mostra_o_aviso_de_zero_contas(restaurar, ambiente):
+    criar_copia(ambiente, "bandejao-20261120T064500Z.sql.gz", 1 * DIA)
+    resultado = restaurar(USUARIOS_TEMP="3", USUARIOS_PROD="3")
+    assert resultado.returncode == 0, resultado.stderr
+    assert "AVISO" not in resultado.stdout
 
 
 @precisa_de_sh

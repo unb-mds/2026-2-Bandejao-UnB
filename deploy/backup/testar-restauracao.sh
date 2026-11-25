@@ -7,9 +7,10 @@
 # /var/backups/bandejao). Sobe um MySQL 8.4 temporário, SEM rede e com senha
 # aleatória, restaura a cópia nele e compara com o banco de produção: o
 # número de tabelas tem que ser o mesmo e o `django_migrations` não pode
-# estar vazio, e o `cadastro_usuario` não pode estar vazio nem ter menos da
-# metade das contas da produção: um banco recém-criado gera um dump completo e
-# sem contas. (Uma tabela qualquer com linhas não basta: a tabela de cache do
+# estar vazio, e, se a produção tem contas, o `cadastro_usuario` não pode estar
+# vazio nem ter menos da metade delas: um banco recém-criado gera um dump
+# completo e sem contas. Com 0 contas dos dois lados, passa com um AVISO: a
+# restauração prova a estrutura, mas não os dados. (Uma tabela qualquer com linhas não basta: a tabela de cache do
 # limite de taxa enche com uma tentativa de login.) A tabela de cache
 # (`cache_bandejao`) fica fora do backup e da contagem de tabelas. Mostra
 # também as linhas de cada tabela, para conferir a olho. As senhas vão ao
@@ -135,6 +136,8 @@ echo "Contas: restauradas=$usuarios_temp, produção=$usuarios_prod"
 if [ "${usuarios_prod:-0}" -gt 0 ]; then
     [ "${usuarios_temp:-0}" -gt 0 ] || fim "cadastro_usuario restaurado está vazio, e a produção tem $usuarios_prod contas: o backup não tem dados"
     [ $((usuarios_temp * 2)) -ge "$usuarios_prod" ] || fim "cadastro_usuario restaurado ($usuarios_temp) tem menos da metade das contas da produção ($usuarios_prod)"
+else
+    echo "AVISO: a produção também tem 0 contas; a restauração prova a estrutura, mas não confere os dados."
 fi
 
 # Contagem exata (COUNT(*)): a estimativa de linhas do information_schema é só uma
