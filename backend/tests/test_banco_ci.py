@@ -1,4 +1,5 @@
 import os
+import re
 
 import pytest
 from django.db import connection
@@ -75,3 +76,59 @@ def test_job_mysql_roda_com_o_usuario_restrito():
     assert not usuario.startswith("root@"), usuario
     assert not any("ALL PRIVILEGES" in p for p in permissoes), permissoes
     assert not any(" ON *.* " in p and "USAGE" not in p for p in permissoes), permissoes
+
+
+def so_no_job_mysql():
+    if os.environ.get("DB_ENGINE") != "mysql":
+        pytest.skip("Verificação específica do job MySQL.")
+
+
+@pytest.mark.django_db
+def test_privilegios_de_banco_com_curingas_escapados():
+    r"""#250: no GRANT de banco, `_` e `%` são curingas. Todo `_` ou `%` no
+    nome de um banco do SHOW GRANTS precisa vir escapado (`bandejao\_ci`)."""
+    so_no_job_mysql()
+
+    with connection.cursor() as cursor:
+        cursor.execute("SHOW GRANTS")
+        permissoes = [linha[0] for linha in cursor.fetchall()]
+
+    bancos = [
+        nome
+        for permissao in permissoes
+        for nome in re.findall(r" ON `((?:[^`]|``)+)`\.\*", permissao)
+    ]
+    assert bancos, permissoes
+    for nome in bancos:
+        assert not re.search(r"(?<!\\)[_%]", nome), permissoes
+
+
+def test_usuario_da_aplicacao_nao_cria_banco_que_casa_com_o_curinga():
+    """#250: com o `_` sem escape, o GRANT em `bandejao_ci` valeria para
+    `bandejaoXci`, e o CREATE passaria. Conexão própria, fora do banco de
+    teste do pytest-django: o CREATE DATABASE faz commit implícito."""
+    so_no_job_mysql()
+    import MySQLdb
+
+    nome_da_aplicacao = os.environ["DB_NAME"]
+    assert "_" in nome_da_aplicacao, "o teste precisa de um nome com `_`"
+    parecido = nome_da_aplicacao.replace("_", "X")
+
+    conexao = MySQLdb.connect(
+        host=os.environ["DB_HOST"],
+        port=int(os.environ["DB_PORT"]),
+        user=os.environ["DB_USER"],
+        password=os.environ["DB_PASSWORD"],
+    )
+    try:
+        cursor = conexao.cursor()
+        with pytest.raises(MySQLdb.OperationalError) as erro:
+            cursor.execute(f"CREATE DATABASE `{parecido}`")
+        assert erro.value.args[0] == 1044, erro.value.args
+    finally:
+        # Se o teste falhar, o banco criado não fica para trás.
+        try:
+            conexao.cursor().execute(f"DROP DATABASE IF EXISTS `{parecido}`")
+        except MySQLdb.OperationalError:
+            pass
+        conexao.close()
