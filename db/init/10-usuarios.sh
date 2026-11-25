@@ -56,18 +56,25 @@ _bandejao_erro() {
 _bandejao_usuarios() {
     _bandejao_app=$(_bandejao_literal "$MYSQL_USER")
     _bandejao_banco=$(_bandejao_identificador "$MYSQL_DATABASE")
-    # A imagem dá o GRANT com o "_" escapado (ru\_db, que no GRANT casa só
-    # o "_" literal). O REVOKE precisa dos dois nomes para tirar o ALL.
-    _bandejao_banco_escapado=$(printf '%s' "$_bandejao_banco" | sed -e 's/_/\\_/g')
+    # No GRANT de banco, o "_" e o "%" são curingas: "ru_db" valeria também
+    # para "ruXdb". Os GRANTs usam o nome escapado (ru\_db), que vale só
+    # para o banco da aplicação (#250).
+    _bandejao_banco_escapado=$(printf '%s' "$_bandejao_banco" | sed -e 's/[_%]/\\&/g')
+    # A imagem dá o ALL com só o "_" escapado, e as versões do script antes
+    # da #250 davam os GRANTs sem escape. Para rodar de novo num banco que já
+    # existe, o REVOKE tira os três antes do GRANT novo.
+    _bandejao_banco_imagem=$(printf '%s' "$_bandejao_banco" | sed -e 's/_/\\_/g')
 
     printf '%s\n' "[bandejao] Ajustando as permissões de '$MYSQL_USER' no banco '$MYSQL_DATABASE'."
     _bandejao_sql <<SQL || { _bandejao_erro "as permissões de '$MYSQL_USER' não foram ajustadas."; return 1; }
-REVOKE IF EXISTS ALL PRIVILEGES ON \`${_bandejao_banco_escapado}\`.* FROM '${_bandejao_app}'@'%';
+REVOKE IF EXISTS ALL PRIVILEGES ON \`${_bandejao_banco_imagem}\`.* FROM '${_bandejao_app}'@'%';
 REVOKE IF EXISTS ALL PRIVILEGES ON \`${_bandejao_banco}\`.* FROM '${_bandejao_app}'@'%';
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES ON \`${_bandejao_banco}\`.* TO '${_bandejao_app}'@'%';
+REVOKE IF EXISTS ALL PRIVILEGES ON \`${_bandejao_banco_escapado}\`.* FROM '${_bandejao_app}'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES ON \`${_bandejao_banco_escapado}\`.* TO '${_bandejao_app}'@'%';
 
 CREATE ROLE IF NOT EXISTS 'equipe_moderacao';
-GRANT SELECT, INSERT, UPDATE, DELETE ON \`${_bandejao_banco}\`.* TO 'equipe_moderacao';
+REVOKE IF EXISTS SELECT, INSERT, UPDATE, DELETE ON \`${_bandejao_banco}\`.* FROM 'equipe_moderacao';
+GRANT SELECT, INSERT, UPDATE, DELETE ON \`${_bandejao_banco_escapado}\`.* TO 'equipe_moderacao';
 SQL
 
     if [ -z "$DB_EQUIPE_USER" ] || [ -z "$DB_EQUIPE_PASSWORD" ]; then
