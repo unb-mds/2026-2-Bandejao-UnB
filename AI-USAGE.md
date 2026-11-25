@@ -1053,3 +1053,17 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - os exemplos de comando (`teste-de-carga-bd14.md` e docstring do `locustfile.py`) usam 500.
 - Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
 - Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
+
+## FE-22 — Previsão de pico real no cartão Fila da tela inicial
+
+- Issue: [#269](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/269).
+- Ferramenta: ChatGPT (OpenAI).
+- Apoio: análise da issue, elaboração dos testes, implementação da previsão de pico na HomeView e orientação para validação local.
+- Implementação: reutilização da filaStore, com campus lembrado, refeição de hoje e data atual. Exibição dos horários de pico, inclusive empates, e tratamento de dados insuficientes, ausência de refeição e falha da API.
+- Escopo: mantidos o cartão Fila, suas classes principais e a navegação para a rota fila. Ajustado o tamanho do texto para acomodar os horários.
+- TDD: testes escritos antes da implementação. Fase RED com 6 falhas esperadas e 18 testes passando. Commit 788cb83.
+- Fase GREEN: 24 testes da HomeView passando após a implementação. Commit fd66bf0.
+- Validação local: 1.125 testes passando em 43 arquivos, build de produção concluído e git diff --check sem achados nos commits.
+- Limites: validação visual em 360 e 1366 px, integração com backend real, CI e revisão humana ainda não confirmadas.
+- Participação humana: execução dos comandos, aplicação das alterações e commits no ambiente local.
+- Situação: implementação concluída localmente, aguardando validação final e abertura do PR.
