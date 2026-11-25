@@ -7,13 +7,14 @@ import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
 import { CANAL_CONTATO } from '@/constants/contato'
-import { dataPorExtenso, diaCurto, hojeISO } from '@/utils/datas'
+import { dataCurta, dataPorExtenso, diaCurto, hojeISO, saudacao } from '@/utils/datas'
 import { formatarNota, resumoRefeicao } from '@/utils/cardapio'
 import { abrirAvisoLocalizacao } from '@/composables/avisoLocalizacao'
 import { AVISO_SAIR_SEM_CONFIRMACAO, useSair } from '@/composables/sair'
 import AppLogo from '@/components/AppLogo.vue'
 import EstrelasNota from '@/components/EstrelasNota.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
+import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
 
 /** Tela inicial (protótipo): resumo do dia, fila, avaliações e satisfação da semana. */
 const router = useRouter()
@@ -30,6 +31,7 @@ const botaoPerfil = ref(null)
 const { semConfirmacao: saidaSemConfirmacao, sair: sairDaConta } = useSair()
 
 const campusId = computed(() => preferencias.campusId)
+const nomeDoCampus = computed(() => cardapio.buscarCampus(campusId.value)?.nome)
 const pedidoHoje = computed(() => ({ campus: campusId.value, dia: hoje }))
 const cardapioHoje = computed(() => cardapio.daRefeicao(pedidoHoje.value))
 const erroHoje = computed(() => cardapio.erroDaRefeicao(pedidoHoje.value))
@@ -204,6 +206,21 @@ async function sair() {
 
       <p class="data-hoje">{{ dataPorExtenso(agora) }}</p>
       <h1 class="chamada">Comida boa,<br />sem perder tempo.</h1>
+
+      <!-- Desktop (FE-23): no lugar da chamada, a barra do topo do protótipo. -->
+      <div class="topo-desktop">
+        <div>
+          <p class="sobretitulo">
+            Restaurante Universitário<template v-if="nomeDoCampus"> · {{ nomeDoCampus }}</template>
+          </p>
+          <!-- Barra do topo do desktop (FE-23): "Boa tarde, apelido!" e a data curta. -->
+          <p class="saudacao">{{ saudacao(agora) }}, {{ auth.apelido }}!</p>
+        </div>
+        <p class="data-pilula">
+          <IconeSvg nome="relogio" :tamanho="17" />
+          {{ dataCurta(agora) }}
+        </p>
+      </div>
     </header>
 
     <main class="conteudo sem-barra pilha-3 cartoes">
@@ -250,6 +267,8 @@ async function sair() {
           }}</span>
           <IconeSvg nome="avancar" :tamanho="14" cor="var(--dourado)" espessura="2.5" />
         </div>
+
+        <IlustracaoRefeicao v-if="tipoHoje" :refeicao="tipoHoje" grande class="hoje-arte" />
       </button>
 
       <div class="linha-cartoes">
@@ -689,5 +708,184 @@ async function sair() {
 .contato a {
   font-weight: 700;
   color: var(--texto-suave);
+}
+
+/* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
+.topo-desktop,
+.hoje-arte {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .cabecalho-inicio {
+    min-height: 112px;
+    padding: 24px clamp(28px, 4vw, 62px);
+    color: var(--texto-escuro);
+    background: var(--cartao);
+    border-bottom: 1px solid var(--borda);
+  }
+
+  .cabecalho-inicio .deco,
+  .topo,
+  .data-hoje {
+    display: none;
+  }
+  /* O h1 da página continua sendo a chamada, fora da vista no desktop. */
+  .chamada {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .topo-desktop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  /* No desktop o cabeçalho é claro: o rótulo e o foco voltam às cores do bege. */
+  .topo-desktop .sobretitulo {
+    color: var(--texto-rotulo);
+  }
+  .cabecalho-inicio :focus-visible {
+    outline-color: var(--verde-escuro);
+  }
+
+  .saudacao {
+    font: 900 clamp(28px, 2.5vw, 37px) / 1 var(--fonte-titulo);
+    letter-spacing: -0.045em;
+    color: var(--verde-escuro);
+  }
+
+  .data-pilula {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 13px;
+    border: 1px solid var(--borda);
+    border-radius: 11px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--texto-suave);
+    background: var(--cartao);
+    box-shadow: 0 4px 14px var(--sombra-cartao);
+  }
+
+  .cartoes {
+    display: grid;
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    align-content: start;
+    padding: 27px clamp(28px, 4vw, 62px) 50px;
+  }
+  .cartoes > * + * {
+    margin-top: 0;
+  }
+  .aviso-sair,
+  .contato {
+    grid-column: 1 / -1;
+  }
+
+  .cartao {
+    border-radius: var(--raio-xl);
+    box-shadow: 0 8px 22px var(--sombra-cartao);
+  }
+
+  /* Cardápio de hoje: o cartão verde grande, com a ilustração da refeição. */
+  .cartao-hoje {
+    position: relative;
+    grid-row: span 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+    grid-template-rows: auto auto 1fr auto;
+    column-gap: 12px;
+    min-height: 408px;
+    overflow: hidden;
+    padding: 32px;
+    border: 0;
+    text-align: left;
+    color: #fff;
+    background: var(--verde-escuro);
+  }
+  .cartao-hoje::before {
+    content: '';
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    right: -170px;
+    top: -170px;
+    border-radius: 50%;
+    border: 1px solid var(--branco-05);
+    box-shadow: 0 0 0 70px var(--branco-02);
+    pointer-events: none;
+  }
+  .hoje-topo,
+  .hoje-linhas,
+  .hoje-vazio,
+  .ver-mais {
+    position: relative;
+    grid-column: 1;
+  }
+  .hoje-topo {
+    flex-direction: column;
+    gap: 22px;
+  }
+  .cartao-hoje .etiqueta {
+    color: var(--verde-escuro);
+    background: var(--dourado-claro);
+  }
+  .cartao-hoje .horario,
+  .cartao-hoje .hoje-rotulo,
+  .cartao-hoje .hoje-vazio {
+    color: var(--branco-60);
+  }
+  .cartao-hoje .hoje-titulo {
+    font-size: clamp(28px, 2.6vw, 38px);
+    line-height: 1.02;
+    letter-spacing: -0.045em;
+    color: #fff;
+  }
+  .cartao-hoje .hoje-nota span {
+    color: #fff;
+  }
+  .cartao-hoje .hoje-linhas {
+    border-top: 0;
+    margin-top: 18px;
+    padding-top: 0;
+  }
+  .cartao-hoje .hoje-texto {
+    color: var(--branco-75);
+  }
+  .cartao-hoje .ver-mais {
+    align-self: end;
+    justify-content: flex-start;
+    color: var(--dourado-claro);
+  }
+  .hoje-arte {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    align-self: center;
+  }
+  /* Abaixo de 1280 px, a ilustração ficaria por cima do nome dos pratos. */
+  @media (min-width: 1280px) {
+    .hoje-arte {
+      display: grid;
+    }
+  }
+
+  .linha-cartoes {
+    display: contents;
+  }
+  .cartao-pequeno {
+    padding: 24px;
+  }
+  .cartao-semana {
+    grid-column: 2 / 4;
+  }
 }
 </style>

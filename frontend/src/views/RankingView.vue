@@ -201,4 +201,18 @@ function tentarDeNovo() {
   text-align: center;
   color: var(--texto-suave);
 }
+
+/* Desktop (FE-23): o ranking num cartão, como no protótipo, com as margens da página. */
+@media (min-width: 1024px) {
+  .corpo {
+    padding: 27px clamp(28px, 4vw, 62px) 50px;
+  }
+  .lista {
+    padding: 24px;
+    border: 1px solid var(--borda);
+    border-radius: var(--raio-xl);
+    background: var(--cartao);
+    box-shadow: 0 8px 22px var(--sombra-cartao);
+  }
+}
 </style>

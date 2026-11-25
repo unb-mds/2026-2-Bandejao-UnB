@@ -86,6 +86,48 @@ export function resumoRefeicao(categorias) {
   }))
 }
 
+/**
+ * Destaque da refeição no desktop (FE-23): o primeiro prato principal
+ * compatível com os marcadores evitados (RF08), com o padrão antes das outras
+ * linhas, e os acompanhamentos e a salada compatíveis no resumo. A dieta
+ * (RF09) já vem aplicada pela API. Sem prato compatível, ou com a informação
+ * de alérgenos indisponível enquanto a pessoa evita algum marcador, não há
+ * destaque: ele não pode sugerir um prato que a lista abaixo desaconselha.
+ * Refeição sem prato principal (café da manhã): a primeira categoria com prato.
+ */
+export function destaqueDaRefeicao(categorias, { semAlergenos = false, evitando = false } = {}) {
+  if (semAlergenos && evitando) return null
+  const normalizar = (texto) =>
+    texto
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+  const compativeis = (categoria) => categoria.pratos.filter((p) => !p.contemMarcadorSelecionado)
+  const principais = categorias.filter((c) => normalizar(c.nome).startsWith('prato principal'))
+  const ehPadrao = (c) => {
+    const nome = normalizar(c.nome)
+    return nome.includes('padrao') || nome.trim() === 'prato principal'
+  }
+  const candidatas = principais.length
+    ? [...principais.filter(ehPadrao), ...principais.filter((c) => !ehPadrao(c))]
+    : categorias
+  const escolhida = candidatas.find((c) => compativeis(c).length)
+  if (!escolhida) return null
+
+  const resumo = principais.length
+    ? categorias
+        .filter((c) => /^(acompanhamento|salada)/.test(normalizar(c.nome)))
+        .map((c) =>
+          compativeis(c)
+            .map((p) => p.descricao)
+            .join(', '),
+        )
+        .filter(Boolean)
+        .join(' · ')
+    : ''
+  return { prato: compativeis(escolhida)[0].descricao, resumo }
+}
+
 /** 4.2857 → "4,3" (nota média no formato brasileiro). */
 export function formatarNota(media) {
   return media == null ? '–' : media.toFixed(1).replace('.', ',')

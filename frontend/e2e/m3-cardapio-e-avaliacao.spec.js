@@ -15,13 +15,19 @@ test('visitante filtra o cardápio e, depois de entrar, avalia o almoço', async
     cardapio
       .locator('section')
       .filter({ has: page.getByRole('heading', { name: nome, exact: true }) })
+  // O prato na lista do cardápio: no desktop, o prato principal também
+  // aparece no destaque da refeição (FE-23).
+  const prato = (nome) => cardapio.getByRole('listitem').filter({ hasText: nome })
+  // Destaque da refeição (FE-23): só aparece no desktop, mas existe no DOM
+  // nos dois projetos, então o texto é conferido sem exigir que esteja visível.
+  const destaque = page.locator('[data-teste="destaque-refeicao"]')
   const SEM_OPCAO = 'Sem opção compatível com o filtro ativo'
   await expect(cardapio.getByRole('tab', { name: /Almoço/ })).toHaveAttribute(
     'aria-selected',
     'true',
   )
-  await expect(cardapio.getByText('Silveirinha de carne')).toBeVisible()
-  await expect(cardapio.getByText('Macarrão temperado')).toBeVisible()
+  await expect(prato('Silveirinha de carne')).toBeVisible()
+  await expect(prato('Macarrão temperado')).toBeVisible()
 
   // Marcador (RF08): a API marca a categoria em que nenhum prato serve, e o
   // prato continua na lista com o alerta "Contém".
@@ -31,6 +37,7 @@ test('visitante filtra o cardápio e, depois de entrar, avalia o almoço', async
   await filtros.getByRole('button', { name: 'Aplicar' }).click()
   await expect(filtros).toBeHidden()
   await expect(cardapio).toContainText('Evitando: Trigo/Glúten')
+  await expect(destaque).toContainText('Silveirinha de carne')
   await expect(categoria('GUARNIÇÃO')).toContainText(SEM_OPCAO)
   await expect(categoria('GUARNIÇÃO')).toContainText('Contém:')
   await expect(categoria('GUARNIÇÃO')).toContainText('Trigo/Glúten')
@@ -40,8 +47,9 @@ test('visitante filtra o cardápio e, depois de entrar, avalia o almoço', async
   await cardapio.getByRole('button', { name: /Filtros alimentares/ }).click()
   await filtros.getByRole('button', { name: 'Vegetariano estrito' }).click()
   await filtros.getByRole('button', { name: 'Aplicar' }).click()
-  await expect(cardapio.getByText('Silveirinha de carne')).toBeHidden()
-  await expect(cardapio.getByText('Silveirinha de soja')).toBeVisible()
+  await expect(prato('Silveirinha de carne')).toBeHidden()
+  await expect(prato('Silveirinha de soja')).toBeVisible()
+  await expect(destaque).toContainText('Silveirinha de soja')
 
   const conta = contaDoFluxo('avaliacao', testInfo)
   await entrar(page, conta, '/avaliacoes')
