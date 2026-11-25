@@ -12,8 +12,9 @@ import IconeSvg from './IconeSvg.vue'
 
 /**
  * Navegação do desktop (FE-23, protótipo desktop): a partir de 1024 px, no
- * lugar da `NavegacaoTopo`. Leva aos mesmos destinos, mostra o campus atual
- * (RN04) e a conta, e tem o canal de contato (RNF08).
+ * lugar da `NavegacaoTopo`. O menu principal não inclui Perfil: o atalho
+ * de conta leva a Meu progresso para usuários autenticados e ao login para
+ * visitantes. Mostra o campus atual (RN04) e o canal de contato (RNF08).
  */
 // O Ranking (RF27) só tinha atalho no menu do perfil da Início, que some no
 // desktop: aqui ele entra na navegação.
