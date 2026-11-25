@@ -1034,12 +1034,28 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
 
 ## Tela da fila (`/fila`)
-
-- Issue: sem issue (pedido direto da equipe). PR: #___.
-- Ferramenta: Claude (Anthropic).
+- Issue: sem issue (pedido direto da equipe). PR: #302.
+- Ferramentas: Claude (Anthropic) e ChatGPT (OpenAI).
 - Problema: o item "Fila" das navegações levava à tela do campus com `#fila`. A fila ficava embaixo do cardápio, a navegação marcava "Cardápio", e, com o cardápio carregando depois da rolagem, a fila saía da vista: no celular e no desktop, parecia que a tela da fila não existia.
-- Apoio: tela própria `FilaTelaView` em `/fila` (cabeçalho "Fila do RU" com o campus, voltar para a tela do campus, a seção `FilaView` e o contato), com a rota exigindo campus; o composable `useFilaDoCampus`, com a refeição do check-in e da previsão que estava dentro da `CampusView`, agora usado pelas duas telas; o título da `FilaView` só para leitores de tela quando o cabeçalho já o mostra; C4 do front e README. Os patches foram gerados pela IA e aplicados e commitados pela autora.
-- TDD: os testes da tela, da rota e da navegação num commit anterior à correção, com 5 falhando sem ela.
-- Validação: `npm run test:ci` com 1.123 testes passando, `npm run lint:ci` sem achados; no navegador, a 360 e a 1366 px, o clique em "Fila" abre `/fila` com o item "Fila" marcado e sem nada passando da largura da janela.
-- Revisão humana: pendente.
-- Situação: aguardando revisão.
+- Apoio inicial (Claude): tela própria `FilaTelaView` em `/fila` (cabeçalho "Fila do RU" com o campus, voltar para a tela do campus, a seção `FilaView` e o contato), com a rota exigindo campus; o composable `useFilaDoCampus`, compartilhado pelas duas telas; C4 do front e README. Os patches foram gerados pela IA e aplicados e commitados pela autora.
+- TDD inicial: os testes da tela, da rota e da navegação num commit anterior à correção, com 5 falhando sem ela.
+- Validação inicial: `npm run test:ci` com 1.123 testes passando, `npm run lint:ci` sem achados; conferência no navegador a 360 e a 1366 px, conforme registrado na implementação inicial.
+- Revisão humana: [revisão de Álvaro](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/302#pullrequestreview-6051341271), com solicitação de alterações.
+- Apoio na revisão (ChatGPT), em 25/11/2026:
+  - independência da refeição e da data da previsão da fila em relação à seleção do cardápio;
+  - tratamento de campus inexistente e falha no carregamento dos campi, com opção de tentar novamente;
+  - atualização do card da fila na Home, removendo a indicação de funcionalidade futura;
+  - reforço dos testes das três navegações e inclusão de testes de regressão;
+  - verificação de que a tela da fila não solicita o cardápio;
+  - correção da duplicidade de títulos para leitores de tela;
+  - reversão de alterações exclusivamente de formatação apontadas na revisão;
+  - substituição das ilustrações de café da manhã, almoço e jantar, compartilhadas pelas versões desktop e mobile, utilizando as imagens fornecidas pela autora;
+  - auxílio na atualização deste registro.
+- Decisão humana: manter a arquitetura existente, utilizar as ilustrações fornecidas e aplicar as correções na mesma branch do PR #302.
+- Validação após os ajustes, executada pela autora:
+  - `npm run test:ci -- --maxWorkers=1 --no-file-parallelism`: 44 arquivos de teste e 1.128 testes passando;
+  - cobertura: 95,69% de instruções, 93,24% de ramificações, 95,63% de funções e 96,67% de linhas;
+  - `npm run lint:ci`: nenhum erro ou aviso;
+  - `npm run build`: concluído com sucesso.
+- Limitações: a conferência visual dos novos ajustes com os protótipos do Figma, nas versões desktop e mobile, e a validação manual do check-in autenticado ainda estão pendentes. O equipamento da autora apresentou travamentos durante as tentativas de execução local.
+- Situação: ajustes da revisão aplicados e validados por testes automatizados; aguardando conferência visual e nova revisão.
