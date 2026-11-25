@@ -135,7 +135,7 @@
     margin: 32px auto;
     border-radius: var(--raio-xl);
     overflow: hidden;
-    box-shadow: 0 8px 32px rgba(10, 26, 12, 0.12);
+    box-shadow: var(--sombra-cartao);
   }
 }
 
@@ -208,7 +208,7 @@
   font-weight: 900;
   font-size: 24px;
   line-height: 1.25;
-  color: #fff;
+  color: var(--branco);
 }
 
 /* Depois da regra base: com a mesma especificidade, quem vem depois vale. */
@@ -289,12 +289,12 @@
 
 .botao--primario {
   background: var(--verde-escuro);
-  color: #fff;
+  color: var(--branco);
 }
 
 .botao--destaque {
   background: var(--dourado);
-  color: #fff;
+  color: var(--branco);
 }
 
 .botao--contorno {
@@ -332,7 +332,7 @@
   font-size: 12px;
   font-weight: 900;
   text-decoration: none;
-  color: #fff;
+  color: var(--branco);
   background: var(--verde-escuro);
 }
 

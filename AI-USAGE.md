@@ -1004,6 +1004,40 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Ressalva do ensaio: o ensaio do backup manual em produção foi feito com o bloco antigo. O bloco novo, com `pipefail` e `$arq`, só foi testado com um `docker` falso. Nenhuma das três revisões mudou isso.
 - Situação: aguardando nova revisão.
 
+## #286 — Cores e raios pelos tokens do guia de estilo (RF17)
+
+- Issue: [#286](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/286). PR: [#290](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/290). Relacionada: FE-16 ([#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192), PR [#287](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287)).
+- Ferramenta: Claude (Anthropic), em 24/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Apoio:
+  - tokens novos no `base.css`: `--branco`, `--fundo-dialogo`, `--sombra-cartao`, `--sombra-flutuante`, `--sombra-menu`, `--sombra-destaque`, `--sombra-logo`, `--raio-xs` (6 px) e `--raio-2xs` (2 px);
+  - o `#fff` dos 18 arquivos virou `var(--branco)` (também no `cor` do `IconeSvg`, que vai para o `style`); as 9 cores `rgb()`/`rgba()` viraram tokens, e a `ProgressoView` passou a usar o `--branco-75`; a `.caixa` da `CadastroView` usa o `--raio-xs`, e as barras do gráfico da `HomeView`, o `--raio-2xs`;
+  - teste-guarda `src/assets/guiaDeEstilo.test.js`: lê do disco todos os `.vue` e `.css` de `src/` (menos o `base.css`; inclui o `AppLogo`) e falha com qualquer cor hexadecimal ou `rgb()`/`rgba()` solta e com raio fora dos tokens (aceita o círculo, 50%, e a pílula, 999px). Os arquivos são lidos com `node:fs` porque o `?raw` de um `.css` chega vazio no Vitest.
+- Mudança visual: duas, pequenas. O fundo escurecido da gaveta de filtros (`FiltroCardapio`) passou do preto a 50% para o `--fundo-dialogo` do aviso de localização (verde-escuro a 55%), e as duas sombras quase iguais do aviso no desktop ficaram numa só (`--sombra-destaque`): no botão primário, o desfoque passou de 20px para 22px e a opacidade de 15% para 14%; a sombra do ícone manteve os valores. Os demais valores foram preservados no código após a correção das três sombras.
+- Revisão do PR #290: os traços decorativos da `BoasVindasView` e da `HomeView` passam a usar `--branco` via `style`; o teste ignora comentários, verifica referências a tokens e amplia a guarda para hsl/hsla e branco literal em atributos SVG. O 50% e o 999px continuam escritos direto.
+- TDD: `aca31c4` (teste, 8 falhando: 33 brancos, 9 `rgb()`/`rgba()` e 2 raios, os números da issue) → código no commit seguinte.
+- Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 1.071 testes passando (96,36% de linhas / 92,74% de ramos) e `npm run build` sem erro.
+- Revisão com apoio do ChatGPT (OpenAI), em 24/11/2026: geração do patch de ajustes e atualização do checklist da FE-16, já integrada à develop. A validação local acima refere-se à versão anterior à revisão. Após a revisão: 12/12 testes do guia de estilo e 1.074/1.074 testes da suíte completa (42 arquivos), com 96,36% de linhas e 92,74% de ramos; `npm run lint:ci` sem erros ou avisos e `npm run build` aprovado.
+- Commit `f1edef8`: adequação dos estilos da FE-23 aos tokens do guia de estilo, incluindo raios numéricos na faixa de `--raio-3` a `--raio-28` e tokens de cor `--sombra-logo-cor` e `--sombra-cartao-cor`. O commit foi realizado com apoio do ChatGPT (OpenAI) na adequação dos estilos aos tokens do guia de estilo, com aplicação das alterações pela autora.
+- Segunda revisão do PR #290, com apoio do ChatGPT (OpenAI), em 25/11/2026:
+  - atualização da branch com a develop (`948a3d7`);
+  - correção das sombras de `AppLogo.vue`, `IlustracaoRefeicao.vue` e `RankingView.vue`, utilizando os tokens de cor adequados;
+  - inclusão do AppLogo no teste-guarda, verificação de sombras completas e detecção de tokens duplicados;
+  - TDD: commit `e40773c` (RED: 12 testes aprovados e uma falha esperada, identificando os três usos incorretos); commit `d7a95c8` (GREEN: 13/13 testes aprovados);
+  - decisão sobre os raios: manutenção da escala semântica e dos tokens numéricos introduzidos na FE-23, preservando os valores existentes;
+  - limites do teste-guarda: análise textual, não um parser CSS/JS completo; a verificação de sombras depende do formato das declarações, e casos mais complexos de sintaxe permanecem fora da cobertura integral.
+- Validação local da segunda revisão: 1.131/1.131 testes aprovados em 44 arquivos, cobertura de statements de 95,55%, branches de 93,03%, functions de 95,39% e lines de 96,52%. Lint sem erros ou warnings e build aprovado. Após o ajuste de tokens duplicados, o teste-guarda e o lint foram executados novamente com sucesso.
+- Validação visual parcial: telas de início e ranking conferidas no desktop com servidor simulado. Valores computados das sombras, conferência móvel e E2E local não confirmados.
+- Atualização com a develop em 25/11/2026, com apoio do ChatGPT (OpenAI):
+  - resolução dos conflitos no AI-USAGE.md e no checklist de qualidade do frontend, preservando os registros da BD-13 e as correções da FE-16;
+  - integração das alterações da HomeView e da BoasVindasView sem necessidade de correções adicionais nos tokens;
+  - teste-guarda: 13/13 testes aprovados, incluindo referências a tokens, cores literais, raios, sombras e tokens duplicados;
+  - validação local: 1.165/1.165 testes aprovados em 45 arquivos;
+  - cobertura: 96,57% de linhas, 93,11% de ramos, 95,53% de funções e 95,63% de instruções;
+  - lint sem erros ou avisos e build de produção aprovado;
+  - comandos executados pela autora no ambiente local.
+- Limites da atualização: não foram repetidas as verificações visuais, os testes E2E e os testes do backend. CI remoto ainda não confirmado.
+- Situação: conflitos resolvidos e validação automatizada do frontend aprovada; aguardando nova revisão do PR #290.
+
 ## FE-16 — Checklist de qualidade no celular e no desktop
 
 - Issue: [#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192). PR: [#287 — FE-16: Checklist de qualidade no celular e no desktop](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287). Bugs abertos: #285 e #286.

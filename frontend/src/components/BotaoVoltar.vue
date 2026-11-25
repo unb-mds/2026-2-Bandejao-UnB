@@ -56,8 +56,8 @@ function voltar() {
     width: 41px;
     height: 41px;
     border: 1px solid var(--branco-08);
-    border-radius: 12px;
-    color: #fff;
+    border-radius: var(--raio-md);
+    color: var(--branco);
     background: var(--branco-07);
   }
 }

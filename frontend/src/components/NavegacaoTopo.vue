@@ -65,7 +65,7 @@ const ativo = (item) => itemAtivo(item, route.name, { marcarInicio: true })
   font-family: var(--fonte-titulo);
   font-weight: 900;
   font-size: 18px;
-  color: #fff;
+  color: var(--branco);
   text-decoration: none;
 }
 
@@ -89,7 +89,7 @@ const ativo = (item) => itemAtivo(item, route.name, { marcarInicio: true })
 }
 
 .item--ativo {
-  color: #fff;
+  color: var(--branco);
   background: var(--branco-10);
 }
 
@@ -100,7 +100,7 @@ const ativo = (item) => itemAtivo(item, route.name, { marcarInicio: true })
 
 @media (hover: hover) {
   .item:hover {
-    color: #fff;
+    color: var(--branco);
     background: var(--branco-08);
   }
   .marca:hover {
