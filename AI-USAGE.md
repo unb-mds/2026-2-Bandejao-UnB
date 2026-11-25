@@ -1004,7 +1004,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - TDD: `aca31c4` (teste, 8 falhando: 33 brancos, 9 `rgb()`/`rgba()` e 2 raios, os números da issue) → código no commit seguinte.
 - Validação local: `npm run lint:ci` sem achados, `npm run test:ci` com 1.071 testes passando (96,36% de linhas / 92,74% de ramos) e `npm run build` sem erro.
 - Revisão com apoio do ChatGPT (OpenAI), em 24/11/2026: geração do patch de ajustes e atualização do checklist da FE-16, já integrada à develop. A validação local acima refere-se à versão anterior à revisão. Após a revisão: 12/12 testes do guia de estilo e 1.074/1.074 testes da suíte completa (42 arquivos), com 96,36% de linhas e 92,74% de ramos; `npm run lint:ci` sem erros ou avisos e `npm run build` aprovado.
-- Commit `f1edef8`: adequação dos estilos da FE-23 aos tokens do guia de estilo, incluindo raios numéricos na faixa de `--raio-3` a `--raio-28` e tokens de cor `--sombra-logo-cor` e `--sombra-cartao-cor`. O uso de IA nesse commit específico ainda precisa ser confirmado com a responsável.
+- Commit `f1edef8`: adequação dos estilos da FE-23 aos tokens do guia de estilo, incluindo raios numéricos na faixa de `--raio-3` a `--raio-28` e tokens de cor `--sombra-logo-cor` e `--sombra-cartao-cor`. O commit foi realizado com apoio do ChatGPT (OpenAI) na adequação dos estilos aos tokens do guia de estilo, com aplicação das alterações pela autora.
 - Segunda revisão do PR #290, com apoio do ChatGPT (OpenAI), em 25/11/2026:
   - atualização da branch com a develop (`948a3d7`);
   - correção das sombras de `AppLogo.vue`, `IlustracaoRefeicao.vue` e `RankingView.vue`, utilizando os tokens de cor adequados;
