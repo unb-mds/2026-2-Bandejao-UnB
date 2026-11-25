@@ -190,7 +190,7 @@ rm -f -- ~/backups/antes-remover-conta-<data-do-backup>.sql.gz
 
 Se você ainda está na mesma sessão do passo 3, `rm -f -- "$arq"` apaga o mesmo arquivo.
 
-**Se algo der errado**, a volta é restaurar um backup, e ela traz o **banco inteiro**, não só esta conta: as outras contas e os pontos voltam ao estado da data do backup, e o que mudou depois se perde. Os backups do deploy (`deploy-*.sql.gz`) são do servidor todo (`--all-databases`). O guia do backup (`docs/deploy/backup-banco.md`, que entra com o BD-15) explica o procedimento de emergência. O backup diário de 7 dias (BD-15) só passa a valer quando estiver instalado na VM; até lá, conte só com os do deploy e com o que você tirou no passo 3.
+**Se algo der errado**, a volta é restaurar um backup, e ela traz o **banco inteiro**, não só esta conta: as outras contas e os pontos voltam ao estado da data do backup, e o que mudou depois se perde. Os backups do deploy (`deploy-*.sql.gz`) são do servidor todo (`--all-databases`). O procedimento de emergência está no guia do backup: [Restaurar de verdade (emergência)](deploy/backup-banco.md?id=restaurar-de-verdade-emergência). Há três lugares com cópias: as diárias de 7 dias (BD-15), em `/var/backups/bandejao`; as do deploy, em `~/backups`; e a que você tirou no passo 3.
 
 ## 4. Corrigir pontos
 
