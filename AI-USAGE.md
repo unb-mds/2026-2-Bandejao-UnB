@@ -1035,11 +1035,18 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## #250 — GRANT com o nome do banco escapado no `10-usuarios.sh`
 
-- Issue: [#250](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/250), achada na revisão do [#246](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/246) (#209).
+- Issue: [#250](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/250), achada na revisão do [#246](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/246) (#209). PR: [#298 — fix(banco): GRANT com o nome do banco escapado (#250)](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/298).
 - Ferramenta: Claude (Anthropic). O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
 - Mudança:
   - `db/init/10-usuarios.sh`: os `GRANT`s do usuário da aplicação e do papel `equipe_moderacao` usam o nome do banco com o `_` e o `%` escapados. Para rodar de novo na VM, o script tira antes os `GRANT`s antigos, sem escape (os dois `REVOKE` do usuário da aplicação continuam, e o papel ganha um);
   - `backend-ci.yml` (`testes-mysql`): a conferência do `SHOW GRANTS` procura o nome escapado no usuário e no papel e falha com um `GRANT` no nome sem escape; a cópia para o banco de teste lê a linha do nome escapado. As consultas usam `mysql -r`, porque sem ele a saída dobra a barra;
   - guia de deploy: o `SHOW GRANTS` esperado e a seção "Nome do banco no GRANT", com como aplicar na VM.
-- TDD: testes antes da correção — do script com o `mysql` falso, do workflow e, no MySQL do CI, um que confere o escape no `SHOW GRANTS` e outro em que o usuário da aplicação tenta `CREATE DATABASE bandejaoXci` e precisa receber o erro 1044.
-- Situação: aguardando o CI e a revisão. Depois do merge e da release, falta conferir o `SHOW GRANTS` na VM; com o `DB_NAME` recomendado (`bandejao`), nada muda lá.
+- TDD: testes em `ac36517`, antes da correção (`ca3b1d4`) — do script com o `mysql` falso, do workflow e, no MySQL do CI, um que confere o escape no `SHOW GRANTS` e outro em que o usuário da aplicação tenta `CREATE DATABASE bandejaoXci` e precisa receber o erro 1044.
+- Validação: local, `pytest` com 2262 aprovados e 67 pulados (os do MySQL rodam no CI), `ruff check` e `ruff format --check` sem achados e o YAML do workflow válido. No CI do #298, os 11 checks verdes; no `testes-mysql`, nenhum teste pulado e o `SHOW GRANTS` com `` `bandejao\_ci`.* `` no usuário e no papel.
+- Revisão humana: [aprovação de AlvaroBento12](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/298#pullrequestreview-6050603783), com cinco sugestões. Aplicadas (TDD: testes em `ea0a2e6`, antes do ajuste):
+  - teste de que todo `REVOKE` vem antes do `GRANT`, no usuário e no papel, também com o nome de produção (`bandejao`), em que os nomes coincidem e o CI não veria a troca; uma mutação local com o `REVOKE` depois do `GRANT` faz o teste falhar;
+  - o `testes-mysql` dá os `GRANT`s antigos, sem escape, antes do script, como na VM antes da #250: a conferência passa a provar, num MySQL de verdade, que o script rodado de novo os retira;
+  - guia: recriar o `db` só quando o `.env.db` muda; se mudar só o script, basta rodá-lo de novo;
+  - este registro, com o link do PR, a validação e a revisão;
+  - comentário do script: o usuário da aplicação perde o que tiver nos três nomes, e o papel, só o `GRANT` sem escape.
+- Situação: aprovado; sugestões aplicadas, aguardando o recheck. A #250 fica aberta até conferir o `SHOW GRANTS` na VM, depois da release; com o `DB_NAME` recomendado (`bandejao`), nada muda lá.

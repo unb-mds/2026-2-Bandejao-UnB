@@ -292,16 +292,21 @@ SET DEFAULT ROLE 'equipe_moderacao' TO '<usuário>'@'%';
 
 Para tirar o acesso: `DROP USER '<usuário>'@'%';`.
 
-Se o `.env.db` ganhar o usuário da equipe depois da primeira subida, ou se o
-script mudar, recrie o `db` para ele ler o `.env.db` e rode o script de novo.
-O `--wait` espera o banco ficar `healthy`; sem ele, o script pode rodar antes
-de o MySQL aceitar conexões. O script pode rodar quantas vezes for preciso e
-sai com erro (status 1, com `[bandejao] ERRO`) se algum comando falhar:
+Se o `.env.db` mudar (por exemplo, ganhar o usuário da equipe depois da
+primeira subida), recrie o `db` para ele ler o arquivo e rode o script de
+novo. O `--wait` espera o banco ficar `healthy`; sem ele, o script pode rodar
+antes de o MySQL aceitar conexões. O script pode rodar quantas vezes for
+preciso e sai com erro (status 1, com `[bandejao] ERRO`) se algum comando
+falhar:
 
 ```bash
 docker compose up -d --force-recreate --wait db
 docker compose exec db sh /docker-entrypoint-initdb.d/10-usuarios.sh
 ```
+
+Se mudar só o script, não precisa recriar o `db`: a pasta `db/init/` entra
+inteira no container, e o `git pull` já atualiza o arquivo. Basta rodar a
+segunda linha.
 
 ### Nome do banco no GRANT
 
@@ -316,8 +321,8 @@ recomendado (`bandejao`, sem `_` nem `%`), isso não muda nada. Se o `DB_NAME`
 da VM tiver `_` ou `%`, aplique a correção depois do deploy que a trouxe
 (o CD já faz o backup do banco antes de subir; confira o
 `~/backups/deploy-<data>-<commit>.sql.gz`). O script tira os `GRANT`s antigos,
-sem escape, e dá os novos; não precisa recriar o `db`, porque o `.env.db`
-não mudou:
+sem escape, e dá os novos. Como só o script mudou, não precisa recriar o
+`db`:
 
 ```bash
 cd ~/2026-2-Bandejao-UnB
