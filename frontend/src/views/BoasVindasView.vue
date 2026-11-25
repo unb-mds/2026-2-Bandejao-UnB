@@ -15,13 +15,13 @@ import AppLogo from '@/components/AppLogo.vue'
     >
       <path
         d="M140 10 C100 60 40 100 10 200"
-        stroke="white"
+        style="stroke: var(--branco)"
         stroke-width="1.5"
         stroke-opacity="0.05"
       />
       <path
         d="M160 40 C120 80 60 120 20 200"
-        stroke="white"
+        style="stroke: var(--branco)"
         stroke-width="1"
         stroke-opacity="0.04"
       />
@@ -36,7 +36,7 @@ import AppLogo from '@/components/AppLogo.vue'
     >
       <path
         d="M10 0 C40 50 80 100 120 160"
-        stroke="white"
+        style="stroke: var(--branco)"
         stroke-width="1.5"
         stroke-opacity="0.05"
       />

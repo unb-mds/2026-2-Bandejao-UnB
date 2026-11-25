@@ -9,6 +9,9 @@ import { describe, expect, it } from 'vitest'
  * Confere o código-fonte de todas as telas, componentes e do `main.css`. Ficam
  * de fora o próprio `base.css`, que define os tokens, e o `AppLogo`, cujas
  * cores são da ilustração.
+ * A guarda cobre hex, rgb/rgba, hsl/hsla, branco literal em SVG e raios CSS.
+ * Não é um parser CSS/JS: outras funções, palavras-chave e borderRadius em JS
+ * não são cobertos integralmente.
  */
 const SRC = fileURLToPath(new URL('..', import.meta.url))
 const FORA = ['assets/base.css', 'components/AppLogo.vue']
@@ -23,10 +26,17 @@ const ARQUIVOS = Object.fromEntries(
 
 const BASE = readFileSync(join(SRC, 'assets/base.css'), 'utf-8')
 
+// Preserva as linhas para que os diagnósticos apontem para o código original.
+function semComentarios(codigo) {
+  return codigo.replace(/<!--[^]*?-->|\/\*[^]*?\*\/|^\s*\/\/[^\n]*/gm, (trecho) =>
+    trecho.replace(/[^\n]/g, ' '),
+  )
+}
+
 /** Cada ocorrência de `padrao` como "arquivo:linha: trecho". */
 function ocorrencias(padrao) {
   return Object.entries(ARQUIVOS).flatMap(([arquivo, codigo]) =>
-    codigo
+    semComentarios(codigo)
       .split('\n')
       .map((linha, indice) => ({ linha, numero: indice + 1 }))
       .filter(({ linha }) => padrao.test(linha))
@@ -48,6 +58,27 @@ describe('guia de estilo: cores e raios só pelos tokens do base.css (RF17, #286
 
   it('nenhuma cor rgb() ou rgba() solta (sombras, fundos de diálogo e textos)', () => {
     expect(ocorrencias(/\brgba?\(/i)).toEqual([])
+  })
+
+  it('nenhuma cor hsl/hsla ou branco literal em SVG', () => {
+    expect(ocorrencias(/\bhsla?\(|\b(?:stroke|fill)=["']white["']/i)).toEqual([])
+  })
+
+  it('ignora números de issues em comentários', () => {
+    expect(semComentarios('/* #286 */\n<!-- #192 -->\n// #290\ncolor: #fff;')).not.toMatch(
+      /#(?:286|192|290)/,
+    )
+    expect(semComentarios('/* #286 */\ncolor: #fff;')).toContain('color: #fff;')
+  })
+
+  it('todos os tokens referenciados estão definidos', () => {
+    const definidos = new Set([...semComentarios(BASE).matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]))
+    const ausentes = Object.entries(ARQUIVOS).flatMap(([arquivo, codigo]) =>
+      [...semComentarios(codigo).matchAll(/var\(\s*(--[\w-]+)/g)]
+        .filter((m) => !definidos.has(m[1]))
+        .map((m) => `${arquivo}: ${m[1]}`),
+    )
+    expect(ausentes).toEqual([])
   })
 
   it('raio só por token, ou o círculo (50%) e a pílula (999px)', () => {

@@ -123,14 +123,14 @@ async function sair() {
       >
         <path
           d="M350 0 C280 60 180 100 120 180"
-          stroke="white"
+          style="stroke: var(--branco)"
           stroke-width="1.5"
           stroke-opacity="0.04"
           fill="none"
         />
         <path
           d="M380 20 C310 70 210 110 140 180"
-          stroke="white"
+          style="stroke: var(--branco)"
           stroke-width="1"
           stroke-opacity="0.03"
           fill="none"
