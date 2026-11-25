@@ -65,8 +65,8 @@ onBeforeUnmount(() => clearTimeout(temporizador))
   padding: 10px 8px 10px 16px;
   border-radius: var(--raio-xl);
   background: var(--verde-escuro);
-  color: #fff;
-  box-shadow: 0 8px 24px rgb(10 26 12 / 25%);
+  color: var(--branco);
+  box-shadow: var(--sombra-flutuante);
   pointer-events: auto;
   animation: entrar 0.2s ease-out;
 }

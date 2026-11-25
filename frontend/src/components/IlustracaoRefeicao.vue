@@ -38,7 +38,7 @@ defineProps({
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 8px 10px var(--sombra-logo));
+  filter: drop-shadow(0 8px 10px var(--sombra-logo-cor));
 }
 
 .ilustracao--grande {

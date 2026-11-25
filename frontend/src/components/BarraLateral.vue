@@ -134,7 +134,7 @@ async function sairDaConta() {
     overflow-x: hidden;
     overflow-y: auto;
     padding: 28px 20px 18px;
-    color: #fff;
+    color: var(--branco);
     background: var(--verde-escuro);
   }
 }
@@ -162,7 +162,7 @@ async function sairDaConta() {
   align-items: center;
   gap: 11px;
   margin: 0 8px 50px;
-  color: #fff;
+  color: var(--branco);
   text-decoration: none;
 }
 
@@ -203,7 +203,7 @@ nav {
   gap: 12px;
   margin: 4px 0;
   padding: 12px 13px;
-  border-radius: 11px;
+  border-radius: var(--raio-11);
   font-size: 13px;
   font-weight: 700;
   color: var(--branco-75);
@@ -211,7 +211,7 @@ nav {
   transition: 0.2s ease;
 }
 .item:hover {
-  color: #fff;
+  color: var(--branco);
   background: var(--branco-07);
   transform: translateX(2px);
 }
@@ -254,7 +254,7 @@ nav {
   text-decoration: none;
 }
 .atalho:hover {
-  color: #fff;
+  color: var(--branco);
 }
 
 .atalho--campus {
@@ -271,7 +271,7 @@ nav {
   place-items: center;
   width: 31px;
   height: 31px;
-  border-radius: 9px;
+  border-radius: var(--raio-9);
   color: var(--dourado);
   background: var(--branco-07);
 }
@@ -297,7 +297,7 @@ nav {
 .atalho-texto strong {
   margin-top: 3px;
   font-size: 12px;
-  color: #fff;
+  color: var(--branco);
 }
 
 .atalho--conta .atalho-texto small {
@@ -329,7 +329,7 @@ nav {
   color: var(--branco-60);
 }
 .sair:hover:not(:disabled) {
-  color: #fff;
+  color: var(--branco);
 }
 
 .aviso-sair {
@@ -337,7 +337,7 @@ nav {
   z-index: 1;
   margin: 8px 6px 0;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--raio-10);
   font-size: 12px;
   line-height: 1.5;
   color: var(--erro-texto);
