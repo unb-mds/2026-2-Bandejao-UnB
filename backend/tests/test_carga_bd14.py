@@ -1,6 +1,6 @@
 """Teste de carga do cardápio e da previsão (BD-14, #184).
 
-RNF01: 2.000 usuários, p95 ≤ 3 s em `GET /api/cardapio/` e
+RNF01: 500 usuários, p95 ≤ 3 s em `GET /api/cardapio/` e
 `GET /api/fila/previsao/`. A carga em si roda no workflow `carga.yml`, com o
 Locust, o Gunicorn e o MySQL. Aqui ficam testadas as partes em Python do
 pacote `carga/`:
