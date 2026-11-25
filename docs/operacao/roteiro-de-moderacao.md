@@ -175,15 +175,20 @@ SELECT
   (SELECT COUNT(*) FROM fila_checkin WHERE usuario_id = <conta_id>) AS checkins,
   (SELECT COUNT(*) FROM fila_tentativacheckin WHERE usuario_id = <conta_id>) AS tentativas,
   (SELECT COUNT(*) FROM avaliacao_avaliacao WHERE usuario_id = <conta_id>) AS avaliacoes;
--- esperado: tudo 0 (avaliacoes pode ser maior que 0 se o titular não pediu para apagá-las:
--- elas ficam, mas com usuario_id vazio, então a contagem por esse id continua 0)
+-- esperado: tudo 0. As avaliações que o titular não pediu para apagar ficam no banco
+-- com usuario_id vazio, então também não entram nesta contagem.
 ```
 
 **Passo 7. Apague o backup do passo 3**, na VM, quando tudo estiver conferido:
 
+Veja o nome exato do arquivo e apague só ele:
+
 ```bash
-rm -f ~/backups/antes-remover-conta-<data-do-backup>.sql.gz
+ls -l ~/backups/antes-remover-conta-*
+rm -f -- ~/backups/antes-remover-conta-<data-do-backup>.sql.gz
 ```
+
+Se você ainda está na mesma sessão do passo 3, `rm -f -- "$arq"` apaga o mesmo arquivo.
 
 **Se algo der errado**, a volta é restaurar um backup, e ela traz o **banco inteiro**, não só esta conta: as outras contas e os pontos voltam ao estado da data do backup, e o que mudou depois se perde. Os backups do deploy (`deploy-*.sql.gz`) são do servidor todo (`--all-databases`). O guia do backup (`docs/deploy/backup-banco.md`, que entra com o BD-15) explica o procedimento de emergência. O backup diário de 7 dias (BD-15) só passa a valer quando estiver instalado na VM; até lá, conte só com os do deploy e com o que você tirou no passo 3.
 
@@ -200,7 +205,13 @@ JOIN cardapio_refeicao r ON r.id = a.refeicao_id
 WHERE a.id = <id_da_avaliacao>;
 ```
 
-Se `pontos_concedidos_em` for `NULL`, a avaliação nunca deu pontos: **não retire nada**. Se tiver data, anote o `campus_id` e o semestre da `data` da refeição (formato `2026.2`): a linha certa de `gamificacao_pontossemestrecampus` é a desse campus e desse semestre.
+Se `pontos_concedidos_em` da avaliação for `NULL`, ela nunca deu pontos: **não retire nada**. Se tiver data, anote o `campus_id` e a `data` da refeição: a linha certa de `gamificacao_pontossemestrecampus` é a desse campus e do **semestre dessa data**.
+
+O semestre **não se deduz pelo mês**. O sistema coloca a data no primeiro semestre cujo término é igual ou posterior a ela, então as férias contam para o semestre seguinte. Os términos estão em `ParametrosGamificacaoConfig.datas_termino_semestre` (`backend/config/parametros.py`; hoje, `2026.2` termina em 14/12/2026). Exemplo: uma refeição de 20/12/2026 pontua em `2027.1`, e não em `2026.2`. Se a conta tiver mais de uma linha no campus, use a de `semestre_referencia` igual a esse semestre; tirar pontos da linha errada ainda dá "1 row affected".
+
+`<n>` é o valor da contribuição: **avaliação 5**, check-in 10, resposta de saída 15 (`pontos_avaliacao`, `pontos_checkin` e `pontos_resposta_saida`, no mesmo arquivo; confira lá se mudaram). Na retirada de pontos de uma avaliação oculta, `<n>` é 5.
+
+Para outros erros de pontuação, o marcador equivalente fica em `fila_checkin.pontos_concedidos_em` (check-in; o campus e a `data` da refeição estão na própria linha) e em `fila_perguntasaida.pontos_concedidos_em` (resposta de saída; a linha liga ao check-in por `checkin_id`). Se o marcador for `NULL`, não houve pontos a retirar. Casos que fogem disso se resolvem com a equipe.
 
 ```sql
 ROLLBACK;
