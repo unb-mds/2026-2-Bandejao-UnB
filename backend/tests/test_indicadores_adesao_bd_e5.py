@@ -40,7 +40,7 @@ DOC = (
 )
 SEMANAS = ParametrosFilaConfig.retencao_semanas
 # A janela são as `SEMANAS` semanas mais recentes: 28 datas, de hoje até
-# hoje - 27 dias. O dia de início fica (como o dia-limite da retenção).
+# hoje - 27 dias. O primeiro dia da janela (`inicio()`) fica dentro dela.
 DIAS_ATRAS = SEMANAS * 7 - 1
 SET_INICIO = re.compile(
     r"^SET @inicio = DATE\(UTC_TIMESTAMP\(\) - INTERVAL (\d+) HOUR\)"
@@ -139,15 +139,18 @@ def dados(db):
     """Resposta esperada de cada indicador (janela de 28 datas, de `inicio()`
     até hoje):
 
-    1. 13 check-ins na janela, 4 com a pergunta respondida: 30,8%.
-    2. 11 check-ins com conta, de 5 contas (a, b, c, g e a suspensa; a
-       suspensa conta): 11 / (5 x 4 semanas) = 0,55.
+    1. 15 check-ins na janela, 4 com a pergunta respondida (3 dispensadas, 6
+       pendentes e 2 sem linha de pergunta): 26,7%. Os três estados têm
+       contagens diferentes, para trocar um pelo outro mudar o número.
+    2. 13 check-ins com conta, de 6 contas (a, b, c, f, g e a suspensa, que
+       conta): 13 / (6 x 4 semanas) = 0,54. A conta f não tem linha de pontos.
     3. 6 contas ativas (a, b, c, f, g, h), 4 com sequência de 2 ou mais
        (a, b, g, h): 66,7%.
     4. As mesmas 6 contas, 2 no ranking (a, c): 33,3%.
 
-    Só entre quem fez check-in na janela (variante do documento): 4 contas
-    (a, b, c, g), 3 com sequência (a, b, g) = 75,0% e 2 no ranking (a, c) = 50,0%.
+    Só entre quem fez check-in na janela (variante do documento): 5 contas
+    (a, b, c, f, g; h só tem check-in antes da janela), 3 com sequência
+    (a, b, g) = 60,0% e 2 no ranking (a, c) = 40,0%.
     """
     campus = criar_campus()
     a = _conta(1, StatusUsuario.ATIVO)
@@ -155,7 +158,7 @@ def dados(db):
     c = _conta(3, StatusUsuario.ATIVO)
     suspensa = _conta(4, StatusUsuario.SUSPENSO)
     _conta(5, StatusUsuario.PENDENTE)
-    _conta(6, StatusUsuario.ATIVO)  # f: ativa e sem linha de pontos
+    f = _conta(6, StatusUsuario.ATIVO)  # ativa e sem linha de pontos
     g = _conta(7, StatusUsuario.ATIVO)
     h = _conta(8, StatusUsuario.ATIVO)
 
@@ -174,8 +177,8 @@ def dados(db):
         EstadoPergunta.DISPENSADA,
     )
     d = inicio()
-    # Dentro da janela, com conta (11): a x5, b x1, c x3, g x1, suspensa x1.
-    # O primeiro é do dia-limite e o último de hoje (as pontas da janela).
+    # Dentro da janela, com conta (13): a x5, b x1, c x3, g x1, suspensa x1, f x2.
+    # O primeiro é do primeiro dia da janela e o último de hoje (as pontas).
     _checkin(campus, a, d, almoco, R)
     _checkin(campus, a, d + timedelta(days=1), almoco, R)
     _checkin(campus, a, d + timedelta(days=1), jantar, P)
@@ -186,7 +189,9 @@ def dados(db):
     _checkin(campus, c, d + timedelta(days=4), almoco, D)
     _checkin(campus, c, d + timedelta(days=6), almoco, D)
     _checkin(campus, g, d + timedelta(days=9), almoco, P)
-    _checkin(campus, suspensa, d + timedelta(days=8), almoco, D)
+    _checkin(campus, suspensa, d + timedelta(days=8), almoco, P)
+    _checkin(campus, f, d + timedelta(days=10), almoco, P)
+    _checkin(campus, f, d + timedelta(days=10), jantar, P)
     # Dentro da janela, sem conta (2), sem linha de pergunta: contam só no 1.
     _checkin(campus, None, d + timedelta(days=5), almoco)
     _checkin(campus, None, d + timedelta(days=5), jantar)
@@ -200,17 +205,17 @@ def dados(db):
 def test_pergunta_de_saida_respondida(dados):
     r = rodar(1)
 
-    assert r["checkins"] == 13
+    assert r["checkins"] == 15
     assert r["respondidas"] == 4
-    assert float(r["pct_respondidas"]) == pytest.approx(30.8)
+    assert float(r["pct_respondidas"]) == pytest.approx(26.7)
 
 
 def test_checkins_por_usuario_ativo_por_semana(dados):
     r = rodar(2)
 
-    assert r["checkins"] == 11
-    assert r["usuarios_ativos"] == 5
-    assert float(r["checkins_por_usuario_por_semana"]) == pytest.approx(0.55)
+    assert r["checkins"] == 13
+    assert r["usuarios_ativos"] == 6
+    assert float(r["checkins_por_usuario_por_semana"]) == pytest.approx(0.54)
 
 
 def test_sequencia_de_duas_semanas_ou_mais(dados):
@@ -233,12 +238,12 @@ def test_base_so_de_quem_fez_checkin_na_janela(dados):
     sequencia = rodar(3, base_so_de_quem_fez_checkin=True)
     ranking = rodar(4, base_so_de_quem_fez_checkin=True)
 
-    assert sequencia["contas_ativas"] == 4
+    assert sequencia["contas_ativas"] == 5
     assert sequencia["com_sequencia"] == 3
-    assert float(sequencia["pct_com_sequencia"]) == pytest.approx(75.0)
-    assert ranking["contas_ativas"] == 4
+    assert float(sequencia["pct_com_sequencia"]) == pytest.approx(60.0)
+    assert ranking["contas_ativas"] == 5
     assert ranking["no_ranking"] == 2
-    assert float(ranking["pct_no_ranking"]) == pytest.approx(50.0)
+    assert float(ranking["pct_no_ranking"]) == pytest.approx(40.0)
 
 
 def test_sem_nenhum_dado_as_contagens_saem_zero_e_as_porcentagens_nulas(db):
