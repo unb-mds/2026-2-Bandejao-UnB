@@ -1023,7 +1023,7 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - C4 (texto do fluxo do cardápio e tabela das stores). Os diagramas não mudam: a `HomeView` fica fora deles.
 - TDD: `90aeba3` (testes, 27 falhando) → `c5aa8ab` (código) → `81acd6c` (docs).
 - Validação local (antes da revisão): `npm run lint:ci` sem achados, `npm run test:ci` com 1.086 testes passando (96,4% de linhas / 92,84% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
-- Fica para a revisão: conferir com o backend real (a Início faz 8 pedidos públicos de resumo: os 7 dias da semana e o de hoje do cartão "Cardápio de hoje", que sai duas vezes; a `media` de cada refeição vem do `Avg` sem arredondar, então a média da semana ponderada pela quantidade é a média de todas as notas visíveis, sem as ocultadas pela moderação).
+- Funcionamento do resumo: a Início faz 8 pedidos públicos de resumo: os 7 dias da semana e o de hoje do cartão "Cardápio de hoje", que sai duas vezes; a `media` de cada refeição vem do `Avg` sem arredondar, então a média da semana ponderada pela quantidade é a média de todas as notas visíveis, sem as ocultadas pela moderação.
 - Ajustes da revisão do AlvaroBento12, código gerado pela IA:
   - conflito com a `develop` resolvido neste `AI-USAGE.md` (as seções da FE-16 e da #259 ficaram);
   - **"0 avaliações" falso:** enquanto a semana carrega, o cartão "Satisfação da semana" mostra "carregando…", sem contagem, gráfico nem média, e o cartão "Avaliações" não mostra estrelas sem média (antes anunciavam "Nota 0.0 de 5");
@@ -1043,7 +1043,13 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - Backend religado: média 3,0 e contagem 2 restauradas, inclusive após a virada do dia.
   - Limitação: SQLite, não o MySQL de produção.
   - Apoio do ChatGPT (OpenAI): orientação na execução do roteiro fornecido pelo revisor, interpretação dos logs e documentação dos resultados. Testes executados manualmente pela autora.
-- Situação: ajustes da revisão aplicados e conferência com o backend real concluída. Aguardando recheck do AlvaroBento12.
+- Ajustes da segunda revisão, com apoio do ChatGPT (OpenAI), em 24/11/2026:
+  - interpretação da revisão, elaboração dos patches de correção e teste de regressão, orientação para execução dos testes e comandos Git;
+  - atualização com a develop e resolução do conflito no AI-USAGE.md;
+  - ocultação das estrelas do cartão "Satisfação da semana" quando não há média, com verificação de regressão no teste existente.
+- Validação após a segunda revisão: `npm run lint:ci` sem erros ou avisos, `npm run test:ci` com 1.145 testes aprovados em 43 arquivos e `npm run build` aprovado. Cobertura de linhas: 96,56%; ramos: 93,06%; funções: 95,51%; statements: 95,62%.
+- Situação: código aprovado pelo AlvaroBento12 no head `cb11922`; ajustes finais de documentação aplicados.
+
 ## FE-23 — Novo design do desktop, nova logo e ilustrações das refeições
 
 - Issue: [#291](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/291). PR: [#293 — FE-23: Novo design do desktop, nova logo e ilustrações das refeições](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/293).
@@ -1086,43 +1092,3 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - os exemplos de comando (`teste-de-carga-bd14.md` e docstring do `locustfile.py`) usam 500.
 - Ponto para a equipe (não muda este PR): a margem de 500 em produção não está garantida com 2 vCPUs; ficam como opções medir com o servidor limitado a 2 núcleos ou o cache das respostas.
 - Situação: ajustes da revisão aplicados; aguardando o recheck. Mexer no `carga.yml` e no `locustfile.py` dispara o teste de carga no PR (informativo).
-
-### Issue #259 — Ajustes da revisão do PR #288
-
-Data: 24/11/2026.
-
-Ferramenta de IA: ChatGPT.
-
-Uso da IA:
-- Apoio na interpretação da revisão do PR.
-- Elaboração dos patches de correção e teste de regressão.
-- Orientação para execução dos testes e comandos Git.
-
-Alterações realizadas:
-- Merge com a develop e resolução do conflito no AI-USAGE.md.
-- Ocultação das estrelas do cartão Satisfação da semana quando não existem avaliações.
-- Inclusão de uma verificação de regressão no teste existente.
-
-Validações executadas localmente:
-- npm run lint:ci: aprovado, sem erros ou avisos.
-- npm run test:ci: 1.145 testes aprovados em 43 arquivos.
-- npm run build: aprovado.
-- Cobertura de linhas: 96,56%.
-- Cobertura de ramos: 93,06%.
-- Cobertura de funções: 95,51%.
-- Cobertura de instruções: 95,62%.
-
-Validação com o backend real concluída em 24 e 25/11/2026:
-- Django e SQLite executados localmente, sem Docker.
-- Frontend com VITE_USE_MOCK=false.
-- Estado sem avaliações exibido corretamente.
-- Oito requisições de resumo com HTTP 200.
-- Primeira avaliação de 4 estrelas: média 4,0 e contagem 1.
-- Segunda avaliação de 2 estrelas: média 3,0 e contagem 2.
-- Mensagens de erro corretas com o backend desligado.
-- Recuperação dos dados após religar o backend.
-- Todos os cenários do roteiro fornecido pelo revisor foram aprovados.
-- Limitação: ambiente SQLite, sem validação no MySQL de produção.
-
-O critério de aceite referente à validação com o backend real foi atendido. Aguardando recheck do revisor.
-
