@@ -10,7 +10,6 @@ import App from '@/App.vue'
 import BarraLateral from './BarraLateral.vue'
 import NavegacaoInferior from './NavegacaoInferior.vue'
 import NavegacaoTopo from './NavegacaoTopo.vue'
-import BarraLateral from './BarraLateral.vue'
 
 async function montar(componente, caminho = '/cardapio') {
   const pinia = createPinia()
