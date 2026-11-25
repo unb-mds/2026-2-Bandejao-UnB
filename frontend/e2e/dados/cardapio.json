@@ -1,0 +1,4046 @@
+[
+  {
+    "model": "cardapio.fontecardapio",
+    "pk": 1,
+    "fields": {
+      "campus": 3,
+      "semana_inicio": "2026-11-23",
+      "url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "verificado_em": "2026-11-22T15:00:00Z",
+      "processado_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 1,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-23",
+      "tipo": "cafe",
+      "horario_inicio": "07:00:00",
+      "horario_fim": "09:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 2,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-24",
+      "tipo": "cafe",
+      "horario_inicio": "07:00:00",
+      "horario_fim": "09:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 3,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-25",
+      "tipo": "cafe",
+      "horario_inicio": "07:00:00",
+      "horario_fim": "09:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 4,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-26",
+      "tipo": "cafe",
+      "horario_inicio": "07:00:00",
+      "horario_fim": "09:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 5,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-27",
+      "tipo": "cafe",
+      "horario_inicio": "07:00:00",
+      "horario_fim": "09:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 6,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-23",
+      "tipo": "almoco",
+      "horario_inicio": "11:00:00",
+      "horario_fim": "14:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 7,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-24",
+      "tipo": "almoco",
+      "horario_inicio": "11:00:00",
+      "horario_fim": "14:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 8,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-25",
+      "tipo": "almoco",
+      "horario_inicio": "11:00:00",
+      "horario_fim": "14:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 9,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-26",
+      "tipo": "almoco",
+      "horario_inicio": "11:00:00",
+      "horario_fim": "14:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 10,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-27",
+      "tipo": "almoco",
+      "horario_inicio": "11:00:00",
+      "horario_fim": "14:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 11,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-23",
+      "tipo": "jantar",
+      "horario_inicio": "17:00:00",
+      "horario_fim": "19:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 12,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-24",
+      "tipo": "jantar",
+      "horario_inicio": "17:00:00",
+      "horario_fim": "19:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 13,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-25",
+      "tipo": "jantar",
+      "horario_inicio": "17:00:00",
+      "horario_fim": "19:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 14,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-26",
+      "tipo": "jantar",
+      "horario_inicio": "17:00:00",
+      "horario_fim": "19:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.refeicao",
+    "pk": 15,
+    "fields": {
+      "campus": 3,
+      "data": "2026-11-27",
+      "tipo": "jantar",
+      "horario_inicio": "17:00:00",
+      "horario_fim": "19:30:00",
+      "status_leitura": "ok",
+      "fonte_pdf_url": "https://ru.unb.br/e2e/Gama-Semana-02-23-11-a-29-11.pdf",
+      "lida_em": "2026-11-22T15:00:00Z"
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 1,
+    "fields": {
+      "refeicao": 1,
+      "nome": "BEBIDAS",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 2,
+    "fields": {
+      "refeicao": 1,
+      "nome": "PANIFICAÇÃO",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 3,
+    "fields": {
+      "refeicao": 1,
+      "nome": "GORDURA",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 4,
+    "fields": {
+      "refeicao": 1,
+      "nome": "COMPLEMENTO PADRÃO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 5,
+    "fields": {
+      "refeicao": 1,
+      "nome": "COMPLEMENTO OVOLACTOVEGETARIANO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 6,
+    "fields": {
+      "refeicao": 1,
+      "nome": "COMPLEMENTO VEGETARIANO ESTRITO",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 7,
+    "fields": {
+      "refeicao": 1,
+      "nome": "FRUTA",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 8,
+    "fields": {
+      "refeicao": 2,
+      "nome": "BEBIDAS",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 9,
+    "fields": {
+      "refeicao": 2,
+      "nome": "PANIFICAÇÃO",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 10,
+    "fields": {
+      "refeicao": 2,
+      "nome": "OPÇÃO EXTRA",
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 11,
+    "fields": {
+      "refeicao": 2,
+      "nome": "GORDURA",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 12,
+    "fields": {
+      "refeicao": 2,
+      "nome": "COMPLEMENTO PADRÃO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 13,
+    "fields": {
+      "refeicao": 2,
+      "nome": "COMPLEMENTO OVOLACTOVEGETARIANO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 14,
+    "fields": {
+      "refeicao": 2,
+      "nome": "COMPLEMENTO VEGETARIANO ESTRITO",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 15,
+    "fields": {
+      "refeicao": 2,
+      "nome": "FRUTA",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 16,
+    "fields": {
+      "refeicao": 3,
+      "nome": "BEBIDAS",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 17,
+    "fields": {
+      "refeicao": 3,
+      "nome": "PANIFICAÇÃO",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 18,
+    "fields": {
+      "refeicao": 3,
+      "nome": "GORDURA",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 19,
+    "fields": {
+      "refeicao": 3,
+      "nome": "COMPLEMENTO PADRÃO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 20,
+    "fields": {
+      "refeicao": 3,
+      "nome": "COMPLEMENTO OVOLACTOVEGETARIANO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 21,
+    "fields": {
+      "refeicao": 3,
+      "nome": "COMPLEMENTO VEGETARIANO ESTRITO",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 22,
+    "fields": {
+      "refeicao": 3,
+      "nome": "FRUTA",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 23,
+    "fields": {
+      "refeicao": 4,
+      "nome": "BEBIDAS",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 24,
+    "fields": {
+      "refeicao": 4,
+      "nome": "PANIFICAÇÃO",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 25,
+    "fields": {
+      "refeicao": 4,
+      "nome": "GORDURA",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 26,
+    "fields": {
+      "refeicao": 4,
+      "nome": "COMPLEMENTO PADRÃO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 27,
+    "fields": {
+      "refeicao": 4,
+      "nome": "COMPLEMENTO OVOLACTOVEGETARIANO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 28,
+    "fields": {
+      "refeicao": 4,
+      "nome": "COMPLEMENTO VEGETARIANO ESTRITO",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 29,
+    "fields": {
+      "refeicao": 4,
+      "nome": "FRUTA",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 30,
+    "fields": {
+      "refeicao": 5,
+      "nome": "BEBIDAS",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 31,
+    "fields": {
+      "refeicao": 5,
+      "nome": "PANIFICAÇÃO",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 32,
+    "fields": {
+      "refeicao": 5,
+      "nome": "OPÇÃO EXTRA",
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 33,
+    "fields": {
+      "refeicao": 5,
+      "nome": "GORDURA",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 34,
+    "fields": {
+      "refeicao": 5,
+      "nome": "COMPLEMENTO PADRÃO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 35,
+    "fields": {
+      "refeicao": 5,
+      "nome": "COMPLEMENTO OVOLACTOVEGETARIANO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 36,
+    "fields": {
+      "refeicao": 5,
+      "nome": "COMPLEMENTO VEGETARIANO ESTRITO",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 37,
+    "fields": {
+      "refeicao": 5,
+      "nome": "FRUTA",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 38,
+    "fields": {
+      "refeicao": 6,
+      "nome": "SALADA 1",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 39,
+    "fields": {
+      "refeicao": 6,
+      "nome": "SALADA 2",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 40,
+    "fields": {
+      "refeicao": 6,
+      "nome": "MOLHO PARA SALADA",
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 41,
+    "fields": {
+      "refeicao": 6,
+      "nome": "PRATO PRINCIPAL PADRÃO",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 42,
+    "fields": {
+      "refeicao": 6,
+      "nome": "PRATO PRINCIPAL OVOLACTOVEGETARIANO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 43,
+    "fields": {
+      "refeicao": 6,
+      "nome": "PRATO PRINCIPAL VEGETARIANO ESTRITO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 44,
+    "fields": {
+      "refeicao": 6,
+      "nome": "GUARNIÇÃO",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 45,
+    "fields": {
+      "refeicao": 6,
+      "nome": "ACOMPANHAMENTOS",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 46,
+    "fields": {
+      "refeicao": 6,
+      "nome": "SOBREMESA",
+      "ordem": 8
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 47,
+    "fields": {
+      "refeicao": 6,
+      "nome": "BEBIDA (Refresco de)",
+      "ordem": 9
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 48,
+    "fields": {
+      "refeicao": 7,
+      "nome": "SALADA 1",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 49,
+    "fields": {
+      "refeicao": 7,
+      "nome": "SALADA 2",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 50,
+    "fields": {
+      "refeicao": 7,
+      "nome": "MOLHO PARA SALADA",
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 51,
+    "fields": {
+      "refeicao": 7,
+      "nome": "PRATO PRINCIPAL PADRÃO",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 52,
+    "fields": {
+      "refeicao": 7,
+      "nome": "PRATO PRINCIPAL OVOLACTOVEGETARIANO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 53,
+    "fields": {
+      "refeicao": 7,
+      "nome": "PRATO PRINCIPAL VEGETARIANO ESTRITO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 54,
+    "fields": {
+      "refeicao": 7,
+      "nome": "GUARNIÇÃO",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 55,
+    "fields": {
+      "refeicao": 7,
+      "nome": "ACOMPANHAMENTOS",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 56,
+    "fields": {
+      "refeicao": 7,
+      "nome": "SOBREMESA",
+      "ordem": 8
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 57,
+    "fields": {
+      "refeicao": 7,
+      "nome": "BEBIDA (Refresco de)",
+      "ordem": 9
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 58,
+    "fields": {
+      "refeicao": 8,
+      "nome": "SALADA 1",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 59,
+    "fields": {
+      "refeicao": 8,
+      "nome": "SALADA 2",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 60,
+    "fields": {
+      "refeicao": 8,
+      "nome": "MOLHO PARA SALADA",
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 61,
+    "fields": {
+      "refeicao": 8,
+      "nome": "PRATO PRINCIPAL PADRÃO",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 62,
+    "fields": {
+      "refeicao": 8,
+      "nome": "PRATO PRINCIPAL OVOLACTOVEGETARIANO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 63,
+    "fields": {
+      "refeicao": 8,
+      "nome": "PRATO PRINCIPAL VEGETARIANO ESTRITO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 64,
+    "fields": {
+      "refeicao": 8,
+      "nome": "GUARNIÇÃO",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 65,
+    "fields": {
+      "refeicao": 8,
+      "nome": "ACOMPANHAMENTOS",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 66,
+    "fields": {
+      "refeicao": 8,
+      "nome": "SOBREMESA",
+      "ordem": 8
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 67,
+    "fields": {
+      "refeicao": 8,
+      "nome": "BEBIDA (Refresco de)",
+      "ordem": 9
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 68,
+    "fields": {
+      "refeicao": 9,
+      "nome": "SALADA 1",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 69,
+    "fields": {
+      "refeicao": 9,
+      "nome": "SALADA 2",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 70,
+    "fields": {
+      "refeicao": 9,
+      "nome": "MOLHO PARA SALADA",
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 71,
+    "fields": {
+      "refeicao": 9,
+      "nome": "PRATO PRINCIPAL PADRÃO",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 72,
+    "fields": {
+      "refeicao": 9,
+      "nome": "PRATO PRINCIPAL OVOLACTOVEGETARIANO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 73,
+    "fields": {
+      "refeicao": 9,
+      "nome": "PRATO PRINCIPAL VEGETARIANO ESTRITO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 74,
+    "fields": {
+      "refeicao": 9,
+      "nome": "GUARNIÇÃO",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 75,
+    "fields": {
+      "refeicao": 9,
+      "nome": "ACOMPANHAMENTOS",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 76,
+    "fields": {
+      "refeicao": 9,
+      "nome": "SOBREMESA",
+      "ordem": 8
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 77,
+    "fields": {
+      "refeicao": 9,
+      "nome": "BEBIDA (Refresco de)",
+      "ordem": 9
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 78,
+    "fields": {
+      "refeicao": 10,
+      "nome": "SALADA 1",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 79,
+    "fields": {
+      "refeicao": 10,
+      "nome": "SALADA 2",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 80,
+    "fields": {
+      "refeicao": 10,
+      "nome": "MOLHO PARA SALADA",
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 81,
+    "fields": {
+      "refeicao": 10,
+      "nome": "PRATO PRINCIPAL PADRÃO",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 82,
+    "fields": {
+      "refeicao": 10,
+      "nome": "PRATO PRINCIPAL OVOLACTOVEGETARIANO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 83,
+    "fields": {
+      "refeicao": 10,
+      "nome": "PRATO PRINCIPAL VEGETARIANO ESTRITO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 84,
+    "fields": {
+      "refeicao": 10,
+      "nome": "GUARNIÇÃO",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 85,
+    "fields": {
+      "refeicao": 10,
+      "nome": "ACOMPANHAMENTOS",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 86,
+    "fields": {
+      "refeicao": 10,
+      "nome": "SOBREMESA",
+      "ordem": 8
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 87,
+    "fields": {
+      "refeicao": 10,
+      "nome": "BEBIDA (Refresco de)",
+      "ordem": 9
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 88,
+    "fields": {
+      "refeicao": 11,
+      "nome": "SALADA 1",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 89,
+    "fields": {
+      "refeicao": 11,
+      "nome": "SALADA 2",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 90,
+    "fields": {
+      "refeicao": 11,
+      "nome": "MOLHO PARA SALADA",
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 91,
+    "fields": {
+      "refeicao": 11,
+      "nome": "PRATO PRINCIPAL PADRÃO",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 92,
+    "fields": {
+      "refeicao": 11,
+      "nome": "PRATO PRINCIPAL OVOLACTOVEGETARIANO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 93,
+    "fields": {
+      "refeicao": 11,
+      "nome": "PRATO PRINCIPAL VEGETARIANO ESTRITO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 94,
+    "fields": {
+      "refeicao": 11,
+      "nome": "SOPA",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 95,
+    "fields": {
+      "refeicao": 11,
+      "nome": "TORRADA",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 96,
+    "fields": {
+      "refeicao": 11,
+      "nome": "ACOMPANHAMENTOS",
+      "ordem": 8
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 97,
+    "fields": {
+      "refeicao": 11,
+      "nome": "SOBREMESA",
+      "ordem": 9
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 98,
+    "fields": {
+      "refeicao": 11,
+      "nome": "BEBIDA (Refresco de)",
+      "ordem": 10
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 99,
+    "fields": {
+      "refeicao": 12,
+      "nome": "SALADA 1",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 100,
+    "fields": {
+      "refeicao": 12,
+      "nome": "SALADA 2",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 101,
+    "fields": {
+      "refeicao": 12,
+      "nome": "MOLHO PARA SALADA",
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 102,
+    "fields": {
+      "refeicao": 12,
+      "nome": "PRATO PRINCIPAL PADRÃO",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 103,
+    "fields": {
+      "refeicao": 12,
+      "nome": "PRATO PRINCIPAL OVOLACTOVEGETARIANO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 104,
+    "fields": {
+      "refeicao": 12,
+      "nome": "PRATO PRINCIPAL VEGETARIANO ESTRITO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 105,
+    "fields": {
+      "refeicao": 12,
+      "nome": "SOPA",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 106,
+    "fields": {
+      "refeicao": 12,
+      "nome": "TORRADA",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 107,
+    "fields": {
+      "refeicao": 12,
+      "nome": "ACOMPANHAMENTOS",
+      "ordem": 8
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 108,
+    "fields": {
+      "refeicao": 12,
+      "nome": "SOBREMESA",
+      "ordem": 9
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 109,
+    "fields": {
+      "refeicao": 12,
+      "nome": "BEBIDA (Refresco de)",
+      "ordem": 10
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 110,
+    "fields": {
+      "refeicao": 13,
+      "nome": "SALADA 1",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 111,
+    "fields": {
+      "refeicao": 13,
+      "nome": "SALADA 2",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 112,
+    "fields": {
+      "refeicao": 13,
+      "nome": "MOLHO PARA SALADA",
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 113,
+    "fields": {
+      "refeicao": 13,
+      "nome": "PRATO PRINCIPAL PADRÃO",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 114,
+    "fields": {
+      "refeicao": 13,
+      "nome": "PRATO PRINCIPAL OVOLACTOVEGETARIANO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 115,
+    "fields": {
+      "refeicao": 13,
+      "nome": "PRATO PRINCIPAL VEGETARIANO ESTRITO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 116,
+    "fields": {
+      "refeicao": 13,
+      "nome": "SOPA",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 117,
+    "fields": {
+      "refeicao": 13,
+      "nome": "TORRADA",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 118,
+    "fields": {
+      "refeicao": 13,
+      "nome": "ACOMPANHAMENTOS",
+      "ordem": 8
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 119,
+    "fields": {
+      "refeicao": 13,
+      "nome": "SOBREMESA",
+      "ordem": 9
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 120,
+    "fields": {
+      "refeicao": 13,
+      "nome": "BEBIDA (Refresco de)",
+      "ordem": 10
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 121,
+    "fields": {
+      "refeicao": 14,
+      "nome": "SALADA 1",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 122,
+    "fields": {
+      "refeicao": 14,
+      "nome": "SALADA 2",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 123,
+    "fields": {
+      "refeicao": 14,
+      "nome": "MOLHO PARA SALADA",
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 124,
+    "fields": {
+      "refeicao": 14,
+      "nome": "PRATO PRINCIPAL PADRÃO",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 125,
+    "fields": {
+      "refeicao": 14,
+      "nome": "PRATO PRINCIPAL OVOLACTOVEGETARIANO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 126,
+    "fields": {
+      "refeicao": 14,
+      "nome": "PRATO PRINCIPAL VEGETARIANO ESTRITO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 127,
+    "fields": {
+      "refeicao": 14,
+      "nome": "SOPA",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 128,
+    "fields": {
+      "refeicao": 14,
+      "nome": "TORRADA",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 129,
+    "fields": {
+      "refeicao": 14,
+      "nome": "ACOMPANHAMENTOS",
+      "ordem": 8
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 130,
+    "fields": {
+      "refeicao": 14,
+      "nome": "SOBREMESA",
+      "ordem": 9
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 131,
+    "fields": {
+      "refeicao": 14,
+      "nome": "BEBIDA (Refresco de)",
+      "ordem": 10
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 132,
+    "fields": {
+      "refeicao": 15,
+      "nome": "SALADA 1",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 133,
+    "fields": {
+      "refeicao": 15,
+      "nome": "SALADA 2",
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 134,
+    "fields": {
+      "refeicao": 15,
+      "nome": "MOLHO PARA SALADA",
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 135,
+    "fields": {
+      "refeicao": 15,
+      "nome": "PRATO PRINCIPAL PADRÃO",
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 136,
+    "fields": {
+      "refeicao": 15,
+      "nome": "PRATO PRINCIPAL OVOLACTOVEGETARIANO",
+      "ordem": 4
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 137,
+    "fields": {
+      "refeicao": 15,
+      "nome": "PRATO PRINCIPAL VEGETARIANO ESTRITO",
+      "ordem": 5
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 138,
+    "fields": {
+      "refeicao": 15,
+      "nome": "SOPA",
+      "ordem": 6
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 139,
+    "fields": {
+      "refeicao": 15,
+      "nome": "TORRADA",
+      "ordem": 7
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 140,
+    "fields": {
+      "refeicao": 15,
+      "nome": "ACOMPANHAMENTOS",
+      "ordem": 8
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 141,
+    "fields": {
+      "refeicao": 15,
+      "nome": "SOBREMESA",
+      "ordem": 9
+    }
+  },
+  {
+    "model": "cardapio.categoria",
+    "pk": 142,
+    "fields": {
+      "refeicao": 15,
+      "nome": "BEBIDA (Refresco de)",
+      "ordem": 10
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 1,
+    "fields": {
+      "categoria": 1,
+      "nome": "Leite integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 2,
+    "fields": {
+      "categoria": 1,
+      "nome": "Bebida de soja",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 3,
+    "fields": {
+      "categoria": 1,
+      "nome": "Café",
+      "dieta": null,
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 4,
+    "fields": {
+      "categoria": 1,
+      "nome": "chá",
+      "dieta": null,
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 5,
+    "fields": {
+      "categoria": 2,
+      "nome": "Pão francês",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 6,
+    "fields": {
+      "categoria": 2,
+      "nome": "Pão careca",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 7,
+    "fields": {
+      "categoria": 2,
+      "nome": "Pão integral",
+      "dieta": null,
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 8,
+    "fields": {
+      "categoria": 3,
+      "nome": "Manteiga",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 9,
+    "fields": {
+      "categoria": 3,
+      "nome": "creme vegetal",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 10,
+    "fields": {
+      "categoria": 4,
+      "nome": "Salsicha ao molho",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 11,
+    "fields": {
+      "categoria": 5,
+      "nome": "Queijo muçarela",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 12,
+    "fields": {
+      "categoria": 6,
+      "nome": "Pasta de ervilha com hortelã",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 13,
+    "fields": {
+      "categoria": 7,
+      "nome": "Banana",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 14,
+    "fields": {
+      "categoria": 8,
+      "nome": "Leite integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 15,
+    "fields": {
+      "categoria": 8,
+      "nome": "Bebida de soja",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 16,
+    "fields": {
+      "categoria": 8,
+      "nome": "Café",
+      "dieta": null,
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 17,
+    "fields": {
+      "categoria": 8,
+      "nome": "chá",
+      "dieta": null,
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 18,
+    "fields": {
+      "categoria": 9,
+      "nome": "Pão francês",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 19,
+    "fields": {
+      "categoria": 9,
+      "nome": "Pão careca",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 20,
+    "fields": {
+      "categoria": 10,
+      "nome": "Canjica",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 21,
+    "fields": {
+      "categoria": 11,
+      "nome": "Manteiga",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 22,
+    "fields": {
+      "categoria": 11,
+      "nome": "creme vegetal",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 23,
+    "fields": {
+      "categoria": 12,
+      "nome": "Ovos mexidos",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 24,
+    "fields": {
+      "categoria": 13,
+      "nome": "Queijo minas",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 25,
+    "fields": {
+      "categoria": 14,
+      "nome": "Bolonhesa de soja",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 26,
+    "fields": {
+      "categoria": 15,
+      "nome": "Melancia",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 27,
+    "fields": {
+      "categoria": 16,
+      "nome": "Leite integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 28,
+    "fields": {
+      "categoria": 16,
+      "nome": "Bebida de soja",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 29,
+    "fields": {
+      "categoria": 16,
+      "nome": "Café",
+      "dieta": null,
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 30,
+    "fields": {
+      "categoria": 16,
+      "nome": "chá",
+      "dieta": null,
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 31,
+    "fields": {
+      "categoria": 17,
+      "nome": "Pão francês",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 32,
+    "fields": {
+      "categoria": 17,
+      "nome": "Pão careca",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 33,
+    "fields": {
+      "categoria": 17,
+      "nome": "Pão integral",
+      "dieta": null,
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 34,
+    "fields": {
+      "categoria": 18,
+      "nome": "Manteiga",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 35,
+    "fields": {
+      "categoria": 18,
+      "nome": "creme vegetal",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 36,
+    "fields": {
+      "categoria": 19,
+      "nome": "Frango desfiado",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 37,
+    "fields": {
+      "categoria": 20,
+      "nome": "Creme de ricota com azeitonas",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 38,
+    "fields": {
+      "categoria": 21,
+      "nome": "Caponata de berinjela",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 39,
+    "fields": {
+      "categoria": 22,
+      "nome": "Maçã",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 40,
+    "fields": {
+      "categoria": 23,
+      "nome": "Leite integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 41,
+    "fields": {
+      "categoria": 23,
+      "nome": "Bebida de soja",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 42,
+    "fields": {
+      "categoria": 23,
+      "nome": "Café",
+      "dieta": null,
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 43,
+    "fields": {
+      "categoria": 23,
+      "nome": "chá",
+      "dieta": null,
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 44,
+    "fields": {
+      "categoria": 24,
+      "nome": "Pão francês",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 45,
+    "fields": {
+      "categoria": 24,
+      "nome": "Pão careca",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 46,
+    "fields": {
+      "categoria": 24,
+      "nome": "Pão integral",
+      "dieta": null,
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 47,
+    "fields": {
+      "categoria": 25,
+      "nome": "Manteiga",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 48,
+    "fields": {
+      "categoria": 25,
+      "nome": "creme vegetal",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 49,
+    "fields": {
+      "categoria": 26,
+      "nome": "Carne bovina moída",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 50,
+    "fields": {
+      "categoria": 27,
+      "nome": "Queijo muçarela",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 51,
+    "fields": {
+      "categoria": 28,
+      "nome": "Requeijão de ervas",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 52,
+    "fields": {
+      "categoria": 29,
+      "nome": "Mamão",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 53,
+    "fields": {
+      "categoria": 30,
+      "nome": "Leite integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 54,
+    "fields": {
+      "categoria": 30,
+      "nome": "Bebida de soja",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 55,
+    "fields": {
+      "categoria": 30,
+      "nome": "Café",
+      "dieta": null,
+      "ordem": 2
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 56,
+    "fields": {
+      "categoria": 30,
+      "nome": "chá",
+      "dieta": null,
+      "ordem": 3
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 57,
+    "fields": {
+      "categoria": 31,
+      "nome": "Pão francês",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 58,
+    "fields": {
+      "categoria": 31,
+      "nome": "Pão careca",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 59,
+    "fields": {
+      "categoria": 32,
+      "nome": "Broa de milho",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 60,
+    "fields": {
+      "categoria": 33,
+      "nome": "Manteiga",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 61,
+    "fields": {
+      "categoria": 33,
+      "nome": "creme vegetal",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 62,
+    "fields": {
+      "categoria": 34,
+      "nome": "Queijo minas",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 63,
+    "fields": {
+      "categoria": 35,
+      "nome": "Ricota temperada",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 64,
+    "fields": {
+      "categoria": 36,
+      "nome": "Amendotela",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 65,
+    "fields": {
+      "categoria": 37,
+      "nome": "Salada de frutas",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 66,
+    "fields": {
+      "categoria": 38,
+      "nome": "Alface crespa",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 67,
+    "fields": {
+      "categoria": 39,
+      "nome": "Tomate",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 68,
+    "fields": {
+      "categoria": 40,
+      "nome": "Salsa",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 69,
+    "fields": {
+      "categoria": 41,
+      "nome": "Silveirinha de carne",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 70,
+    "fields": {
+      "categoria": 42,
+      "nome": "Bolinho de lentilha gratinado",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 71,
+    "fields": {
+      "categoria": 43,
+      "nome": "Silveirinha de soja",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 72,
+    "fields": {
+      "categoria": 44,
+      "nome": "Macarrão temperado",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 73,
+    "fields": {
+      "categoria": 45,
+      "nome": "Arroz branco e integral Feijão carioca",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 74,
+    "fields": {
+      "categoria": 46,
+      "nome": "Maçã",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 75,
+    "fields": {
+      "categoria": 47,
+      "nome": "Guaraná",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 76,
+    "fields": {
+      "categoria": 48,
+      "nome": "Mix de folhas",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 77,
+    "fields": {
+      "categoria": 49,
+      "nome": "Picles de beterraba",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 78,
+    "fields": {
+      "categoria": 50,
+      "nome": "Manjericão",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 79,
+    "fields": {
+      "categoria": 51,
+      "nome": "Frango assado",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 80,
+    "fields": {
+      "categoria": 52,
+      "nome": "Croquete de soja com queijo",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 81,
+    "fields": {
+      "categoria": 53,
+      "nome": "Grão de bico à indiana",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 82,
+    "fields": {
+      "categoria": 54,
+      "nome": "Cenoura cozida com salsinha",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 83,
+    "fields": {
+      "categoria": 55,
+      "nome": "Arroz branco e integral Feijão preto",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 84,
+    "fields": {
+      "categoria": 56,
+      "nome": "Mix de doces",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 85,
+    "fields": {
+      "categoria": 56,
+      "nome": "Fruta",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 86,
+    "fields": {
+      "categoria": 57,
+      "nome": "Laranja",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 87,
+    "fields": {
+      "categoria": 58,
+      "nome": "Acelga",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 88,
+    "fields": {
+      "categoria": 59,
+      "nome": "Rabanete",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 89,
+    "fields": {
+      "categoria": 60,
+      "nome": "Chimichurri",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 90,
+    "fields": {
+      "categoria": 61,
+      "nome": "Lasanha à bolonhesa",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 91,
+    "fields": {
+      "categoria": 62,
+      "nome": "Isca de soja ao sugo gratinada",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 92,
+    "fields": {
+      "categoria": 63,
+      "nome": "Tomate recheado com homus de ervilha",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 93,
+    "fields": {
+      "categoria": 64,
+      "nome": "Chuchu com vagem",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 94,
+    "fields": {
+      "categoria": 65,
+      "nome": "Arroz branco e integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 95,
+    "fields": {
+      "categoria": 65,
+      "nome": "Feijão carioca",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 96,
+    "fields": {
+      "categoria": 66,
+      "nome": "Laranja",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 97,
+    "fields": {
+      "categoria": 67,
+      "nome": "Acerola",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 98,
+    "fields": {
+      "categoria": 68,
+      "nome": "Repolho roxo",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 99,
+    "fields": {
+      "categoria": 69,
+      "nome": "Antepasto de abobrinha",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 100,
+    "fields": {
+      "categoria": 70,
+      "nome": "Ácido",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 101,
+    "fields": {
+      "categoria": 71,
+      "nome": "Cubos de frango ao molho sugo",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 102,
+    "fields": {
+      "categoria": 72,
+      "nome": "Risoto de espinafre",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 103,
+    "fields": {
+      "categoria": 73,
+      "nome": "Charuto de couve com PTS",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 104,
+    "fields": {
+      "categoria": 74,
+      "nome": "Mix de batatas",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 105,
+    "fields": {
+      "categoria": 75,
+      "nome": "Arroz branco e integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 106,
+    "fields": {
+      "categoria": 75,
+      "nome": "Feijão preto",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 107,
+    "fields": {
+      "categoria": 76,
+      "nome": "Melão",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 108,
+    "fields": {
+      "categoria": 77,
+      "nome": "Manga",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 109,
+    "fields": {
+      "categoria": 78,
+      "nome": "Alface com agrião",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 110,
+    "fields": {
+      "categoria": 79,
+      "nome": "Tomate, cebola e pimentão em cubos",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 111,
+    "fields": {
+      "categoria": 80,
+      "nome": "Hortelã / Limão",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 112,
+    "fields": {
+      "categoria": 81,
+      "nome": "Peixe ao molho bechamel gratinado",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 113,
+    "fields": {
+      "categoria": 82,
+      "nome": "Ovos assados ao sugo",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 114,
+    "fields": {
+      "categoria": 83,
+      "nome": "Guisado de grãos de soja",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 115,
+    "fields": {
+      "categoria": 84,
+      "nome": "Abóbora assada",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 116,
+    "fields": {
+      "categoria": 85,
+      "nome": "Arroz branco e integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 117,
+    "fields": {
+      "categoria": 85,
+      "nome": "Feijão carioca",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 118,
+    "fields": {
+      "categoria": 86,
+      "nome": "Banana",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 119,
+    "fields": {
+      "categoria": 87,
+      "nome": "Maracujá",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 120,
+    "fields": {
+      "categoria": 88,
+      "nome": "Acelga com alface roxa",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 121,
+    "fields": {
+      "categoria": 89,
+      "nome": "Chuchu cozido com pimentões coloridos",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 122,
+    "fields": {
+      "categoria": 90,
+      "nome": "Mostarda e mel / Limão",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 123,
+    "fields": {
+      "categoria": 91,
+      "nome": "Frango a pizzaiolo",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 124,
+    "fields": {
+      "categoria": 92,
+      "nome": "Fricassê de palmito com legumes",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 125,
+    "fields": {
+      "categoria": 93,
+      "nome": "Berinjela recheada com homus de grão de bico",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 126,
+    "fields": {
+      "categoria": 94,
+      "nome": "Caldo verde",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 127,
+    "fields": {
+      "categoria": 95,
+      "nome": "Torrada",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 128,
+    "fields": {
+      "categoria": 96,
+      "nome": "Arroz branco e integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 129,
+    "fields": {
+      "categoria": 96,
+      "nome": "Feijão carioca",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 130,
+    "fields": {
+      "categoria": 97,
+      "nome": "Laranja",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 131,
+    "fields": {
+      "categoria": 98,
+      "nome": "Guaraná",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 132,
+    "fields": {
+      "categoria": 99,
+      "nome": "Alface com couve",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 133,
+    "fields": {
+      "categoria": 100,
+      "nome": "Abobrinha com manjericão",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 134,
+    "fields": {
+      "categoria": 101,
+      "nome": "Gengibre",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 135,
+    "fields": {
+      "categoria": 102,
+      "nome": "Carne de sol",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 136,
+    "fields": {
+      "categoria": 103,
+      "nome": "Bife de soja a pizzaiolo",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 137,
+    "fields": {
+      "categoria": 104,
+      "nome": "Ervilha ao sugo",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 138,
+    "fields": {
+      "categoria": 105,
+      "nome": "Sopa minestrone",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 139,
+    "fields": {
+      "categoria": 106,
+      "nome": "Torrada",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 140,
+    "fields": {
+      "categoria": 107,
+      "nome": "Arroz branco e integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 141,
+    "fields": {
+      "categoria": 107,
+      "nome": "Feijão preto",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 142,
+    "fields": {
+      "categoria": 108,
+      "nome": "Melão",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 143,
+    "fields": {
+      "categoria": 109,
+      "nome": "Laranja",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 144,
+    "fields": {
+      "categoria": 110,
+      "nome": "Alface roxa e rúcula",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 145,
+    "fields": {
+      "categoria": 111,
+      "nome": "Beterraba ralada",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 146,
+    "fields": {
+      "categoria": 112,
+      "nome": "Limão /Hortelã",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 147,
+    "fields": {
+      "categoria": 113,
+      "nome": "Suíno ao molho de mostarda",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 148,
+    "fields": {
+      "categoria": 114,
+      "nome": "Ovos mexidos",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 149,
+    "fields": {
+      "categoria": 115,
+      "nome": "Hambúrguer de abóbora com gergelim",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 150,
+    "fields": {
+      "categoria": 116,
+      "nome": "Creme de cebola caramelizada",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 151,
+    "fields": {
+      "categoria": 117,
+      "nome": "Torrada",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 152,
+    "fields": {
+      "categoria": 118,
+      "nome": "Arroz branco e integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 153,
+    "fields": {
+      "categoria": 118,
+      "nome": "Feijão carioca",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 154,
+    "fields": {
+      "categoria": 119,
+      "nome": "Doce de leite",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 155,
+    "fields": {
+      "categoria": 119,
+      "nome": "Fruta",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 156,
+    "fields": {
+      "categoria": 120,
+      "nome": "Acerola",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 157,
+    "fields": {
+      "categoria": 121,
+      "nome": "Mix de folhas",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 158,
+    "fields": {
+      "categoria": 122,
+      "nome": "Pepino em cubos com gergelim",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 159,
+    "fields": {
+      "categoria": 123,
+      "nome": "Manjericão",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 160,
+    "fields": {
+      "categoria": 124,
+      "nome": "Strogonoff de carne",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 161,
+    "fields": {
+      "categoria": 125,
+      "nome": "Macarrão ao molho branco com lentilha",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 162,
+    "fields": {
+      "categoria": 126,
+      "nome": "Moqueca de vegetais com palmito e Castanhas",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 163,
+    "fields": {
+      "categoria": 127,
+      "nome": "Creme de cenoura com gengibre",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 164,
+    "fields": {
+      "categoria": 128,
+      "nome": "Torrada",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 165,
+    "fields": {
+      "categoria": 129,
+      "nome": "Arroz branco e integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 166,
+    "fields": {
+      "categoria": 129,
+      "nome": "Feijão preto",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 167,
+    "fields": {
+      "categoria": 130,
+      "nome": "Maçã",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 168,
+    "fields": {
+      "categoria": 131,
+      "nome": "Manga",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 169,
+    "fields": {
+      "categoria": 132,
+      "nome": "Acelga temperada",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 170,
+    "fields": {
+      "categoria": 133,
+      "nome": "Picles de rabanete",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 171,
+    "fields": {
+      "categoria": 134,
+      "nome": "Chipotle",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 172,
+    "fields": {
+      "categoria": 135,
+      "nome": "Frango assado ao molho barbecue",
+      "dieta": "padrao",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 173,
+    "fields": {
+      "categoria": 136,
+      "nome": "Lasanha de brócolis",
+      "dieta": "ovolacto",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 174,
+    "fields": {
+      "categoria": 137,
+      "nome": "Ervilha refogada com brócolis e couve-flor",
+      "dieta": "vegetariano_estrito",
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 175,
+    "fields": {
+      "categoria": 138,
+      "nome": "Sopa canjiquinha",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 176,
+    "fields": {
+      "categoria": 139,
+      "nome": "Torrada",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 177,
+    "fields": {
+      "categoria": 140,
+      "nome": "Arroz branco e integral",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 178,
+    "fields": {
+      "categoria": 140,
+      "nome": "Feijão carioca",
+      "dieta": null,
+      "ordem": 1
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 179,
+    "fields": {
+      "categoria": 141,
+      "nome": "Melancia",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.prato",
+    "pk": 180,
+    "fields": {
+      "categoria": 142,
+      "nome": "Maracujá",
+      "dieta": null,
+      "ordem": 0
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [1, 2],
+    "fields": {
+      "prato": 1,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [2, 5],
+    "fields": {
+      "prato": 2,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [5, 6],
+    "fields": {
+      "prato": 5,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [6, 6],
+    "fields": {
+      "prato": 6,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [7, 6],
+    "fields": {
+      "prato": 7,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [8, 2],
+    "fields": {
+      "prato": 8,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [10, 10],
+    "fields": {
+      "prato": 10,
+      "marcador": 10
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [11, 2],
+    "fields": {
+      "prato": 11,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [14, 2],
+    "fields": {
+      "prato": 14,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [15, 5],
+    "fields": {
+      "prato": 15,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [18, 6],
+    "fields": {
+      "prato": 18,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [19, 6],
+    "fields": {
+      "prato": 19,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [20, 2],
+    "fields": {
+      "prato": 20,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [21, 2],
+    "fields": {
+      "prato": 21,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [23, 9],
+    "fields": {
+      "prato": 23,
+      "marcador": 9
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [23, 2],
+    "fields": {
+      "prato": 23,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [24, 2],
+    "fields": {
+      "prato": 24,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [25, 5],
+    "fields": {
+      "prato": 25,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [27, 2],
+    "fields": {
+      "prato": 27,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [28, 5],
+    "fields": {
+      "prato": 28,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [31, 6],
+    "fields": {
+      "prato": 31,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [32, 6],
+    "fields": {
+      "prato": 32,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [33, 6],
+    "fields": {
+      "prato": 33,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [34, 2],
+    "fields": {
+      "prato": 34,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [37, 2],
+    "fields": {
+      "prato": 37,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [38, 1],
+    "fields": {
+      "prato": 38,
+      "marcador": 1
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [40, 2],
+    "fields": {
+      "prato": 40,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [41, 5],
+    "fields": {
+      "prato": 41,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [44, 6],
+    "fields": {
+      "prato": 44,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [45, 6],
+    "fields": {
+      "prato": 45,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [46, 6],
+    "fields": {
+      "prato": 46,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [47, 2],
+    "fields": {
+      "prato": 47,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [50, 2],
+    "fields": {
+      "prato": 50,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [53, 2],
+    "fields": {
+      "prato": 53,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [54, 5],
+    "fields": {
+      "prato": 54,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [57, 6],
+    "fields": {
+      "prato": 57,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [58, 6],
+    "fields": {
+      "prato": 58,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [59, 9],
+    "fields": {
+      "prato": 59,
+      "marcador": 9
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [59, 2],
+    "fields": {
+      "prato": 59,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [59, 6],
+    "fields": {
+      "prato": 59,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [60, 2],
+    "fields": {
+      "prato": 60,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [62, 2],
+    "fields": {
+      "prato": 62,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [63, 2],
+    "fields": {
+      "prato": 63,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [64, 7],
+    "fields": {
+      "prato": 64,
+      "marcador": 7
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [70, 2],
+    "fields": {
+      "prato": 70,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [70, 6],
+    "fields": {
+      "prato": 70,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [71, 5],
+    "fields": {
+      "prato": 71,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [72, 6],
+    "fields": {
+      "prato": 72,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [80, 2],
+    "fields": {
+      "prato": 80,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [80, 5],
+    "fields": {
+      "prato": 80,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [81, 4],
+    "fields": {
+      "prato": 81,
+      "marcador": 4
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [84, 2],
+    "fields": {
+      "prato": 84,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [84, 7],
+    "fields": {
+      "prato": 84,
+      "marcador": 7
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [90, 10],
+    "fields": {
+      "prato": 90,
+      "marcador": 10
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [90, 2],
+    "fields": {
+      "prato": 90,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [90, 6],
+    "fields": {
+      "prato": 90,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [91, 2],
+    "fields": {
+      "prato": 91,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [91, 5],
+    "fields": {
+      "prato": 91,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [102, 2],
+    "fields": {
+      "prato": 102,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [102, 6],
+    "fields": {
+      "prato": 102,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [103, 5],
+    "fields": {
+      "prato": 103,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [112, 2],
+    "fields": {
+      "prato": 112,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [112, 6],
+    "fields": {
+      "prato": 112,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [113, 9],
+    "fields": {
+      "prato": 113,
+      "marcador": 9
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [114, 5],
+    "fields": {
+      "prato": 114,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [122, 3],
+    "fields": {
+      "prato": 122,
+      "marcador": 3
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [123, 2],
+    "fields": {
+      "prato": 123,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [124, 2],
+    "fields": {
+      "prato": 124,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [124, 6],
+    "fields": {
+      "prato": 124,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [127, 6],
+    "fields": {
+      "prato": 127,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [134, 5],
+    "fields": {
+      "prato": 134,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [136, 2],
+    "fields": {
+      "prato": 136,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [136, 5],
+    "fields": {
+      "prato": 136,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [138, 6],
+    "fields": {
+      "prato": 138,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [139, 6],
+    "fields": {
+      "prato": 139,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [147, 10],
+    "fields": {
+      "prato": 147,
+      "marcador": 10
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [148, 9],
+    "fields": {
+      "prato": 148,
+      "marcador": 9
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [148, 2],
+    "fields": {
+      "prato": 148,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [151, 6],
+    "fields": {
+      "prato": 151,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [154, 2],
+    "fields": {
+      "prato": 154,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [160, 1],
+    "fields": {
+      "prato": 160,
+      "marcador": 1
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [160, 2],
+    "fields": {
+      "prato": 160,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [160, 6],
+    "fields": {
+      "prato": 160,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [161, 2],
+    "fields": {
+      "prato": 161,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [161, 6],
+    "fields": {
+      "prato": 161,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [162, 8],
+    "fields": {
+      "prato": 162,
+      "marcador": 8
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [164, 6],
+    "fields": {
+      "prato": 164,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [169, 5],
+    "fields": {
+      "prato": 169,
+      "marcador": 5
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [171, 4],
+    "fields": {
+      "prato": 171,
+      "marcador": 4
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [172, 10],
+    "fields": {
+      "prato": 172,
+      "marcador": 10
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [173, 2],
+    "fields": {
+      "prato": 173,
+      "marcador": 2
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [173, 6],
+    "fields": {
+      "prato": 173,
+      "marcador": 6
+    }
+  },
+  {
+    "model": "cardapio.pratomarcador",
+    "pk": [176, 6],
+    "fields": {
+      "prato": 176,
+      "marcador": 6
+    }
+  }
+]

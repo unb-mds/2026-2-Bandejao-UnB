@@ -15,7 +15,8 @@
 > `docs/arquitetura/adr/0008-matricula-siape-em-texto-claro.md`,
 > `docs/arquitetura/adr/0009-deteccao-de-campus-no-aparelho.md`,
 > `docs/arquitetura/adr/0010-nivel-por-chegadas-com-espera-estimada.md`,
-> `docs/arquitetura/adr/0011-contadores-de-gamificacao-alem-da-janela-de-retencao.md`.
+> `docs/arquitetura/adr/0011-contadores-de-gamificacao-alem-da-janela-de-retencao.md`,
+> `docs/arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md`.
 >
 > Esta versão incorpora a Release 2 (pergunta de saída da fila, espera
 > estimada e detecção de campus no aparelho) e a gamificação (pontos,
@@ -76,8 +77,8 @@ RUs dos campi da UnB."]]
 
   site_ru{{"🌐 Site do RU
 Sistema Externo
-Publica semanalmente o PDF de cardápio
-de cada campus."}}
+Publica semanalmente, numa página de
+cardápios, o PDF de cada campus."}}
   email_svc{{"🌐 Serviço de E-mail
 Sistema Externo
 Envia links de confirmação de cadastro e
@@ -91,8 +92,8 @@ faz check-in, responde à pergunta de saída,
 acompanha seu progresso e adere ao ranking [HTTPS]"| bandejao
   equipe -->|"Opera e modera o sistema; trata alertas
 [HTTPS / acesso administrativo]"| bandejao
-  bandejao -->|"Baixa o PDF semanal de cardápio
-de cada campus [HTTPS]"| site_ru
+  bandejao -->|"Lê a página de cardápios e baixa
+o PDF semanal de cada campus [HTTPS]"| site_ru
   bandejao -->|"Envia e-mails de confirmação, de
 redefinição de senha e alertas de falha
 do leitor [SMTP]"| email_svc
@@ -132,6 +133,10 @@ de Cardápio (ADR 0006) [E-mail]"| equipe
   matrícula/SIAPE.** O sistema confere apenas o formato do identificador
   (RF01); não verifica existência, situação ativa nem titularidade (L01). A
   ausência dessa integração é uma decisão de escopo, não um esquecimento.
+- **O Site do RU não tem URL fixa por campus.** O RU publica o PDF de
+  cada campus numa página de cardápios, com um nome de arquivo que muda toda
+  semana. O Bandejão lê essa página e acha o PDF de cada campus pelo nome do
+  campus no título do bloco, nunca pela ordem dos blocos (ADR 0014).
 - **A Equipe recebe alertas por e-mail.** Quando a leitura do PDF falha, o
   Bandejão avisa a Equipe pelo mesmo Serviço de E-mail usado no cadastro e na
   recuperação de senha (ADR 0006). Por isso há uma seta do Serviço de E-mail
@@ -162,8 +167,8 @@ Opera e modera o sistema."])
 
   site_ru{{"🌐 Site do RU
 Sistema Externo
-Publica o PDF semanal de
-cardápio de cada campus."}}
+Publica numa página de cardápios
+o PDF semanal de cada campus."}}
   email_svc{{"🌐 Serviço de E-mail
 Sistema Externo
 Brevo, via SMTP. Entrega
@@ -214,8 +219,8 @@ ao ranking [HTTPS/JSON]"| backend
   backend -->|"Lê e grava contas, cardápio, avaliações,
 check-ins, respostas e contadores de
 gamificação [Django ORM/SQL]"| db
-  backend -->|"Baixa o PDF semanal de cardápio
-(módulo Leitor de Cardápio) [HTTPS]"| site_ru
+  backend -->|"Lê a página de cardápios e baixa o PDF
+de cada campus (módulo Leitor de Cardápio) [HTTPS]"| site_ru
   backend -->|"Envia e-mails de confirmação, de
 redefinição de senha e alertas de falha
 do Leitor de Cardápio [SMTP]"| email_svc
@@ -265,8 +270,8 @@ com limite de avisos (ADR 0006) [E-mail]"| equipe
 - **Leitor de Cardápio não é um container à parte.** É um módulo (app Django)
   dentro do Backend, com fronteira nítida, conforme ADR 0003. Só seria
   promovido a container separado se a melhor biblioteca de leitura de PDF
-  exigisse outra linguagem — o que ainda depende de um teste com o PDF real
-  do RU do Gama.
+  exigisse outra linguagem. O teste com os PDFs reais (BE-04) mostrou que
+  não exige: a biblioteca escolhida é o `pdfplumber`, em Python.
 - **Gamificação também não é um container à parte.** Pontos, sequência,
   patente e ranking (RF24 a RF27) ficam em um app Django próprio dentro do
   Backend (RNF06), e os contadores ficam no mesmo Banco de Dados, ligados à
@@ -290,7 +295,8 @@ com limite de avisos (ADR 0006) [E-mail]"| equipe
     pontos (RI11).
 - **O agendador (cron do sistema operacional) não aparece como elemento no
   diagrama.** É infraestrutura de deploy, não um container da aplicação
-  (ADR 0003). Além de disparar a leitura do cardápio, o mesmo agendador roda
+  (ADR 0003). Além de disparar a leitura do cardápio, de 3 em 3 horas
+  (ADR 0014), o mesmo agendador roda
   as tarefas periódicas do Backend: o `clearsessions` do Django (ADR 0007),
   a exclusão de cadastro pendente expirado (RF02.3) e a remoção do vínculo
   com a conta dos registros de fila após 4 semanas (RNF07.3). Na
@@ -317,10 +323,14 @@ com limite de avisos (ADR 0006) [E-mail]"| equipe
 - **Serviço de E-mail: Brevo, via SMTP (ADR 0012).** Os e-mails saem com o
   remetente `nao-responda@bandejaounb.com.br`, e os alertas à Equipe vão para
   `equipe@bandejaounb.com.br`, que também é o canal de contato do site
-  (RNF08). Como o envio é por SMTP comum, trocar de provedor exige só mudar a
-  configuração, sem alterar este diagrama.
-- **Hospedagem: VPS da Hostinger (ADR 0012).** O PWA, o Backend e o Banco de
-  Dados rodam na mesma VPS, com Docker Compose. O servidor web (Caddy), que
+  (RNF08). O envio usa SMTP autenticado na porta 587, porque a Azure bloqueia
+  a porta 25. Como o envio é por SMTP comum, trocar de provedor (ou passar
+  para a API HTTP do Brevo, prevista como plano B na ADR 0012) exige só mudar
+  a configuração, sem alterar este diagrama.
+- **Hospedagem: máquina virtual Linux da Azure, paga com o crédito da Azure
+  for Students (ADR 0012).** A hospedagem atende a entrega da disciplina e
+  será reavaliada se o sistema continuar no ar depois. O PWA, o Backend e o
+  Banco de Dados rodam na mesma VM, com Docker Compose. O servidor web (Caddy), que
   serve o PWA e encaminha `/api/` ao Backend sob o mesmo domínio, é
   infraestrutura de deploy, assim como o agendador, e por isso também não
   aparece como container.

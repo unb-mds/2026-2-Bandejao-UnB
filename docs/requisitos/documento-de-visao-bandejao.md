@@ -44,10 +44,10 @@ Os termos do domínio abaixo seguem o glossário do projeto (`docs/requisitos/CO
 - **Frequentadores do RU** — todas as pessoas que se alimentam nos RUs da UnB, tenham conta no Bandejão ou não. Inclui a Comunidade, terceirizados e externos.
 - **Comunidade** — estudantes (com matrícula de aluno) e professores/servidores (com SIAPE/matrícula funcional) da UnB. É o público que pode ter conta no Bandejão.
 - **Visitante** — quem usa o Bandejão sem estar logado, tenha ou não conta. Consulta o cardápio e, na Release 2, a previsão de pico, mas não avalia refeições nem faz check-in. É uma condição de uso, não um tipo de pessoa: quem faz login deixa de ser Visitante.
-- **Usuário** — conta no Bandejão, ligada a exatamente uma matrícula ou um SIAPE. É a conta que se autentica, avalia e faz check-in, não a pessoa: quem tem mais de uma vinculação pode ter mais de um Usuário.
+- **Usuário** — conta no Bandejão, ligada a exatamente uma matrícula ou um SIAPE e a um e-mail institucional. É a conta que se autentica (com o e-mail institucional e a senha), avalia e faz check-in, não a pessoa: quem tem mais de uma vinculação pode ter mais de um Usuário.
 - **Tipo de usuário** — vínculo declarado no cadastro: Estudante (matrícula) ou Professor/Servidor (SIAPE/matrícula funcional). É um único tipo interno: "Professor" e "Servidor" são duas opções na tela de cadastro que levam ao mesmo fluxo.
 - **Matrícula / SIAPE** — identificador institucional associado à conta. Para Estudante, é extraído do e-mail institucional informado no cadastro; para Professor/Servidor, é informado diretamente. É dado privado: nunca é exibido a outros usuários.
-- **E-mail institucional** — e-mail da UnB informado no cadastro (`matricula@aluno.unb.br` para estudantes, `@unb.br` para professores/servidores), único canal de confirmação de cadastro e de recuperação de senha; fonte da Matrícula (estudantes) e do Apelido (professores/servidores).
+- **E-mail institucional** — e-mail da UnB informado no cadastro (`matricula@aluno.unb.br` para estudantes, `@unb.br` para professores/servidores), usado para entrar na conta e único canal de confirmação de cadastro e de recuperação de senha; fonte da Matrícula (estudantes) e do Apelido (professores/servidores).
 - **Apelido** — nome público do usuário, escolhido uma única vez no cadastro e único entre os usuários. É sob ele que as avaliações e, para quem optar por aparecer, o Ranking são exibidos. Escolhido manualmente por Estudante; extraído do e-mail institucional para Professor/Servidor.
 
 **Lugares**
@@ -193,7 +193,7 @@ A descrição de cada parte interessada está na Seção 3.2.
 - **Critérios de sucesso:** entregar um MVP funcional e bem documentado, com os filtros de marcadores e de dieta e a apresentação refinada do cardápio operando nele, e manter o sistema no ar após o fim da disciplina.
 - **Envolvimento:** execução direta do projeto.
 - **Entregas:** Documento de Requisitos de Software, Documento de Visão, MVP funcional (entregue) e Release 2 (entrega final).
-- **Problemas/comentários:** desenvolver o software no tempo estabelecido; inexperiência da equipe com algumas das linguagens de programação escolhidas; manter o sistema no ar após a disciplina, com a própria equipe responsável pela manutenção e pela correção de falhas, na hospedagem e com o serviço de e-mail já definidos (4.3 e 4.4).
+- **Problemas/comentários:** desenvolver o software no tempo estabelecido; inexperiência da equipe com algumas das linguagens de programação escolhidas; manter o sistema no ar após a disciplina, com a própria equipe responsável pela manutenção e pela correção de falhas; a hospedagem atual atende a entrega da disciplina e será reavaliada nesse caso (4.3 e 4.4).
 
 **Orientadora**
 - **Representante:** Profa. Carla Silva Rocha Aguiar.
@@ -253,7 +253,7 @@ A descrição de cada perfil está na Seção 3.3. Estudantes e professores/serv
 O Bandejão é um sistema web PWA independente e autocontido. Para funcionar em sua capacidade total, depende de fontes externas e de recursos do dispositivo:
 
 - **Leitura automatizada do PDF do cardápio** publicado no site do RU, fonte externa e não estruturada, fora do controle da equipe (4.3 e Seção 6).
-- **Identidade por matrícula/SIAPE e e-mail institucional:** o cadastro exige matrícula (estudantes, extraída do e-mail institucional `matricula@aluno.unb.br`) ou SIAPE/matrícula funcional (professores e servidores, informado diretamente), além do próprio e-mail institucional. Para estudantes, o sistema confere o formato de forma mais rigorosa que uma simples contagem de dígitos: 9 dígitos numéricos, com os 3 primeiros consistentes com um ano/semestre de ingresso entre 2010.1 e o semestre corrente, e os 6 restantes sem ser uma sequência óbvia (crescente, decrescente ou todos iguais). Ainda assim, isso segue sendo apenas uma validação de **formato**: o sistema não confere se a matrícula/SIAPE existe, está ativa ou pertence a quem a informa junto a nenhum sistema da UnB. Validação real de identidade não está prevista (Seção 6).
+- **Identidade por matrícula/SIAPE e e-mail institucional:** o cadastro exige matrícula (estudantes, extraída do e-mail institucional `matricula@aluno.unb.br`) ou SIAPE/matrícula funcional (professores e servidores, informado diretamente), além do próprio e-mail institucional. Para estudantes, o sistema confere o formato de forma mais rigorosa que uma simples contagem de dígitos: 9 dígitos numéricos, com os 2 primeiros consistentes com um ano de ingresso entre 2010 e o ano corrente, e os 6 últimos sem ser uma sequência óbvia (crescente, decrescente ou todos iguais). Ainda assim, isso segue sendo apenas uma validação de **formato**: o sistema não confere se a matrícula/SIAPE existe, está ativa ou pertence a quem a informa junto a nenhum sistema da UnB. Validação real de identidade não está prevista (Seção 6).
 - **Localização do dispositivo (Release 2):** o GPS do navegador, mediante permissão do usuário, serve a dois usos. Na detecção do campus, a comparação é feita no próprio aparelho e as coordenadas não saem dele. Na confirmação do check-in no RU, as coordenadas são enviadas ao servidor apenas para a conferência e descartadas em seguida. Em nenhum caso são armazenadas.
 
 O sistema se comporta "como uma espécie de porta": o visitante pode consultar o cardápio (e, na Release 2, a previsão de pico) sem se cadastrar; o usuário, com conta e login, acessa funcionalidades adicionais: avaliação de refeições e, na Release 2, check-in.
@@ -276,7 +276,7 @@ O sistema se comporta "como uma espécie de porta": o visitante pode consultar o
 
 ### 4.3 Suposições e dependências
 
-- **Dependência:** publicação regular do cardápio, em PDF, no site oficial do RU. É uma fonte externa fora do controle da equipe; o risco está descrito na Seção 6.
+- **Dependência:** publicação regular do cardápio, em PDF, no site oficial do RU. É uma fonte externa fora do controle da equipe e sem dia fixo de publicação: o cardápio da semana costuma sair no fim de semana, às vezes só na segunda-feira, e pode ser corrigido com a semana em andamento. O risco está descrito na Seção 6.
 - **Suposição (MVP):** os usuários avaliam as refeições de boa-fé. Como a matrícula/SIAPE não é validada e não se exige prova de presença para avaliar, a confiabilidade da nota média depende dessa boa-fé (11.4).
 - **Suposição (Release 2):** os usuários farão check-in com regularidade. A previsão só é exibida quando há check-ins em 3 dias distintos nas últimas 4 semanas; no início da operação, é esperado que ela apareça como "dados insuficientes". A espera estimada depende ainda de os usuários responderem à pergunta de saída da fila e só é exibida com ao menos 3 respostas em 2 dias distintos.
 - **Regra de negócio (Release 2):** a fila é estimada exclusivamente a partir de dados que os próprios usuários informam sobre a sua presença (check-in) e a sua saída da fila: o nível da previsão vem dos check-ins, e a espera estimada, das respostas sobre a saída da fila. Não há votação sobre o nível da fila nem sensores (Seção 6).
@@ -284,11 +284,20 @@ O sistema se comporta "como uma espécie de porta": o visitante pode consultar o
 - **Regra de negócio (Release 2):** a gamificação recompensa o ato de contribuir, não o conteúdo: os pontos não dependem da resposta à pergunta de saída da fila, da nota, do comentário, do horário do check-in nem do nível da fila, e só o check-in confirmado por GPS pontua. Os contadores de gamificação ficam ligados à conta por mais tempo que a janela de 4 semanas dos registros de fila (ADR 0011).
 - **Dependência (Release 2):** permissão de localização concedida pelo usuário ao navegador. Sem ela, o campus não é detectado (valem o campus lembrado ou a escolha manual) e o check-in não é possível.
 - **Suposição (operação):** a moderação de avaliações e de contas é manual no início, feita diretamente pela equipe, sem tela administrativa. Há a intenção de automatizá-la após o fim da disciplina.
-- **Suposição (continuidade):** há a intenção de manter o sistema no ar após o fim da disciplina, para ver se a comunidade acadêmica o adota no dia a dia, com correções eventuais de falhas. A própria equipe continua responsável pela manutenção, na hospedagem e com o serviço de e-mail definidos em 4.4.
+- **Suposição (continuidade):** há a intenção de manter o sistema no ar após o fim da disciplina, para ver se a comunidade acadêmica o adota no dia a dia, com correções eventuais de falhas. A própria equipe continua responsável pela manutenção. A hospedagem definida em 4.4 atende a entrega da disciplina; para continuar no ar, a equipe decide se a mantém ou se troca por uma opção que suporte mais tráfego.
 
 ### 4.4 Custo e precificação
 
-O Bandejão é um projeto acadêmico da disciplina de MDS, sem indicação de fins comerciais. Há a intenção de manter o sistema no ar após o fim da disciplina. O sistema fica hospedado em uma VPS da Hostinger, no domínio `bandejaounb.com.br`, e os e-mails automáticos são enviados pelo Brevo, inicialmente no plano gratuito (ADR 0012, `docs/arquitetura/adr/0012-hospedagem-e-servico-de-email.md`). O custo recorrente se limita à VPS e ao domínio. Após a disciplina, a própria equipe continua responsável pela manutenção e pela correção de falhas; quem tem acesso a cada conta (Hostinger, Brevo e a conta da equipe, `equipe.bandejao@gmail.com`) fica registrado nas instruções de deploy.
+O Bandejão é um projeto acadêmico da disciplina de MDS, sem indicação de fins comerciais. Há a intenção de manter o sistema no ar após o fim da disciplina. Para a entrega da disciplina, o sistema fica hospedado em uma máquina virtual Linux da Azure, paga com o crédito da assinatura **Azure for Students** (US$ 100, sem cartão de crédito, válido por 12 meses), no domínio `bandejaounb.com.br`. Os e-mails automáticos são enviados pelo Brevo, inicialmente no plano gratuito (ADR 0012, `docs/arquitetura/adr/0012-hospedagem-e-servico-de-email.md`). Com isso, o custo para a equipe se limita ao domínio, enquanto o consumo ficar dentro do crédito. Se a equipe mantiver o sistema no ar após a disciplina, ela decide se continua na Azure ou se troca por uma hospedagem que suporte mais tráfego; a VPS da Hostinger, escolhida antes da recomendação da monitoria, continua como candidata. Quem tem acesso a cada conta (assinatura Azure, Brevo, registro do domínio e a conta da equipe, `equipe.bandejao@gmail.com`) fica registrado nas instruções de deploy.
+
+**Cuidados com a hospedagem na Azure for Students:**
+
+- **Usar a VM, não os serviços gerenciados.** Uma VM Linux pequena, com 2 GB de RAM ou mais, e o MySQL num container dentro dela. O banco gerenciado da Azure (Azure Database for MySQL) e o App Service gastariam o crédito rápido, e o App Service não tem o cron de que o Leitor de Cardápio depende.
+- **Escolher bem a região.** A Brazil South tem menos latência para os usuários, mas costuma ser mais cara que as regiões dos EUA, e algumas regiões têm restrições em assinaturas de estudante. O preço da VM, do disco e do IP é conferido na calculadora da Azure antes de criar os recursos.
+- **Acompanhar o crédito.** Recursos esquecidos ligados (VMs de teste, discos, IPs) consomem o crédito. Quando ele acaba, a Azure desliga os recursos, e o sistema sai do ar. A equipe configura um alerta de orçamento no portal e confere o consumo a cada semana.
+- **A assinatura depende de uma pessoa.** Ela é criada com o e-mail institucional de um membro e fica presa ao vínculo estudantil dele. Esse membro dá acesso aos demais pelo controle de acesso (IAM) da assinatura, e o nome do dono fica registrado nas instruções de deploy, junto com as outras contas da conta-mestra `equipe.bandejao@gmail.com`.
+- **O domínio não muda.** O `bandejaounb.com.br` continua no registrador onde foi contratado; basta apontar o DNS para o IP estático da VM.
+- **E-mail pela porta 587.** A Azure bloqueia o envio pela porta 25. O Brevo é usado por SMTP autenticado na porta 587 (ou 2525). Se as duas falharem, o envio passa para a API HTTP do Brevo, mudando só a configuração. A chegada dos e-mails em `@aluno.unb.br` e `@unb.br`, incluindo a caixa de spam, é testada a partir da VM antes da entrega (QA-01).
 
 ### 4.5 Licenciamento e instalação
 
@@ -302,7 +311,7 @@ A alocação de cada recurso é indicada abaixo (MVP, Release 2 ou Backlog); imp
 
 ### Épico 1 — Login
 
-- **5.1** Cadastro em duas etapas — escolha do tipo de usuário (Estudante, Professor ou Servidor) e, em seguida, os campos daquele tipo — com validação de formato de matrícula (estudantes, extraída do e-mail institucional) ou SIAPE/matrícula funcional (professores e servidores), apelido manual (estudantes) ou extraído do e-mail institucional (professores e servidores), confirmação de e-mail e login; inclui aviso de privacidade (RF01 a RF03, exceto RF03.3 e RF03.4) — MVP
+- **5.1** Cadastro em duas etapas — escolha do tipo de usuário (Estudante, Professor ou Servidor) e, em seguida, os campos daquele tipo — com validação de formato de matrícula (estudantes, extraída do e-mail institucional) ou SIAPE/matrícula funcional (professores e servidores), apelido manual (estudantes) ou extraído do e-mail institucional (professores e servidores), confirmação de e-mail e login com matrícula/SIAPE e senha; inclui aviso de privacidade (RF01 a RF03, exceto RF03.3 e RF03.4) — MVP (na Release 2, o login passou a usar o e-mail institucional e a senha no lugar da matrícula/SIAPE, RF03.1, ADR 0016)
 - **5.1.1** Encerramento de sessão (sair da conta) (RF03.3) — Release 2
 - **5.2** Recuperação de senha por e-mail (RF04) — MVP
 - **5.3** Navegação sem login: consulta ao cardápio sem necessidade de cadastro (RF05) — MVP
@@ -359,7 +368,7 @@ Os recursos 5.21 a 5.24 e o 5.30 pertencem à Release 2, e os 5.25 a 5.29, ao Ba
 
 ## 6. Restrições
 
-- **Cardápio em PDF:** o cardápio vem de um PDF publicado pelo próprio RU, fonte não estruturada e fora do controle da equipe. Mudanças no formato do arquivo podem comprometer a leitura automatizada (4.3).
+- **Cardápio em PDF:** o cardápio vem de um PDF publicado pelo próprio RU, fonte não estruturada e fora do controle da equipe. Mudanças no formato do arquivo ou na página em que o RU o publica podem comprometer a leitura automatizada (4.3; L15 no Documento de Requisitos).
 - **Fila sem sensor e sem votação:** a estimativa da fila (Release 2) não usa sensor físico, votação sobre o nível da fila nem fonte de dados independente; depende inteiramente dos check-ins e das respostas sobre a saída da fila dos usuários cadastrados (4.3). A espera estimada tende a ficar abaixo da realidade (L12 no Documento de Requisitos).
 - **Localização sujeita à permissão:** a detecção do campus e a confirmação do check-in dependem de o usuário permitir a localização ao navegador. Sem permissão, o campus não é detectado e o check-in não é possível.
 - **Identidade não validada:** o cadastro exige matrícula ou SIAPE/matrícula funcional em formato válido, mas o sistema não valida a existência, a situação ativa nem a titularidade do identificador; não há validação real prevista. Terceirizados e demais pessoas sem matrícula ou SIAPE não podem se cadastrar e usam o sistema como visitantes.
@@ -368,6 +377,7 @@ Os recursos 5.21 a 5.24 e o 5.30 pertencem à Release 2, e os 5.25 a 5.29, ao Ba
 - **Escopo:** restrito às informações dos RUs dos campi da UnB, sem abranger outros restaurantes ou cantinas. O Restaurante Executivo do Campus Darcy Ribeiro está excluído do escopo. Ele funciona no mesmo prédio do RU, com fila e cardápio próprios; o GPS não distingue os dois (L11), e a tela do campus exibe um aviso discreto de que as informações são apenas do RU.
 - **Gamificação e dados pessoais:** os contadores de gamificação (pontos, sequência, patente e adesão ao ranking) ficam ligados à conta por mais tempo que a janela de 4 semanas dos registros de fila (ADR 0011), e os pontos revelam, de forma aproximada, a frequência de uso do RU. Por isso o ranking é opcional, separado por campus, semestral e exibe a patente, não os pontos. Pelo mesmo motivo, só a posição final do semestre anterior fica guardada, e ela é mostrada apenas ao próprio usuário; em público aparece somente a Bandeja de Ouro, e só para quem aderiu ao ranking.
 - **Gamificação herda as limitações de identidade e de localização:** sem validação de identidade, uma pessoa com várias contas acumula pontos em cada uma, e o GPS não distingue o RU do Restaurante Executivo (L02, L11 e L13 no Documento de Requisitos).
+- **Hospedagem com crédito de estudante:** o sistema roda com o crédito limitado da Azure for Students, preso ao vínculo estudantil de um membro. Se o crédito acabar ou a assinatura não for renovada, o sistema sai do ar até a equipe migrar a hospedagem (4.4, ADR 0012).
 
 ---
 
@@ -377,10 +387,10 @@ Os requisitos não funcionais estão detalhados no Documento de Requisitos (RNF0
 
 | Categoria | Meta | Requisito |
 |---|---|---|
-| Desempenho (Métrica de Eficiência) | Visualização do cardápio (e, na Release 2, da previsão de pico) respondida em até 3 segundos em pelo menos 95% das requisições, com até 2.000 usuários simultâneos | RNF01 |
+| Desempenho (Métrica de Eficiência) | Visualização do cardápio (e, na Release 2, da previsão de pico) respondida em até 3 segundos em pelo menos 95% das requisições, com até 500 usuários simultâneos, cada um com um pedido a cada 3 a 7 s (medido no teste de carga da BD-14, em ambiente de teste com 4 vCPUs) | RNF01 |
 | Disponibilidade e confiabilidade | Pelo menos 95% do tempo durante o horário de funcionamento dos RUs (7h às 19h30), nos dias com refeição servida; se a leitura do PDF falhar, o sistema continua exibindo o último cardápio lido com sucesso | RNF02 |
 | Usabilidade | Cardápio de um campus em no máximo 3 interações na primeira visita (na Release 2, as etapas do aviso de localização contam como interações); interface funcional em telas a partir de 360 px | RNF03 |
-| Manutenibilidade | Cobertura de testes automatizados de no mínimo 60% nos módulos críticos | RNF06 |
+| Manutenibilidade | Nos módulos críticos do backend e do frontend: cobertura de linhas de no mínimo 70%, escore de mutação de no mínimo 50%, teste de sabotagem em todos os módulos e nenhum achado crítico ou alto em aberto na análise estática de segurança | RNF06 |
 
 Os demais requisitos não funcionais — segurança (RNF04), portabilidade e compatibilidade como PWA (RNF05), privacidade e proteção de dados pessoais (RNF07), rastreabilidade e moderação (RNF08) e acompanhamento da adesão (RNF09) — estão descritos no Documento de Requisitos.
 
@@ -439,7 +449,7 @@ O tratamento dos dados pessoais (matrícula/SIAPE, e-mail e apelido e, na Releas
 
 ### 9.2 Requisitos de sistema
 
-O requisito de sistema definido é a entrega como PWA, que exige navegador compatível (instalação na tela inicial, service workers), em desktop e dispositivos móveis (RNF05). Na Release 2, o navegador deve oferecer geolocalização, com permissão do usuário. O backend é em Python, com Django REST Framework para construir a API; o banco de dados é SQLite em desenvolvimento e MySQL em produção (ver ADR 0001, `docs/arquitetura/adr/0001-escolha-stack-backend.md`). A hospedagem é uma VPS da Hostinger com Docker Compose, em que o Caddy serve o PWA e a API sob o mesmo domínio, com HTTPS, e o cron do sistema operacional roda as tarefas periódicas; o envio de e-mails é feito pelo Brevo, via SMTP (ADR 0012).
+O requisito de sistema definido é a entrega como PWA, que exige navegador compatível (instalação na tela inicial, service workers), em desktop e dispositivos móveis (RNF05). Na Release 2, o navegador deve oferecer geolocalização, com permissão do usuário. O backend é em Python, com Django REST Framework para construir a API; o banco de dados é SQLite em desenvolvimento e MySQL em produção (ver ADR 0001, `docs/arquitetura/adr/0001-escolha-stack-backend.md`). A hospedagem é uma máquina virtual Linux da Azure (Azure for Students) com Docker Compose, em que o Caddy serve o PWA e a API sob o mesmo domínio, com HTTPS, e o cron do sistema operacional roda as tarefas periódicas; o envio de e-mails é feito pelo Brevo, via SMTP autenticado na porta 587 (ADR 0012).
 
 ### 9.3 Requisitos de desempenho
 
@@ -489,9 +499,9 @@ Definido pela Matriz de Impacto x Esforço: baixo ou alto esforço por item (Se�
 
 ### 11.4 Risco
 
-Os riscos e as limitações conhecidos estão na Seção 5 do Documento de Requisitos (L01 a L14). Os que mais afetam a visão do produto são:
+Os riscos e as limitações conhecidos estão na Seção 5 do Documento de Requisitos (L01 a L15). Os que mais afetam a visão do produto são:
 
-- **Dependência do PDF externo:** mudanças no formato do arquivo podem comprometer a leitura do cardápio (Seção 6).
+- **Dependência do PDF externo (L15):** mudanças no formato do arquivo ou na página de publicação podem comprometer a leitura do cardápio (Seção 6).
 - **Identidade não validada e contas múltiplas (L01, L02):** alguém pode cadastrar a matrícula de outra pessoa, uma matrícula inventada de formato válido ou várias contas. Isso afeta a confiabilidade da nota média já no MVP.
 - **Avaliação sem prova de presença (L06):** no MVP, qualquer usuário autenticado pode avaliar uma refeição do dia depois que ela começou, sem comprovar que comeu.
 - **Baixa adesão ao check-in e à pergunta de saída da fila (L08), risco da Release 2:** com poucos check-ins ou poucas respostas, a previsão de pico e a espera estimada são pouco representativas.

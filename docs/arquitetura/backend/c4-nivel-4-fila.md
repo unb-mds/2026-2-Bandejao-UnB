@@ -70,11 +70,11 @@ classDiagram
     +registrarTentativa(tentativa: TentativaCheckin) void
     +contarPorFaixa(campus: Campus, tipoRefeicao: str, datas: list~date~, faixas: list~FaixaHorario~) list~ContagemDia~
     +desvincularAntesDe(data: date) int
-    +desvincularConta(conta: Conta) void
+    +desvincularConta(conta: Conta) int
   }
   class CheckinDuplicadoError
   class ConfirmacaoLocalizacaoService {
-    +confirmar(campus: Campus, coordenadas: Coordenadas) bool
+    +confirmar(campus: Campus, coordenadas: Coordenadas) void
   }
   class DistanciaGeografica {
     +metros(a: Coordenadas, b: Coordenadas) float
@@ -87,6 +87,7 @@ classDiagram
   class LocalizacaoNaoConfirmadaError
   class LocalizacaoRUConfig {
     <<lê CAMPUS, valores do Anexo A>>
+    +confirmacaoAtiva(campus: Campus) bool
     +centro(campus: Campus) Coordenadas
     +raioMetros(campus: Campus) int
   }
@@ -135,8 +136,8 @@ classDiagram
   CheckinRepository ..> CheckinDuplicadoError : lança se já existe (RI03)
   CheckinService --> ConfirmacaoLocalizacaoService : 3. confirma localização
   ConfirmacaoLocalizacaoService --> DistanciaGeografica : calcula distância ao RU
-  ConfirmacaoLocalizacaoService --> LocalizacaoRUConfig : lê centro e raio
-  ConfirmacaoLocalizacaoService ..> LocalizacaoNaoConfirmadaError : lança se fora do raio
+  ConfirmacaoLocalizacaoService --> LocalizacaoRUConfig : lê disponibilidade, centro e raio
+  ConfirmacaoLocalizacaoService ..> LocalizacaoNaoConfirmadaError : lança se desativada ou fora do raio
   ConfirmacaoLocalizacaoService ..> Coordenadas : usa e descarta
   CheckinService --> CheckinRepository : 4. registra tentativa / salva check-in
   CheckinService --> Checkin : cria, se confirmado
@@ -241,8 +242,29 @@ classDiagram
   RU. O Anexo A exige que o raio do Darcy Ribeiro exclua o Restaurante
   Executivo (RI08); isso só pode ser validado com as coordenadas reais dos
   dois locais, e vale registrar o valor escolhido junto com essa justificativa.
+- **Contrato da confirmação de localização (BD-03 / BE-09):** `ConfirmacaoLocalizacaoService.confirmar` retorna sem valor (`None` em Python) quando a localização é confirmada e lança `LocalizacaoNaoConfirmadaError`, correspondente a `localizacao_nao_confirmada`, quando a confirmação está desativada ou a localização está fora do raio. O serviço consulta a disponibilidade por `LocalizacaoRUConfig.confirmacaoAtiva(campus)`, que lê `Campus.confirmacao_ativa`, antes de calcular a distância. Centro e raio também são obtidos pela configuração. Uma confirmação recusada não registra check-in confirmado nem concede pontos. O banco impede raios negativos e exige raio de confirmação positivo quando a confirmação está ativa. Raios zero com confirmação desativada representam indisponibilidade e nunca autorizam confirmação por coincidência de coordenadas. A implementação desse fluxo pertence à BE-09; o BD-03 fornece os dados, as constraints e o contrato documentado.
 - **IDs inteiros (decidido com o time de banco de dados).** `id`, `contaId` e as demais referências são
   inteiros autoincrementais, como no banco.
+- **Implementação da BE-09 (#136).** O que a v1 entrega e o que fica para
+  depois, em relação ao diagrama:
+  - Corpo fora do formato, campus ou refeição inexistente e coordenada fora
+    da faixa (latitude entre -90 e 90, longitude entre -180 e 180) dão `400`
+    com `"codigo": "dados_invalidos"`, antes do passo 0. Não é tentativa e
+    nada é gravado. A mensagem é fixa, para não repetir um valor enviado
+    (RI09).
+  - O horário é comparado em Brasília, com início e fim do Anexo A inclusive
+    (`HorariosRefeicaoConfig`); a `data` do check-in e da tentativa é o dia de
+    Brasília. O raio também é inclusivo: a borda conta como dentro.
+  - O passo 6 (pergunta de saída) e o `perguntaDevidaEm` são da BE-E1, e o
+    `bonusSemana` fica fora da v1 (contrato da BE-03). O 201 da v1 é
+    `{"checkin": {...}, "pontos": {"total", "contribuicao", "avaliacaoLiberada"}}`.
+  - O passo 5 chama `PontuacaoService.registrar_contribuicao` na mesma
+    transação. Até a BE-14, é uma versão mínima que não grava nada e devolve
+    zero ponto (com `total` 0 o PWA não mostra o aviso, RF24.2). A BE-14
+    implementa a regra sem mudar a assinatura.
+  - A `TentativaCheckin` confirmada entra na mesma transação do check-in e
+    da pontuação: se a pontuação falhar, nenhuma das três é gravada e a
+    pessoa recebe `500` e tenta de novo.
 
 ## Nível 4b — Pergunta de saída da fila
 
@@ -455,10 +477,10 @@ classDiagram
     +get(campus: Campus, tipoRefeicao: str) Response
   }
   class PrevisaoService {
-    +calcular(campus: Campus, tipoRefeicao: str, data: date) PrevisaoPico
+    +calcular(campus: Campus, tipoRefeicao: str, data: date, hoje: date) PrevisaoPico
   }
   class JanelaHistoricoResolver {
-    +datasDaJanela(data: date) list~date~
+    +datasDaJanela(data: date, hoje: date) list~date~
   }
   class FaixaHorarioGenerator {
     +faixas(tipoRefeicao: str) list~FaixaHorario~
@@ -471,10 +493,10 @@ classDiagram
     +suficiente(contagens: list~ContagemDia~) bool
   }
   class MediaPorFaixaCalculator {
-    +calcular(contagens: list~ContagemDia~) list~float~
+    +calcular(contagens: list~ContagemDia~) list~Fraction~
   }
   class ClassificadorNivelFila {
-    +classificar(mediaFaixa: float, mediaMaxima: float) NivelFila
+    +classificar(mediaFaixa: Fraction, mediaMaxima: Fraction) NivelFila
   }
   class NivelFila {
     <<enumeration>>
@@ -519,7 +541,7 @@ classDiagram
     +contarPorFaixa(campus: Campus, tipoRefeicao: str, datas: list~date~, faixas: list~FaixaHorario~) list~ContagemDia~
     +temposDeEspera(campus: Campus, tipoRefeicao: str, datas: list~date~) list~Checkin~
     +desvincularAntesDe(data: date) int
-    +desvincularConta(conta: Conta) void
+    +desvincularConta(conta: Conta) int
   }
   class ContagemDia {
     +data: date
@@ -607,6 +629,21 @@ classDiagram
   `ehPico = true` (RN06, decidido pelo grupo); e o agrupamento em faixas de 15 minutos deve usar o
   horário local (America/Sao_Paulo), não UTC, senão as faixas ficam
   deslocadas em relação aos horários das refeições.
+- **Detalhes da implementação (BE-15):** a janela são as 4 semanas
+  *anteriores* no mesmo dia da semana, só com os dias que já passaram: hoje
+  não entra, porque a refeição ainda pode estar acontecendo, nem numa data
+  futura cuja janela começaria em hoje ou depois (revisão do #236). A
+  previsão foi pensada para o dia corrente; bem à frente, a janela fica
+  vazia e sai "dados insuficientes". O `hoje` (dia corrente em Brasília) é
+  calculado uma vez na `PrevisaoView`, como o `agora` do check-in. O `contarPorFaixa`
+  devolve só os dias com pelo menos um check-in nas faixas da refeição, e
+  o check-in feito no minuto final (ex.: 14h30, aceito pelo
+  `JanelaCheckinValidator`) entra na última faixa; um check-in fora das
+  faixas só existe se o horário do Anexo A mudar depois, e não é contado.
+  As médias são frações exatas (`Fraction`), e não `float`, para o corte de
+  75% e o empate não se perderem no arredondamento. Check-ins que já
+  perderam a conta na retenção continuam contando. A espera estimada (passo
+  7) fica para a BE-E1: a resposta ainda não tem `esperaEstimadaMin`.
 - **Os níveis são relativos à faixa mais cheia, por definição do RF13.**
   Com pouca adesão (L08), a faixa de pico é "longa" mesmo que a média
   absoluta seja de poucos check-ins; a única proteção é a regra de "dados
@@ -666,11 +703,11 @@ classDiagram
     +registrarTentativa(tentativa: TentativaCheckin) void
     +contarPorFaixa(campus: Campus, tipoRefeicao: str, datas: list~date~, faixas: list~FaixaHorario~) list~ContagemDia~
     +desvincularAntesDe(data: date) int
-    +desvincularConta(conta: Conta) void
+    +desvincularConta(conta: Conta) int
   }
   class RetencaoFilaService {
     +desvincularAntigos(hoje: date) int
-    +desvincularConta(conta: Conta) void
+    +desvincularConta(conta: Conta) int
   }
   class DesvincularRegistrosFilaJob {
     <<management command, disparado por cron>>
@@ -726,6 +763,36 @@ classDiagram
   check-in. O mesmo serviço tem `desvincularConta`, usado pelo
   `RemoverContaCommand` do Cadastro/Autenticação quando uma conta é excluída
   (RNF07.4).
+- **Implementação da BD-11 (#163).** O que o código entrega, em relação ao
+  diagrama:
+  - Nomes em Python: `RetencaoFilaService.desvincular_antigos` e
+    `desvincular_conta` (`apps/fila/retencao_fila_service.py`),
+    `CheckinRepository.desvincular_antes_de` e `desvincular_conta`, e o
+    comando `python manage.py desvincular_registros_fila` com a classe
+    `DesvincularRegistrosFilaJob`.
+  - O prazo é o `retencao_semanas` da `ParametrosFilaConfig`. Sai o que tem
+    `data` **anterior** a 4 semanas antes de hoje, e o próprio dia-limite
+    fica: em 21/11, o check-in de 24/10 continua da conta e o de 23/10 não.
+    "Hoje" é o dia de Brasília (`timezone.localdate()`), o mesmo da `data` do
+    check-in.
+  - O que é anulado: a conta, `Checkin.registrado_em` e
+    `TentativaCheckin.data_hora`. `desvincular_conta` anula os mesmos campos
+    e vale para todos os registros da conta, até os de hoje. Os dois métodos
+    devolvem quantos registros mudaram (por isso `int` no diagrama, nas
+    duas classes); um registro já sem conta e sem hora não conta de novo.
+  - O filtro pega também o registro sem conta e com hora, que sobra quando
+    a conta é apagada sem passar pelo `desvincular_conta` (o `SET_NULL` só
+    anula a conta).
+  - Um `UPDATE` por tabela, sem carregar as linhas, os dois na mesma
+    transação. O agendamento diário no cron é da BD-07 (#147).
+  - **Horários que ficam, sem conta:** `Checkin.pontos_concedidos_em`
+    (marcador da gamificação, ADR 0011), `PerguntaSaida.devida_em` e
+    `expira_em` (check-in + 15 e + 60 min) e `RespostaSaida.respondida_em`.
+    Com eles dá para reconstruir a hora aproximada do check-in, mas não de
+    quem ele foi, então o RNF07.3 continua atendido. Mantê-los foi uma
+    escolha consciente na revisão do #220, a confirmar pela equipe; se
+    preferirem apagá-los também, o lugar é o `_desvincular` do
+    `CheckinRepository`.
 
 ## Notas gerais
 

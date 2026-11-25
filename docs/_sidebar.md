@@ -1,10 +1,17 @@
 - [Início](README.md)
+- [Guia do usuário](guia-do-usuario.md)
 
 - **Requisitos**
   - [Documento de Visão](requisitos/documento-de-visao-bandejao.md)
   - [Documento de Requisitos](requisitos/documento-de-requisitos-bandejao.md)
   - [Glossário do domínio](requisitos/CONTEXT-DOMINIO.md)
   - [Backlog do produto](requisitos/backlog.md)
+  - [Aviso de privacidade](requisitos/aviso-de-privacidade.md)
+
+- **Qualidade**
+  - [Plano de testes](qualidade/plano-de-testes.md)
+  - [Teste de carga (BD-14)](qualidade/teste-de-carga-bd14.md)
+  - [Checklist de qualidade do front (FE-16)](qualidade/checklist-qualidade-front.md)
 
 - **Arquitetura (C4)**
   - [Níveis 1 e 2 — geral](arquitetura/c4-niveis-1-2.md)
@@ -13,10 +20,14 @@
     - [Nível 4 — Cadastro e autenticação](arquitetura/backend/c4-nivel-4-cadastro-autenticacao.md)
     - [Nível 4 — Exposição do cardápio](arquitetura/backend/c4-nivel-4-exposicao-cardapio.md)
     - [Nível 4 — Leitor do cardápio](arquitetura/backend/c4-nivel-4-leitor-cardapio.md)
+    - [Teste do leitor do PDF (BE-04)](arquitetura/backend/teste-leitor-pdf-be-04.md)
     - [Nível 4 — Avaliação](arquitetura/backend/c4-nivel-4-avaliacao.md)
     - [Nível 4 — Fila](arquitetura/backend/c4-nivel-4-fila.md)
+    - [Nível 4 — Gamificação](arquitetura/backend/c4-nivel-4-gamificacao.md)
   - Banco de dados
-    - [Níveis 3 e 4](arquitetura/banco-de-dados/C4-niveis-3-4-banco-de-dados-bandejao.md)
+    - [Nível 3](arquitetura/banco-de-dados/C4-nivel-3-banco-de-dados-bandejao.md)
+    - [Nível 4](arquitetura/banco-de-dados/C4-nivel-4-banco-de-dados-bandejao.md)
+    - [Indicadores de adesão (BD-E5)](arquitetura/banco-de-dados/indicadores-adesao-bd-e5.md)
   - Front-end
     - [Níveis 3 e 4](arquitetura/front-end/c4-niveis-3-4-frontend-bandejao.md)
 
@@ -29,7 +40,23 @@
   - [0006 — Alerta de falha do leitor por e-mail](arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md)
   - [0007 — Sessão autenticada por cookie HttpOnly](arquitetura/adr/0007-sessao-autenticada-por-cookie-httponly.md)
   - [0008 — Matrícula/SIAPE em texto claro](arquitetura/adr/0008-matricula-siape-em-texto-claro.md)
+  - [0009 — Detecção de campus no aparelho](arquitetura/adr/0009-deteccao-de-campus-no-aparelho.md)
+  - [0010 — Nível por chegadas com espera estimada](arquitetura/adr/0010-nivel-por-chegadas-com-espera-estimada.md)
+  - [0011 — Contadores de gamificação além da janela de retenção](arquitetura/adr/0011-contadores-de-gamificacao-alem-da-janela-de-retencao.md)
   - [0012 — Hospedagem e serviço de e-mail](arquitetura/adr/0012-hospedagem-e-servico-de-email.md)
+  - [0013 — Estratégia de testes e portas de qualidade](arquitetura/adr/0013-estrategia-de-testes-e-portas-de-qualidade.md)
+  - [0014 — Descoberta do PDF de cada campus](arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md)
+  - [0015 — Permissões de agentes de IA no repositório](arquitetura/adr/0015-permissoes-de-agentes-de-ia-no-repositorio.md)
+  - [0016 — Login com e-mail institucional](arquitetura/adr/0016-login-com-email-institucional.md)
+
+- **Deploy**
+  - [Deploy de produção](deploy/deploy-producao.md)
+  - [Backup do banco](deploy/backup-banco.md)
+
+- **Operação**
+  - [Roteiro de moderação](operacao/roteiro-de-moderacao.md)
+  - [Monitor de disponibilidade](operacao/monitor-disponibilidade.md)
+  - [Relatório parcial de disponibilidade](operacao/relatorio-disponibilidade-parcial.md)
 
 - **Gestão do projeto**
   - [Atas de reunião](atas-reunioes/README.md)

@@ -48,4 +48,17 @@ function voltar() {
   color: var(--branco-60);
   font-size: 14px;
 }
+
+/* Desktop (FE-23): o botão quadrado do cabeçalho das telas internas. */
+@media (min-width: 1024px) {
+  .voltar:not(.voltar--rotulo) {
+    justify-content: center;
+    width: 41px;
+    height: 41px;
+    border: 1px solid var(--branco-08);
+    border-radius: var(--raio-md);
+    color: var(--branco);
+    background: var(--branco-07);
+  }
+}
 </style>

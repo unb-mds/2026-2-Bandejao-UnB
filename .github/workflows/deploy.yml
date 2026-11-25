@@ -1,0 +1,106 @@
+name: Deploy
+
+# Deploy automático na VM de produção (CD). A cada push na `main`, espera o
+# Backend CI e o Frontend CI do mesmo commit passarem e manda a VM pôr esse
+# commit no ar, pelo deploy/cd/deploy.sh. Configuração (chave SSH, environment
+# e secrets) em docs/deploy/deploy-producao.md, "Deploy automático (CD)".
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  # Para ler o resultado dos outros workflows com o gh.
+  actions: read
+
+# Um deploy por vez, sem cancelar o que já está rodando: parar no meio deixaria
+# a VM entre o código novo e o Compose antigo. Um deploy atrasado não volta o
+# site: o script pula o commit mais antigo que o que está no ar.
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # A soma dos limites dos steps, com folga. Cada step tem o próprio limite:
+    # uma espera longa pelo CI não come o tempo do deploy.
+    timeout-minutes: 115
+    # Os secrets ficam no environment, que só aceita a `main`.
+    environment:
+      name: producao
+      url: https://bandejaounb.com.br
+    steps:
+      - name: Esperar o CI do commit
+        timeout-minutes: 41
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          limite=$((SECONDS + 2400))
+          # Um contador por workflow: um sucesso do outro não zera este.
+          declare -A erros_gh=()
+          while :; do
+            pendente=0
+            for wf in "Backend CI" "Frontend CI"; do
+              # O run mais recente do workflow nesse commit, num push na main
+              # (um "Re-run" conta). Sem run ainda, o resultado é "null null":
+              # pendente. Um erro da API (5xx) não derruba a espera; 5 erros
+              # seguidos no mesmo workflow (nome errado, sem permissão)
+              # derrubam.
+              if r=$(gh run list -R "$GITHUB_REPOSITORY" --workflow "$wf" \
+                --branch main --commit "$GITHUB_SHA" --event push --limit 1 \
+                --json status,conclusion --jq '.[0] | "\(.status) \(.conclusion)"'); then
+                erros_gh[$wf]=0
+              else
+                erros_gh[$wf]=$((${erros_gh[$wf]:-0} + 1))
+                if [ "${erros_gh[$wf]}" -ge 5 ]; then
+                  echo "::error::gh run list falhou 5 vezes seguidas para $wf: sem deploy."
+                  exit 1
+                fi
+                echo "::warning::gh run list falhou para $wf; tentando de novo."
+                r=pendente
+              fi
+              case "$r" in
+                "completed success") ;;
+                completed*)
+                  echo "::error::$wf terminou com '${r#completed }': sem deploy."
+                  exit 1 ;;
+                *) pendente=1 ;;
+              esac
+            done
+            [ "$pendente" -eq 0 ] && break
+            if [ "$SECONDS" -ge "$limite" ]; then
+              echo "::error::O CI não terminou em 40 min: sem deploy."
+              exit 1
+            fi
+            sleep 20
+          done
+          echo "Backend CI e Frontend CI verdes em $GITHUB_SHA."
+
+      - name: Deploy na VM
+        # A soma dos limites do deploy.sh (fetch 2, backup 15, Compose 30,
+        # Caddy 4, prune 2), mais o health check (até 4 min) e os KILL de
+        # 30 s: perto de 59 min (as contas estão no cabeçalho do script). Se o step morrer antes, o deploy continua na
+        # VM e termina no deploy.log.
+        timeout-minutes: 70
+        env:
+          CHAVE: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DESTINO: ${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$CHAVE" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          # A chave do servidor vem fixada no secret, e não de um ssh-keyscan
+          # na hora: assim o runner não confia num servidor no meio do caminho.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # O authorized_keys da VM ignora o comando pedido e roda o
+          # bandejao-deploy; o commit chega nele pelo SSH_ORIGINAL_COMMAND.
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=30 \
+            -o ServerAliveInterval=30 \
+            "$DESTINO" "$GITHUB_SHA"
+
+      - name: Apagar a chave
+        if: always()
+        run: rm -f ~/.ssh/deploy

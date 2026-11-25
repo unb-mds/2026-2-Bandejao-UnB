@@ -4,107 +4,137 @@ import { useAvaliacoesStore } from '@/stores/avaliacoes'
 import { useCardapioStore } from '@/stores/cardapio'
 import { usePreferenciasStore } from '@/stores/preferencias'
 import { ORDEM_REFEICOES, REFEICOES, horarioRefeicao } from '@/constants/refeicoes'
-import { rotuloDieta } from '@/constants/dietas'
+import { DIETA_PADRAO, rotuloDieta } from '@/constants/dietas'
 import { rotuloMarcador } from '@/constants/marcadores'
-import { diaCurto, diaMes } from '@/utils/datas'
-import { filtrarCategorias, formatarNota } from '@/utils/cardapio'
-import BotaoVoltar from '@/components/BotaoVoltar.vue'
+import { destaqueDaRefeicao, diasDaSemanaVigente, formatarNota } from '@/utils/cardapio'
+import AbasSemana from '@/components/AbasSemana.vue'
 import EstrelasNota from '@/components/EstrelasNota.vue'
 import FiltroCardapio from '@/components/FiltroCardapio.vue'
 import IconeSvg from '@/components/IconeSvg.vue'
-import NavegacaoInferior from '@/components/NavegacaoInferior.vue'
+import SeletorRefeicao from '@/components/SeletorRefeicao.vue'
+import IlustracaoRefeicao from '@/components/IlustracaoRefeicao.vue'
 
 /**
- * Cardápio da semana vigente (RF05–RF09): um dia e uma refeição por vez,
- * com filtros de dieta e de marcadores. Acessível sem login.
+ * Seção do cardápio da CampusView (RF05–RF09): um dia e uma refeição por vez,
+ * já filtrados pela API (ADR 0005). Acessível sem login.
  */
+const props = defineProps({
+  campusId: { type: Number, required: true },
+})
+
 const avaliacoes = useAvaliacoesStore()
 const cardapio = useCardapioStore()
 const preferencias = usePreferenciasStore()
 
 const filtroAberto = ref(false)
-const mostrarTodas = ref(false) // RF09: reverte temporariamente o filtro de dieta
+const mostrarTodas = ref(false)
+const dias = diasDaSemanaVigente()
 
-const campusId = computed(() => preferencias.campusId)
-const semana = computed(() => cardapio.semana(campusId.value))
-const dias = computed(() => semana.value?.dias ?? [])
-const diaAtual = computed(
-  () => dias.value.find((d) => d.data === preferencias.dataSelecionada) ?? null,
-)
-const tiposDoDia = computed(() =>
-  ORDEM_REFEICOES.filter((tipo) => diaAtual.value?.refeicoes.some((r) => r.tipo === tipo)),
-)
-const refeicao = computed(
-  () => diaAtual.value?.refeicoes.find((r) => r.tipo === preferencias.refeicaoSelecionada) ?? null,
-)
-const semAlergenos = computed(() => Boolean(refeicao.value?.alergenosIndisponiveis))
+if (preferencias.dataSelecionada && !dias.includes(preferencias.dataSelecionada)) {
+  preferencias.selecionar(null, null)
+}
 
-const dietaEfetiva = computed(() => (mostrarTodas.value ? 'todos' : preferencias.dieta))
-const marcadoresEfetivos = computed(() => (semAlergenos.value ? [] : preferencias.marcadores))
-const categorias = computed(() =>
-  refeicao.value
-    ? filtrarCategorias(refeicao.value.categorias, {
-        dieta: dietaEfetiva.value,
-        marcadores: marcadoresEfetivos.value,
-      })
-    : [],
-)
-const nenhumPrato = computed(() => categorias.value.every((c) => c.pratos.length === 0))
-
-const alvo = computed(() => ({
-  campus: campusId.value,
-  data: preferencias.dataSelecionada,
+const pedido = computed(() => ({
+  campus: props.campusId,
+  dia: preferencias.dataSelecionada,
   refeicao: preferencias.refeicaoSelecionada,
+  marcadores: preferencias.marcadores,
+  dieta: mostrarTodas.value ? DIETA_PADRAO : preferencias.dieta,
 }))
-const notas = computed(() => (refeicao.value ? avaliacoes.daRefeicao(alvo.value) : null))
+const atual = computed(() => cardapio.daRefeicao(pedido.value))
+const erroAtual = computed(() => cardapio.erroDaRefeicao(pedido.value))
+const semServico = computed(
+  () =>
+    atual.value?.semServico === true ||
+    Boolean(pedido.value.dia && atual.value && atual.value.data !== pedido.value.dia),
+)
+const comDieta = computed(() => pedido.value.dieta !== DIETA_PADRAO)
+const podeLimparFiltros = computed(
+  () => erroAtual.value?.codigo === 'parametros_invalidos' && preferencias.filtrosAtivos > 0,
+)
+const podeTentarDeNovo = computed(() => erroAtual.value?.codigo !== 'parametros_invalidos')
+const diaExibido = computed(() =>
+  semServico.value ? pedido.value.dia : (atual.value?.data ?? preferencias.dataSelecionada),
+)
+const resumo = computed(() =>
+  diaExibido.value ? avaliacoes.daResumoDoDia(props.campusId, diaExibido.value) : null,
+)
+const refeicoesDoDia = computed(() => {
+  if (semServico.value || atual.value?.status !== 'publicado') return []
+  if (resumo.value?.length) return resumo.value
+  return ORDEM_REFEICOES.map((tipo) => ({ tipo, media: null }))
+})
+const notaAtual = computed(
+  () => resumo.value?.find((r) => r.tipo === atual.value?.refeicao) ?? null,
+)
+// Destaque do desktop (FE-23): o prato principal compatível com os filtros
+// (RF08, RF09), como no protótipo. Ver destaqueDaRefeicao.
+const destaque = computed(() => {
+  if (semServico.value || atual.value?.status !== 'publicado') return null
+  const escolhido = destaqueDaRefeicao(atual.value.categorias ?? [], {
+    semAlergenos: Boolean(atual.value.filtroMarcadorDesativado),
+    evitando: preferencias.marcadores.length > 0,
+  })
+  return escolhido && { ...escolhido, refeicao: atual.value.refeicao }
+})
+const marcadoresAtivos = computed(() =>
+  atual.value?.filtroMarcadorDesativado ? [] : preferencias.marcadores,
+)
+
+async function carregar(valor, opcoes) {
+  const resposta = await cardapio.carregarRefeicao(valor, opcoes)
+  const aindaAtual = valor.campus === props.campusId && valor.dia === preferencias.dataSelecionada
+  const mesmoDia = !valor.dia || resposta?.data === valor.dia
+  if (resposta && aindaAtual && mesmoDia && (!valor.dia || !valor.refeicao)) {
+    preferencias.selecionar(resposta.data, resposta.refeicao)
+  }
+}
+
+watch(pedido, (valor) => carregar(valor), { immediate: true, deep: true })
 
 watch(
-  campusId,
-  async (id) => {
-    const carregada = await cardapio.carregar(id)
-    if (carregada) preferencias.ajustarSelecao(carregada.dias)
+  () => [props.campusId, diaExibido.value],
+  ([campus, dia]) => {
+    if (dia && [null, 'erro'].includes(avaliacoes.situacaoDoResumoDoDia(campus, dia))) {
+      avaliacoes.carregarResumoDoDia(campus, dia)
+    }
   },
   { immediate: true },
 )
 
 watch(
-  alvo,
-  (valor) => {
-    if (refeicao.value && !avaliacoes.daRefeicao(valor)) avaliacoes.carregar(valor)
-  },
-  { immediate: true },
+  () => props.campusId,
+  () => preferencias.selecionar(null, null),
+  { flush: 'sync' },
 )
 
-// Qualquer mudança nos filtros encerra o "mostrar todas".
 watch(
   () => [preferencias.dieta, preferencias.marcadores],
   () => (mostrarTodas.value = false),
 )
 
 function escolherDia(dia) {
-  const tipos = dia.refeicoes.map((r) => r.tipo)
-  const tipo = tipos.includes(preferencias.refeicaoSelecionada)
-    ? preferencias.refeicaoSelecionada
-    : tipos[0]
-  preferencias.selecionar(dia.data, tipo)
+  preferencias.selecionar(dia, null)
+}
+
+function escolherRefeicao(tipo) {
+  preferencias.selecionar(diaExibido.value, tipo)
 }
 
 function tentarNovamente() {
-  cardapio.carregar(campusId.value, { forcar: true }).then((carregada) => {
-    if (carregada) preferencias.ajustarSelecao(carregada.dias)
-  })
+  carregar(pedido.value, { forcar: true })
+}
+
+function limparFiltros() {
+  preferencias.aplicarFiltros(DIETA_PADRAO, [])
 }
 </script>
 
 <template>
-  <div class="tela">
-    <header class="cabecalho-cardapio">
+  <section class="secao-cardapio" aria-labelledby="titulo-cardapio">
+    <div class="cabecalho-cardapio fundo-escuro">
       <div class="barra-topo">
-        <BotaoVoltar :para="{ name: 'inicio' }" />
-        <div class="titulo-centro">
-          <h1 class="titulo">Cardápio</h1>
-          <p class="campus">{{ preferencias.campus?.nome }}</p>
-        </div>
+        <h2 id="titulo-cardapio" class="titulo">Cardápio</h2>
         <button
           type="button"
           class="botao-filtro"
@@ -118,60 +148,79 @@ function tentarNovamente() {
         </button>
       </div>
 
-      <div v-if="dias.length" class="dias sem-barra" role="tablist" aria-label="Dia da semana">
-        <button
-          v-for="dia in dias"
-          :key="dia.data"
-          type="button"
-          role="tab"
-          class="dia"
-          :class="{ 'dia--ativo': dia.data === preferencias.dataSelecionada }"
-          :aria-selected="dia.data === preferencias.dataSelecionada"
-          @click="escolherDia(dia)"
-        >
-          <span class="dia-semana">{{ diaCurto(dia.data) }}</span>
-          <span class="dia-data">{{ diaMes(dia.data) }}</span>
-        </button>
-      </div>
+      <AbasSemana :dias="dias" :selecionado="diaExibido" @escolher="escolherDia" />
 
-      <div v-if="tiposDoDia.length" class="refeicoes" role="tablist" aria-label="Refeição">
-        <button
-          v-for="tipo in tiposDoDia"
-          :key="tipo"
-          type="button"
-          role="tab"
-          class="refeicao"
-          :class="{ 'refeicao--ativa': tipo === preferencias.refeicaoSelecionada }"
-          :aria-selected="tipo === preferencias.refeicaoSelecionada"
-          @click="preferencias.selecionar(preferencias.dataSelecionada, tipo)"
-        >
-          {{ REFEICOES[tipo].rotulo }}
-        </button>
-      </div>
-    </header>
+      <SeletorRefeicao
+        v-if="refeicoesDoDia.length"
+        :refeicoes="refeicoesDoDia"
+        :selecionada="atual?.refeicao ?? preferencias.refeicaoSelecionada"
+        @escolher="escolherRefeicao"
+      />
+    </div>
 
-    <RouterLink v-if="refeicao" :to="{ name: 'avaliacoes' }" class="barra-avaliacao">
-      <template v-if="notas?.quantidade">
-        <EstrelasNota :valor="notas.media" :tamanho="12" />
-        <span class="nota">{{ formatarNota(notas.media) }}</span>
-        <span class="suave">({{ notas.quantidade }} avaliações)</span>
+    <RouterLink
+      v-if="atual?.status === 'publicado' && !semServico"
+      :to="{ name: 'avaliacoes' }"
+      class="barra-avaliacao"
+    >
+      <template v-if="notaAtual?.quantidade">
+        <EstrelasNota :valor="notaAtual.media" :tamanho="12" />
+        <span class="nota">{{ formatarNota(notaAtual.media) }}</span>
+        <span class="suave">({{ notaAtual.quantidade }} avaliações)</span>
       </template>
       <span v-else class="suave">Sem avaliações ainda</span>
-      <span class="suave horario">{{ horarioRefeicao(preferencias.refeicaoSelecionada) }}</span>
+      <span class="suave horario">{{ horarioRefeicao(atual.refeicao) }}</span>
     </RouterLink>
 
-    <main class="conteudo sem-barra corpo">
-      <p v-if="cardapio.carregando && !semana" class="estado" role="status">Carregando cardápio…</p>
+    <div v-if="destaque" class="destaque fundo-escuro" data-teste="destaque-refeicao">
+      <div class="destaque-texto">
+        <p class="sobretitulo">Destaque do {{ REFEICOES[destaque.refeicao].rotuloCurto }}</p>
+        <p class="destaque-prato">{{ destaque.prato }}</p>
+        <p v-if="destaque.resumo" class="destaque-resumo">{{ destaque.resumo }}</p>
+      </div>
+      <IlustracaoRefeicao :refeicao="destaque.refeicao" grande class="destaque-arte" />
+    </div>
 
-      <div v-else-if="cardapio.erro && !semana" class="estado">
+    <div class="corpo">
+      <p v-if="!atual && cardapio.estaCarregandoRefeicao(pedido)" class="estado" role="status">
+        Carregando cardápio…
+      </p>
+
+      <div v-else-if="!atual && erroAtual" class="estado">
         <p class="estado-titulo">Não foi possível carregar o cardápio</p>
-        <p class="estado-texto">{{ cardapio.erro }}</p>
-        <button type="button" class="botao-pequeno tentar" @click="tentarNovamente">
+        <p class="estado-texto">{{ erroAtual.mensagem }}</p>
+        <button
+          v-if="podeLimparFiltros"
+          type="button"
+          class="botao-pequeno tentar"
+          data-teste="limpar-filtros"
+          @click="limparFiltros"
+        >
+          Limpar filtros
+        </button>
+        <button
+          v-else-if="podeTentarDeNovo"
+          type="button"
+          class="botao-pequeno tentar"
+          @click="tentarNovamente"
+        >
           Tentar novamente
         </button>
       </div>
 
-      <div v-else-if="semana && !semana.publicado" class="estado">
+      <div v-else-if="semServico" class="estado">
+        <IconeSvg
+          class="estado-icone"
+          nome="talheres"
+          :tamanho="40"
+          cor="var(--borda)"
+          espessura="1.5"
+        />
+        <p class="estado-titulo">Sem refeições neste dia</p>
+        <p class="estado-texto">O RU deste campus não abre neste dia.</p>
+      </div>
+
+      <div v-else-if="atual?.status === 'nao_publicado'" class="estado">
         <IconeSvg
           class="estado-icone"
           nome="talheres"
@@ -180,37 +229,39 @@ function tentarNovamente() {
           espessura="1.5"
         />
         <p class="estado-titulo">Cardápio ainda não publicado</p>
-        <p class="estado-texto">
-          O RU de {{ preferencias.campus?.nome }} ainda não publicou o cardápio desta semana.
-        </p>
+        <p class="estado-texto">O RU deste campus ainda não publicou o cardápio deste dia.</p>
       </div>
 
-      <template v-else-if="refeicao">
+      <template v-else-if="atual">
         <div
-          v-if="preferencias.dieta !== 'todos' || marcadoresEfetivos.length"
+          v-if="preferencias.dieta !== DIETA_PADRAO || marcadoresAtivos.length"
           class="filtros-ativos"
         >
-          <p v-if="preferencias.dieta !== 'todos'">
+          <p v-if="preferencias.dieta !== DIETA_PADRAO">
             <template v-if="mostrarTodas">Exibindo todas as linhas de prato.</template>
             <template v-else>
               Dieta: <strong>{{ rotuloDieta(preferencias.dieta) }}</strong
               >.
             </template>
             <button type="button" class="alternar-dieta" @click="mostrarTodas = !mostrarTodas">
-              {{ mostrarTodas ? `Voltar ao filtro` : 'Mostrar todas' }}
+              {{ mostrarTodas ? 'Voltar ao filtro' : 'Mostrar todas' }}
             </button>
           </p>
-          <p v-if="marcadoresEfetivos.length">
-            Ocultando pratos com: {{ marcadoresEfetivos.map(rotuloMarcador).join(', ') }}.
+          <p v-if="marcadoresAtivos.length">
+            Evitando: {{ marcadoresAtivos.map(rotuloMarcador).join(', ') }}.
           </p>
         </div>
 
-        <p v-if="semAlergenos" class="mensagem mensagem--alerta alergenos">
+        <p
+          v-if="atual.filtroMarcadorDesativado"
+          class="mensagem mensagem--alerta alergenos"
+          data-teste="filtro-desativado"
+        >
           <strong>Informação de alérgenos indisponível</strong> para esta refeição. O filtro de
           marcadores está desativado.
         </p>
 
-        <div v-if="nenhumPrato" class="estado">
+        <div v-if="!atual.categorias.length" class="estado">
           <IconeSvg
             class="estado-icone"
             nome="proibido"
@@ -218,25 +269,39 @@ function tentarNovamente() {
             cor="var(--borda)"
             espessura="1.5"
           />
-          <p class="estado-titulo">Nenhuma opção encontrada</p>
-          <p class="estado-texto">Tente ajustar os filtros</p>
+          <template v-if="comDieta">
+            <p class="estado-titulo">Nenhuma opção encontrada</p>
+            <p class="estado-texto">Tente ajustar os filtros</p>
+          </template>
+          <template v-else>
+            <p class="estado-titulo">Refeição não servida</p>
+            <p class="estado-texto">Esta refeição não é servida neste dia.</p>
+          </template>
         </div>
 
         <div v-else class="pilha-5">
-          <section v-for="categoria in categorias" :key="categoria.rotulo" class="categoria">
-            <h2 class="categoria-titulo">
-              <span>{{ categoria.rotulo }}</span>
-            </h2>
+          <section v-for="categoria in atual.categorias" :key="categoria.nome" class="categoria">
+            <h3 class="categoria-titulo">
+              <span>{{ categoria.nome }}</span>
+            </h3>
 
-            <p v-if="categoria.pratos.length === 0" class="sem-opcao">
+            <p v-if="categoria.semOpcaoCompativel" class="sem-opcao">
               Sem opção compatível com o filtro ativo
             </p>
-            <ul v-else class="pratos pilha-3">
-              <li v-for="prato in categoria.pratos" :key="prato.nome" class="prato">
+            <ul class="pratos pilha-3">
+              <li
+                v-for="prato in categoria.pratos"
+                :key="prato.descricao"
+                class="prato"
+                :class="{ 'prato--alerta': prato.contemMarcadorSelecionado }"
+              >
                 <span class="marcador-lista" aria-hidden="true" />
                 <div>
-                  <p class="prato-nome">{{ prato.nome }}</p>
-                  <div v-if="prato.marcadores.length && !semAlergenos" class="contem">
+                  <p class="prato-nome">{{ prato.descricao }}</p>
+                  <div
+                    v-if="prato.marcadores.length && !atual.filtroMarcadorDesativado"
+                    class="contem"
+                  >
                     <span class="contem-rotulo">Contém:</span>
                     <span v-for="marcador in prato.marcadores" :key="marcador" class="chip">
                       {{ rotuloMarcador(marcador) }}
@@ -247,18 +312,16 @@ function tentarNovamente() {
             </ul>
           </section>
 
-          <p class="aviso-alteracao">
-            Cardápio sujeito a alteração. A ausência de marcador não garante que o prato esteja
-            livre do ingrediente.
-          </p>
+          <p class="aviso-alteracao">{{ atual.avisoSujeitoAAlteracao }}</p>
         </div>
       </template>
-    </main>
+    </div>
 
-    <NavegacaoInferior />
-
-    <FiltroCardapio v-model:aberto="filtroAberto" :marcadores-indisponiveis="semAlergenos" />
-  </div>
+    <FiltroCardapio
+      v-model:aberto="filtroAberto"
+      :marcadores-indisponiveis="Boolean(atual?.filtroMarcadorDesativado)"
+    />
+  </section>
 </template>
 
 <style scoped>
@@ -271,23 +334,14 @@ function tentarNovamente() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 56px 20px 12px;
-}
-
-.titulo-centro {
-  text-align: center;
+  padding: 16px 20px 12px;
 }
 
 .titulo {
   font-family: var(--fonte-titulo);
   font-weight: 900;
   font-size: 16px;
-  color: #fff;
-}
-
-.campus {
-  font-size: 11px;
-  color: var(--branco-40);
+  color: var(--branco);
 }
 
 .botao-filtro {
@@ -311,66 +365,7 @@ function tentarNovamente() {
   font-size: 9px;
   font-weight: 900;
   background: var(--dourado);
-  color: #fff;
-}
-
-.dias {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 0 16px 12px;
-}
-
-.dia {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 6px 14px;
-  border-radius: var(--raio-md);
-  background: var(--branco-08);
-  transition: all 0.15s;
-}
-.dia--ativo {
-  background: #fff;
-}
-
-.dia-semana {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--branco-45);
-}
-.dia--ativo .dia-semana {
-  color: var(--texto-suave);
-}
-
-.dia-data {
-  font-size: 12px;
-  font-weight: 900;
-  color: var(--branco-75);
-}
-.dia--ativo .dia-data {
-  color: var(--verde-escuro);
-}
-
-.refeicoes {
-  display: flex;
-  border-top: 1px solid var(--branco-08);
-}
-
-.refeicao {
-  flex: 1;
-  padding: 12px 0;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 700;
-  border-bottom: 2px solid transparent;
-  color: var(--branco-40);
-  transition: all 0.15s;
-}
-.refeicao--ativa {
-  border-color: #fff;
-  color: #fff;
+  color: var(--branco);
 }
 
 .barra-avaliacao {
@@ -496,6 +491,10 @@ function tentarNovamente() {
   background: var(--verde-medio);
 }
 
+.prato--alerta .prato-nome {
+  font-weight: 700;
+}
+
 .prato-nome {
   font-size: 14px;
   color: var(--texto-escuro);
@@ -531,5 +530,168 @@ function tentarNovamente() {
   line-height: 1.6;
   text-align: center;
   color: var(--texto-claro);
+}
+
+/* Destaque da refeição (protótipo mobile). */
+.destaque {
+  display: grid;
+  grid-template-columns: minmax(0, 54fr) minmax(0, 38fr);
+  align-items: end;
+  gap: 12px;
+  padding: 20px;
+  margin: 12px 16px;
+  color: var(--branco);
+  background: var(--verde-escuro);
+  border-radius: var(--raio-xl);
+}
+.destaque-texto {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.destaque-prato {
+  font: 900 20px / 1.2 var(--fonte-titulo);
+  margin-top: 8px;
+}
+.destaque-resumo {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--branco-60);
+}
+@media (max-width: 1023px) {
+  .destaque-arte {
+    width: 100%;
+    height: 92px;
+    aspect-ratio: auto;
+  }
+}
+
+/* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
+@media (min-width: 1024px) {
+  /* Dias e refeição viram duas pílulas claras sobre o creme. */
+  .cabecalho-cardapio {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 14px 20px;
+    margin-bottom: 17px;
+    background: transparent;
+  }
+  .barra-topo {
+    grid-column: 1 / -1;
+    padding: 0;
+  }
+  .titulo {
+    font-size: 22px;
+    letter-spacing: -0.03em;
+    color: var(--verde-escuro);
+  }
+  .botao-filtro {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 13px;
+    border: 1px solid var(--borda);
+    border-radius: var(--raio-11);
+    background: var(--cartao);
+  }
+  /* O IconeSvg recebe a cor branca por prop (style inline) para o celular. */
+  .botao-filtro :deep(svg) {
+    stroke: var(--texto-suave) !important;
+  }
+  .cabecalho-cardapio :focus-visible {
+    outline-color: var(--verde-escuro);
+  }
+
+  /* Em telas de desktop estreitas, dias e refeições não cabem lado a lado. */
+  @media (max-width: 1279px) {
+    .cabecalho-cardapio {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .cabecalho-cardapio :deep(.refeicoes) {
+      justify-self: start;
+    }
+  }
+
+  .destaque {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.42fr);
+    align-items: center;
+    gap: 32px;
+    min-height: 300px;
+    overflow: hidden;
+    margin: 0 0 14px;
+    padding: 40px;
+    border-radius: var(--raio-28);
+    color: var(--branco);
+    background: var(--verde-escuro);
+    box-shadow: 0 18px 40px var(--sombra-escura);
+  }
+  .destaque::before {
+    content: '';
+    position: absolute;
+    width: 480px;
+    height: 480px;
+    right: -160px;
+    top: -220px;
+    border-radius: 50%;
+    border: 1px solid var(--branco-05);
+    box-shadow: 0 0 0 80px var(--branco-02);
+    pointer-events: none;
+  }
+  .destaque-texto {
+    position: relative;
+  }
+  .destaque-prato {
+    max-width: 620px;
+    font: 900 clamp(30px, 3vw, 42px) / 1.05 var(--fonte-titulo);
+    letter-spacing: -0.045em;
+  }
+  .destaque-resumo {
+    margin-top: 16px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--branco-60);
+  }
+  .destaque-arte {
+    position: relative;
+    justify-self: end;
+  }
+
+  .barra-avaliacao {
+    padding: 4px 4px 14px;
+    background: transparent;
+  }
+  .corpo {
+    padding: 14px 0 0;
+  }
+
+  /* Categorias em cartões, duas por linha. */
+  .pilha-5 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .pilha-5 > * + * {
+    margin-top: 0;
+  }
+  .categoria {
+    padding: 20px;
+    border: 1px solid var(--borda);
+    border-radius: var(--raio-18);
+    background: var(--cartao);
+    box-shadow: 0 6px 18px var(--sombra-cartao-cor);
+  }
+  .aviso-alteracao {
+    grid-column: 1 / -1;
+    padding: 16px 20px;
+    border: 1px solid var(--alerta-borda);
+    border-radius: var(--raio-14);
+    text-align: left;
+    color: var(--alerta-texto);
+    background: var(--alerta-fundo);
+  }
 }
 </style>

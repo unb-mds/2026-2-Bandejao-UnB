@@ -1,24 +1,24 @@
-/**
- * Campi da UnB com restaurante universitário (glossário: "Campus").
- * O Restaurante Executivo do Darcy Ribeiro está fora do escopo (RI08).
- */
-export const CAMPI = [
-  { id: 'darcy', nome: 'Darcy Ribeiro', descricao: 'Asa Norte, Brasília' },
-  { id: 'ceilandia', nome: 'Ceilândia', descricao: 'Campus FCE' },
-  { id: 'gama', nome: 'Gama (FGA)', descricao: 'Campus Gama' },
-  { id: 'planaltina', nome: 'Planaltina', descricao: 'Campus FUP' },
-  { id: 'fal', nome: 'Fazenda Água Limpa', descricao: 'Campus FAL' },
-]
+export const ID_CAMPUS_COM_EXECUTIVO = 1
 
-export function buscarCampus(id) {
-  return CAMPI.find((campus) => campus.id === id) ?? null
+export const MENSAGEM_CAMPUS_INEXISTENTE = 'Não existe campus com esse id.'
+
+export const CAMPI_ANTIGOS = {
+  darcy: 1,
+  ceilandia: 2,
+  gama: 3,
+  planaltina: 4,
+  fal: 5,
 }
 
-export function campusValido(id) {
-  return CAMPI.some((campus) => campus.id === id)
+export function idDeCampusValido(valor) {
+  const id = typeof valor === 'string' && /^[1-9]\d*$/.test(valor) ? Number(valor) : valor
+  return Number.isInteger(id) && id > 0 ? id : null
 }
 
-/** Monograma exibido na lista de campi (ex.: "Darcy Ribeiro" → "DR"). */
+export function idDoCampusAntigo(valor) {
+  return Object.hasOwn(CAMPI_ANTIGOS, valor) ? CAMPI_ANTIGOS[valor] : null
+}
+
 export function siglaCampus(nome) {
   return nome
     .split(' ')

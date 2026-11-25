@@ -1,0 +1,18 @@
+-r requirements.txt
+pytest==9.2.0
+pytest-django==4.14.0
+pytest-cov==7.1.0
+# O passo de cobertura por módulo (BE-18) usa o --format=markdown e o código
+# de saída do coverage report quando não há dados; fica fixo para não mudar
+# de um run para outro.
+coverage==7.17.5
+pytest-env==1.8.5
+ruff==0.17.4
+bandit==1.9.4
+pip-audit==2.10.1
+# Leitura do workflow de deploy nos testes (test_deploy_cd.py, #240). Já vem
+# com o drf-spectacular e o bandit; fica fixo porque o teste importa direto.
+PyYAML==6.0.3
+# Mutação nos módulos críticos (BE-19, ADR 0013). A configuração fica no
+# setup.cfg, seção [mutmut].
+mutmut==3.8.1

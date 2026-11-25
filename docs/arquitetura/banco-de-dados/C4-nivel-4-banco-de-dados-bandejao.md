@@ -3,7 +3,7 @@
 
 > Fontes: `docs/requisitos/CONTEXT-DOMINIO.md` (glossário do domínio),
 > Documento de Requisitos de Software (RF01–RF33, RN01–RN13, RNF01–RNF09,
-> RI01–RI12, Anexo A) e ADRs 0001 a 0011 (`docs/arquitetura/adr/`). Nomes de
+> RI01–RI12, Anexo A) e ADRs 0001 a 0014 (`docs/arquitetura/adr/`). Nomes de
 > entidades seguem o vocabulário canônico do glossário — não os nomes usados
 > no rascunho da issue (#32): "Cardápio" não existe como entidade única, pois
 > o glossário já decompõe esse conceito em Refeição → Categoria → Prato;
@@ -35,13 +35,13 @@ erDiagram
         string email_institucional UK
         string senha_hash "hash, nunca texto plano (RI04/RNF04)"
         boolean email_confirmado "default false"
-        string status "pendente | ativo | suspenso | removido"
+        string status "pendente | ativo | suspenso"
         datetime aceite_privacidade_em
         string versao_aviso_aceita "versão do aviso de privacidade aceita; antiga nas contas anteriores à Release 2"
         datetime criado_em
         int tentativas_login_falhas "default 0"
+        datetime primeira_falha_login_em "nullable"
         datetime bloqueado_ate "nullable"
-        datetime removido_em "nullable"
     }
 
     CAMPUS {
@@ -49,10 +49,13 @@ erDiagram
         string nome UK "Darcy Ribeiro | Ceilandia | Gama | Planaltina | Fazenda Agua Limpa"
         decimal ru_latitude
         decimal ru_longitude
-        int raio_confirmacao_metros "confirmação do check-in (RF12)"
+        int raio_confirmacao_metros "confirmação do check-in (RF12); CHECK >= 0, > 0 se confirmacao_ativa"
+        boolean confirmacao_ativa "default true; false: aplicação deve recusar (BE-09)"
         decimal centro_latitude
         decimal centro_longitude
-        int raio_deteccao_metros "detecção do campus no aparelho (ADR 0009)"
+        int raio_deteccao_metros "detecção do campus no aparelho (ADR 0009); CHECK >= 0"
+        string rotulo_pagina_ru "título do bloco na página do RU (ADR 0014)"
+        string prefixo_arquivo_pdf "início do nome do PDF (ADR 0014)"
     }
 
     REFEICAO {
@@ -174,6 +177,7 @@ erDiagram
         datetime ocorrido_em
         boolean resolvido "default false"
         datetime resolvido_em "nullable"
+        datetime email_enviado_em "nullable: e-mail ainda nao enviado"
     }
 
     CONTADOR_ALERTA {
@@ -183,6 +187,16 @@ erDiagram
         date data "dia da contagem"
         smallint quantidade_enviada "max 3 por dia (ADR 0006)"
         datetime ultimo_envio_em "intervalo minimo de 6 h (ADR 0006)"
+    }
+
+    FONTE_CARDAPIO {
+        int id PK
+        int campus_id FK "UNIQUE com semana_inicio (ADR 0014)"
+        date semana_inicio "início da semana, pelo texto do link"
+        string url "PDF da última leitura com sucesso"
+        string sha256 "conteúdo da última leitura com sucesso"
+        datetime verificado_em "última execução que achou o link, após a primeira leitura com sucesso"
+        datetime processado_em "última leitura com sucesso"
     }
 
     TOKEN {
@@ -207,6 +221,7 @@ erDiagram
     CAMPUS ||--o{ PONTOS_SEMESTRE_CAMPUS : classifica
     CAMPUS ||--o{ ALERTA_LEITURA_CARDAPIO : gera
     CAMPUS ||--o{ CONTADOR_ALERTA : limita_avisos
+    CAMPUS ||--o{ FONTE_CARDAPIO : origem_do_cardapio
     REFEICAO ||--o{ CATEGORIA : contem
     REFEICAO ||--o{ AVALIACAO : recebe
     REFEICAO |o--o{ ALERTA_LEITURA_CARDAPIO : relaciona-se_a
@@ -239,16 +254,16 @@ Conta de acesso ao aplicativo (não a pessoa; glossário: "Usuário").
 | `matricula_siape` | CharField(9) | NOT NULL, **UNIQUE**, index | 9 dígitos (estudante, extraída do e-mail) ou 7 dígitos (professor/servidor, digitada). Dado privado (RI10, RNF07): nunca retornado em resposta de API pública. |
 | `apelido` | CharField(20) | NOT NULL, 3–20 chars, sem espaço | Nome público exibido nas avaliações. Definido uma única vez no cadastro (RF01); imutável depois. |
 | `apelido_normalizado` | CharField(20) | NOT NULL, **UNIQUE** | `apelido` sem acentos e em minúsculas, gerado na gravação. Garante a unicidade sem distinção de maiúsculas/minúsculas (RF01) e de acentos, de forma idêntica em SQLite e MySQL (ver seção de migração). |
-| `email_institucional` | EmailField | NOT NULL, **UNIQUE** | `matricula@aluno.unb.br` (estudante) ou `nome@unb.br` (professor/servidor). Único canal de confirmação e recuperação (RF02, RF04, L07). |
+| `email_institucional` | EmailField | NOT NULL, **UNIQUE** | `matricula@aluno.unb.br` (estudante) ou `nome.sobrenome@unb.br` (professor/servidor; qualquer texto antes do `@unb.br`, ADR 0002). Gravado sem espaços nas pontas e em minúsculas (`normalizar_email`). Identificador do login (RF03, ADR 0016) e único canal de confirmação e recuperação (RF02, RF04, L07). O `UNIQUE` já cria o índice usado na busca do login. |
 | `senha_hash` | CharField(128) | NOT NULL | Hash da senha (Django `PBKDF2`/`Argon2`); nunca texto plano (RI04, RNF04). |
 | `email_confirmado` | BooleanField | NOT NULL, default `false` | Conta só autentica com `true` (RF02, RF03). |
-| `status` | CharField(20) | NOT NULL, choices, default `pendente` | `pendente` \| `ativo` \| `suspenso` \| `removido` (RNF08 — moderação manual da equipe). |
+| `status` | CharField(20) | NOT NULL, choices, default `pendente` | `pendente` \| `ativo` \| `suspenso` (RNF08 — moderação manual da equipe). Não há `removido`: a exclusão de conta apaga a linha (RNF07.4, revisão da ADR 0004). |
 | `aceite_privacidade_em` | DateTimeField | NOT NULL | Momento em que a pessoa confirmou ciência do aviso de privacidade (RF01); cadastro não se conclui sem isso. Atualizado também quando a pessoa aceita o aviso da Release 2. |
 | `versao_aviso_aceita` | CharField(20) | NOT NULL | Versão do aviso de privacidade aceita. Quem tinha conta antes da Release 2 fica com a versão antiga, o que bloqueia o primeiro check-in até a ciência (RF11, RNF07.1). |
 | `criado_em` | DateTimeField | NOT NULL, auto | Data do cadastro. |
 | `tentativas_login_falhas` | IntegerField | NOT NULL, default `0` | Contador para o bloqueio de login (RF03, Anexo A: 5 tentativas/10 min). Zerado a cada login bem-sucedido ou a cada nova janela de 10 min. |
+| `primeira_falha_login_em` | DateTimeField | nullable | Primeira falha da janela atual de 10 minutos (BE-07, #97). Uma falha depois de `primeira_falha_login_em` + 10 min começa uma janela nova. Nulo depois de um login bem-sucedido. |
 | `bloqueado_ate` | DateTimeField | nullable | Fim do bloqueio de 10 minutos (RF03), quando aplicável. |
-| `removido_em` | DateTimeField | nullable | Preenchido pelo `RemoverContaCommand` quando a equipe processa uma exclusão de conta (RNF07); a linha de `USUARIO` **não é apagada**. A partir daqui as avaliações do usuário passam a ser exibidas como "usuário removido" (ver `AVALIACAO.usuario_id`). |
 
 ### `CAMPUS`
 
@@ -259,9 +274,16 @@ Um dos 5 campi com RU; tabela de apoio povoada por fixture.
 | `id` | BigAutoField | PK | Identificador interno do registro. |
 | `nome` | CharField(50) | NOT NULL, **UNIQUE** | Um dos 5 campi com RU (glossário): Darcy Ribeiro, Ceilândia, Gama, Planaltina, Fazenda Água Limpa. Povoado por fixture; não é criado pelo usuário. |
 | `ru_latitude` / `ru_longitude` | DecimalField | NOT NULL, fixture (Anexo A) | Coordenadas do RU, usadas apenas na conferência de GPS do check-in (RF12). O raio do Darcy Ribeiro deve excluir o Restaurante Executivo. |
-| `raio_confirmacao_metros` | IntegerField | NOT NULL, fixture (Anexo A) | Raio de confirmação do check-in por GPS (RF12), medido a partir do RU. As colunas `ru_*` e este raio são lidos pela `LocalizacaoRUConfig` da Fila. |
-| `centro_latitude` / `centro_longitude` | DecimalField | NOT NULL, fixture (Anexo A) | Centro do campus, usado na detecção do campus no aparelho (ADR 0009). Publicado em `GET /api/campi/` e lido pela `LocalizacaoCampusConfig` da Exposição do Cardápio. |
-| `raio_deteccao_metros` | IntegerField | NOT NULL, fixture (Anexo A) | Raio de detecção do campus no aparelho (ADR 0009); diferente do raio de confirmação do check-in. Publicado em `GET /api/campi/` junto com as colunas `centro_*`. |
+| `raio_confirmacao_metros` | IntegerField | NOT NULL, CHECK `>= 0` (`campus_raios_nao_negativos`); positivo quando `confirmacao_ativa = true` (`campus_confirmacao_ativa_exige_raio_positivo`) | Raio de confirmação do check-in por GPS (RF12), medido a partir do RU e lido pela `LocalizacaoRUConfig` da Fila. Zero é permitido somente com confirmação desativada. |
+| `confirmacao_ativa` | BooleanField | NOT NULL, default `true` | Disponibilidade da confirmação de localização do campus. Quando `false`, a aplicação deve recusar a confirmação antes de calcular a distância. Na fixture inicial, a FAL recebe `false`. Campo interno, não publicado na lista de campi da v1. |
+| `centro_latitude` / `centro_longitude` | DecimalField | NOT NULL, fixture (Anexo A) | Centro usado pela `LocalizacaoCampusConfig` na detecção do campus (ADR 0009). Na v1, `GET /api/campi/` publica somente `id` e `nome`; estas coordenadas não são expostas nessa resposta. |
+| `raio_deteccao_metros` | IntegerField | NOT NULL, CHECK `>= 0` (`campus_raios_nao_negativos`), fixture (Anexo A) | Raio usado na detecção do campus (ADR 0009), com finalidade distinta da confirmação do check-in. Na v1, não é publicado em `GET /api/campi/`. |
+| `rotulo_pagina_ru` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Nome do campus no título do bloco da página de cardápios do RU ("Cardápio <rótulo>"), usado pelo Leitor para achar o PDF do campus. A comparação ignora acentos, maiúsculas e espaços extras, e a ordem dos blocos na página não é usada (ADR 0014). Não é publicado na API. |
+| `prefixo_arquivo_pdf` | CharField(50) | NOT NULL, **UNIQUE**, fixture (Anexo A) | Início esperado do nome do PDF do campus (`Darcy-Ribeiro`, `Ceilandia`, `Gama`, `Planaltina`, `Fazenda`). Confere que o link do bloco é mesmo daquele campus, ignorando acentos, maiúsculas e os sufixos `-1`, `-2` (ADR 0014). Não é publicado na API. |
+
+**Dados provisórios do BD-03:** as coordenadas iniciais foram fornecidas pela equipe a partir de mapas, arredondadas para seis casas decimais e ainda dependem da validação em campo do BD-06. Os quatro RUs com ponto identificado usam provisoriamente 150 m. Na FAL, o ponto representa a fazenda, não o RU; a fixture registra `confirmacao_ativa = false` e os dois raios iguais a zero, indicando indisponibilidade. Os campos `centro_*` repetem provisoriamente `ru_*`, e `raio_deteccao_metros` repete `raio_confirmacao_metros`, até a definição dos parâmetros de detecção no BD-E3. A origem e as limitações estão em `backend/apps/cardapio/fixtures/README.md`.
+
+**Origem do cardápio (BD-16):** `rotulo_pagina_ru` e `prefixo_arquivo_pdf` entram pela migration `cardapio.0004_origem_cardapio_bd16`, que cria as colunas aceitando nulo, preenche os campi existentes e só depois impõe `NOT NULL` e `UNIQUE`. Os 5 campi do Anexo A recebem os valores pelo nome; um campus fora do Anexo A recebe marcadores pelo id (`sem-rotulo-<id>`, `sem-prefixo-<id>`), que não colidem com o Anexo A nem batem com a página do RU, e o valor certo vem da fixture `campi`. A comparação que ignora acentos, maiúsculas e espaços é do Leitor (BE-12), e não do banco. **Diferença entre os bancos:** no SQLite a UNIQUE das duas colunas é exata; no MySQL ela segue a collation `utf8mb4_0900_ai_ci`, que ignora acentos e maiúsculas, então "Ceilandia" e "Ceilândia" coexistem no SQLite e são recusados no MySQL. O comportamento do MySQL é o mais próximo da comparação do Leitor (mesmo caso do `Marcador.nome`, ver o Plano de Testes, decisão sobre collation da BD-02).
 
 ### `REFEICAO`
 
@@ -274,7 +296,7 @@ Refeição de um tipo, em um campus e um dia, lida do PDF do cardápio (RF06, RF
 | `data` | DateField | NOT NULL | Dia do serviço, conforme datas do PDF (RF07). |
 | `tipo` | CharField(10) | NOT NULL, choices | `cafe` \| `almoco` \| `jantar`. |
 | `horario_inicio` / `horario_fim` | TimeField | NOT NULL | Copiados do parâmetro configurável (Anexo A) no momento da leitura do PDF; usados para liberar a avaliação (RF15) apenas durante a janela. O check-in (RF11) usa o mesmo horário do Anexo A, sem depender desta linha. |
-| `status_leitura` | CharField(30) | NOT NULL, choices, default `ok` | `ok` \| `alergenos_indisponiveis` (RF06: ícone desconhecido ou associação falhou) \| `leitura_falhou` (RF06: se já existe cardápio lido com sucesso, ele é mantido e a linha não é sobrescrita — a falha fica só em `ALERTA_LEITURA_CARDAPIO`; este status só aparece numa linha criada quando não havia cardápio anterior). O model `Refeicao` expõe a propriedade derivada `alergenosIndisponivel` (verdadeira quando `status_leitura = alergenos_indisponiveis`), usada pelos Níveis 4 do Leitor e da Exposição do Cardápio; ela não é coluna. |
+| `status_leitura` | CharField(30) | NOT NULL, choices, default `ok` | `ok` \| `alergenos_indisponiveis` (RF06: ícone desconhecido ou associação falhou) \| `leitura_falhou` (RF06: se já existe cardápio lido com sucesso, ele é mantido e a linha não é sobrescrita — a falha fica só em `ALERTA_LEITURA_CARDAPIO`). Decisão P2 da BE-12 (21/11/2026): o Leitor **não cria** linha `leitura_falhou` quando o PDF inteiro falha numa semana sem cardápio anterior, porque não sabe quais refeições e dias existem; sem a `FONTE_CARDAPIO` da semana, a Exposição já mostra "não publicado", e a falha fica em `ALERTA_LEITURA_CARDAPIO` com `refeicao_id` nulo. O valor continua no enum (a Exposição o trata como "não publicado", se aparecer), mas o Leitor não o grava. O model `Refeicao` expõe a propriedade derivada `alergenos_indisponivel` (no JSON da API, `alergenosIndisponivel`; verdadeira quando `status_leitura = alergenos_indisponiveis`), usada pelos Níveis 4 do Leitor e da Exposição do Cardápio; ela não é coluna. |
 | `fonte_pdf_url` | URLField | NOT NULL | PDF de origem, para rastreabilidade da leitura (RF06). |
 | `lida_em` | DateTimeField | NOT NULL, auto | Quando a leitura automatizada gravou/atualizou esta refeição. |
 | — | — | **UNIQUE** (`campus_id`, `data`, `tipo`) | Não existem duas refeições do mesmo tipo, no mesmo campus, no mesmo dia. |
@@ -309,7 +331,7 @@ Tabela de apoio com os 10 marcadores fixos do cardápio (RF06).
 | Campo | Tipo | Constraints | Descrição |
 |---|---|---|---|
 | `id` | BigAutoField | PK | Identificador interno do registro. |
-| `nome` | CharField(30) | NOT NULL, **UNIQUE** | Um dos 10 valores fixos do glossário: cogumelo, leite_e_derivados, mel, pimenta, soja, trigo_gluten, amendoim, oleaginosa, ovo, suino. Povoado por fixture/migration de dados; RF06 valida que a legenda do PDF contém exatamente estes 10. |
+| `nome` | CharField(30) | NOT NULL, **UNIQUE** | Um dos 10 valores fixos do glossário: cogumelo, leite_e_derivados, mel, pimenta, soja, trigo_gluten, amendoim, oleaginosa, ovo, suino. Povoado pela fixture `marcadores.json`, carregada com `loaddata`; RF06 valida que a legenda do PDF contém exatamente estes 10. |
 
 ### `PRATO_MARCADOR` (associativa)
 
@@ -327,7 +349,7 @@ Nota e comentário de uma conta sobre uma refeição inteira (RF15).
 | Campo | Tipo | Constraints | Descrição |
 |---|---|---|---|
 | `id` | BigAutoField | PK | Identificador interno do registro. |
-| `usuario_id` | ForeignKey → `USUARIO` | **nullable**, `ON DELETE SET NULL` | Ao excluir a conta, a avaliação permanece, mas passa a ser exibida como "usuário removido" (RNF07), em vez de ser apagada. O `SET NULL` só vale para exclusão física, que não é usada: na exclusão de conta a linha de `USUARIO` fica com `status = removido`, e a avaliação mantém o vínculo (RNF08). |
+| `usuario_id` | ForeignKey → `USUARIO` | **nullable**, `ON DELETE SET NULL` | Ao excluir a conta, a linha de `USUARIO` é apagada e o `SET NULL` deixa a avaliação sem dono: ela permanece, exibida como "usuário removido" (RNF07.4), em vez de ser apagada. O vínculo com a conta (RNF08) vale enquanto a conta existir. |
 | `refeicao_id` | ForeignKey → `REFEICAO` | NOT NULL, `ON DELETE CASCADE` | A avaliação é da refeição inteira (campus + dia + tipo), nunca de um prato (RF15). |
 | `nota` | SmallIntegerField | NOT NULL, **CHECK** `1 <= nota <= 5` | Obrigatória (RF15). |
 | `comentario` | TextField | nullable, **CHECK** `CHAR_LENGTH(comentario) <= 500` (via `Length` do Django) | Opcional (RF15); sanitizado contra XSS na camada de aplicação (RNF04). |
@@ -357,7 +379,7 @@ estiver ligado à conta.
 | `tempo_espera_min` | DecimalField(5,1) | nullable | Em minutos, com uma casa decimal (ex.: 12,5 min, RF22.1); gravado quando chega a resposta à pergunta de saída que o define (RN07): resposta − 2,5 ou 7,5 min − check-in; piso com "Ainda estou na fila"; vazio com "mais de 10 min", "Desisti" ou sem resposta. |
 | `pontos_concedidos_em` | DateTimeField | nullable | Marcador de pontos (ADR 0011, decisão 4). |
 | — | — | **UNIQUE** (`usuario_id`, `campus_id`, `tipo_refeicao`, `data`) | Um check-in confirmado por conta por refeição (RF11, RI03). Valores nulos em `usuario_id` não colidem no UNIQUE, no SQLite e no MySQL. |
-| — | — | **Índice** (`campus_id`, `tipo_refeicao`, `data`) | Consulta da previsão de pico e da espera estimada. |
+| — | — | **Índice** (`campus_id`, `tipo_refeicao`, `data`) | Consulta da previsão de pico e da espera estimada. Uso conferido com `EXPLAIN` no MySQL (BD-10, [`indices-bd10.md`](indices-bd10.md)). |
 
 ### `TENTATIVA_CHECKIN` (Release 2)
 
@@ -437,7 +459,7 @@ final.
 | `posicao_final` | IntegerField | nullable, **CHECK** `>= 1` | Preenchida no fechamento do semestre (decisão 9); só o semestre corrente e o último fechado ficam guardados. |
 | `atualizado_em` | DateTimeField | NOT NULL | Desempate do ranking. |
 | — | — | **UNIQUE** (`usuario_id`, `campus_id`, `semestre_referencia`) | Uma linha por conta, campus e semestre. |
-| — | — | **Índice** (`campus_id`, `semestre_referencia`, `pontos` decrescente, `atualizado_em` crescente) | Ranking e desempate. O fechamento apaga as linhas mais antigas que o semestre fechado. |
+| — | — | **Índice** (`campus_id`, `semestre_referencia`, `pontos` decrescente, `atualizado_em` crescente) | Ranking e desempate. O fechamento apaga as linhas mais antigas que o semestre fechado. Uso conferido com `EXPLAIN` no MySQL, sem ordenação em arquivo temporário (BD-10, [`indices-bd10.md`](indices-bd10.md)). |
 
 ### `ALERTA_LEITURA_CARDAPIO`
 
@@ -453,6 +475,7 @@ Alerta da leitura do PDF do cardápio, tratado pela equipe (RF06, ADR 0003).
 | `ocorrido_em` | DateTimeField | NOT NULL, auto | Data e hora em que o alerta ocorreu. |
 | `resolvido` | BooleanField | NOT NULL, default `false` | Marcado manualmente pela equipe (RNF08: sem tela administrativa no escopo — atualização provavelmente via acesso direto ao banco, ADR 0004). |
 | `resolvido_em` | DateTimeField | nullable | Data e hora em que a equipe marcou o alerta como resolvido. |
+| `email_enviado_em` | DateTimeField | nullable | Quando o alerta foi para a equipe por e-mail (ADR 0006). Nulo enquanto o limite de avisos segura o e-mail ou se o envio falhou: o alerta vai no próximo e-mail permitido do campus, que leva todos os pendentes (BE-12, revisão do PR #218; migração `0005`). |
 
 ### `CONTADOR_ALERTA`
 
@@ -466,7 +489,22 @@ Controle do limite de avisos por e-mail do Leitor de Cardápio (ADR 0006): uma l
 | `data` | DateField | NOT NULL | Dia da contagem, no horário de Brasília. A contagem de outro dia não vale: a cada dia começa uma linha nova. |
 | `quantidade_enviada` | SmallIntegerField | NOT NULL, default `0`, **CHECK** `0 <= quantidade_enviada <= 3` | Avisos já enviados no dia para essa combinação; no máximo 3 (ADR 0006). |
 | `ultimo_envio_em` | DateTimeField | nullable | Hora do último aviso enviado; um novo aviso da mesma combinação só sai 6 horas depois (ADR 0006). |
-| — | — | **UNIQUE** (`campus_id`, `tipo`, `data`) | Uma contagem por campus, tipo e dia. Quando a leitura do campus volta a funcionar, o `AlertaEquipeService` apaga as linhas do dia desse campus, zerando a contagem (ADR 0006). |
+| — | — | **UNIQUE** (`campus_id`, `tipo`, `data`) | Uma contagem por campus, tipo e dia. Quando a leitura do campus volta a funcionar, o `AlertaEquipeService.zerar_contador` zera a `quantidade_enviada` das linhas do dia desse campus e mantém o `ultimo_envio_em`, para o intervalo de 6 horas continuar valendo (ADR 0006; BE-12, revisão do PR #218). "Voltar a funcionar" é a execução terminar sem nenhum alerta emitido para o campus, de qualquer tipo e em qualquer semana, inclusive o de cardápio não publicado (ADR 0014). |
+
+### `FONTE_CARDAPIO`
+
+Origem do último PDF lido com sucesso de cada campus e semana (ADR 0014): uma linha por campus e semana, porque a semana vigente e a seguinte (RF18) podem estar publicadas ao mesmo tempo. Corresponde ao `FonteCardapio` do Nível 4c do Leitor de Cardápio. Leitura com sucesso é a que grava o cardápio da semana, mesmo com alguma refeição só em texto (RF06.3).
+
+| Campo | Tipo | Constraints | Descrição |
+|---|---|---|---|
+| `id` | BigAutoField | PK | Identificador interno do registro. |
+| `campus_id` | ForeignKey → `CAMPUS` | NOT NULL, `ON DELETE CASCADE` | Campus a que o PDF pertence. |
+| `semana_inicio` | DateField | NOT NULL | Primeiro dia da semana do PDF, lido do texto do link ("09/11/2026 À 15/11/2026"). |
+| `url` | URLField(500) | NOT NULL | Link do PDF da última leitura com sucesso. Mesmo tamanho de `REFEICAO.fonte_pdf_url`. |
+| `sha256` | CharField(64) | NOT NULL | SHA-256 do conteúdo desse PDF. Se a URL e o SHA-256 da próxima execução forem iguais, o Leitor não lê o PDF de novo; se o RU substituir o arquivo, o SHA-256 muda e o PDF é lido. |
+| `verificado_em` | DateTimeField | NOT NULL | Última execução do Leitor que achou o link do campus e da semana na página do RU, com ou sem mudança. Só existe depois da primeira leitura com sucesso da semana, porque a linha só é criada nela: uma semana que nunca foi lida com sucesso não tem linha, e o alerta de cardápio não publicado não depende deste campo (ADR 0014). |
+| `processado_em` | DateTimeField | NOT NULL | Última leitura com sucesso. `url` e `sha256` só mudam junto com este campo, para que um PDF com falha seja tentado de novo na execução seguinte. |
+| — | — | **UNIQUE** (`campus_id`, `semana_inicio`) | Uma origem por campus e semana. |
 
 ### `TOKEN`
 
@@ -478,7 +516,7 @@ Link de uso único para confirmação de e-mail e redefinição de senha (RF02, 
 | `usuario_id` | ForeignKey → `USUARIO` | NOT NULL, `ON DELETE CASCADE` | Conta dona do token. |
 | `tipo` | CharField(20) | NOT NULL, choices | `confirmacao_email` (RF02) \| `redefinicao_senha` (RF04). |
 | `token_hash` | CharField(64) | NOT NULL, **UNIQUE** | SHA-256 do token enviado por e-mail; o token em si nunca é persistido em claro (RNF04: "token aleatório imprevisível"). |
-| `criado_em` | DateTimeField | NOT NULL, auto | Usado também para aplicar o limite de "3 solicitações de redefinição por hora por matrícula/SIAPE" (Anexo A, RF04), contando linhas de `tipo = redefinicao_senha` na última hora. |
+| `criado_em` | DateTimeField | NOT NULL, auto | Usado também para aplicar o limite de "3 solicitações de redefinição por hora por e-mail institucional" (Anexo A, RF04), contando as linhas de `tipo = redefinicao_senha` da conta com aquele e-mail na última hora. |
 | `expira_em` | DateTimeField | NOT NULL | `criado_em` + 24h (confirmação) ou + 1h (redefinição), conforme Anexo A. |
 | `usado_em` | DateTimeField | nullable | Preenchido no uso; um token com `usado_em` preenchido ou `expira_em` no passado é inválido (validado na aplicação). |
 
@@ -503,16 +541,21 @@ duas categorias.
 | Um check-in **confirmado** por usuário por refeição ("mesma refeição" = campus + tipo + data), sem cooldown de tempo adicional (o primeiro check-in confirmado já esgota a possibilidade de novo check-in naquela refeição, o que cobre RI03: "não computar mais de um check-in do mesmo usuário para a mesma refeição no mesmo dia") — **confirmado com a equipe em 26/09/2026**: não haverá regra contra tentativas repetidas em sequência, e o check-in confirmado já entra no cálculo da previsão de pico (RF13) | RF11, RI03 | **Banco**: `UNIQUE (usuario_id, campus_id, tipo_refeicao, data)` em `CHECKIN`, que guarda só os confirmados (decisão 2). As tentativas, inclusive as *rejeitadas* (RF12), vão para `TENTATIVA_CHECKIN`, sem UNIQUE; por isso não é preciso um índice único parcial ("somente quando `resultado = confirmado`"), que não é portátil entre SQLite e MySQL (ver seção de migração). |
 | Refeição não pode ser avaliada antes de começar, nem em outro dia, nem depois de 23h59 para edição | RF15 | **Aplicação**: depende da data/hora corrente, não é expressável como constraint estática de banco. |
 | Check-in só entre início e fim da refeição | RF11 | **Aplicação**: idem — depende de `now()` comparado ao horário de início e fim do `tipo_refeicao` no Anexo A (configuração). O check-in não consulta `REFEICAO`, para funcionar mesmo se a leitura do PDF falhar. |
-| Confirmação de check-in por GPS dentro do raio do **RU** | RF12 | **Aplicação**: cálculo de distância acontece na view, com `CAMPUS.ru_latitude`/`ru_longitude` e `CAMPUS.raio_confirmacao_metros` (diferente do raio de detecção do campus, `raio_deteccao_metros`); coordenadas do dispositivo **não são persistidas** (RI09) — não há coluna para elas em nenhuma tabela. |
+| Confirmação de check-in por GPS dentro do raio do **RU** | RF12 | **Aplicação**: `ConfirmacaoLocalizacaoService` calcula a distância usando as coordenadas do RU e o raio obtidos pela `LocalizacaoRUConfig`. Coordenadas do dispositivo não são persistidas (RI09). Implementação prevista na BE-09. |
+| Raios de confirmação e detecção não negativos | BD-03 | **Banco**: `campus_raios_nao_negativos` exige os dois raios `>= 0`. |
+| Confirmação ativa exige raio positivo | BD-03 | **Banco**: `campus_confirmacao_ativa_exige_raio_positivo` exige `confirmacao_ativa = false` ou `raio_confirmacao_metros > 0`. |
+| Campus com confirmação desativada não confirma localização | BD-03 / BE-09 | **Aplicação**: `ConfirmacaoLocalizacaoService` consulta `LocalizacaoRUConfig.confirmacaoAtiva(campus)` e recusa antes de calcular a distância. Implementação prevista na BE-09. |
 | Uma refeição por campus/dia/tipo | Decorre de RF06/RF07 | **Banco**: `UNIQUE (campus_id, data, tipo)` em `REFEICAO`. |
 | Exatamente 10 marcadores conhecidos | RF06 | **Banco**: `MARCADOR` populada por fixture com exatamente 10 linhas; a leitura do PDF só referencia marcadores já existentes na tabela, nunca cria um novo marcador dinamicamente — um ícone fora desses 10 vira `ALERTA_LEITURA_CARDAPIO` (`legenda_invalida`), não uma nova linha em `MARCADOR`. |
+| Cada PDF é associado ao campus pelo nome no título da página do RU, nunca pela ordem dos blocos | ADR 0014 | **Banco**: `UNIQUE` em `CAMPUS.rotulo_pagina_ru` e em `CAMPUS.prefixo_arquivo_pdf`, para dois campi não disputarem o mesmo bloco. **Aplicação**: `CardapioDownloader.localizarPDFs` compara o título com o rótulo e confere o nome do arquivo pelo prefixo. |
+| Um PDF só é lido de novo quando muda | ADR 0014 | **Banco**: `UNIQUE (campus_id, semana_inicio)` em `FONTE_CARDAPIO`. **Aplicação**: o `LeitorCardapioService` compara URL e SHA-256 com a linha do campus e da semana antes de ler o PDF. |
 | No máximo 3 avisos por dia por campus e tipo de falha, com 6 horas de intervalo | ADR 0006 | **Banco**: `UNIQUE (campus_id, tipo, data)` e `CHECK` em `CONTADOR_ALERTA.quantidade_enviada`. **Aplicação**: `AlertaEquipeService.deveEnviar` compara `ultimo_envio_em` com o intervalo de 6 horas. |
 | Avaliação oculta pela moderação não é exibida nem entra na nota média | RNF08, ADR 0004 | **Aplicação**: consultas públicas de avaliação (comentários, resumo do dia e histórico) filtram `AVALIACAO.oculta = false`. **Banco**: só a coluna com default `false`; quem a altera é a equipe, por acesso direto ao banco. |
 | Senha nunca em texto plano | RI04, RNF04 | **Aplicação**: Django `AbstractBaseUser`/hashers cuidam do hash antes de qualquer `INSERT`/`UPDATE`; o banco só enxerga o hash. |
 | Matrícula/SIAPE e e-mail nunca expostos a outros usuários | RI10 | **Aplicação**: Serializers de leitura pública de `USUARIO` (ex.: autor de uma avaliação) nunca incluem `matricula_siape` nem `email_institucional` — não é uma constraint de banco, é uma escolha de quais colunas cada Serializer expõe. |
-| Limite de 3 solicitações de redefinição de senha por hora por matrícula/SIAPE | RF04, Anexo A | **Aplicação**: `COUNT` de linhas em `TOKEN` (`tipo = redefinicao_senha`, `usuario_id`, `criado_em` na última hora) antes de criar uma nova. |
-| Bloqueio de login após 5 tentativas em 10 minutos | RF03, Anexo A | **Aplicação**: `USUARIO.tentativas_login_falhas` e `bloqueado_ate`, geridos pela view de login. |
-| Avaliações de conta removida ficam anônimas ("usuário removido") | RNF07 | **Aplicação**: a equipe **não** apaga a linha de `USUARIO`: o `RemoverContaCommand` marca `status = removido` (decisão tomada com o backend) e a exibição mostra "usuário removido". **Banco**: `AVALIACAO.usuario_id` nullable com `ON DELETE SET NULL` cobre só uma eventual exclusão física (e, como `on_delete` é do ORM do Django, não vale para DELETE feito direto no banco). |
+| Limite de 3 solicitações de redefinição de senha por hora por e-mail institucional | RF04, Anexo A | **Aplicação**: `COUNT` de linhas em `TOKEN` (`tipo = redefinicao_senha`, `usuario_id`, `criado_em` na última hora) antes de criar uma nova. |
+| Bloqueio de login após 5 tentativas em 10 minutos | RF03, Anexo A | **Aplicação**: `USUARIO.tentativas_login_falhas`, `primeira_falha_login_em` e `bloqueado_ate`, geridos pelo `TentativaLoginTracker` (chamado pelo `LoginService`, com a linha travada por `select_for_update`). |
+| Avaliações de conta excluída ficam anônimas ("usuário removido") | RNF07.4 | **Aplicação**: o `RemoverContaCommand` apaga a linha de `USUARIO` pelo ORM (LGPD, revisão da ADR 0004), e a exibição mostra "usuário removido" quando `usuario_id` é nulo. **Banco**: `AVALIACAO.usuario_id` nullable com `ON DELETE SET NULL` (como `on_delete` é do ORM do Django, a exclusão não deve ser feita com DELETE direto no banco). |
 | Nenhuma coordenada de localização armazenada | RI09 | **Banco**: ausência deliberada de coluna de latitude/longitude do usuário em qualquer tabela (`CAMPUS.ru_*` e `CAMPUS.centro_*` são do **RU** e do **campus**, não do usuário). |
 | Uma pergunta de saída por check-in | RF21 | **Banco**: `UNIQUE` em `PERGUNTA_SAIDA.checkin_id`. |
 | No máximo uma resposta por tentativa da pergunta | RF21.2 | **Banco**: `UNIQUE (pergunta_id, tentativa)` em `RESPOSTA_SAIDA`. |
@@ -524,8 +567,8 @@ duas categorias.
 | Ranking sem pontos, matrícula nem e-mail; posição só para o próprio usuário | RI10, RI12 | **Aplicação**: serializers públicos. |
 | No máximo 30 Bandejas de Ouro por campus | RN13 | **Aplicação**: no fechamento do semestre. |
 | Só o semestre corrente e o último fechado ficam guardados | RN13, ADR 0011 | **Aplicação**: o fechamento apaga as linhas mais antigas. |
-| Vínculo dos registros de fila retirado em 4 semanas | RNF07.3 | **Aplicação**: tarefa diária `DesvincularRegistrosFilaJob` (cron) e, na exclusão de conta, `RemoverContaCommand` (ambos anulam `usuario_id` explicitamente); **Banco**: `usuario_id` nullable (o `SET NULL` só cobre exclusão física). |
-| Contadores apagados na exclusão de conta, sem apagar a conta | RNF07.4, RNF08 | **Aplicação**: `RemoverContaCommand`; **Banco**: `ON DELETE CASCADE` dos contadores para o caso de exclusão física do cadastro pendente. |
+| Vínculo dos registros de fila retirado em 4 semanas | RNF07.3 | **Aplicação**: tarefa diária `DesvincularRegistrosFilaJob` (cron) e, na exclusão de conta, `RemoverContaCommand` (ambos anulam `usuario_id` explicitamente); **Banco**: `usuario_id` nullable, com `SET NULL` na exclusão da conta. |
+| Contadores apagados na exclusão de conta | RNF07.4 | **Aplicação**: `RemoverContaCommand` (`PontuacaoService.apagarContadores`) antes de apagar a conta; **Banco**: `ON DELETE CASCADE` dos contadores, que também cobre a exclusão do cadastro pendente. |
 | Primeiro check-in só depois da ciência do aviso atualizado | RF11, RNF07.1 | **Aplicação**: compara `USUARIO.versao_aviso_aceita` com a versão em vigor. |
 
 > **Nota sobre a "janela de cooldown de 15 minutos"** citada no rascunho da
@@ -571,7 +614,8 @@ derivável), também **não são tabelas**:
 
 Os quatro indicadores de adesão da RNF09 (pergunta de saída respondida,
 check-ins por usuário ativo, sequência de 2 semanas ou mais e adesão ao
-ranking) também são consultas manuais, sem tabela própria.
+ranking) também são consultas manuais, sem tabela própria. As consultas
+ficam em [`indicadores-adesao-bd-e5.md`](indicadores-adesao-bd-e5.md).
 
 ---
 
@@ -693,10 +737,14 @@ SQLite a ser migrado: o MVP nasce direto em MySQL quando for para produção).
 - ADR 0007 (sessão por cookie), ADR 0009 (detecção de campus no aparelho),
   ADR 0010 (nível por chegadas com espera estimada) e ADR 0011 (contadores de
   gamificação), em `docs/arquitetura/adr/`.
+- `docs/arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md` — origem de
+  `FONTE_CARDAPIO` e das colunas `rotulo_pagina_ru` e `prefixo_arquivo_pdf`
+  de `CAMPUS`.
 - `docs/arquitetura/c4-niveis-1-2.md` — Níveis 1 e 2, onde o Banco de Dados
   aparece como um único container.
 - `docs/arquitetura/backend/` — Níveis 4 do backend (Fila, Avaliação,
-  Gamificação, Cadastro/Autenticação e Exposição do Cardápio), cujos models
+  Gamificação, Cadastro/Autenticação, Exposição do Cardápio e Leitor de
+  Cardápio), cujos models
   são a referência dos campos e dos nomes.
 - [`C4-nivel-3-banco-de-dados-bandejao.md`](C4-nivel-3-banco-de-dados-bandejao.md) — Nível 3
   (entidades e relacionamentos), que este arquivo detalha.

@@ -49,7 +49,10 @@ export function somarDias(iso, dias) {
   return paraISO(data)
 }
 
-/** Segunda-feira da semana de `agora`, em ISO. */
+/**
+ * Segunda-feira da semana de `agora`, em ISO. O domingo pertence à semana da
+ * segunda anterior, como no backend (`semana_inicio` + 6 dias).
+ */
 export function inicioDaSemana(agora = new Date()) {
   const data = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
   const deslocamento = (data.getDay() + 6) % 7
@@ -86,6 +89,18 @@ export function diaMes(iso) {
 /** Date → "Segunda-feira, 28 de setembro de 2026" */
 export function dataPorExtenso(agora = new Date()) {
   return `${DIAS_LONGOS[agora.getDay()]}, ${agora.getDate()} de ${MESES[agora.getMonth()]} de ${agora.getFullYear()}`
+}
+
+/** Saudação da barra do topo da Início no desktop (FE-23). */
+export function saudacao(agora = new Date()) {
+  const hora = agora.getHours()
+  if (hora < 12) return 'Bom dia'
+  return hora < 18 ? 'Boa tarde' : 'Boa noite'
+}
+
+/** "Segunda, 23 de novembro": a data por extenso sem "-feira" e sem o ano. */
+export function dataCurta(agora = new Date()) {
+  return `${DIAS_LONGOS[agora.getDay()].replace('-feira', '')}, ${agora.getDate()} de ${MESES[agora.getMonth()]}`
 }
 
 /** Instante ISO completo → "agora", "há 5 min", "há 2h", "ontem", "há 3 dias". */

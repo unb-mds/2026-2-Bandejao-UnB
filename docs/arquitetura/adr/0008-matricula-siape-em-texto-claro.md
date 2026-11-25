@@ -1,7 +1,7 @@
 # ADR 0008 — Matrícula/SIAPE armazenada em texto claro, com acesso restrito
 
 **Status:** Aceita
-**Data:** 2026-09-28
+**Data:** 2026-09-28 (revisada em 2026-11-19: a busca no login deixou de ser pela matrícula/SIAPE, ADR 0016)
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
 ## Contexto
@@ -9,7 +9,7 @@
 A matrícula/SIAPE é dado pessoal (RNF07, LGPD) e nunca pode ser exibida a outros usuários (RI10). Ao mesmo tempo, o sistema precisa:
 
 - **garantir unicidade:** cada matrícula/SIAPE pertence a uma única conta (RF01);
-- **buscar a conta pela matrícula/SIAPE** no login (RF03), na recuperação de senha (RF04) e no reenvio de confirmação;
+- **buscar a conta pela matrícula/SIAPE** no login (RF03), na recuperação de senha (RF04) e no reenvio de confirmação *(deixou de valer em 2026-11-19: pela ADR 0016, essas três buscas são pelo e-mail institucional)*;
 - **recuperar a matrícula a partir do apelido** para moderação e matrícula contestada, e por isso ela **não pode** ser guardada como hash irreversível (RNF07, RNF08, ADR 0004).
 
 Os documentos de arquitetura divergiam:
@@ -27,30 +27,35 @@ A matrícula/SIAPE é armazenada **em texto claro**, na coluna `USUARIO.matricul
 
 - **Banco:** acesso direto restrito aos membros nomeados da equipe (ADR 0004), com credenciais individuais e não compartilhadas informalmente. O usuário de banco da aplicação não é o mesmo da equipe.
 - **API:** nenhum serializer público inclui `matricula_siape` ou `email_institucional` (RI10). Há teste automatizado que verifica isso nas respostas de avaliação, histórico e sessão.
-- **Logs:** matrícula/SIAPE e senha não são gravadas em log de aplicação nem de acesso. As rotas de cadastro, login, recuperação e reenvio não registram o corpo da requisição.
+- **Logs:** matrícula/SIAPE, e-mail e senha não são gravados em log de aplicação nem de acesso. As rotas de cadastro, login, recuperação e reenvio não registram o corpo da requisição.
 - **Backups:** mesmo nível de acesso restrito do banco de produção.
-- **Transporte:** HTTPS em toda comunicação (RNF04). Na VPS da Hostinger (ADR 0012), a conexão da aplicação com o banco não sai do servidor, e a porta do banco não é exposta à internet; o acesso da equipe é feito por túnel SSH, que já é criptografado.
+- **Transporte:** HTTPS em toda comunicação (RNF04). Na máquina virtual da Azure (ADR 0012), a conexão da aplicação com o banco não sai do servidor, e a porta do banco não é exposta à internet; o acesso da equipe é feito por túnel SSH, que já é criptografado.
 
 O campo `identificadorCifrado` do Nível 4 de Cadastro/Autenticação passa a se chamar `matriculaSiape`, igual ao dicionário de dados.
 
 ## Consequências
 
-- `UNIQUE` e busca no login funcionam direto pelo ORM, iguais em SQLite e MySQL, sem gestão de chaves.
+- `UNIQUE` e busca por igualdade funcionam direto pelo ORM, iguais em SQLite e MySQL, sem gestão de chaves.
 - A moderação por acesso direto (ADR 0004) consegue ler a matrícula a partir do apelido sem ferramenta extra.
 - **Risco aceito:** um vazamento do banco ou de um backup expõe as matrículas/SIAPEs de todos os usuários em texto claro. O impacto é limitado (matrícula não é credencial nem dá acesso a nada no Bandejão), mas é dado pessoal. A política de privacidade (US-RNF07.1) deve refletir isso honestamente.
 - O Nível 4 de Cadastro/Autenticação precisa ser atualizado (`identificadorCifrado` → `matriculaSiape`, e a nota sobre armazenamento recuperável).
 - Se o sistema continuar no ar após a disciplina, ou se o número de usuários crescer muito, esta decisão deve ser revista.
 
+## Revisão de 2026-11-19 (ADR 0016)
+
+O login, a recuperação de senha e o reenvio da confirmação passaram a buscar a conta pelo e-mail institucional (ADR 0016). O terceiro motivo do contexto deixou de valer, mas a decisão continua a mesma: a matrícula/SIAPE segue em texto claro porque precisa ser única (RF01.5) e porque a equipe precisa lê-la a partir do apelido na moderação e na matrícula contestada (RNF07, RNF08, ADR 0004). Um hash irreversível continuaria impedindo isso.
+
 ## Alternativas consideradas
 
 - **Criptografia simétrica com índice cego (HMAC):** protege contra vazamento do banco sem as chaves e mantém unicidade e busca. Descartada por ora pelo custo de implementar e operar duas chaves. É o caminho natural de evolução.
 - **Hash irreversível (como a senha):** mantém unicidade e busca, mas impede recuperar a matrícula a partir do apelido. Descartada por violar o RNF07 e a ADR 0004.
-- **Criptografia de disco ou de banco pela hospedagem:** complementar, não substitui o controle de acesso. Pode ser adotada se a hospedagem oferecer sem custo (SP-02). Não foi adotada na VPS da Hostinger (ADR 0012) por ora.
+- **Criptografia de disco ou de banco pela hospedagem:** complementar, não substitui o controle de acesso. Pode ser adotada se a hospedagem oferecer sem custo (SP-02). Na máquina virtual da Azure (ADR 0012), os discos gerenciados já são criptografados em repouso pela própria plataforma, sem custo; nenhuma criptografia adicional do banco foi adotada por ora.
 
 ## Relacionadas
 
 - Requisitos: RF01, RF03, RF04, RNF04, RNF07, RNF08, RI10, L01.
-- `docs/adr/0002-matricula-apelido-extraidos-do-email.md`.
-- `docs/adr/0004-acesso-direto-da-equipe-ao-banco.md`.
+- `docs/arquitetura/adr/0002-matricula-apelido-extraidos-do-email.md`.
+- `docs/arquitetura/adr/0004-acesso-direto-da-equipe-ao-banco.md`.
+- `docs/arquitetura/adr/0016-login-com-email-institucional.md`.
 - `C4-niveis-3-4-banco-de-dados-bandejao.md` (`USUARIO.matricula_siape`).
 - `c4-nivel-4-cadastro-autenticacao.md` (`Conta.identificadorCifrado`).

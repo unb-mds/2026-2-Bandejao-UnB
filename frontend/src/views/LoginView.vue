@@ -4,8 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAvaliacoesStore } from '@/stores/avaliacoes'
 import { usePreferenciasStore } from '@/stores/preferencias'
-import { USANDO_SIMULACAO } from '@/services/apiClient'
-import { CONTA_DEMO } from '@/services/mock/banco'
+import { USANDO_SIMULACAO, mensagemDeErro } from '@/services/apiClient'
 import CabecalhoFormulario from '@/components/CabecalhoFormulario.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import CampoSenha from '@/components/CampoSenha.vue'
@@ -17,25 +16,38 @@ const auth = useAuthStore()
 const avaliacoes = useAvaliacoesStore()
 const preferencias = usePreferenciasStore()
 
-const email = ref('')
+const emailInstitucional = ref('')
 const senha = ref('')
 const enviando = ref(false)
 const erro = ref('')
 const naoConfirmado = ref(false)
 const reenvio = ref(null)
+const reenviando = ref(false)
+/** Conta de demonstração: só em desenvolvimento, sem levar o simulado ao build. */
+const contaDemo = ref(null)
+if (import.meta.env.DEV && USANDO_SIMULACAO) {
+  import('@/services/mock/banco').then(({ CONTA_DEMO }) => (contaDemo.value = CONTA_DEMO))
+}
 
 const podeEnviar = computed(
-  () => Boolean(email.value) && senha.value.length >= 1 && !enviando.value,
+  () => Boolean(emailInstitucional.value.trim()) && senha.value.length >= 1 && !enviando.value,
 )
+const podeReenviar = computed(() => Boolean(emailInstitucional.value.trim()) && !reenviando.value)
 
-/** Depois do login: volta à tela que pediu o login, ou segue para a Início (RF03). */
+/**
+ * Depois do login: volta à tela que pediu o login, ou segue direto para a tela
+ * do campus lembrado (RF03.4), sem passo a mais; sem campus, para a escolha.
+ */
 function seguirAposLogin() {
   const voltar = route.query.voltar
   if (typeof voltar === 'string' && voltar.startsWith('/') && !voltar.startsWith('//')) {
-    router.replace(voltar)
-  } else {
-    router.replace({ name: preferencias.campusId ? 'inicio' : 'campus' })
+    return router.replace(voltar)
   }
+  if (!preferencias.campusId) return router.replace({ name: 'campus' })
+  return router.replace({
+    name: 'campus-tela',
+    params: { campusId: String(preferencias.campusId) },
+  })
 }
 
 async function entrar() {
@@ -45,51 +57,55 @@ async function entrar() {
   naoConfirmado.value = false
   reenvio.value = null
   try {
-    await auth.entrar(email.value, senha.value)
-    avaliacoes.limparCache()
-    seguirAposLogin()
+    await auth.entrar(emailInstitucional.value, senha.value)
   } catch (falha) {
-    erro.value = falha.message
-    naoConfirmado.value = falha.codigo === 'email_nao_confirmado'
+    erro.value = mensagemDeErro(falha)
+    naoConfirmado.value = falha.codigo === 'conta_nao_confirmada'
+    return
   } finally {
     enviando.value = false
   }
+  avaliacoes.limparCache()
+  await seguirAposLogin()
 }
 
 async function reenviarConfirmacao() {
+  if (!podeReenviar.value) return
+  reenviando.value = true
   try {
-    reenvio.value = await auth.reenviarConfirmacao(email.value)
+    reenvio.value = await auth.reenviarConfirmacao({
+      emailInstitucional: emailInstitucional.value,
+    })
   } catch (falha) {
-    erro.value = falha.message
+    erro.value = mensagemDeErro(falha)
+  } finally {
+    reenviando.value = false
   }
 }
 </script>
 
 <template>
-  <div class="tela">
+  <div class="tela tela-formulario">
     <CabecalhoFormulario
       titulo="Entrar"
-      subtitulo="Use seu e-mail institucional UnB"
+      subtitulo="Use seu e-mail institucional"
       :voltar-para="{ name: 'boas-vindas' }"
     />
 
     <form class="conteudo sem-barra pilha-4" novalidate @submit.prevent="entrar">
       <CampoTexto
-        v-model="email"
+        v-model="emailInstitucional"
         rotulo="E-mail institucional"
         type="email"
-        inputmode="email"
+        maxlength="254"
         autocomplete="username"
-        placeholder="matricula@aluno.unb.br"
+        placeholder="matricula@aluno.unb.br ou nome@unb.br"
       />
 
       <CampoSenha v-model="senha" />
 
       <div class="esqueci">
-        <RouterLink
-          :to="{ name: 'recuperar-senha', query: email ? { email } : {} }"
-          class="link-destaque"
-        >
+        <RouterLink :to="{ name: 'recuperar-senha' }" class="link-destaque">
           Esqueci a senha
         </RouterLink>
       </div>
@@ -100,12 +116,13 @@ async function reenviarConfirmacao() {
           v-if="naoConfirmado && !reenvio"
           type="button"
           class="reenviar"
+          :disabled="!podeReenviar"
           @click="reenviarConfirmacao"
         >
           Reenviar link de confirmação
         </button>
       </div>
-      <p v-if="reenvio" class="mensagem mensagem--sucesso" role="status">{{ reenvio.detail }}</p>
+      <p v-if="reenvio" class="mensagem mensagem--sucesso" role="status">{{ reenvio.mensagem }}</p>
       <LinkSimulado :link="reenvio?.linkSimulado" rotulo="Abrir link de confirmação recebido" />
 
       <button type="submit" class="botao botao--primario" :disabled="!podeEnviar">
@@ -119,9 +136,9 @@ async function reenviarConfirmacao() {
         <RouterLink :to="{ name: 'cadastro' }" class="link-forte">Criar conta</RouterLink>
       </p>
 
-      <p v-if="USANDO_SIMULACAO" class="demo">
-        Demonstração: entre com <strong>{{ CONTA_DEMO.email }}</strong> e a senha
-        <strong>{{ CONTA_DEMO.senha }}</strong
+      <p v-if="contaDemo" class="demo">
+        Demonstração: entre com o e-mail <strong>{{ contaDemo.email }}</strong> e a senha
+        <strong>{{ contaDemo.senha }}</strong
         >, ou crie uma conta nova.
       </p>
     </form>
@@ -142,6 +159,11 @@ async function reenviarConfirmacao() {
   color: var(--erro-texto);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.reenviar:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .criar-conta {

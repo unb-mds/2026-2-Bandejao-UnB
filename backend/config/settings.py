@@ -13,99 +13,156 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 import os
 import sys
 from pathlib import Path
+
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def lista(valor):
+    """Lista separada por vírgulas, sem itens vazios."""
+    return [item.strip() for item in valor.split(",") if item.strip()]
+
+
+# Variáveis do Django (BD-05): os nomes têm o prefixo DJANGO_, como combinado
+# para o .env da VM. Um .env (ou um ambiente) de antes ainda teria os nomes
+# antigos, que seriam ignorados em silêncio: um DEBUG=True esquecido viraria
+# produção, e um ALLOWED_HOSTS antigo deixaria a lista vazia. Por isso o
+# servidor para.
+nomes_antigos = {
+    "SECRET_KEY": "DJANGO_SECRET_KEY",
+    "DEBUG": "DJANGO_DEBUG",
+    "ALLOWED_HOSTS": "DJANGO_ALLOWED_HOSTS",
+    "CSRF_TRUSTED_ORIGINS": "DJANGO_CSRF_TRUSTED_ORIGINS",
+}
+_antigos = [
+    antigo for antigo in nomes_antigos if config(antigo, default=None) is not None
+]
+if _antigos:
+    raise ImproperlyConfigured(
+        "Variáveis com o nome antigo no .env ou no ambiente (BD-05). Renomeie: "
+        + ", ".join(f"{antigo} -> {nomes_antigos[antigo]}" for antigo in _antigos)
+    )
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = config("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast =bool)
+DEBUG = config("DJANGO_DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=lambda v: [s.strip() for s in v.split(',')])
+
+def config_sem_padrao_em_producao(nome, padrao_em_desenvolvimento, **opcoes):
+    """Lê a variável do .env; em produção (sem DEBUG) ela é obrigatória.
+
+    Mesmo padrão da SECRET_KEY: esquecer a variável no deploy para o servidor
+    na subida (UndefinedValueError), em vez de ele subir com um valor que só
+    serve em desenvolvimento. Com DEBUG, vale o padrão de desenvolvimento.
+    """
+    if DEBUG:
+        return config(nome, default=padrao_em_desenvolvimento, **opcoes)
+    return config(nome, **opcoes)
+
+
+# Em produção, sem a lista o Django responde 400 a todo pedido. Em
+# desenvolvimento, com a lista vazia, ele já aceita localhost e 127.0.0.1.
+ALLOWED_HOSTS = config_sem_padrao_em_producao("DJANGO_ALLOWED_HOSTS", "", cast=lista)
+if not DEBUG and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS está vazio no .env.")
 
 
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'rest_framework',
-    'apps.status',
-    'apps.core',
-    'apps.usuarios',
-    'apps.cardapio',
-    'apps.avaliacoes',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "rest_framework",
+    "apps.cadastro",
+    "apps.cardapio",
+    "apps.avaliacao",
+    "apps.fila",
+    "apps.gamificacao",
+    "drf_spectacular",
 ]
+
+AUTH_USER_MODEL = "cadastro.Usuario"
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
+WSGI_APPLICATION = "config.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DB_ENGINE = config('DB_ENGINE', default='sqlite')
+DB_ENGINE = config("DB_ENGINE", default="sqlite")
 
-if DB_ENGINE == 'mysql':
+if DB_ENGINE == "mysql":
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': config('DB_NAME', default='ru_db'),
-            'USER': config('DB_USER', default='ru_user'),
-            'PASSWORD': config('DB_PASSWORD'),
-            'HOST': config('DB_HOST', default='127.0.0.1'),
-            'PORT': config('DB_PORT', default='3306'),
-            'OPTIONS': {
-                'charset': 'utf8mb4',
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": config("DB_NAME", default="ru_db"),
+            "USER": config("DB_USER", default="ru_user"),
+            "PASSWORD": config("DB_PASSWORD"),
+            "HOST": config("DB_HOST", default="127.0.0.1"),
+            "PORT": config("DB_PORT", default="3306"),
+            "OPTIONS": {
+                "charset": "utf8mb4",
+                "isolation_level": "read committed",
+            },
+            "TEST": {
+                "CHARSET": "utf8mb4",
+                "COLLATION": "utf8mb4_0900_ai_ci",
             },
         }
     }
 else:
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
 
-if DEBUG and 'runserver' in sys.argv and (os.environ.get('RUN_MAIN') or '--noreload' in sys.argv):
+if (
+    DEBUG
+    and "runserver" in sys.argv
+    and (os.environ.get("RUN_MAIN") or "--noreload" in sys.argv)
+):
     print(f"Banco ativo: {DB_ENGINE}", file=sys.stderr)
 
 
@@ -114,16 +171,16 @@ if DEBUG and 'runserver' in sys.argv and (os.environ.get('RUN_MAIN') or '--norel
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -131,9 +188,11 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+# pt-br (#121): as mensagens padrão do Django e do DRF que não têm tradução
+# própria no tratador (config/excecoes.py) não chegam ao usuário em inglês.
+LANGUAGE_CODE = "pt-br"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "America/Sao_Paulo"
 
 USE_I18N = True
 
@@ -143,14 +202,271 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "static/"
+# Pasta onde o collectstatic junta o CSS e o JS do admin. Em produção, o
+# Caddy serve esses arquivos em /static/ (BD-05).
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
-# Email
+# Email (ADR 0012, BE-06)
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
+# MAILERS é a configuração de e-mail do Django 6.1; as antigas EMAIL_BACKEND,
+# EMAIL_HOST etc. estão obsoletas (somem no 7.0) e não podem conviver com ela.
+# As variáveis do .env mantêm os nomes conhecidos (EMAIL_HOST...), mas viram
+# o OPTIONS do mailer "default".
+# Em desenvolvimento (DEBUG=True), o e-mail sai no terminal do runserver. Em
+# produção, vai pelo SMTP do Brevo (smtp-relay.brevo.com; confira no painel),
+# e o usuário e a senha ficam só no .env do servidor (BD-05). Nos testes, o
+# pytest-django troca o backend pelo de memória (django.core.mail.outbox).
+# Os dados do SMTP e o remetente usam o config_sem_padrao_em_producao (lá em
+# cima): sem eles o servidor responderia 201 ao cadastro e nunca entregaria o
+# link. Pelo mesmo motivo, em produção só o SMTP é aceito.
+
+BACKEND_DE_EMAIL_SMTP = "django.core.mail.backends.smtp.EmailBackend"
+BACKEND_DE_EMAIL = config(
+    "EMAIL_BACKEND",
+    default=(
+        "django.core.mail.backends.console.EmailBackend"
+        if DEBUG
+        else BACKEND_DE_EMAIL_SMTP
+    ),
+)
+if not DEBUG and BACKEND_DE_EMAIL != BACKEND_DE_EMAIL_SMTP:
+    # Um EMAIL_BACKEND esquecido no .env da VM: o cadastro responderia 201, o
+    # e-mail nunca sairia, e o link de confirmação iria para o log.
+    raise ImproperlyConfigured(
+        f"EMAIL_BACKEND={BACKEND_DE_EMAIL!r} em produção: só o SMTP entrega o "
+        "link de confirmação. Remova a variável do .env."
+    )
+if BACKEND_DE_EMAIL == BACKEND_DE_EMAIL_SMTP:
+    OPCOES_DE_EMAIL = {
+        "host": config_sem_padrao_em_producao("EMAIL_HOST", "localhost"),
+        "port": config("EMAIL_PORT", default=587, cast=int),
+        "use_tls": config("EMAIL_USE_TLS", default=True, cast=bool),
+        "username": config_sem_padrao_em_producao("EMAIL_HOST_USER", ""),
+        "password": config_sem_padrao_em_producao("EMAIL_HOST_PASSWORD", ""),
+        # Limite de cada operação no socket (conexão, EHLO, STARTTLS, login,
+        # envio), não do envio inteiro: evita que um SMTP travado prenda o
+        # worker do Gunicorn para sempre, mas não garante ficar abaixo dos 30 s
+        # dele.
+        "timeout": 10,
+    }
+else:
+    # Os outros backends (console, memória) não aceitam as opções do SMTP.
+    OPCOES_DE_EMAIL = {}
 
 MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+    "default": {
+        "BACKEND": BACKEND_DE_EMAIL,
+        "OPTIONS": OPCOES_DE_EMAIL,
     },
 }
+# Sem padrão em produção: um remetente não verificado no Brevo faz todo envio
+# ser recusado, e o erro só aparece no log.
+DEFAULT_FROM_EMAIL = config_sem_padrao_em_producao(
+    "DEFAULT_FROM_EMAIL", "nao-responda@bandejaounb.com.br"
+)
+# Destinatário dos alertas do Leitor de Cardápio (ADR 0006 e 0012, BE-12).
+# Tem padrão, inclusive em produção: sem a variável no .env, os alertas vão
+# para o endereço da equipe, e o servidor sobe do mesmo jeito.
+# Vazio também cai no padrão: `EMAIL_EQUIPE=` no .env faria o Django
+# descartar o destinatário, e o e-mail sumiria sem erro.
+EMAIL_EQUIPE = config("EMAIL_EQUIPE", default="").strip() or "equipe@bandejaounb.com.br"
+
+# Endereço do PWA: o link de confirmação de e-mail aponta para a página
+# /confirmar-email dele, e não para a API. Sem padrão em produção: um link
+# para localhost faria todo cadastro expirar e ser apagado em 24 h.
+URL_DO_PWA = config_sem_padrao_em_producao("URL_DO_PWA", "http://localhost:5173")
+
+# Proxy (ADR 0012): em produção o Caddy fica na frente do Gunicorn. Usado no
+# SECURE_PROXY_SSL_HEADER (sessão e CSRF, abaixo) e no NUM_PROXIES.
+ATRAS_DE_PROXY = config("ATRAS_DE_PROXY_HTTPS", default=not DEBUG, cast=bool)
+
+# Django REST Framework
+# API só em JSON, autenticada pela sessão do Django (ADR 0007).
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "apps.cadastro.autenticacao.SessaoAutenticacao",
+    ],
+    # Fechada por padrão: view que esquecer permission_classes não fica pública.
+    # As públicas (cadastro, login, cardápio) declaram AllowAny explicitamente.
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "EXCEPTION_HANDLER": "config.excecoes.tratador_de_excecoes",
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Limite de taxa (#123): de onde vem o IP. Atrás do Caddy, o IP real é o
+    # último do X-Forwarded-For (o que o Caddy acrescentou); o resto da lista
+    # foi o cliente quem mandou e não vale. Sem proxy (runserver), vale o
+    # REMOTE_ADDR. Nunca deixe None: o DRF usaria o cabeçalho inteiro, e quem
+    # o forja escolhe o próprio "IP". O 1 supõe que o Caddy é o ÚNICO proxy na
+    # frente do Gunicorn: se a Azure (ou outro balanceador) entrar antes dele,
+    # o último endereço passa a ser o desse proxy, e todos os pedidos contam
+    # como um IP só. Nesse caso, o número tem que subir junto. Os limites ficam nas views
+    # (throttle_classes), e não num DEFAULT_THROTTLE_CLASSES: o padrão valeria
+    # também para o cardápio e o GET /api/sessao/, que o PWA chama a cada
+    # abertura.
+    "NUM_PROXIES": 1 if ATRAS_DE_PROXY else 0,
+}
+
+
+# Cache em banco (#123): os contadores do limite de taxa valem para todos os
+# workers do Gunicorn (o LocMemCache, padrão do Django, conta cada worker
+# separado). A tabela não é model: é criada pela migration 0003 do cadastro.
+# MAX_ENTRIES: o padrão é 300; passou disso, o Django apaga um terço das
+# chaves, inclusive contadores válidos, e quem enchesse a tabela zeraria os
+# limites dos outros. 100 mil linhas é bem mais do que o RU gera numa hora (cada
+# linha é um IP ou uma conta por rota, e o IPv6 conta pela faixa /64), e as
+# linhas são pequenas (um hash e uma lista de horários).
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "cache_bandejao",
+        "OPTIONS": {"MAX_ENTRIES": 100_000},
+    }
+}
+
+
+# Sessão e CSRF (ADR 0007)
+# Cookie de sessão HttpOnly, Secure e SameSite=Lax, com 14 dias renovados a
+# cada uso. O PWA lê o cookie csrftoken e manda o valor no cabeçalho
+# X-CSRFToken nas escritas.
+# O flag Secure acompanha o DEBUG: em produção (DEBUG=False) é True; em
+# desenvolvimento, com o runserver em HTTP, desliga sozinho. O .env pode
+# forçar qualquer um dos dois valores.
+
+# O motor da sessão é fixado em `db` de propósito (BD-12, RF04): a exclusão de
+# conta e a redefinição de senha encerram as sessões da conta lendo a tabela
+# `django_session` (`SessoesDaConta.encerrar_todas`) e contam com o rollback
+# da transação para desfazê-las. Com `cache` ou `signed_cookies`, esse passo
+# acharia 0 sessão e a sessão aberta continuaria valendo, sem erro nenhum. Um
+# teste confere o valor.
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=not DEBUG, cast=bool)
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_AGE = config("SESSION_COOKIE_AGE", default=14 * 24 * 60 * 60, cast=int)
+SESSION_SAVE_EVERY_REQUEST = True
+
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=not DEBUG, cast=bool)
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_HEADER_NAME = "HTTP_X_CSRFTOKEN"
+# Em produção o Caddy encerra o HTTPS e encaminha ao Gunicorn em HTTP
+# (ADR 0012). Sem este cabeçalho o Django acha que a requisição é HTTP, o
+# `Origin: https://...` do navegador não confere e todo login e cadastro dá
+# 403 de CSRF. Só é seguro porque o Gunicorn não fica exposto: o Caddy sempre
+# regrava o X-Forwarded-Proto. O .env pode desligar.
+# A mesma variável decide de onde vem o IP do limite de taxa (#123): veja o
+# NUM_PROXIES no REST_FRAMEWORK. ATRAS_DE_PROXY é lido lá em cima, antes dele.
+if ATRAS_DE_PROXY:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+else:
+    SECURE_PROXY_SSL_HEADER = None
+
+# HTTPS em produção (BE-10, ADR 0012)
+# O HSTS começa em 1 hora: se o certificado falhar, o navegador de quem já
+# abriu o site só fica preso ao HTTPS por uma hora. Depois de alguns dias de
+# HTTPS estável, o .env da VM sobe para um ano (31536000).
+SECURE_HSTS_SECONDS = config(
+    "SECURE_HSTS_SECONDS", default=0 if DEBUG else 60 * 60, cast=int
+)
+if SECURE_HSTS_SECONDS < 0:
+    # Um max-age negativo desligaria o HSTS sem o aviso W004 do check --deploy.
+    raise ImproperlyConfigured(
+        f"SECURE_HSTS_SECONDS não pode ser negativo (veio {SECURE_HSTS_SECONDS})."
+    )
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+# Só estes três avisos do check --deploy ficam calados, e o
+# tests/test_deploy_be10.py confere a lista. Não acrescente outro para o CI
+# passar.
+SILENCED_SYSTEM_CHECKS = [
+    # HSTS sem subdomínios: os subdomínios de e-mail do DNS apontam para o
+    # Brevo e o ImprovMX, que não são servidos por nós.
+    "security.W005",
+    # SECURE_SSL_REDIRECT desligado: o Caddy já redireciona HTTP para HTTPS
+    # (308) antes de a requisição chegar ao Gunicorn.
+    "security.W008",
+    # Sem preload: sair da lista dos navegadores é quase irreversível, e o
+    # domínio pode mudar depois da disciplina (ADR 0012).
+    "security.W021",
+]
+
+CSRF_TRUSTED_ORIGINS = config("DJANGO_CSRF_TRUSTED_ORIGINS", default="", cast=lista)
+
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Bandejão UnB API",
+    "VERSION": "1.0.0",
+    # O schema não deve aparecer dentro dele mesmo
+    "SERVE_INCLUDE_SCHEMA": False,
+    # Separa o schema de ENTRADA do de SAÍDA (ajuda muito o front)
+    "COMPONENT_SPLIT_REQUEST": True,
+    # O primeiro é o padrão do drf-spectacular; o segundo documenta o 403 de
+    # CSRF em toda escrita (#112).
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "config.erros.documentar_csrf_invalido",
+    ],
+}
+
+# Logs (#112)
+# Na configuração padrão do Django, com DEBUG=False o traceback de um 500 não
+# vai para lugar nenhum. Aqui ele vai para o console (que o servidor guarda).
+# O path de cada 5xx vai junto; o filtro tira dele o token da confirmação de
+# e-mail. O motivo de um 403 de CSRF sai, sem o path, no logger
+# `apps.cadastro.autenticacao` (nível WARNING, pelo logger raiz).
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        "mascara_token": {"()": "config.logs.MascaraTokenDoPath"},
+    },
+    "formatters": {
+        # Horário e nível: sem isto, o logging.lastResort do Python mostra só a
+        # mensagem, e não dá para saber quando a falha aconteceu.
+        "padrao": {"format": "{asctime} {levelname} {name}: {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "padrao"},
+    },
+    "loggers": {
+        # O código do projeto (apps.*): falhas no envio do e-mail e a contagem
+        # do job de exclusão (INFO). Os logs não levam e-mail nem token.
+        "apps": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+        # Falha de um transaction.on_commit(robust=True), como o envio do link
+        # depois do cadastro. Sem esta entrada, o erro cai no console padrão
+        # do Django, que só mostra com DEBUG: em produção sumiria sem rastro.
+        # ERROR: o nível DEBUG deste logger é o SQL de cada consulta.
+        # propagate=False pelo mesmo motivo do django.request, abaixo.
+        "django.db.backends.base": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        # propagate=False: sem isto, com DEBUG=True o erro sairia duas vezes.
+        # Também desliga o mail_admins padrão do Django, que não usamos (não
+        # há ADMINS). Se um dia houver, acrescente o handler aqui.
+        "django.request": {
+            "handlers": ["console"],
+            "filters": ["mascara_token"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
+
+# Fonte do cardápio (Anexo A, ADR 0014).
+URL_PAGINA_CARDAPIO = "https://ru.unb.br/cardapio-refeitorio/"

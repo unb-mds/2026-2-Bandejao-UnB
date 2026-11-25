@@ -4,8 +4,7 @@
  * médias e comentários realistas sem precisar de milhares de registros.
  */
 import { REFEICOES } from '@/constants/refeicoes'
-import { deISO, hojeISO, minutosAgora, minutosDoDia } from '@/utils/datas'
-import { inicioSemanaVigente } from './cardapios'
+import { deISO, hojeISO, inicioDaSemana, minutosAgora, minutosDoDia } from '@/utils/datas'
 
 const COMENTARIOS_PROTOTIPO = [
   {
@@ -81,8 +80,7 @@ export function avaliacoesSemente(campus, data, tipo, agora = new Date()) {
   if (data > hoje || (data === hoje && minutosAgora(agora) < inicio)) return vazio
 
   const hash = hashTexto(`${campus}|${data}|${tipo}`)
-  const fixo =
-    campus === 'darcy' && data === inicioSemanaVigente(agora) ? FIXOS_DARCY_SEGUNDA[tipo] : null
+  const fixo = campus === 1 && data === inicioDaSemana(agora) ? FIXOS_DARCY_SEGUNDA[tipo] : null
   let quantidade = fixo?.quantidade ?? 40 + (hash % 150)
   const media = fixo?.media ?? 3.3 + ((hash >> 3) % 15) / 10
   let comentarios =

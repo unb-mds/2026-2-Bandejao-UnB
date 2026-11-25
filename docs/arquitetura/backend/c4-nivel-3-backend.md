@@ -20,11 +20,12 @@
 > - ✅ `c4-nivel-4-gamificacao.md` — Épico Gamificação → componente
 >   Gamificação
 >
-> Referências: ADRs 0001 a 0011, em `docs/arquitetura/adr/`. As que mais
+> Referências: ADRs 0001 a 0014, em `docs/arquitetura/adr/`. As que mais
 > pesam neste nível são a 0003 (Leitor de PDF como módulo do backend), a
 > 0004 (acesso direto da equipe ao banco), a 0007 (sessão por cookie
 > `HttpOnly`), a 0009 (detecção de campus no aparelho), a 0010 (nível por
-> chegadas com espera estimada) e a 0011 (contadores de gamificação).
+> chegadas com espera estimada), a 0011 (contadores de gamificação) e a 0014
+> (descoberta do PDF de cada campus).
 
 ### Legenda de formas (Nível 3)
 
@@ -53,8 +54,8 @@ Consome a API REST do Backend."]]
 
   site_ru{{"🌐 Site do RU
 Sistema Externo
-Publica o PDF semanal de
-cardápio de cada campus."}}
+Publica numa página de cardápios
+o PDF semanal de cada campus."}}
   email_svc{{"🌐 Serviço de E-mail
 Sistema Externo
 Brevo, via SMTP."}}
@@ -93,11 +94,13 @@ Lista de campi com centro e raio
 de detecção (RF20, ADR 0009)."]
       leitor["📖 Leitor de Cardápio
 Componente — módulo do app Cardápio (ADR 0003)
-Baixa e interpreta o PDF semanal, associa
+Acha o PDF de cada campus na página do RU
+pelo nome do campus (ADR 0014), baixa e
+interpreta o PDF semanal, associa
 ícones de marcador aos pratos por posição,
 valida a legenda e grava o cardápio
 estruturado (RF06). Disparado por cron
-do SO — o cron em si não é um componente
+do SO, de 3 em 3 horas — o cron em si não é um componente
 da aplicação (ver Nível 2)."]
     end
 
@@ -144,8 +147,8 @@ de pico [HTTPS/JSON]"| fila
 e redefinição [SMTP]"| email_svc
   cardapio -->|"Lê cardápio estruturado
 [Django ORM]"| db
-  leitor -->|"Baixa o PDF semanal
-de cada campus [HTTPS]"| site_ru
+  leitor -->|"Lê a página de cardápios e baixa
+o PDF de cada campus [HTTPS]"| site_ru
   leitor -->|"Grava cardápio estruturado e mantém
 o último cardápio válido em caso
 de falha [Django ORM]"| db
@@ -318,6 +321,12 @@ na exclusão de conta [chamada Python]"| fila
   disparada por cron, escreve no banco e depende de um sistema externo (Site
   do RU). Essa fronteira interna é exatamente o que o Nível 4 detalha (ver
   `c4-nivel-4-leitor-cardapio.md`).
+- **Leitor de Cardápio → Site do RU passa por uma página, não por um link
+  fixo.** O nome do PDF muda toda semana, e o RU reenvia arquivos com
+  sufixos `-1`, `-2`. O Leitor lê a página de cardápios, associa cada link ao
+  campus pelo título do bloco (nunca pela ordem), confere o nome do arquivo e
+  as datas, e só lê o PDF de novo quando a URL ou o conteúdo mudam
+  (ADR 0014, Nível 4c do Leitor).
 - **Leitor de Cardápio → Serviço de E-mail é o canal de alerta à Equipe.**
   Reaproveita a mesma integração já usada por Cadastro/Autenticação para
   confirmação de cadastro e redefinição de senha (RF02, RF04), em vez de
@@ -333,3 +342,71 @@ na exclusão de conta [chamada Python]"| fila
 - **App Fila e App Gamificação são da Release 2**, que é a entrega final do
   projeto (o MVP já foi entregue). Dentro da Fila, só o nível de fila
   "agora" (RF14) continua no Backlog.
+
+## Parâmetros compartilhados — BD-04
+
+O módulo `backend/config/parametros.py` centraliza os parâmetros do Anexo A
+em classes de configuração. Não constitui um novo componente do backend.
+
+| Classe | Responsabilidade |
+|---|---|
+| `HorariosRefeicaoConfig` | Intervalos de café, almoço e jantar; dias e refeições servidos vêm do PDF |
+| `ParametrosFilaConfig` | Previsão, perguntas de saída, espera estimada e retenção |
+| `ParametrosGamificacaoConfig` | Pontuação, sequência, patentes, tamanho do ranking e datas de término dos semestres |
+| `ParametrosSessaoConfig` | Expõe `settings.SESSION_COOKIE_AGE` por propriedade de instância |
+| `AvisoPrivacidadeConfig` | Versão do aviso em vigor |
+| `ParametrosCadastroConfig` | Ano mínimo da matrícula, confirmação de e-mail, bloqueio de login e recuperação de senha |
+| `ParametrosLeitorConfig` | Expõe `settings.URL_PAGINA_CARDAPIO` por propriedade de instância; intervalo de verificação e prazo de alerta de cardápio não publicado |
+| `ParametrosBackupConfig` | Intervalo entre backups e prazo de retenção |
+| `ParametrosLocalizacaoConfig` | Intervalo para nova detecção, tempo limite da leitura e parâmetros ainda indefinidos |
+
+Os parâmetros fixos do Anexo A são atributos de classe, lidos sem criar
+instância (`ParametrosCadastroConfig.login_janela`). Os consumidores leem a
+classe no momento da chamada, e não copiam o valor no import. Os dois
+valores que já existem no settings são propriedades de instância e
+consultam o settings a cada acesso:
+
+- `ParametrosSessaoConfig().duracao_segundos` → `settings.SESSION_COOKIE_AGE`;
+- `ParametrosLeitorConfig().url_pagina` → `settings.URL_PAGINA_CARDAPIO`.
+
+Assim, os dois acompanham `override_settings` nos testes, sem `reload` do
+módulo. Os parênteses são obrigatórios: sem eles, o acesso pela classe
+devolve o objeto `property`, e não o valor, sem gerar erro.
+
+A URL da página do RU é definida uma única vez em
+`settings.URL_PAGINA_CARDAPIO`. O Leitor separa duas configurações:
+
+- `ParametrosLeitorConfig`, neste módulo, guarda só os parâmetros do Anexo A
+  que valem para todos os campi: URL da página, intervalo de verificação e
+  prazo do alerta de cardápio não publicado (segunda-feira, 12h). Não lê
+  `CAMPUS`.
+- `FonteCardapioConfig`, no app do Leitor, lê o rótulo e o prefixo de cada
+  campus em `CAMPUS` (ADR 0014) e obtém a URL de
+  `ParametrosLeitorConfig().url_pagina`, sem consultar o settings
+  diretamente nem repetir o valor.
+
+É o mesmo critério da docstring do módulo: o que consulta `CAMPUS` fica no
+app que usa, como a `LocalizacaoRUConfig` da Fila. A BD-04 entrega só a
+`ParametrosLeitorConfig`; a `FonteCardapioConfig` é implementada no Leitor
+(BE-12), conforme o Nível 4 do Leitor de Cardápio.
+
+As datas de término dos semestres permanecem sem entradas até a equipe
+confirmá-las no calendário acadêmico. Precisão mínima e idade máxima da
+posição permanecem `None`, pois o Anexo A ainda não define seus valores.
+`None` representa uma pendência e não dispensa validação de localização.
+
+Coordenadas, raios, rótulos e prefixos por campus pertencem aos dados de
+`CAMPUS`, e não são duplicados neste módulo.
+
+Disponibilizar os parâmetros não implementa os serviços que ainda não
+existem, não agenda tarefas e não transmite configurações automaticamente
+ao front-end. Os respectivos consumidores deverão lê-los nas suas tarefas.
+
+A Bandeja de Ouro (RF33) está fora do escopo atual por decisão do backlog
+(seção 3, item 6), embora continue descrita neste nível e no Nível 4 da
+Gamificação. Por isso, os dois parâmetros do Anexo A ligados a ela, as
+colocações premiadas (30 primeiros do ranking de cada campus) e o mínimo de
+pontos no semestre (100 pontos no campus), não entram em
+`ParametrosGamificacaoConfig`: sem `BandejaOuroResolver` e sem fechamento do
+semestre, não há quem os consuma. Se a Bandeja voltar ao escopo, os dois
+entram nessa classe, junto com o resolvedor.

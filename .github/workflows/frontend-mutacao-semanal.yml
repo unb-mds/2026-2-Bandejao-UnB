@@ -1,0 +1,78 @@
+name: Frontend mutação semanal
+
+# Mutação na base inteira dos arquivos críticos do front (FE-17, ADR 0013,
+# decisão 6; Plano de Testes 5.4): pega o escore de quem não mexeu em
+# arquivo crítico recentemente, o que o job `mutacao (front)` dos PRs não
+# vê. É o relatório que a FE-19 anexa à issue.
+#
+# Separado do frontend-ci.yml para não disparar lint, testes, build e
+# segurança toda semana sem motivo.
+#
+# O `schedule` e o `workflow_dispatch` só valem para o workflow que está na
+# branch padrão do repositório (a `main`): a rodada agendada começa quando a
+# release levar este arquivo para lá.
+on:
+  schedule:
+    # Domingo às 07:00 UTC (04:00 em Brasília), uma hora depois do backend.
+    - cron: "0 7 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Uma rodada de cada vez por branch (o grupo usa o `github.ref`): a agendada
+# roda a partir da `main` e um workflow_dispatch na `develop` pode rodar ao
+# mesmo tempo. A que está rodando não é cancelada.
+concurrency:
+  group: frontend-mutacao-semanal-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: frontend
+    # Com `shell: bash` explícito, o GitHub roda com `-eo pipefail`: é o
+    # pipefail que faz a saída do `escore | tee` reprovar o step.
+    shell: bash
+
+jobs:
+  # Um job só: a base inteira do front tem perto de 2 mil mutantes e leva
+  # dezenas de minutos, longe do limite de 6 horas de um job.
+  mutacao:
+    name: mutacao (front, base inteira)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Na rodada agendada, o workflow roda a partir da `main`, mas a base
+          # que importa é a da `develop`. No workflow_dispatch, vale a branch
+          # escolhida.
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+
+      # Todos os arquivos críticos (o `mutate` do stryker.config.mjs).
+      - name: Rodar o Stryker na base inteira
+        run: npx stryker run --reporters clear-text,html,json
+
+      # A meta vale para cada módulo crítico, não só para o total: um módulo
+      # abaixo de 50% reprova a rodada mesmo com o geral acima.
+      # Sem olhar se o relatório existe: sem o mutation.json, o script sai com
+      # 2 ("Não dá para medir") e a rodada reprova.
+      - name: Escore de mutação por módulo (mínimo 50%)
+        if: ${{ !cancelled() }}
+        run: |
+          echo "### Mutação semanal (front)" >> "$GITHUB_STEP_SUMMARY"
+          node scripts/mutacao.mjs escore reports/mutation/mutation.json --minimo 50 --por-modulo | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar o relatório
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutacao-front-semanal
+          path: frontend/reports/mutation/
+          if-no-files-found: warn

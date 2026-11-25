@@ -1,7 +1,7 @@
 # ADR 0003 — Leitor de PDF como módulo do backend
 
 
-**Status:** Aceita
+**Status:** Aceita (frequência do cron e descoberta do PDF de cada campus definidas em 2026-11-11 pela ADR 0014)
 **Data:** 2026-09-27
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
@@ -16,13 +16,14 @@ ao texto, fora da camada de texto do PDF, e precisam ser associados aos
 pratos pela posição e identificados pela legenda do arquivo.
 
 Essa leitura é a principal fonte de instabilidade do sistema: o formato do PDF
-é controlado por terceiros e pode mudar sem aviso (L05), e a associação dos
+é controlado por terceiros e pode mudar sem aviso (L15), e a associação dos
 ícones pode falhar (L03). Três requisitos moldam onde esse código deve
 ficar:
 
 - **RNF06:** a arquitetura deve separar claramente os módulos críticos, de
   modo que uma mudança no formato do PDF exija alteração apenas no módulo de
-  leitura de cardápio, com cobertura mínima de 60% de testes.
+  leitura de cardápio, com as metas de teste dos módulos críticos (cobertura
+  de linhas ≥ 70% e escore de mutação ≥ 50%, ADR 0013).
 - **RNF02:** se a leitura falhar, o sistema continua exibindo o último
   cardápio lido com sucesso.
 - **Contexto da equipe:** primeiro projeto de maior porte na disciplina, com
@@ -64,10 +65,12 @@ O detalhamento do módulo está em `c4-nivel-4-leitor-cardapio.md`.
   linguagem é claramente superior, esta ADR precisa ser revisada, e o custo
   de extrair o módulo depende de a fronteira ter sido respeitada.
 - O disparo por cron exige que a hospedagem escolhida permita agendar tarefas
-  no servidor. A hospedagem escolhida, uma VPS da Hostinger (ADR 0012),
-  permite usar o cron do sistema operacional.
+  no servidor. A hospedagem escolhida, uma máquina virtual Linux da Azure
+  (Azure for Students, ADR 0012), permite usar o cron do sistema operacional.
 - A frequência do cron precisa garantir a meta de atualização em até 24 horas
-  do RF06, com margem. O valor exato ainda não foi decidido.
+  do RF06, com margem. Ela é de **3 em 3 horas, todos os dias** (ADR 0014),
+  porque o RU não tem dia fixo de publicação e às vezes corrige o PDF com a
+  semana em andamento.
 - O cron é configuração de implantação e não está no código. Vale
   documentá-lo junto com as instruções de deploy, para não se perder na troca
   de hospedagem ou de responsáveis.
@@ -83,9 +86,30 @@ processos e mais infraestrutura para manter, sem que exista, até agora,
 evidência de que a linguagem do backend seja um limite real. Fica como caminho
 de evolução se o teste com o PDF do Gama indicar o contrário.
 
+## Atualização (08/11/2026, BE-04): biblioteca escolhida
+
+A biblioteca de leitura escolhida é o **`pdfplumber`** (MIT), testada com os
+PDFs reais do Gama (semana de 21/09/2026), da Ceilândia e do Darcy Ribeiro
+(semana de 09/11/2026). Ela entrega as palavras, as bordas da tabela e as
+imagens dos ícones com coordenadas e com o conteúdo de cada imagem. Com isso,
+o leitor identificou todos os ícones dos três PDFs pela legenda e associou
+cada um a um prato pela posição, nos PDFs gerados tanto pelo Firefox quanto
+pelo Word.
+
+O teste não mostrou necessidade de outra linguagem: o leitor continua como
+módulo do backend, como decidido acima. O PyMuPDF também atenderia, mas foi
+descartado pela licença AGPL. Com esse resultado, o grupo segue com o leitor
+automático (BE-12), e o cadastro pelo Django Admin fica só como contingência.
+
+Detalhes, casos difíceis e limites conhecidos em
+`docs/arquitetura/backend/teste-leitor-pdf-be-04.md`.
+
 ## Relacionadas
 
-- Requisitos: RF06, RNF02, RNF06, L03, L05.
-- `docs/adr/0001-escolha-stack-backend.md` (linguagem e framework do backend).
-- `docs/adr/0006-alerta-de-falha-do-leitor-por-email.md` (aviso à equipe em
+- Requisitos: RF06, RNF02, RNF06, L03, L15.
+- `docs/arquitetura/adr/0001-escolha-stack-backend.md` (linguagem e framework do backend).
+- `docs/arquitetura/adr/0006-alerta-de-falha-do-leitor-por-email.md` (aviso à equipe em
   caso de falha de leitura).
+- `docs/arquitetura/backend/teste-leitor-pdf-be-04.md` (teste com os PDFs reais, BE-04).
+- `docs/arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md` (como o
+  módulo acha o PDF de cada campus e frequência do cron).

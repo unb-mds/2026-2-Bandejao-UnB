@@ -106,5 +106,5 @@ o significado do nível ambíguo.
 ## Relacionadas
 
 - Requisitos: RF11, RF13, RF21, RF22, RI05, L08, L12.
-- `docs/adr/0009-deteccao-de-campus-no-aparelho.md` (outra decisão da
+- `docs/arquitetura/adr/0009-deteccao-de-campus-no-aparelho.md` (outra decisão da
   Release 2, sobre o uso da localização).

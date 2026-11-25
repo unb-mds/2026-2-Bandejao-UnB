@@ -1,165 +1,69 @@
 <script setup>
-import { usePreferenciasStore } from '@/stores/preferencias'
-import BotaoVoltar from '@/components/BotaoVoltar.vue'
-import IconeSvg from '@/components/IconeSvg.vue'
-import NavegacaoInferior from '@/components/NavegacaoInferior.vue'
+import { REFEICOES } from '@/constants/refeicoes'
+import CheckinBotao from '@/components/CheckinBotao.vue'
+import FilaPrevisao from '@/components/FilaPrevisao.vue'
+import RefeicaoEncerrada from '@/components/RefeicaoEncerrada.vue'
 
-/**
- * Fila do RU — previsão de pico e check-in (RF11–RF13) são da Release 2.
- * No MVP a tela existe para manter a navegação do protótipo e avisa que a
- * funcionalidade está a caminho.
- */
-const preferencias = usePreferenciasStore()
-
-const NIVEIS = [
-  { id: 'vazia', rotulo: 'Vazia' },
-  { id: 'curta', rotulo: 'Curta' },
-  { id: 'moderada', rotulo: 'Moderada' },
-  { id: 'longa', rotulo: 'Longa' },
-]
+defineProps({
+  campusId: { type: Number, required: true },
+  tipoRefeicao: { type: String, required: true },
+  encerrada: { type: Boolean, default: false },
+  campusConfirmado: { type: Boolean, default: true },
+  refeicaoPrevisao: { type: String, required: true },
+  dataPrevisao: { type: String, required: true },
+  mostrarPrevisao: { type: Boolean, required: true },
+  /** Na tela "Fila do RU", o título já está no cabeçalho: o h2 não é repetido. */
+  tituloVisivel: { type: Boolean, default: true },
+})
 </script>
 
 <template>
-  <div class="tela">
-    <header class="cabecalho cabecalho-fila">
-      <BotaoVoltar class="voltar" :para="{ name: 'inicio' }" />
-      <h1 class="titulo-tela">Fila do RU</h1>
-      <p class="subtitulo">{{ preferencias.campus?.nome }} · Previsão de pico</p>
-    </header>
+  <section id="fila" class="secao-fila pilha-4" aria-labelledby="titulo-fila">
+    <h2 v-if="tituloVisivel" id="titulo-fila" class="titulo-fila">
+      Fila do RU
+    </h2>
 
-    <main class="conteudo sem-barra pilha-4 corpo">
-      <div class="cartao em-breve">
-        <span class="selo">Em breve</span>
-        <div class="relogio">
-          <IconeSvg nome="relogio" :tamanho="48" cor="var(--dourado)" espessura="1.6" />
-        </div>
-        <p class="titulo-secao">A previsão de fila chega na próxima versão</p>
-        <p class="texto">
-          Você vai poder ver, antes de sair de casa, em que horários a fila do RU costuma estar
-          vazia ou longa — e ajudar a previsão fazendo check-in quando estiver no restaurante.
-        </p>
-      </div>
+    <FilaPrevisao
+      v-if="mostrarPrevisao"
+      :campus-id="campusId"
+      :tipo-refeicao="refeicaoPrevisao"
+      :data="dataPrevisao"
+    />
 
-      <div class="escala" aria-hidden="true">
-        <div v-for="nivel in NIVEIS" :key="nivel.id" class="nivel">
-          <div class="nivel-barra" :class="`nivel-barra--${nivel.id}`" />
-          <span class="nivel-rotulo">{{ nivel.rotulo }}</span>
-        </div>
-      </div>
+    <RefeicaoEncerrada v-if="encerrada" :tipo-refeicao="tipoRefeicao" />
 
-      <div class="cartao como-funciona">
-        <p class="titulo-secao pequeno">Como vai funcionar?</p>
-        <p class="texto-pequeno explicacao">
-          A previsão será calculada a partir dos check-ins de usuários cadastrados nas últimas 4
-          semanas, em faixas de 15 minutos. Quanto mais check-ins, mais precisa a previsão. Sem
-          dados suficientes, o sistema exibirá "dados insuficientes".
-        </p>
-      </div>
+    <section v-else class="pilha-3 checkin-fila" aria-labelledby="titulo-checkin">
+      <p id="titulo-checkin" class="titulo-secao pequeno">
+        Check-in · {{ REFEICOES[tipoRefeicao].rotulo }}
+      </p>
+      <CheckinBotao v-if="campusConfirmado" :campus-id="campusId" :tipo-refeicao="tipoRefeicao" />
+      <p v-else class="texto-pequeno aguardando-campus" data-teste="checkin-aguardando-campus">
+        O check-in fica disponível assim que a lista de campi carregar.
+      </p>
+    </section>
 
-      <RouterLink :to="{ name: 'cardapio' }" class="botao botao--primario">
-        <IconeSvg nome="talheres" :tamanho="18" espessura="2.5" />
-        Ver o cardápio de hoje
-      </RouterLink>
-    </main>
-
-    <NavegacaoInferior />
-  </div>
+    <div class="cartao como-funciona">
+      <p class="titulo-secao pequeno">Como funciona?</p>
+      <p class="texto-pequeno explicacao">
+        A previsão é calculada a partir dos check-ins de usuários cadastrados nas últimas 4 semanas,
+        no mesmo dia da semana, em faixas de 15 minutos. O nível de cada faixa é relativo ao pico.
+        Quanto mais check-ins, mais precisa a previsão; sem dados suficientes, aparece "dados
+        insuficientes".
+      </p>
+    </div>
+  </section>
 </template>
 
 <style scoped>
-.cabecalho-fila {
-  padding-bottom: 20px;
-}
-
-.voltar {
-  margin-bottom: 16px;
-}
-
-.subtitulo {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--branco-40);
-}
-
-.corpo {
+.secao-fila {
   padding: 16px;
 }
 
-.em-breve {
-  padding: 24px 20px;
-  border-radius: var(--raio-xl);
-  text-align: center;
-}
-
-.selo {
-  display: inline-block;
-  margin-bottom: 16px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 10px;
+.titulo-fila {
+  font-family: var(--fonte-titulo);
+  font-size: 18px;
   font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  background: var(--verde-escuro);
-  color: #fff;
-}
-
-.relogio {
-  width: 128px;
-  height: 128px;
-  margin: 0 auto 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 4px dashed var(--borda);
-  background: var(--bege);
-}
-
-.texto {
-  margin-top: 8px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--texto-suave);
-}
-
-.escala {
-  display: flex;
-  gap: 6px;
-  padding: 0 4px;
-}
-
-.nivel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.nivel-barra {
-  width: 100%;
-  height: 8px;
-  border-radius: 999px;
-  opacity: 0.35;
-}
-.nivel-barra--vazia {
-  background: var(--fila-vazia);
-}
-.nivel-barra--curta {
-  background: var(--fila-curta);
-}
-.nivel-barra--moderada {
-  background: var(--fila-moderada);
-}
-.nivel-barra--longa {
-  background: var(--fila-longa);
-}
-
-.nivel-rotulo {
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--texto-claro);
+  color: var(--texto-escuro);
 }
 
 .como-funciona {
@@ -171,8 +75,40 @@ const NIVEIS = [
   font-size: 14px;
 }
 
+.aguardando-campus {
+  color: var(--texto-suave);
+}
+
 .explicacao {
   line-height: 1.6;
   color: var(--texto-suave);
+}
+
+/* Desktop (FE-23): o check-in e o "Como funciona?" lado a lado, embaixo da previsão. */
+@media (min-width: 1024px) {
+  .secao-fila {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 32px;
+    padding: 0;
+  }
+  .secao-fila > * {
+    grid-column: 1 / -1;
+    margin-top: 0;
+  }
+  .secao-fila > .checkin-fila,
+  .como-funciona {
+    grid-column: auto;
+  }
+  .titulo-fila {
+    font-size: 22px;
+    letter-spacing: -0.03em;
+  }
+  .como-funciona {
+    align-self: start;
+    padding: 20px;
+    border-radius: var(--raio-18);
+  }
 }
 </style>

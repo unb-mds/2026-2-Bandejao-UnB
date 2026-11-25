@@ -1,0 +1,589 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { useFilaStore } from './fila'
+import { useAuthStore } from './auth'
+import { useGamificacaoStore } from './gamificacao'
+import { ApiError, apiClient } from '@/services/apiClient'
+import { CONTA_DEMO } from '@/services/mock/banco'
+import { reiniciarSimulacao, simulacao } from '@/services/mock/servidor'
+
+/**
+ * filaStore + apiClient + servidor simulado (fluxo 4a do front). Cada
+ * desfecho do POST /api/checkins/ e, em todos eles, a regra do RI09: as
+ * coordenadas vão só no corpo e não ficam guardadas em lugar nenhum da store.
+ */
+
+// Segunda-feira, 09/11/2026, 12h — almoço em andamento.
+const SEGUNDA_MEIO_DIA = new Date(2026, 10, 9, 12, 0)
+const SEGUNDA_16H = new Date(2026, 10, 9, 16, 0)
+
+// Valores fáceis de achar em qualquer lugar do estado.
+const COORDENADAS = { latitude: -15.7631234, longitude: -47.8701234 }
+const CHECKIN_ALMOCO = { campusId: 1, tipoRefeicao: 'almoco', coordenadas: COORDENADAS }
+
+async function entrarComAvisoAceito() {
+  const auth = useAuthStore()
+  await auth.entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+  await auth.registrarCienciaPrivacidade()
+  return auth
+}
+
+/** Nenhum número das coordenadas aparece no estado serializado da store. */
+function esperarSemCoordenadas(fila) {
+  const estado = JSON.stringify(fila.$state)
+  expect(estado).not.toContain('15.7631234')
+  expect(estado).not.toContain('47.8701234')
+  expect(estado).not.toMatch(/latitude|longitude|coordenadas/)
+}
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(SEGUNDA_MEIO_DIA)
+  reiniciarSimulacao()
+  setActivePinia(createPinia())
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
+
+describe('filaStore.confirmarCheckin', () => {
+  it('manda as coordenadas só no corpo do POST /checkins/, com o id do campus no backend', async () => {
+    await entrarComAvisoAceito()
+    const post = vi.spyOn(apiClient, 'post')
+    const fila = useFilaStore()
+
+    await fila.confirmarCheckin(CHECKIN_ALMOCO)
+
+    const [caminho, corpo] = post.mock.calls.at(-1)
+    expect(caminho).toBe('/checkins/')
+    expect(corpo).toEqual({ campus: 1, tipoRefeicao: 'almoco', coordenadas: COORDENADAS })
+  })
+
+  it('não repassa campos extras que vierem junto com as coordenadas', async () => {
+    await entrarComAvisoAceito()
+    const post = vi.spyOn(apiClient, 'post')
+    const fila = useFilaStore()
+
+    await fila.confirmarCheckin({
+      ...CHECKIN_ALMOCO,
+      coordenadas: { ...COORDENADAS, accuracy: 12, altitude: 1100 },
+    })
+
+    expect(post.mock.calls.at(-1)[1].coordenadas).toEqual(COORDENADAS)
+  })
+
+  it('201: confirmado, guarda o check-in e os pontos, sem coordenadas', async () => {
+    await entrarComAvisoAceito()
+    const fila = useFilaStore()
+
+    const resultado = await fila.confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(resultado.desfecho).toBe('confirmado')
+    expect(resultado.checkin).toMatchObject({
+      campus: 1,
+      tipoRefeicao: 'almoco',
+      data: '2026-11-09',
+    })
+    expect(resultado.pontos).toEqual({ total: 10, contribuicao: 10, avaliacaoLiberada: 0 })
+    expect(fila.ultimoCheckin).toEqual(resultado.checkin)
+    expect(fila).not.toHaveProperty('ultimosPontos')
+    esperarSemCoordenadas(fila)
+  })
+
+  it('201: repassa o bloco pontos à gamificacaoStore (RF24.2)', async () => {
+    await entrarComAvisoAceito()
+
+    await useFilaStore().confirmarCheckin(CHECKIN_ALMOCO)
+
+    const gamificacao = useGamificacaoStore()
+    expect(gamificacao.ultimosPontos).toEqual({ total: 10, contribuicao: 10, avaliacaoLiberada: 0 })
+    expect(gamificacao.aviso).toMatchObject({ total: 10 })
+  })
+
+  it('201 com pontos zerados: a gamificacaoStore guarda o bloco sem abrir aviso', async () => {
+    await entrarComAvisoAceito()
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      checkin: { id: 7, campus: 1, tipoRefeicao: 'almoco', data: '2026-11-09' },
+      pontos: { total: 0, contribuicao: 0, avaliacaoLiberada: 0 },
+    })
+
+    await useFilaStore().confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(useGamificacaoStore().ultimosPontos).toMatchObject({ total: 0 })
+    expect(useGamificacaoStore().aviso).toBeNull()
+  })
+
+  it.each([
+    ['sem o bloco pontos', undefined],
+    ['com o bloco pontos malformado', { total: 'dez' }],
+  ])('201 %s: continua "confirmado", sem aviso e com registro no console', async (_caso, pontos) => {
+    await entrarComAvisoAceito()
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      checkin: { id: 7, campus: 1, tipoRefeicao: 'almoco', data: '2026-11-09' },
+      pontos,
+    })
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const resultado = await useFilaStore().confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(resultado.desfecho).toBe('confirmado')
+    expect(useGamificacaoStore().aviso).toBeNull()
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('201 com a gamificacaoStore lançando ao registrar: o check-in continua "confirmado"', async () => {
+    await entrarComAvisoAceito()
+    vi.spyOn(useGamificacaoStore(), 'registrarPontos').mockImplementation(() => {
+      throw new Error('quebrou')
+    })
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const resultado = await useFilaStore().confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(resultado.desfecho).toBe('confirmado')
+    expect(log).toHaveBeenCalledWith('Falha ao registrar os pontos do check-in.', expect.any(Error))
+  })
+
+  it('recusa (422) não passa nada à gamificacaoStore', async () => {
+    vi.setSystemTime(SEGUNDA_16H)
+    await entrarComAvisoAceito()
+
+    await useFilaStore().confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(useGamificacaoStore().ultimosPontos).toBeNull()
+    expect(useGamificacaoStore().aviso).toBeNull()
+  })
+
+  it('422 fora_do_horario: recusado com a mensagem do servidor, que traz a janela', async () => {
+    vi.setSystemTime(SEGUNDA_16H)
+    await entrarComAvisoAceito()
+    const fila = useFilaStore()
+
+    const resultado = await fila.confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(resultado).toEqual({
+      desfecho: 'recusado',
+      codigo: 'fora_do_horario',
+      mensagem: 'O check-in do almoço só vale das 11h00 às 14h30.',
+    })
+    expect(fila.ultimoCheckin).toBeNull()
+    esperarSemCoordenadas(fila)
+  })
+
+  it('422 fora_do_horario sem mensagem: monta a janela pelo horário da refeição', async () => {
+    await entrarComAvisoAceito()
+    vi.spyOn(apiClient, 'post').mockImplementationOnce(async () => {
+      const { ApiError } = await import('@/services/apiClient')
+      throw new ApiError(422, { codigo: 'fora_do_horario' })
+    })
+    const fila = useFilaStore()
+
+    const resultado = await fila.confirmarCheckin({ ...CHECKIN_ALMOCO, tipoRefeicao: 'jantar' })
+
+    expect(resultado.mensagem).toBe('O check-in do jantar só vale das 17h00 às 19h30.')
+  })
+
+  it('422 checkin_duplicado: recusado com mensagem própria', async () => {
+    await entrarComAvisoAceito()
+    const fila = useFilaStore()
+    await fila.confirmarCheckin(CHECKIN_ALMOCO)
+
+    const resultado = await fila.confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(resultado).toEqual({
+      desfecho: 'recusado',
+      codigo: 'checkin_duplicado',
+      mensagem: 'Você já fez check-in nesta refeição hoje.',
+    })
+    esperarSemCoordenadas(fila)
+  })
+
+  it('422 localizacao_nao_confirmada: recusado com mensagem própria', async () => {
+    await entrarComAvisoAceito()
+    simulacao.definirLocalizacaoConfirmada(false)
+    const fila = useFilaStore()
+
+    const resultado = await fila.confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(resultado).toEqual({
+      desfecho: 'recusado',
+      codigo: 'localizacao_nao_confirmada',
+      mensagem:
+        'Não foi possível confirmar que você está no RU. O check-in só vale dentro do restaurante.',
+    })
+    expect(fila.ultimoCheckin).toBeNull()
+    esperarSemCoordenadas(fila)
+  })
+
+  it('403 aviso_privacidade_pendente: pede o aviso de novo, sem guardar nada', async () => {
+    await useAuthStore().entrar(CONTA_DEMO.email, CONTA_DEMO.senha)
+    const fila = useFilaStore()
+
+    const resultado = await fila.confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(resultado.desfecho).toBe('aviso_privacidade_pendente')
+    expect(fila.ultimoCheckin).toBeNull()
+    esperarSemCoordenadas(fila)
+  })
+
+  it('400 dados_invalidos: erro do aplicativo, sem prometer que tentar de novo resolve', async () => {
+    await entrarComAvisoAceito()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const fila = useFilaStore()
+
+    const resultado = await fila.confirmarCheckin({
+      ...CHECKIN_ALMOCO,
+      coordenadas: { latitude: 95, longitude: COORDENADAS.longitude },
+    })
+
+    expect(resultado).toEqual({
+      desfecho: 'erro',
+      codigo: 'dados_invalidos',
+      mensagem:
+        'Não foi possível registrar o check-in por um problema no aplicativo. Se continuar, avise a equipe do Bandejão.',
+    })
+    expect(log).toHaveBeenCalledWith(expect.any(String), {
+      codigo: 'dados_invalidos',
+      idDoCampus: 1,
+      tipoRefeicao: 'almoco',
+    })
+    // O log nunca leva as coordenadas (RI09).
+    expect(JSON.stringify(log.mock.calls)).not.toMatch(/latitude|longitude|95/)
+    esperarSemCoordenadas(fila)
+  })
+
+  it('201 sem o bloco checkin: avisa que pode ter sido registrado e não diz "Algo deu errado"', async () => {
+    await entrarComAvisoAceito()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce({ pontos: { total: 0 } })
+    const fila = useFilaStore()
+
+    const resultado = await fila.confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(resultado).toEqual({
+      desfecho: 'erro',
+      codigo: 'resposta_invalida',
+      mensagem:
+        'O check-in pode ter sido registrado, mas a resposta veio incompleta. Recarregue a página antes de tentar de novo.',
+    })
+    expect(log).toHaveBeenCalled()
+    expect(useGamificacaoStore().ultimosPontos).toBeNull()
+    expect(fila.ultimoCheckin).toBeNull()
+    expect(fila.enviandoCheckin).toBe(false)
+    esperarSemCoordenadas(fila)
+  })
+
+  it('401 (sessão perdida): limpa o authStore e não guarda nada', async () => {
+    const auth = await entrarComAvisoAceito()
+    simulacao.expirarSessao()
+    const fila = useFilaStore()
+
+    const resultado = await fila.confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(resultado.desfecho).toBe('nao_autenticado')
+    expect(auth.estaAutenticado).toBe(false)
+    esperarSemCoordenadas(fila)
+  })
+
+  it('sem conexão: erro com a mensagem do apiClient', async () => {
+    await entrarComAvisoAceito()
+    const { ApiError } = await import('@/services/apiClient')
+    vi.spyOn(apiClient, 'post').mockRejectedValueOnce(
+      new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }),
+    )
+    const fila = useFilaStore()
+
+    const resultado = await fila.confirmarCheckin(CHECKIN_ALMOCO)
+
+    expect(resultado).toEqual({
+      desfecho: 'erro',
+      codigo: 'sem_conexao',
+      mensagem: 'Sem internet.',
+    })
+    esperarSemCoordenadas(fila)
+  })
+
+  it('campus sem id no backend: pede o campus de novo e loga, sem chamar a API', async () => {
+    await entrarComAvisoAceito()
+    const post = vi.spyOn(apiClient, 'post')
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const fila = useFilaStore()
+
+    const resultado = await fila.confirmarCheckin({ ...CHECKIN_ALMOCO, campusId: 'darcy' })
+
+    expect(resultado).toEqual({
+      desfecho: 'erro',
+      codigo: 'campus_desconhecido',
+      mensagem: 'Não foi possível identificar o campus. Escolha o campus de novo e tente outra vez.',
+    })
+    expect(log).toHaveBeenCalledWith(expect.any(String), { campusId: 'darcy' })
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  it('enviandoCheckin fica verdadeiro só durante o envio', async () => {
+    await entrarComAvisoAceito()
+    const fila = useFilaStore()
+
+    const envio = fila.confirmarCheckin(CHECKIN_ALMOCO)
+    expect(fila.enviandoCheckin).toBe(true)
+    await envio
+
+    expect(fila.enviandoCheckin).toBe(false)
+  })
+
+  it('o estado da store nunca tem coordenadas, nem durante o envio', async () => {
+    await entrarComAvisoAceito()
+    const fila = useFilaStore()
+
+    const envio = fila.confirmarCheckin(CHECKIN_ALMOCO)
+    expect(fila.enviandoCheckin).toBe(true)
+    esperarSemCoordenadas(fila)
+    await envio
+
+    expect(fila.ultimoCheckin).not.toBeNull()
+    esperarSemCoordenadas(fila)
+  })
+})
+
+describe('filaStore: previsão da fila (FE-11, RF13)', () => {
+  const PEDIDO = { campus: 1, refeicao: 'almoco', data: '2026-11-09' }
+
+  it('carrega sem login e guarda a previsão por campus, refeição e dia', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    const estado = await fila.carregarPrevisao(PEDIDO)
+
+    expect(get).toHaveBeenCalledWith('/fila/previsao/?campus=1&refeicao=almoco&data=2026-11-09')
+    expect(estado.situacao).toBe('carregado')
+    expect(fila.estadoDaPrevisao(PEDIDO).previsao.status).toBe('disponivel')
+    expect(fila.estadoDaPrevisao({ ...PEDIDO, refeicao: 'jantar' })).toBeNull()
+  })
+
+  it('o mesmo pedido de novo vem do cache, e ao mesmo tempo sai uma vez só', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await Promise.all([fila.carregarPrevisao(PEDIDO), fila.carregarPrevisao(PEDIDO)])
+    await fila.carregarPrevisao(PEDIDO)
+
+    expect(get).toHaveBeenCalledTimes(1)
+  })
+
+  it('forcar pede de novo', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await fila.carregarPrevisao(PEDIDO)
+    await fila.carregarPrevisao(PEDIDO, { forcar: true })
+
+    expect(get).toHaveBeenCalledTimes(2)
+  })
+
+  it('fica "carregando" enquanto espera a resposta', async () => {
+    const fila = useFilaStore()
+
+    const pedido = fila.carregarPrevisao(PEDIDO)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregando')
+    await pedido
+
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
+  it('dados insuficientes é uma previsão carregada, não um erro', async () => {
+    const fila = useFilaStore()
+
+    await fila.carregarPrevisao({ ...PEDIDO, campus: 5 })
+
+    expect(fila.estadoDaPrevisao({ ...PEDIDO, campus: 5 })).toMatchObject({
+      situacao: 'carregado',
+      previsao: { status: 'dados_insuficientes', faixas: [] },
+      erro: null,
+    })
+  })
+
+  it('501 (backend sem a rota): "indisponivel", sem erro e sem log', async () => {
+    const fila = useFilaStore()
+    simulacao.definirPrevisaoDisponivel(false)
+    const log = vi.spyOn(console, 'error')
+
+    await fila.carregarPrevisao(PEDIDO)
+
+    expect(fila.estadoDaPrevisao(PEDIDO)).toMatchObject({
+      situacao: 'indisponivel',
+      previsao: null,
+      erro: null,
+    })
+    expect(log).not.toHaveBeenCalled()
+  })
+
+  it('501 vale 5 minutos: dentro deles não vai à rede; depois, pede de novo', async () => {
+    const fila = useFilaStore()
+    simulacao.definirPrevisaoDisponivel(false)
+    const get = vi.spyOn(apiClient, 'get')
+
+    await fila.carregarPrevisao(PEDIDO)
+    await fila.carregarPrevisao(PEDIDO)
+    expect(get).toHaveBeenCalledTimes(1)
+
+    simulacao.definirPrevisaoDisponivel(true)
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+    await fila.carregarPrevisao(PEDIDO)
+
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
+  it('a previsão carregada também vale 5 minutos', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+
+    await fila.carregarPrevisao(PEDIDO)
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 4 * 60 * 1000))
+    await fila.carregarPrevisao(PEDIDO)
+    expect(get).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+    await fila.carregarPrevisao(PEDIDO)
+    expect(get).toHaveBeenCalledTimes(2)
+  })
+
+  it('em segundo plano, com o estado em erro: não vai à rede', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+    get.mockRejectedValueOnce(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
+    await fila.carregarPrevisao(PEDIDO)
+
+    await fila.carregarPrevisao(PEDIDO, { emSegundoPlano: true })
+
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('erro')
+  })
+
+  it('em segundo plano: não passa por "carregando"', async () => {
+    const fila = useFilaStore()
+    await fila.carregarPrevisao(PEDIDO)
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+
+    const pedido = fila.carregarPrevisao(PEDIDO, { emSegundoPlano: true })
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+    await pedido
+
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
+  it('em segundo plano, a revalidação de uma previsão boa falha: a antiga fica e tenta de novo depois', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+    await fila.carregarPrevisao(PEDIDO)
+    const antiga = fila.estadoDaPrevisao(PEDIDO)
+    vi.setSystemTime(new Date(SEGUNDA_MEIO_DIA.getTime() + 5 * 60 * 1000))
+    get.mockRejectedValueOnce(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
+
+    await fila.carregarPrevisao(PEDIDO, { emSegundoPlano: true })
+    expect(fila.estadoDaPrevisao(PEDIDO)).toBe(antiga)
+
+    await fila.carregarPrevisao(PEDIDO, { emSegundoPlano: true })
+    expect(get).toHaveBeenCalledTimes(3)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
+  it('forcar com um pedido antigo pendente: a resposta antiga não sobrescreve a nova', async () => {
+    const fila = useFilaStore()
+    const getOriginal = apiClient.get.bind(apiClient)
+    let liberarAntigo
+    const antigo = new Promise((resolver) => {
+      liberarAntigo = resolver
+    })
+    vi.spyOn(apiClient, 'get')
+      .mockImplementationOnce(() => antigo)
+      .mockImplementation((caminho, opcoes) => getOriginal(caminho, opcoes))
+
+    const primeiro = fila.carregarPrevisao(PEDIDO)
+    await fila.carregarPrevisao(PEDIDO, { forcar: true })
+    const novo = fila.estadoDaPrevisao(PEDIDO)
+    liberarAntigo({ status: 'dados_insuficientes', faixas: [] })
+    await primeiro
+
+    expect(fila.estadoDaPrevisao(PEDIDO)).toBe(novo)
+    expect(fila.estadoDaPrevisao(PEDIDO).previsao.status).toBe('disponivel')
+  })
+
+  it('404 campus_nao_encontrado: erro com o código', async () => {
+    const fila = useFilaStore()
+
+    await fila.carregarPrevisao({ ...PEDIDO, campus: 99 })
+
+    expect(fila.estadoDaPrevisao({ ...PEDIDO, campus: 99 })).toMatchObject({
+      situacao: 'erro',
+      erro: { codigo: 'campus_nao_encontrado', mensagem: 'Campus não encontrado.' },
+    })
+  })
+
+  it('erro não fica no cache: a próxima vez pede de novo', async () => {
+    const fila = useFilaStore()
+    const get = vi.spyOn(apiClient, 'get')
+    get.mockRejectedValueOnce(new ApiError(0, { codigo: 'sem_conexao', mensagem: 'Sem internet.' }))
+
+    await fila.carregarPrevisao(PEDIDO)
+    expect(fila.estadoDaPrevisao(PEDIDO).erro).toEqual({
+      codigo: 'sem_conexao',
+      mensagem: 'Sem internet.',
+      status: 0,
+    })
+    await fila.carregarPrevisao(PEDIDO)
+
+    expect(get).toHaveBeenCalledTimes(2)
+    expect(fila.estadoDaPrevisao(PEDIDO).situacao).toBe('carregado')
+  })
+
+  it.each([
+    ['sem corpo', null],
+    ['status desconhecido', { status: 'outro', faixas: [] }],
+    ['disponível sem faixas', { status: 'disponivel', faixas: [] }],
+    [
+      'faixa com nível desconhecido',
+      {
+        status: 'disponivel',
+        faixas: [{ inicio: '11:00:00', fim: '11:15:00', nivel: 'cheia', ehPico: true }],
+      },
+    ],
+    [
+      'faixa sem ehPico',
+      { status: 'disponivel', faixas: [{ inicio: '11:00:00', fim: '11:15:00', nivel: 'vazia' }] },
+    ],
+    [
+      'disponível sem nenhum pico',
+      {
+        status: 'disponivel',
+        faixas: [
+          { inicio: '11:00:00', fim: '11:15:00', nivel: 'vazia', ehPico: false },
+          { inicio: '11:15:00', fim: '11:30:00', nivel: 'curta', ehPico: false },
+        ],
+      },
+    ],
+    [
+      'dados insuficientes com faixas',
+      {
+        status: 'dados_insuficientes',
+        faixas: [{ inicio: '11:00:00', fim: '11:15:00', nivel: 'longa', ehPico: true }],
+      },
+    ],
+  ])('resposta fora do contrato (%s): erro com mensagem para a tela', async (_caso, resposta) => {
+    const fila = useFilaStore()
+    vi.spyOn(apiClient, 'get').mockResolvedValueOnce(resposta)
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await fila.carregarPrevisao(PEDIDO)
+
+    const estado = fila.estadoDaPrevisao(PEDIDO)
+    expect(estado).toMatchObject({ situacao: 'erro', previsao: null })
+    expect(estado.erro.mensagem).toEqual(expect.any(String))
+    expect(estado.erro.mensagem.length).toBeGreaterThan(0)
+    const falha = log.mock.calls[0][0]
+    expect(falha.message).toContain('1|almoco|2026-11-09')
+    expect(falha.cause).toBe(resposta)
+  })
+})

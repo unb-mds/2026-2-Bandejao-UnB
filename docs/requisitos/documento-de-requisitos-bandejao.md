@@ -19,7 +19,7 @@ Este documento especifica, de forma detalhada e verificável, os requisitos func
 
 O documento cobre a totalidade das funcionalidades do produto, independentemente da release em que estão alocadas — MVP, Release 2 ou Backlog do produto —, permitindo o planejamento e a rastreabilidade completa do sistema desde a primeira entrega até a visão de longo prazo do produto.
 
-O MVP (Release 1) já foi entregue. A Release 2 é a entrega final do projeto na disciplina: além das funcionalidades de fila e da gamificação (Épico 5, RF24 a RF27 e RF33), ela acrescenta ao login o encerramento de sessão e a tela do campus (RF03.3 e RF03.4) e amplia comportamentos já entregues no MVP (a escolha do campus e da refeição padrão, nas RN04 e RN05, e o RNF03). O Backlog reúne o que fica sem release agendada.
+O MVP (Release 1) já foi entregue. A Release 2 é a entrega final do projeto na disciplina: além das funcionalidades de fila e da gamificação (Épico 5, RF24 a RF27 e RF33), ela troca o identificador do login da matrícula/SIAPE para o e-mail institucional (RF03.1, ADR 0016), acrescenta ao login o encerramento de sessão e a tela do campus (RF03.3 e RF03.4) e amplia comportamentos já entregues no MVP (a escolha do campus e da refeição padrão, nas RN04 e RN05, e o RNF03). O Backlog reúne o que fica sem release agendada.
 
 O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O Restaurante Executivo do Campus Darcy Ribeiro não faz parte do escopo (RI08). Ele funciona no mesmo prédio do RU, com fila e cardápio próprios, e o sistema não trata nenhum dado sobre ele (RI08, L11).
 
@@ -52,16 +52,19 @@ O escopo restringe-se aos restaurantes universitários (RU) dos campi da UnB. O 
 - ADR 0009 — Detecção de campus feita no aparelho (`docs/arquitetura/adr/0009-deteccao-de-campus-no-aparelho.md`).
 - ADR 0010 — Nível de fila calculado por chegadas, com espera estimada por saída da fila (`docs/arquitetura/adr/0010-nivel-por-chegadas-com-espera-estimada.md`).
 - ADR 0011 — Contadores de gamificação mantidos além da janela de retenção (`docs/arquitetura/adr/0011-contadores-de-gamificacao-alem-da-janela-de-retencao.md`).
+- ADR 0014 — Descoberta do PDF de cada campus na página de cardápios do RU (`docs/arquitetura/adr/0014-descoberta-do-pdf-de-cada-campus.md`).
+- ADR 0016 — Login com e-mail institucional e senha (`docs/arquitetura/adr/0016-login-com-email-institucional.md`).
+- Restaurante Universitário da UnB. *Cardápio refeitório* (página em que o RU publica o PDF semanal de cada campus). Disponível em: https://ru.unb.br/cardapio-refeitorio/.
 
 ### 1.5 Termos
 
 | Termo | Significado |
 |---|---|
 | **Visitante** | Pessoa que usa o Bandejão sem estar logada, tenha ou não conta. Consulta o cardápio e, na Release 2, a previsão de pico, mas não avalia refeições nem faz check-in. É uma condição de uso, não um tipo de pessoa: quem faz login deixa de ser visitante |
-| **Usuário** | Conta no Bandejão, ligada a exatamente uma matrícula ou um SIAPE. É a conta que se autentica, avalia e faz check-in, não a pessoa: quem tem mais de uma vinculação pode ter mais de um usuário |
+| **Usuário** | Conta no Bandejão, ligada a exatamente uma matrícula ou um SIAPE e a um e-mail institucional. É a conta que se autentica (com o e-mail institucional e a senha), avalia e faz check-in, não a pessoa: quem tem mais de uma vinculação pode ter mais de um usuário |
 | **Tipo de usuário** | Vínculo declarado no cadastro: Estudante (matrícula) ou Professor/Servidor (SIAPE/matrícula funcional). É um único tipo interno: "Professor" e "Servidor" são duas opções na tela de cadastro que levam ao mesmo fluxo |
 | **Matrícula / SIAPE** | Identificador associado à conta. Para Estudante, extraído do e-mail institucional; para Professor/Servidor, informado diretamente no cadastro. O sistema confere apenas o formato; não confere existência, situação ativa nem titularidade. É dado privado |
-| **E-mail institucional** | E-mail da UnB informado no cadastro (`matricula@aluno.unb.br` para estudantes, `@unb.br` para professores/servidores), único canal de confirmação de cadastro e de recuperação de senha; fonte da Matrícula (estudantes) e do Apelido (professores/servidores) |
+| **E-mail institucional** | E-mail da UnB informado no cadastro (`matricula@aluno.unb.br` para estudantes, `@unb.br` para professores/servidores), usado para entrar na conta (RF03) e único canal de confirmação de cadastro e de recuperação de senha; fonte da Matrícula (estudantes) e do Apelido (professores/servidores) |
 | **Apelido** | Nome público, escolhido uma única vez no cadastro e único entre os usuários, sob o qual as avaliações e, para quem optar por aparecer, o Ranking são exibidos. Escolhido manualmente por Estudante; extraído do e-mail institucional para Professor/Servidor |
 | **Refeição** | Cada serviço de café da manhã, almoço ou jantar de um dia em um campus. É a unidade avaliada |
 | **Categoria** | Linha do cardápio de uma refeição (Bebidas, Guarnição, Sopa, Prato principal ovolactovegetariano…) |
@@ -115,7 +118,7 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 
 **RF01.3 — Validação do formato da matrícula de Estudante.** O sistema deve rejeitar matrículas de Estudante com formato impossível, conforme a RN01.
 - Dado uma matrícula com 8 dígitos (L10), com letras ou pontuação, com prefixo fora do intervalo válido ou com os 6 dígitos finais em sequência óbvia (ex.: `123456`, `111111`), quando envio, então o cadastro é rejeitado com mensagem específica.
-- Dado que o semestre corrente passa a ser outro, quando o sistema recalcula o intervalo de prefixos, então o novo código de semestre é aceito sem alteração de código.
+- Dado que o ano corrente passa a ser outro, quando o sistema recalcula o intervalo de anos do prefixo, então o novo ano é aceito sem alteração de código.
 
 **RF01.4 — Cadastro de Professor/Servidor.** O sistema deve cadastrar Professor/Servidor com SIAPE/matrícula funcional de 7 dígitos, e-mail institucional `@unb.br` e senha, gerando o apelido a partir do e-mail (RN02, ADR 0002).
 - Dado o e-mail `maria.silva@unb.br` e um SIAPE de 7 dígitos, quando envio, então a conta é criada com o apelido `mariasilva`.
@@ -138,7 +141,7 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 
 **RF02.2 — Reenvio do link.** O sistema deve permitir que o usuário com cadastro pendente peça um novo link dentro do prazo, o que renova a validade.
 - Dado um cadastro pendente dentro das 24 horas, quando peço o reenvio, então um novo link é enviado e o prazo de 24 horas recomeça.
-- Dado matrícula/SIAPE e senha corretas em conta ainda não confirmada, quando tento entrar, então o login é recusado com orientação para confirmar o e-mail e a opção de reenviar o link.
+- Dado e-mail institucional e senha corretos em conta ainda não confirmada, quando tento entrar, então o login é recusado com orientação para confirmar o e-mail e a opção de reenviar o link.
 
 **RF02.3 — Exclusão de cadastro pendente expirado.** O sistema deve excluir o cadastro que não for confirmado dentro do prazo, liberando a matrícula/SIAPE e o e-mail para novo cadastro.
 - Dado um cadastro pendente sem confirmação nem reenvio por mais de 24 horas, quando o prazo vence, então o cadastro é excluído e a matrícula/SIAPE e o e-mail ficam livres.
@@ -147,15 +150,18 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 
 #### RF03 — Login de usuário cadastrado
 
-**Descrição:** O sistema deve permitir que o usuário com conta confirmada se autentique com matrícula ou SIAPE e senha.
+**Descrição:** O sistema deve permitir que o usuário com conta confirmada se autentique com o e-mail institucional e a senha. No MVP, o login usava a matrícula/SIAPE; a Release 2 passou a usar o e-mail (ADR 0016).
 **Release:** MVP · **Prioridade:** Essencial
 
-**RF03.1 — Login com identificador único.** O sistema deve aceitar matrícula ou SIAPE no mesmo campo, identificando o tipo pela quantidade de dígitos (RN01), sem revelar se a conta existe.
+**RF03.1 — Login com e-mail institucional.** *(Release 2 · Importante; no MVP, o login era pela matrícula/SIAPE, RN01)* O sistema deve aceitar, no mesmo campo, o e-mail institucional de Estudante (`@aluno.unb.br`) ou de Professor/Servidor (`@unb.br`), sem revelar se a conta existe. O login confere só o domínio (ADR 0002, ADR 0016): o formato da matrícula é conferido no cadastro (RF01.2), e um e-mail no domínio certo com matrícula inválida recebe a mesma mensagem genérica de credenciais incorretas.
 - Dado credenciais corretas de conta confirmada, quando entro, então a sessão é iniciada e sou levado à página inicial.
-- Dado que informo credenciais incorretas, quando envio, então vejo uma mensagem genérica, sem indicar se a matrícula/SIAPE existe.
+- Dado o e-mail `251098732@aluno.unb.br` ou `maria.silva@unb.br` de uma conta confirmada e a senha correta, quando entro, então a sessão é iniciada.
+- Dado o e-mail com letras maiúsculas ou espaços nas pontas (ex.: ` Maria.Silva@UNB.br `), quando entro, então entro na mesma conta.
+- Dado um e-mail fora dos domínios institucionais, quando envio, então o login é rejeitado com mensagem de formato inválido, antes de consultar a base, e isso não conta como tentativa (RF03.2).
+- Dado que informo credenciais incorretas, quando envio, então vejo uma mensagem genérica, sem indicar se existe conta com o e-mail.
 
 **RF03.2 — Bloqueio após tentativas malsucedidas.** O sistema deve bloquear novas tentativas de login após falhas consecutivas (Anexo A).
-- Dado 5 tentativas malsucedidas consecutivas para o mesmo identificador em 10 minutos, quando faço a 6ª, então novas tentativas ficam bloqueadas por 10 minutos.
+- Dado 5 tentativas malsucedidas consecutivas na mesma conta em 10 minutos, quando faço a 6ª, então novas tentativas ficam bloqueadas por 10 minutos.
 
 **RF03.3 — Sair da conta.** *(Release 2 · Importante)* O sistema deve permitir que o usuário encerre a sessão.
 - Dado que estou logado, quando toco em "Sair", então a sessão termina e volto a navegar como Visitante.
@@ -170,9 +176,9 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 **Descrição:** O sistema deve permitir que um usuário que perdeu a senha defina uma nova, por meio de um link enviado ao e-mail cadastrado. Sem acesso a esse e-mail, não há recuperação de senha no MVP (L07).
 **Release:** MVP · **Prioridade:** Essencial
 
-**RF04.1 — Solicitar redefinição.** O sistema deve enviar o link de redefinição ao e-mail da conta identificada pela matrícula/SIAPE, sem revelar se a conta existe, e limitar as solicitações (Anexo A).
-- Dado que informo uma matrícula/SIAPE, quando peço a redefinição, então a resposta é sempre "se houver conta, enviaremos o e-mail", exista ou não a conta.
-- Dado 3 solicitações na última hora para a mesma matrícula/SIAPE, quando peço a 4ª, então nenhum e-mail é enviado.
+**RF04.1 — Solicitar redefinição.** *(Release 2 · Importante; no MVP, a conta era identificada pela matrícula/SIAPE)* O sistema deve enviar o link de redefinição ao e-mail institucional informado, se houver conta com ele, sem revelar se a conta existe, e limitar as solicitações (Anexo A).
+- Dado que informo um e-mail institucional, quando peço a redefinição, então a resposta é sempre "se houver conta, enviaremos o e-mail", exista ou não a conta.
+- Dado 3 solicitações na última hora para o mesmo e-mail, quando peço a 4ª, então nenhum e-mail é enviado.
 
 **RF04.2 — Redefinir pelo link.** O sistema deve permitir definir a nova senha por um link de uso único, válido por 1 hora (Anexo A), e encerrar as sessões ativas da conta.
 - Dado um link válido, quando defino uma nova senha com pelo menos 8 caracteres, então a senha anterior deixa de valer e as sessões ativas da conta são encerradas.
@@ -200,6 +206,8 @@ Cada requisito funcional tem um identificador único, uma descrição curta, a r
 
 **RF06.1 — Download e atualização semanal.** O sistema deve obter o PDF de cada campus e atualizar o cardápio exibido em até 24 horas depois de uma nova publicação.
 - Dado que o RU publica um novo PDF para um campus, quando o sistema o processa, então o cardápio exibido é atualizado em até 24 horas.
+- Dado que a página de cardápios do RU lista os campi em qualquer ordem, quando o sistema a lê, então cada PDF é associado ao campus pelo nome do campus no título do bloco, e nunca pela posição na página (ADR 0014).
+- Dado que o nome do arquivo não corresponde ao campus do título, ou que algum dia do PDF fica fora das datas do link, quando o sistema lê a página ou o PDF, então o cardápio daquela semana do campus não é atualizado, o último cardápio válido continua em exibição (RF06.4) e a equipe recebe um alerta (RF06.5).
 
 **RF06.2 — Categorias, pratos e dietas.** O sistema deve extrair do PDF as categorias, os pratos e as linhas de dieta, respeitando os dias e as refeições servidos em cada campus.
 - Dado o PDF de um campus, quando lido, então só existem as refeições e os dias que constam nele (por exemplo, almoço de sábado quando presente).
@@ -587,9 +595,9 @@ Os requisitos não funcionais abaixo detalham as faixas de qualidade do Document
 
 #### RNF01 — Desempenho
 
-O sistema deve responder a requisições de visualização de cardápio (e, na Release 2, de previsão de pico) em até **3 segundos**, em condições normais de operação (até **2.000 usuários simultâneos**), medido do lado do servidor em pelo menos 95% das requisições.
+O sistema deve responder a requisições de visualização de cardápio (e, na Release 2, de previsão de pico) em até **3 segundos**, em condições normais de operação (até **500 usuários simultâneos**, cada um fazendo um pedido a cada 3 a 7 segundos), medido do lado do servidor em pelo menos 95% das requisições.
 
-**Justificativa:** torna verificável a meta de eficiência do projeto, com uma escala compatível com a comunidade que frequenta os RUs nos horários de pico e acessível a um projeto acadêmico.
+**Justificativa:** torna verificável a meta de eficiência do projeto, com uma escala compatível com a comunidade que frequenta os RUs nos horários de pico e acessível a um projeto acadêmico. A meta original era de 2.000 usuários simultâneos; o teste de carga da BD-14 ([resultado](../qualidade/teste-de-carga-bd14.md)) mostrou o p95 dentro de 3 s com 500 usuários em todas as medições, no limite com 1.000 (falhou em uma de três) e acima de 3 s com 1.500 ou mais, e o número foi revisto para o valor medido com folga. A medição foi feita num ambiente de teste com 4 vCPUs (runner do GitHub Actions); a VM de produção tem 2 vCPUs, então a capacidade em produção pode ser menor.
 
 ---
 
@@ -613,7 +621,7 @@ Um visitante deve conseguir visualizar o cardápio de um campus em **no máximo 
 
 #### RNF04 — Segurança
 
-Senhas de usuário devem ser armazenadas de forma **criptografada (hash)**, nunca em texto plano. Toda comunicação entre cliente e servidor deve utilizar **HTTPS**. Entradas de usuário (ex.: comentários de avaliação, apelido) devem ser tratadas para prevenir injeção de código (XSS) e injeção de consultas (SQL Injection), usando consultas parametrizadas ou ORM. Os links de confirmação de e-mail e de redefinição de senha devem ser gerados com token aleatório imprevisível, de uso único e com prazo de validade (RF02, RF04). Matrícula/SIAPE e e-mail nunca devem ser retornados em respostas públicas nem a outros usuários (RI10).
+Senhas de usuário devem ser armazenadas de forma **criptografada (hash)**, nunca em texto plano. Toda comunicação entre cliente e servidor deve utilizar **HTTPS**. Entradas de usuário (ex.: comentários de avaliação, apelido) devem ser tratadas para prevenir injeção de código (XSS) e injeção de consultas (SQL Injection), usando consultas parametrizadas ou ORM. Os links de confirmação de e-mail e de redefinição de senha devem ser gerados com token aleatório imprevisível, de uso único e com prazo de validade (RF02, RF04). Matrícula/SIAPE e e-mail nunca devem ser retornados em respostas públicas nem a outros usuários (RI10). O código e as dependências do backend e do frontend não podem ter achado crítico ou alto em aberto na análise estática de segurança (SAST) e na auditoria de dependências (RNF06, ADR 0013).
 
 **Justificativa:** conjunto mínimo de boas práticas de segurança viável para uma equipe em seu primeiro projeto de maior porte, sem exigir maturidade de segurança de nível corporativo.
 
@@ -629,9 +637,20 @@ O sistema, como PWA, deve funcionar corretamente nas **duas versões mais recent
 
 #### RNF06 — Manutenibilidade
 
-O código-fonte deve manter cobertura de testes automatizados de, no mínimo, **60% nos módulos críticos** (leitura de cardápio, incluindo a leitura dos ícones de marcadores; cadastro e autenticação; avaliação de refeições e, na Release 2, detecção de campus, check-in, pergunta de saída da fila, previsão de pico com espera estimada, pontuação, sequência, patente, ranking e Bandeja de Ouro), e a arquitetura deve separar claramente esses módulos, de modo que uma mudança no formato do PDF do cardápio exija alteração apenas no módulo de leitura de cardápio. No backend em Django REST Framework (1.6, ADR 0001), essa separação se reflete em apps Django distintos por recurso (ex.: cadastro/autenticação, cardápio, avaliação, fila, gamificação), cada um com seu próprio conjunto de models, serializers, views e URLs.
+O código-fonte do backend e do frontend deve cumprir, nos **módulos críticos** (leitura de cardápio, incluindo a leitura dos ícones de marcadores; cadastro e autenticação; avaliação de refeições e, na Release 2, detecção de campus, check-in, pergunta de saída da fila, previsão de pico com espera estimada, pontuação, sequência, patente, ranking e Bandeja de Ouro), as metas abaixo, conferidas no pipeline de integração contínua, que recusa a mudança que não as cumprir:
 
-**Justificativa:** meta de cobertura de testes compatível com uma equipe sem experiência prévia em projetos de grande porte, mas suficiente para reduzir o risco já identificado de dependência do PDF externo e de inexperiência da equipe com as tecnologias escolhidas.
+| Métrica | Meta |
+|---|---|
+| Cobertura de linhas | **≥ 70%** |
+| Escore de mutação (porcentagem de alterações propositais no código detectadas pela suíte) | **≥ 50%** |
+| Teste de sabotagem (um defeito proposital em cada módulo faz a suíte falhar) | **100% dos módulos críticos** |
+| Achados críticos ou altos na análise estática de segurança (SAST) e nas dependências | **0 em aberto** |
+
+A suíte inclui testes unitários, de integração, de interface, de sistema, de ponta a ponta, de segurança, de mutação, de sabotagem e de propriedades, além dos testes específicos do tema (leitura do PDF, regras de horário, localização, concorrência e privacidade), escritos em TDD, conforme o Plano de Testes (`docs/qualidade/plano-de-testes.md`) e a ADR 0013.
+
+A arquitetura deve separar claramente esses módulos, de modo que uma mudança no formato do PDF do cardápio exija alteração apenas no módulo de leitura de cardápio. No backend em Django REST Framework (1.6, ADR 0001), essa separação se reflete em apps Django distintos por recurso (ex.: cadastro/autenticação, cardápio, avaliação, fila, gamificação), cada um com seu próprio conjunto de models, serializers, views e URLs.
+
+**Justificativa:** as metas seguem o plano de ensino da disciplina, que trata a cobertura como piso e mede a qualidade da suíte pela capacidade de detectar defeitos (mutação e sabotagem). Isso reduz o risco já identificado de dependência do PDF externo e de inexperiência da equipe com as tecnologias escolhidas, e o risco de testes sem asserção real escritos com apoio de IA.
 
 ---
 
@@ -642,7 +661,7 @@ O sistema deve tratar como dados pessoais a matrícula/SIAPE, o e-mail, o apelid
 - **RNF07.1 Finalidade:** os dados são coletados só para as finalidades do aviso de privacidade (login, recuperação de senha, identificação do autor de avaliações e, na Release 2, estimativa da fila, uso da localização, gamificação e ranking). Quem já tinha conta vê o aviso atualizado uma vez, no login seguinte (efeito sobre o check-in no RF11).
 - **RNF07.2 Acesso:** a matrícula/SIAPE é armazenada de forma recuperável pela equipe (não como hash), com acesso restrito à equipe.
 - **RNF07.3 Retenção:** o vínculo dos registros de check-in, de tentativas e de respostas com a conta dura a janela de 4 semanas (Anexo A); depois, resta só o registro anônimo (campus, refeição, data, faixa e tempo de espera). Os contadores de gamificação são a exceção: permanecem ligados à conta, sem o histórico individual de check-ins, respostas e avaliações (ADR 0011).
-- **RNF07.4 Exclusão:** a conta é excluída por solicitação à equipe; as avaliações permanecem como "usuário removido" e o vínculo dos registros de fila é removido na hora. Os contadores de gamificação são excluídos junto com a conta, que sai na hora do ranking.
+- **RNF07.4 Exclusão:** a conta é excluída por solicitação à equipe e apagada de vez, com a matrícula/SIAPE, o e-mail, o apelido e a senha (LGPD, art. 18, VI; ADR 0004). As avaliações permanecem publicadas como "usuário removido", sem vínculo com a pessoa, e quem pede a exclusão também pode pedir que elas sejam apagadas. O vínculo dos registros de fila é removido na hora. Os contadores de gamificação são excluídos junto com a conta, que sai na hora do ranking. Depois da exclusão, a mesma matrícula/SIAPE e o mesmo e-mail podem ser usados num cadastro novo. Os dados da conta excluída somem das cópias de segurança do banco no prazo de retenção do Anexo A.
 
 **Justificativa:** o cadastro por matrícula/SIAPE cria um vínculo entre identidade e comportamento no sistema; o tratamento precisa ser transparente e minimizado.
 
@@ -650,7 +669,7 @@ O sistema deve tratar como dados pessoais a matrícula/SIAPE, o e-mail, o apelid
 
 #### RNF08 — Rastreabilidade e moderação
 
-Toda avaliação deve manter vínculo permanente com a conta, o apelido e a matrícula/SIAPE de quem a escreveu, de modo que a equipe possa identificar o autor de uma avaliação problemática por consulta administrativa manual. A moderação (ocultar avaliações, suspender contas, tratar matrículas contestadas) é executada diretamente pela equipe; não há tela administrativa no escopo. O site deve divulgar um canal de contato para reclamações, que é o endereço `equipe@bandejaounb.com.br` (ADR 0012).
+Toda avaliação deve manter vínculo com a conta, o apelido e a matrícula/SIAPE de quem a escreveu enquanto a conta existir, de modo que a equipe possa identificar o autor de uma avaliação problemática por consulta administrativa manual. Quando a conta é excluída (RNF07.4), o vínculo deixa de existir: a avaliação continua moderável (pode ser ocultada), mas o autor não é mais identificável. A moderação (ocultar avaliações, suspender contas, tratar matrículas contestadas) é executada diretamente pela equipe; não há tela administrativa no escopo. O site deve divulgar um canal de contato para reclamações, que é o endereço `equipe@bandejaounb.com.br` (ADR 0012).
 
 **Justificativa:** como a matrícula/SIAPE não é validada (L01), a rastreabilidade posterior é o principal instrumento de responsabilização por uso indevido.
 
@@ -703,6 +722,8 @@ Requisitos inversos definem explicitamente o que o sistema **não deve** fazer, 
 | **L12** | **Espera estimada tende a ficar abaixo da realidade.** Ela usa só quem responde à pergunta de saída da fila. Quem desiste, quem não responde e quem responde "há mais de 10 min" ficam de fora, e quem diz "Ainda estou na fila" e não volta entra só com um piso. As esperas mais longas são as mais afetadas. | Pisos contados em vez de descartados (RN07) e uso da mediana (RN08); mínimo de respostas (RN08); texto na tela informando que é uma estimativa (RF22.2). |
 | **L13** | **Uso indevido e distorção causados pela gamificação.** Pontos, ranking e Bandeja de Ouro podem estimular quem tem várias contas (L02), quem vai ao Restaurante Executivo (L11), quem faz check-in sem comer no RU e quem responde à pergunta de saída da fila ao acaso só para pontuar, o que piora a previsão e a espera estimada (L12). | Pontos só com check-in confirmado por GPS, um por refeição (RF12, RI03); pontos que não dependem do conteúdo, do horário nem do nível da fila (RI11); mediana na espera estimada (RN08); ranking opcional, semestral e limitado a 10 usuários por campus; moderação manual (RNF08). Como os pontos revelam, de forma aproximada, a frequência de uso do RU, o ranking mostra a patente, não os pontos (RI12). |
 | **L14** | **Contadores de gamificação não são recalculáveis.** Pela ADR 0011, o sistema guarda só totais ligados à conta, não o histórico de check-ins. Um erro de pontuação só se corrige por ajuste manual da equipe, e uma mudança nos valores do Anexo A vale só daí em diante. Quem já tinha conta antes da Release 2 começa do zero. | Valores do Anexo A revisados antes da liberação; ajuste manual pela equipe, como na moderação (RNF08). |
+| **L15** | **Fonte externa do cardápio.** O sistema depende da página de cardápios do RU e do formato do PDF, que podem mudar sem aviso: título do campus, layout, ordem dos blocos, nome do arquivo e dia de publicação. | Associação pelo nome do campus, com conferência pelo nome do arquivo e pelas datas; último cardápio válido mantido e alerta à equipe (RF06.4, RF06.5, ADR 0014). |
+| **L16** | **Matrícula de outros níveis de ensino não confirmada.** As regras de formato da matrícula de estudante (RN01: 9 dígitos, ano no prefixo, 6 dígitos finais sem sequência óbvia) foram conferidas só com matrículas de graduação. Na graduação, o 3º dígito é sempre `1` ou `2`; para os outros níveis (como a pós-graduação), o formato não foi confirmado. Por isso o 3º dígito não é conferido. Se a matrícula de outro nível não tiver 9 dígitos, essa pessoa não consegue se cadastrar. | O e-mail institucional confirmado (RF02) prova que a caixa existe; a regra do prefixo serve só como filtro de erro de digitação. Confirmar o formato com estudantes de outros níveis e, se for diferente, revisar a RN01 (ADR 0002). |
 
 ---
 
@@ -714,8 +735,8 @@ Necessidades das partes interessadas conforme o Documento de Visão. A origem de
 |---|---|---|---|---|
 | RF01 | RF01.1 a RF01.5 | Login | Pré-requisito de avaliação — "Saber a qualidade da comida antes de decidir comer no RU"; decisão de projeto | MVP |
 | RF02 | RF02.1 a RF02.3 | Login | Decisão de projeto (se o e-mail estiver errado, a pessoa perde o único canal de recuperação de senha); pré-requisito de avaliação | MVP |
-| RF03 | RF03.1 a RF03.4 | Login | Pré-requisito de avaliação e, na Release 2, de check-in; decisão de projeto. RF03.3: decisão de projeto (sair da conta, sobretudo em aparelho compartilhado). RF03.4: decisão de projeto (consequência do RF20) | MVP; RF03.3 e RF03.4 na Release 2 |
-| RF04 | RF04.1, RF04.2 | Login | Decisão de projeto (canal de recuperação de senha); pré-requisito de avaliação | MVP |
+| RF03 | RF03.1 a RF03.4 | Login | Pré-requisito de avaliação e, na Release 2, de check-in; decisão de projeto. RF03.3: decisão de projeto (sair da conta, sobretudo em aparelho compartilhado). RF03.4: decisão de projeto (consequência do RF20) | MVP; RF03.1 com o e-mail institucional, RF03.3 e RF03.4 na Release 2 |
+| RF04 | RF04.1, RF04.2 | Login | Decisão de projeto (canal de recuperação de senha); pré-requisito de avaliação | MVP; RF04.1 com o e-mail institucional na Release 2 |
 | RF05 | — | Login / Transversal | "Planejar a refeição com informação antecipada" (perspectiva do produto: sistema como "porta") | MVP |
 | RF06 | RF06.1 a RF06.5 | Cardápio | "Planejar a refeição com informação antecipada"; decisão de projeto (leitura dos marcadores e das dietas) | MVP |
 | RF07 | RF07.1 a RF07.3 | Cardápio | "Planejar a refeição com informação antecipada"; decisão de projeto (visualização refinada já no MVP; ampliação na Release 2 pelas RN04 e RN05, conforme feedback da orientadora) | MVP |
@@ -751,8 +772,8 @@ Necessidades das partes interessadas conforme o Documento de Visão. A origem de
 
 | Release | Requisitos Funcionais |
 |---|---|
-| **MVP** (entregue) | RF01, RF02, RF03 (RF03.1 e RF03.2), RF04, RF05, RF06, RF07, RF08, RF09, RF15, RF17 |
-| **Release 2** (entrega final) | RF11, RF12, RF13, RF16, RF18, RF19, RF20, RF21, RF22, RF24, RF25, RF26, RF27, RF33; RF03.3 e RF03.4; ampliações de comportamentos do MVP nas RN04 e RN05 (RF07) e no RNF03 |
+| **MVP** (entregue) | RF01, RF02, RF03 (RF03.1, com a matrícula/SIAPE, e RF03.2), RF04, RF05, RF06, RF07, RF08, RF09, RF15, RF17 |
+| **Release 2** (entrega final) | RF11, RF12, RF13, RF16, RF18, RF19, RF20, RF21, RF22, RF24, RF25, RF26, RF27, RF33; RF03.3 e RF03.4; troca do login (RF03.1) e da recuperação de senha (RF04.1) para o e-mail institucional (ADR 0016); ampliações de comportamentos do MVP nas RN04 e RN05 (RF07) e no RNF03 |
 | **Backlog** | RF10, RF14, RF23, RF28, RF29, RF30, RF31, RF32 |
 
 Todos os requisitos não funcionais (RNF01–RNF09) e todos os requisitos inversos (RI01–RI12) aplicam-se transversalmente a partir do MVP, ainda que alguns (ex.: RNF06 quanto a detecção, check-in e previsão; RNF03 e RNF07 quanto às regras de localização e retenção; RI03, RI05, RI09, RI11, RI12 e o RNF09) só se manifestem completamente a partir da entrada em vigor das funcionalidades de fila na Release 2.
@@ -769,6 +790,10 @@ Valores ajustáveis pela equipe sem alterar os requisitos.
 | Horário do almoço | 11h00 às 14h30 | RF07.3 (RN05), RF11, RF13, RF15.1, RF20.3 |
 | Horário do jantar | 17h00 às 19h30 | RF07.3 (RN05), RF11, RF13, RF15.1, RF20.3 |
 | Estrutura dos horários | Campus × refeição × dia da semana. Os dias e as refeições servidos vêm do PDF | RF06.2, RF07.1, RF07.3 (RN05) |
+| Página de cardápios do RU | https://ru.unb.br/cardapio-refeitorio/ | RF06.1 (ADR 0014) |
+| Rótulo na página do RU e prefixo do arquivo, por campus | Darcy Ribeiro / `Darcy-Ribeiro`; Ceilândia / `Ceilandia`; Gama / `Gama`; Planaltina / `Planaltina`; Fazenda Água Limpa / `Fazenda` | RF06.1 (ADR 0014) |
+| Frequência da verificação do cardápio | A cada 3 horas, todos os dias | RF06.1 (ADR 0003, ADR 0014) |
+| Prazo para alertar cardápio da semana não publicado | Segunda-feira, 12h (horário de Brasília) | RF06.5 (ADR 0014) |
 | Coordenadas e raio de confirmação do check-in por RU | A definir pela equipe para cada RU, com validação em campo. No Darcy Ribeiro, o RU e o Restaurante Executivo ficam no mesmo prédio e o GPS não os distingue (L11) | RF12 |
 | Coordenadas e raio de detecção de campus | A definir pela equipe, por campus; raio bem menor que a metade da distância até o campus mais próximo; na Fazenda Água Limpa, ponto próximo às instalações do RU | RF20.1 |
 | Tempo parado para nova detecção de campus | 30 minutos | RF20.1 |
@@ -786,11 +811,14 @@ Valores ajustáveis pela equipe sem alterar os requisitos.
 | Mínimo de dados para exibir a espera estimada | 3 tempos de espera em 2 dias distintos, na janela de 4 semanas | RN08, RF22.2 |
 | Prazo de manutenção do vínculo com a conta (check-ins, tentativas e respostas) | 4 semanas, a mesma janela da previsão | RNF07.3 |
 | Validade do link de confirmação de e-mail | 24 horas | RF02.1 a RF02.3 |
+| Retenção das cópias de segurança (backup) do banco | 7 dias: uma cópia por dia, e a mais antiga é apagada ao passar desse prazo | RNF07.4 (ADR 0012) |
 | Validade do link de redefinição de senha | 1 hora | RF04.2 |
-| Limite de solicitações de redefinição | 3 por hora por matrícula/SIAPE | RF04.1 |
+| Limite de solicitações de redefinição | 3 por hora por e-mail institucional | RF04.1 |
 | Bloqueio de login | 5 tentativas em 10 minutos, bloqueio de 10 minutos | RF03.2 |
+| Limite de pedidos por IP | Cadastro: 40 por hora; reenvio do link: 10 por hora; login: 60 por hora | RF01, RF02.2, RF03 (#123) |
+| Limite de reenvios do link por conta | 3 por hora (os pedidos a mais respondem igual, sem e-mail) | RF02.2 (#123) |
 | Duração da sessão | 14 dias, renovada a cada uso; encerrada antes pelo "Sair" (RF03.3) ou pela redefinição de senha (RF04.2) | RF03.1, RF03.3 (ADR 0007) |
-| Janela de validação do prefixo da matrícula de estudante | Dinâmica: de `101` (2010, 1º semestre) até o código do semestre corrente do sistema (ex.: `262` no 2º semestre de 2026), recalculada automaticamente a cada semestre | RN01 (RF01.3) |
+| Intervalo de anos do prefixo da matrícula de estudante | Dinâmico: de `10` (2010) até os 2 últimos dígitos do ano corrente do sistema (ex.: `26` em 2026), recalculado automaticamente a cada ano. O 3º dígito não é conferido (L16) | RN01 (RF01.3) |
 | Pontos por check-in confirmado | 10 pontos | RN09 (RF24.1) |
 | Pontos por resposta à pergunta de saída da fila | 15 pontos, uma vez por pergunta | RN09 (RF24.1) |
 | Pontos por avaliação (com check-in na mesma refeição) | 5 pontos, uma vez por refeição | RN09 (RF24.1) |
@@ -812,11 +840,11 @@ Regras citadas pelos requisitos funcionais. Onde há uma versão do MVP e outra 
 #### RN01 — Formato da matrícula e do SIAPE
 
 - **Estudante:** matrícula com exatamente 9 dígitos numéricos, extraída do e-mail institucional. Matrícula de 8 dígitos (anterior a 2010) é rejeitada (L10).
-- **Prefixo (3 primeiros dígitos, ano/semestre de ingresso):** os 2 primeiros dígitos correspondem aos 2 últimos de um ano entre 2010 e o ano corrente, e o 3º dígito é `1` ou `2`. O intervalo válido vai de `101` (2010, 1º semestre) até o código do semestre corrente, calculado a partir da data do sistema (ex.: `262` no 2º semestre de 2026). Nenhum código fora do intervalo, inclusive "futuro", é aceito. O ano e o semestre correntes usados no cálculo são parâmetros configuráveis (Anexo A).
+- **Prefixo (ano de ingresso):** os 2 primeiros dígitos correspondem aos 2 últimos de um ano entre 2010 e o ano corrente, calculado a partir da data do sistema (ex.: de `10` a `26` em 2026). Nenhum ano fora do intervalo, inclusive "futuro", é aceito. O 3º dígito indica o semestre de ingresso (`1` ou `2`) na graduação, mas não é conferido, porque o formato dos outros níveis de ensino não foi confirmado (L16, ADR 0002).
 - **Seis dígitos finais:** são rejeitados se formarem uma sequência inteira crescente (`123456`), uma sequência inteira decrescente (`654321`) ou se todos forem iguais (`111111`).
 - **Professor/Servidor:** SIAPE/matrícula funcional com exatamente 7 dígitos numéricos.
 - **Outros formatos**, inclusive com pontuação, são rejeitados com mensagem específica.
-- **No login (RF03.1):** 9 dígitos indicam matrícula e 7 indicam SIAPE. Um identificador com outra quantidade de dígitos é rejeitado antes de consultar a base, com mensagem de formato inválido.
+- **No login (RF03.1), só no MVP:** 9 dígitos indicavam matrícula e 7 indicavam SIAPE, e um identificador com outra quantidade de dígitos era rejeitado antes de consultar a base. Na Release 2, o login usa o e-mail institucional e não depende do tamanho (ADR 0016).
 - O sistema confere apenas o formato (L01).
 
 #### RN02 — Apelido

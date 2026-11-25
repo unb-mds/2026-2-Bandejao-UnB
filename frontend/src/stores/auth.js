@@ -1,46 +1,148 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { apiClient, definirToken } from '@/services/apiClient'
+import { ApiError, apiClient, definirAoPerderSessao } from '@/services/apiClient'
+import { useGamificacaoStore } from '@/stores/gamificacao'
 
 /**
- * Sessão do usuário (RF01–RF04). Fica só em memória, por decisão do C4
- * (nível 3b): recarregar a página encerra a sessão.
+ * Sessão do usuário (RF01–RF04). Sem token (ADR 0007): a sessão fica no
+ * cookie HttpOnly e a store guarda só o que `/api/sessao/` devolve —
+ * apelido, tipo e avisoPrivacidadePendente. Um 401 limpa a store (o apiClient
+ * avisa), menos no `GET /sessao/` da abertura do app e no login, em que 401
+ * quer dizer visitante ou senha errada. Os corpos seguem o contrato OpenAPI v1
+ * (BE-03).
  */
+// Quanto a primeira tela espera pelo `GET /sessao/` antes de seguir como visitante.
+const LIMITE_SESSAO_MS = 3000
+
+// O backend responde o reenvio com 200 sem corpo, exista ou não a conta (RF02.2).
+const MENSAGEM_REENVIO =
+  'Se houver um cadastro pendente, enviamos um novo link de confirmação para o e-mail institucional.'
+
 export const useAuthStore = defineStore('auth', () => {
+  /** @type {import('vue').Ref<{ apelido: string, tipo: string, avisoPrivacidadePendente: boolean } | null>} */
   const usuario = ref(null)
-  const token = ref(null)
 
-  const estaAutenticado = computed(() => Boolean(token.value))
+  /** Já perguntou ao servidor se há sessão (`carregarSessao`), deu certo ou não. */
+  const sessaoCarregada = ref(false)
+  let carregandoSessao = null
+  // Muda a cada login que dá certo, a cada logout e a cada 401 de outra rota
+  // (`limpar`): uma resposta atrasada do boot não desfaz o que veio depois.
+  let geracao = 0
+
+  const estaAutenticado = computed(() => Boolean(usuario.value))
   const apelido = computed(() => usuario.value?.apelido ?? 'Visitante')
+  /** Falta a ciência do aviso de privacidade atualizado (RF11, RNF07.1). */
+  const avisoPrivacidadePendente = computed(() => Boolean(usuario.value?.avisoPrivacidadePendente))
 
-  async function entrar(email, senha) {
-    const resposta = await apiClient.post('/login/', { email: email.trim(), senha })
-    token.value = resposta.token
-    usuario.value = resposta.usuario
-    definirToken(resposta.token)
+  function limpar() {
+    geracao++
+    usuario.value = null
+    useGamificacaoStore().limpar()
+  }
+  definirAoPerderSessao(limpar)
+
+  /**
+   * GET /api/sessao/ ao abrir o app: o cookie de sessão sobrevive ao F5, a
+   * store não (ADR 0007). Nunca rejeita: sem sessão (401) ou sem conexão, o
+   * app abre como visitante. Chamadas ao mesmo tempo esperam o mesmo pedido.
+   *
+   * Espera no máximo 3 s (rede lenta, como o Wi-Fi do RU): depois disso o app
+   * segue como visitante, e se a resposta chegar mais tarde o apelido aparece.
+   * Se o pedido falhar (sem conexão, 500), quem tinha sessão aparece como
+   * visitante até recarregar a página (o guarda não tenta de novo), e o erro
+   * vai para o console.
+   */
+  function carregarSessao() {
+    if (carregandoSessao) return carregandoSessao
+    const geracaoDoPedido = geracao
+    const pedido = apiClient
+      .get('/sessao/', { avisarSessaoPerdida: false })
+      .then((sessao) => {
+        if (geracao === geracaoDoPedido) usuario.value = sessao
+      })
+      .catch((falha) => {
+        // 401 é o visitante de sempre. O resto (500, 429, VITE_API_URL errada,
+        // bug do simulado) também abre como visitante, mas fica no console.
+        if (!(falha instanceof ApiError && falha.status === 401)) {
+          console.warn('Não foi possível carregar a sessão ao abrir o app.', falha)
+        }
+        if (geracao === geracaoDoPedido) usuario.value = null
+      })
+    let temporizador
+    const limite = new Promise((resolver) => {
+      temporizador = setTimeout(resolver, LIMITE_SESSAO_MS)
+    })
+    carregandoSessao = Promise.race([pedido, limite]).finally(() => {
+      clearTimeout(temporizador)
+      sessaoCarregada.value = true
+      carregandoSessao = null
+    })
+    return carregandoSessao
   }
 
+  /** POST /api/sessao/ com o e-mail institucional: @aluno.unb.br ou @unb.br (#201). */
+  async function entrar(emailInstitucional, senha) {
+    const sessao = await apiClient.post(
+      '/sessao/',
+      { emailInstitucional: emailInstitucional.trim(), senha },
+      { avisarSessaoPerdida: false },
+    )
+    geracao++
+    usuario.value = sessao
+  }
+
+  /**
+   * DELETE /api/sessao/. Um 401 quer dizer que a sessão já tinha acabado no
+   * servidor: para quem clicou em "Sair", deu certo do mesmo jeito.
+   */
   async function sair() {
     try {
-      await apiClient.post('/logout/')
+      await apiClient.delete('/sessao/')
+    } catch (falha) {
+      if (falha.status !== 401) throw falha
     } finally {
-      token.value = null
-      usuario.value = null
-      definirToken(null)
+      limpar()
     }
   }
 
-  /** @returns {Promise<{ email: string, linkSimulado?: string }>} */
+  /**
+   * POST /api/privacidade/aceite/ (sem corpo; 204). O servidor grava a versão
+   * do aviso e a hora; aqui só some o aviso pendente da sessão.
+   */
+  async function registrarCienciaPrivacidade() {
+    await apiClient.post('/privacidade/aceite/')
+    if (usuario.value) usuario.value = { ...usuario.value, avisoPrivacidadePendente: false }
+  }
+
+  /** O check-in recebeu 403 `aviso_privacidade_pendente`: o servidor ainda espera a ciência. */
+  function marcarAvisoPrivacidadePendente() {
+    if (usuario.value) usuario.value = { ...usuario.value, avisoPrivacidadePendente: true }
+  }
+
+  /**
+   * POST /api/cadastro/ com `{ tipoUsuario, emailInstitucional, senha,
+   * apelido?, matriculaSiape?, aceitePrivacidade }`.
+   * @returns {Promise<{ emailInstitucional: string, status: 'pendente', linkSimulado?: string }>}
+   */
   function cadastrar(dados) {
     return apiClient.post('/cadastro/', dados)
   }
 
+  /** POST /api/confirmar-email/{token}/ */
   function confirmarEmail(tokenConfirmacao) {
-    return apiClient.post('/confirmar-email/', { token: tokenConfirmacao })
+    return apiClient.post(`/confirmar-email/${encodeURIComponent(tokenConfirmacao)}/`)
   }
 
-  function reenviarConfirmacao(email) {
-    return apiClient.post('/reenviar-confirmacao/', { email: email.trim() })
+  /**
+   * POST /api/reenviar-confirmacao/ com um dos dois campos:
+   * `{ emailInstitucional }` (login ou logo após o cadastro) ou `{ token }`
+   * (link expirado).
+   * @returns {Promise<{ mensagem: string, linkSimulado?: string }>}
+   */
+  async function reenviarConfirmacao({ emailInstitucional, token } = {}) {
+    const corpo = emailInstitucional ? { emailInstitucional: emailInstitucional.trim() } : { token }
+    const resposta = await apiClient.post('/reenviar-confirmacao/', corpo)
+    return { mensagem: MENSAGEM_REENVIO, linkSimulado: resposta?.linkSimulado }
   }
 
   function solicitarRecuperacao(email) {
@@ -53,11 +155,16 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     usuario,
-    token,
+    sessaoCarregada,
     estaAutenticado,
     apelido,
+    avisoPrivacidadePendente,
+    limpar,
+    carregarSessao,
     entrar,
     sair,
+    registrarCienciaPrivacidade,
+    marcarAvisoPrivacidadePendente,
     cadastrar,
     confirmarEmail,
     reenviarConfirmacao,

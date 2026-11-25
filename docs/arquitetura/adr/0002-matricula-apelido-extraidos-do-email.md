@@ -1,7 +1,7 @@
 # ADR 0002 — Matrícula e apelido extraídos do e-mail institucional
 
 **Status:** Aceita
-**Data:** 2026-09-24
+**Data:** 2026-09-24 (revisada em 2026-11-14: limitações conhecidas da matrícula de estudante e prefixo conferido só pelo ano; nota de 2026-11-19 sobre o login, ADR 0016)
 **Projeto:** Bandejão (Grupo 6, MDS, FCTE/UnB)
 
 ## Contexto
@@ -25,3 +25,41 @@ Pedir matrícula e apelido como campos digitados separadamente do e-mail institu
 - Cria uma dependência forte no formato do e-mail institucional: uma mudança futura no padrão de e-mails da UnB (ex.: novo domínio, novo formato de e-mail para servidores) quebraria a extração e exigiria ajuste no sistema.
 - Para Professor/Servidor, como qualquer texto antes do "@" é aceito como apelido, e-mails fora do padrão nome.sobrenome (nomes compostos, abreviações, números por duplicidade) geram apelidos menos legíveis, mas o cadastro não trava por causa disso.
 - A regra de colisão de apelido (rejeitar e pedir apelido manual) é simples de implementar, mas depende de a extração para Professor/Servidor ser de fato rara o suficiente para não frustrar muitos cadastros; se isso mudar na prática, a decisão deve ser revisitada.
+
+## Limitações conhecidas (revisão de 2026-11-14)
+
+A extração da matrícula depende de regras de formato que só foram conferidas
+em parte. Elas ficam registradas aqui e na seção de limitações do Documento
+de Requisitos (L10 e L16):
+
+- **Matrícula de 8 dígitos (L10).** Só a matrícula de 9 dígitos, em uso
+  desde 2010, é aceita. Quem tem matrícula anterior não consegue se
+  cadastrar. Isso já estava decidido e não muda.
+- **Outros níveis de ensino (L16).** As regras da RN01 (9 dígitos, ano no
+  prefixo, 6 dígitos finais sem sequência óbvia) foram conferidas só com
+  matrículas de graduação. Na graduação, o 3º dígito indica o semestre de
+  ingresso e é sempre `1` ou `2`. Para a pós-graduação e os outros níveis,
+  que usam o mesmo domínio `@aluno.unb.br`, o formato não foi confirmado.
+- **Por isso, o prefixo passa a conferir só o ano.** Os 2 primeiros dígitos
+  precisam ser um ano entre 2010 e o ano corrente, calculado pela data do
+  sistema, e o 3º dígito pode ser qualquer um. Antes, o prefixo conferia o
+  código de ano/semestre (de `101` ao semestre corrente), o que recusaria
+  um estudante de outro nível com outro 3º dígito, e dependia de uma
+  aproximação do semestre pelo calendário civil, que não segue o
+  calendário letivo da UnB. O método mantém o nome do Nível 4
+  (`validarPrefixoAnoSemestre`).
+- **O tamanho de 9 dígitos continua sendo uma suposição para os outros
+  níveis.** Se a matrícula de outro nível tiver outro tamanho, essa pessoa
+  não consegue se cadastrar, e a correção exige revisar a RN01. *Nota de
+  2026-11-19:* o login usava o tamanho para separar matrícula (9) de SIAPE
+  (7). Desde a ADR 0016, ele usa o e-mail institucional e confere só o
+  domínio desta ADR (`@aluno.unb.br` ou `@unb.br`), sem depender do tamanho.
+- **A defesa real é a confirmação do e-mail.** A matrícula sai do e-mail, e
+  a conta só funciona depois que a pessoa abre o link enviado para aquela
+  caixa (RF02). Uma matrícula inventada gera um e-mail que não existe, e a
+  conta pendente é apagada em 24 horas. As regras de formato servem como
+  filtro de erro de digitação, e afrouxar o prefixo não abre brecha de
+  segurança.
+
+**Pendente:** confirmar o formato da matrícula com estudantes de outros
+níveis de ensino. Se for diferente, revisar a RN01 e esta ADR.

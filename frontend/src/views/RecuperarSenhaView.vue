@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import CabecalhoFormulario from '@/components/CabecalhoFormulario.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import LinkSimulado from '@/components/LinkSimulado.vue'
+import { mensagemDeErro } from '@/services/apiClient'
 
 /**
  * Recuperação de senha (RF04). A resposta é sempre a mesma, exista ou não
@@ -26,7 +27,7 @@ async function solicitar() {
   try {
     resposta.value = await auth.solicitarRecuperacao(email.value)
   } catch (falha) {
-    erro.value = falha.message
+    erro.value = mensagemDeErro(falha)
   } finally {
     enviando.value = false
   }
@@ -34,7 +35,7 @@ async function solicitar() {
 </script>
 
 <template>
-  <div class="tela">
+  <div class="tela tela-formulario">
     <CabecalhoFormulario
       titulo="Recuperar senha"
       subtitulo="Enviaremos um link para o seu e-mail"
@@ -56,7 +57,9 @@ async function solicitar() {
         placeholder="matricula@aluno.unb.br"
       />
 
-      <p v-if="resposta" class="mensagem mensagem--sucesso" role="status">{{ resposta.detail }}</p>
+      <p v-if="resposta" class="mensagem mensagem--sucesso" role="status">
+        {{ resposta.mensagem }}
+      </p>
       <p v-if="erro" class="mensagem mensagem--erro" role="alert">{{ erro }}</p>
       <LinkSimulado :link="resposta?.linkSimulado" rotulo="Abrir link de redefinição recebido" />
 

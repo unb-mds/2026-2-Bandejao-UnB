@@ -8,3 +8,19 @@ db.sqlite3
 # Editor
 .vscode/
 .idea/
+
+# Cobertura do pytest-cov
+.coverage
+.coverage.*
+htmlcov/
+
+# Produção (BD-05): segredos do Compose e saída do collectstatic
+.env.db
+staticfiles/
+
+# Caches do ruff e do pytest
+.ruff_cache/
+.pytest_cache/
+
+# Saída do mutmut (BE-19)
+backend/mutants/

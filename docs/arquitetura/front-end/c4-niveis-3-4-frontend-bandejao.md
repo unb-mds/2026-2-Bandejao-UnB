@@ -63,7 +63,10 @@ flowchart TB
   subgraph frontend["📱 PWA (Frontend) — Vue 3 + Vite"]
     app["🖼️ App (raiz)
 Casca do app: monta os avisos
-globais e a navegação inferior."]
+globais, a NavegacaoTopo (tablet),
+a BarraLateral e a AsideConta
+(desktop). A NavegacaoInferior
+(celular) é montada por cada tela."]
     router["🧭 Router
 Vue Router — rotas nomeadas e
 lazy-loaded (ver Estratégia de roteamento)."]
@@ -80,7 +83,8 @@ Meu progresso (RF26.2, RF33.3)."]
 Ranking do semestre por
 campus, público (RF27.2)."]
     authViews["🖼️ Views de Autenticação
-Login, Cadastro, Confirmar e-mail,
+Login (e-mail institucional e senha),
+Cadastro, Confirmar e-mail,
 Recuperar/Redefinir senha (RF01–RF04)."]
 
     avisoLocalizacao["🧩 AvisoLocalizacao
@@ -128,18 +132,65 @@ Aviso '+10 pontos' (RF24.2)."]
 - **`CampusView` substitui `CardapioView` e `FilaView`** (Release 2, RF20):
   as duas telas do MVP viram **seções** de uma única tela do campus,
   detalhada em 3a.2. O login leva a ela (RF03.4) e a raiz `/` também
-  (RN04).
-- **O seletor de campus do MVP (hoje `views/CampusView.vue`, rota
-  `/campus`) passa a ser o componente `SeletorCampus`**, usado dentro da
-  tela do campus (botão "trocar") e sozinho quando nenhum campus foi
-  resolvido pela RN04. O nome `CampusView` fica com a tela do campus.
+  (RN04). A seção da fila também tem tela própria, a `FilaTelaView` em
+  `/fila`, destino do item "Fila" das navegações; as duas usam o composable
+  `useFilaDoCampus` para a refeição do check-in e da previsão.
+- **O seletor de campus do MVP passou a ser o componente `SeletorCampus`**
+  (FE-07), na rota `/campus`: é o destino do "Trocar" da tela do campus e dos
+  links antigos sem campus lembrado. Na primeira visita, a escolha é feita
+  nas boas-vindas (#285), com a mesma lista. A lista vem do `GET /api/campi/`, com o `id` inteiro e o
+  nome do banco. O nome `CampusView` ficou com a tela do campus, e
+  `CardapioView` e `FilaView` viraram as seções dela.
+- **Um só frontend, mobile first, com três pontos de quebra (FE-20, RNF05):**
+  celular até 767 px, tablet de 768 a 1023 px e desktop a partir de 1024 px.
+  No celular, cada tela ocupa a tela inteira e a `NavegacaoInferior` aparece
+  em Cardápio, Fila e Avaliações. No tablet (768 a 1023 px), a `NavegacaoTopo`
+  (montada no `App.vue`, menos na boas-vindas) leva aos mesmos destinos
+  (`constants/navegacao.js`), incluindo o "Perfil", que leva a Meu progresso
+  (`/progresso`), e marca a página atual com `aria-current`. Também oferece
+  o canal de contato (RNF08), e as telas de
+  formulário viram um cartão centralizado de até 480 px (`--largura-formulario`),
+  que cresce com o conteúdo (numa janela baixa, quem rola é a página).
+- **Desktop, a partir de 1024 px (FE-23, protótipo desktop):** desenho próprio,
+  não o do tablet esticado.
+  - A `BarraLateral` (246 px, `--largura-lateral`, à esquerda) substitui a
+    `NavegacaoTopo`: leva à Início, ao Cardápio, à Fila, às Avaliações e ao
+    Ranking. O acesso a Meu progresso fica no atalho de conta para usuários
+    autenticados; para visitantes, esse atalho leva ao login. A lateral também
+    mostra o campus atual, o "Sair da conta" (como o `BotaoSair`) e o contato.
+  - Telas internas: cabeçalho verde de 112 px e conteúdo em cartões sobre o
+    creme, na largura que sobra ao lado da lateral (o teto de 1200 px do
+    `--largura-conteudo` deixa de valer). A Início é a exceção: barra do topo
+    clara, com a saudação e a data.
+  - Telas de entrada (boas-vindas, escolha do campus sem campus escolhido e
+    telas de conta): sem a lateral, com o lado verde à esquerda, em proporções
+    desiguais (cerca de 1,4 para 0,8 na boas-vindas e 0,85 para 1,15 nas de
+    conta). Nas de conta, o lado verde é a `AsideConta`, montada no `App.vue`,
+    e o formulário tem 470 px, sem cartão. A escolha do campus aberta por
+    "Trocar" (já há campus) mostra a lateral, para ter saída.
+  - A logo (`AppLogo`) e as ilustrações das refeições (`IlustracaoRefeicao`)
+    são imagens em `assets/marca/` e `assets/refeicoes/`. O destaque do
+    cardápio vem de `destaqueDaRefeicao` (`utils/cardapio.js`), que respeita os
+    marcadores evitados e a dieta.
+- **Comum aos três:** as larguras e as cores são tokens do guia de estilo
+  (`assets/base.css`, RF17). Foco visível (`:focus-visible`) e `:hover` valem em todas as telas:
+  nada depende só de toque. Nas superfícies verdes, a classe `fundo-escuro`
+  deixa o anel de foco dourado.
 - **`HomeView`, `BoasVindasView` e `NotFoundView`** existem no código, mas
-  ficam de fora do diagrama por não agregarem componentes próprios — são
-  apenas destino de rota.
+  ficam de fora do diagrama por não agregarem componentes próprios. A
+  `HomeView` e a `NotFoundView` são apenas destino de rota; a `BoasVindasView`
+  também usa o `cardapioStore` (`GET /api/campi/`) e o `preferenciasStore`
+  (a escolha do campus lembrada, RN04), por causa da escolha do campus (#285).
 - **`authViews` agrupa cinco telas com pesos bem diferentes**: `CadastroView`
   e `ConfirmarEmailView` concentram a maior parte da complexidade do épico
   Login (RF01/RF02) — por isso são elas que ganham detalhamento em Nível 4
   (4b), e não o grupo inteiro.
+- **`LoginView` pede o e-mail institucional e a senha** (RF03.1, ADR 0016),
+  nos domínios da ADR 0002: `@aluno.unb.br` ou `@unb.br` (o login confere só
+  o domínio; o formato da matrícula fica no cadastro).
+  `RecuperarSenhaView` pede o mesmo e-mail, e o reenvio da confirmação pela
+  `LoginView` usa o e-mail já digitado. Quem confere o domínio é a API (422),
+  como nas outras regras de formato (nota do fluxo 4b).
 
 ### 3a.2 — Tela do campus (Release 2)
 
@@ -151,8 +202,11 @@ da RN05 (RF20.3)."]
 
   subgraph topo["Cabeçalho da tela"]
     direction LR
-    seletorCampus["🧩 SeletorCampus
-Nome do campus e 'trocar' (RF20.2)."]
+    nomeCampus["🧩 Nome do campus
+'h1' com o nome, link 'Trocar'
+para /campus (SeletorCampus)
+e 'Usar minha localização'
+(RF20.2, RF19)."]
     campusDetectado["🧩 CampusDetectadoAviso
 'Você está no Darcy Ribeiro ·
 voltar para Gama' (RF20.2)."]
@@ -167,7 +221,8 @@ logado (RF26.3)."]
   subgraph secaoCardapio["Seção Cardápio (antiga CardapioView)"]
     direction LR
     abasSemana["🧩 AbasSemana
-Semana vigente e seguinte (RF07.1, RF18)."]
+Segunda a sábado da semana
+vigente (RF07.1, RF18)."]
     seletorRefeicao["🧩 SeletorRefeicao
 Refeições do dia com nota
 média de cada uma (RF20.3)."]
@@ -187,10 +242,12 @@ do apelido (RF33.2)."]
 Nível por faixa e pico (RF13)."]
     espera["🧩 EsperaEstimada
 Minutos em destaque, nível
-e texto de apoio (RF22)."]
+e texto de apoio (RF22,
+ainda não implementado)."]
     encerrada["🧩 RefeicaoEncerrada
-No lugar da previsão e do
-check-in (RN05)."]
+No lugar do check-in; a
+previsão dessa refeição
+some junto (RN05)."]
     checkin["🧩 CheckinBotao
 Check-in por GPS (RF11, RF12)."]
     avisoPrivacidade["🧩 AvisoPrivacidade
@@ -215,7 +272,7 @@ os pontos (RF05)."]
   classDef group fill:#f7fbff,stroke:#1168bd,stroke-dasharray:4 3,color:#1168bd
 
   class campusView view
-  class seletorCampus,campusDetectado,avisoExecutivo,patente,abasSemana,seletorRefeicao,filtro,avaliacao,distintivo,filaPrevisao,espera,encerrada,checkin,avisoPrivacidade,convite component
+  class nomeCampus,campusDetectado,avisoExecutivo,patente,abasSemana,seletorRefeicao,filtro,avaliacao,distintivo,filaPrevisao,espera,encerrada,checkin,avisoPrivacidade,convite component
   class topo,secaoCardapio,secaoFila group
 ```
 
@@ -226,20 +283,53 @@ os pontos (RF05)."]
   (fluxo 4d). Se a detecção trocar o campus, `CampusDetectadoAviso` aparece
   com a opção de voltar ao anterior.
 - **Cada seção carrega por conta própria.** O backend não tem um endpoint
-  que junte tudo: a `CampusView` pede em paralelo o cardápio, o resumo de
-  notas do dia (`GET /api/avaliacoes/resumo/`, uma chamada para todas as
-  refeições) e a previsão. Uma parte que falhe (ex.: previsão com "dados
-  insuficientes") não derruba as outras.
-- **"Refeição encerrada"** vem do próprio cardápio (`refeicaoEncerrada`,
-  calculado com `ultimaRefeicaoDoDia` no backend, RN05): quando verdadeiro,
-  `RefeicaoEncerrada` ocupa o lugar de `FilaPrevisao` e de `CheckinBotao`,
-  e a avaliação continua aberta até 23h59 (RF15.1).
+  que junte tudo: cada seção pede o seu, em paralelo — o cardápio e o resumo
+  de notas do dia (`GET /api/avaliacoes/resumo/`, uma chamada para todas as
+  refeições) pela `CardapioView`, e a previsão pela própria `FilaPrevisao`.
+  Uma parte que falhe (ex.: previsão com erro ou 501) não derruba as outras.
+- **"Refeição encerrada"** é calculado na própria `CampusView`
+  (`refeicaoEncerrada`, RN05): compara a hora do aparelho, atualizada a cada
+  30 s, com o fim da refeição do check-in em `constants/refeicoes.js`.
+  Quando verdadeiro, `RefeicaoEncerrada` ocupa o lugar de `CheckinBotao`, e
+  a `FilaPrevisao` dessa refeição de hoje some (RN05, item 3); a de outra
+  refeição de hoje ou de um dia seguinte continua, e a de um dia que já
+  passou não aparece. A avaliação continua aberta até 23h59 (RF15.1). O
+  `refeicaoEncerrada` que o `GET /api/cardapio/` devolve vale para o
+  cardápio (FE-08); quem decide se o check-in vale é sempre o backend.
+- **Sem a lista de campi, a tela não trava**: se o `GET /api/campi/` falhar,
+  o cabeçalho mostra o aviso com "Tentar novamente", o cardápio carrega pelo
+  id da rota e o check-in espera a lista confirmar o campus. O campus do
+  link só vira o lembrado depois dessa confirmação, e um campus lembrado que
+  saiu do banco é esquecido.
+- **`FilaPrevisao` (FE-11, #172)** chama `GET /api/fila/previsao/` com o
+  campus, a refeição e o dia escolhidos no cardápio (sem escolha, hoje e a
+  refeição do check-in), sem login. Mostra as faixas de 15 minutos com o
+  nível de cada uma e destaca como pico todas as que vierem com
+  `ehPico: true`, com o resumo "Pico previsto" ou, no empate, "Picos
+  previstos". Com `status: "dados_insuficientes"`, mostra "Dados
+  insuficientes", sem faixas nem valor de reserva (RF13). Uma resposta
+  `disponivel` sem nenhum pico, ou `dados_insuficientes` com faixas, fica
+  fora do contrato e vira erro. Um 501, como defesa contra um backend sem a
+  rota (a BE-15, #236, já calcula a previsão), vira "Previsão fora do ar no
+  momento", sem erro; os outros erros mostram a mensagem, com "Tentar
+  novamente" menos no status 400 e 404. Os estados ficam numa região
+  `aria-live`. A `filaStore` guarda a previsão por campus, refeição e dia:
+  a carregada e a "indisponível" valem 5 minutos, como no cardápio. A
+  `FilaPrevisao` confere a validade a cada minuto, em segundo plano: sem
+  passar pelo "Carregando…", sem insistir num erro (para isso há o "Tentar
+  novamente") e, se a revalidação falhar, mantendo a previsão antiga na
+  tela e tentando de novo no minuto seguinte. O erro não fica guardado. A
+  regra da RN05 está na nota de "Refeição encerrada".
 - **`EsperaEstimada` fica dentro de `FilaPrevisao`**: mostra os minutos em
   destaque só nas faixas com `esperaEstimadaMin` diferente de `null`; nas
   demais, só o nível. O texto de apoio (L12) explica que o nível é relativo
   ao pico do dia e que os minutos são uma estimativa.
 - **`AvisoExecutivo` é uma linha fixa de texto**, sem pop-up nem botão de
-  fechar, exibida sempre que o campus é o Darcy Ribeiro (RF20.4).
+  fechar, exibida sempre que o campus é o Darcy Ribeiro (RF20.4). A
+  `CampusView` compara o `id` (1, `ID_CAMPUS_COM_EXECUTIVO` em
+  `constants/campi.js`, o `pk` da fixture `campi.json`), não o nome: assim
+  o aviso aparece mesmo se a lista de campi falhar. Se o `pk` do Darcy
+  mudar no banco, a constante muda junto.
 - **`AvaliacaoWidget` usa o `DistintivoIndicador` ao lado do apelido de
   cada comentário** (RF15.2), lendo o campo opcional `distintivo` de cada
   avaliação.
@@ -329,6 +419,19 @@ Convite ao cadastro (RF05)."]
   `RankingAdesaoToggle`, a `PosicaoRanking` e a própria Bandeja de Ouro. Para
   o **visitante**, a rota abre normalmente e mostra o `ConviteLogin` (seta
   tracejada), sem redirecionar.
+- **Versão simplificada da FE-12 (#173).** A primeira `ProgressoView` traz só
+  a patente, os pontos totais, quanto falta para a próxima (com uma barra)
+  ou "patente máxima", o `RankingAdesaoToggle` e o `BotaoSair`; a
+  `SequenciaSemana`, a `PosicaoRanking` e o `DistintivoIndicador` ficam
+  para depois. Chega-se a ela pelo item "Meu progresso" do menu da Início.
+  O progresso e a adesão vêm da BE-16 (#237). Se o backend responder 501
+  (defesa contra uma rota sem a regra), a tela mostra "Progresso ainda não
+  disponível", sem erro; o `BotaoSair` continua. O interruptor só aparece com
+  o progresso carregado (não no 501, no primeiro carregamento nem no erro) e,
+  depois de mudar a adesão, continua na tela, desativado, enquanto o
+  progresso recarrega. O aviso do interruptor (`role="switch"`) diz que o
+  apelido e a patente ficam visíveis para todos no ranking do semestre, ainda
+  sem citar a Bandeja de Ouro.
 - **`RankingView` (rota `/ranking/:campusId`) é pública** e mostra o ranking
   **do semestre** do campus escolhido no `SeletorCampus`: até 10 linhas
   (Anexo A) com posição, apelido, patente e, quando houver, a Bandeja de
@@ -360,7 +463,13 @@ Convite ao cadastro (RF05)."]
   sem acrescentar interações (RNF03).
 - **`BotaoSair` fica em "Meu progresso"**, que é a área da conta do
   usuário logado (RF03.3). A dupla pode movê-lo para um menu de conta sem
-  mudar a arquitetura: ele só chama `authStore.sair()`.
+  mudar a arquitetura: ele chama `authStore.sair()`, descarta os comentários
+  guardados e volta à Início. Se o servidor não confirmar a saída, a conta
+  sai deste aparelho, mas a tela fica e avisa que o servidor não confirmou,
+  porque o cookie de sessão pode continuar valendo. Essa lógica fica no
+  composable `useSair`, que o item "Sair da conta" do menu da Início também
+  usa: lá a tela continua na Início (a nota do cartão, do resumo do dia, não
+  depende da sessão) e mostra o mesmo aviso quando o servidor não confirma.
 
 ---
 
@@ -505,13 +614,15 @@ trata erros (RNF04, ADR 0007)."]
   confirmação do check-in não é publicado: quem decide o check-in é sempre
   o servidor.
 - **`preferenciasStore` guarda no `localStorage`**: campus lembrado (último
-  escolhido manualmente, RF07.2), filtros (RF08, RF09), a **escolha manual
+  escolhido manualmente, RF07.2, pelo `id` inteiro do `GET /api/campi/`; um
+  valor antigo como `'darcy'` vale como "sem campus escolhido"), filtros (RF08, RF09), a **escolha manual
   de campus feita depois da última detecção** (RN04, item 1) e o **"Agora
   não" do aviso de localização** (RF19), para o aviso não reaparecer a cada
   abertura. O campus detectado fica só em memória, junto com a hora da
   última detecção, porque vale até a próxima.
-- **`filaStore`** guarda a previsão (com `esperaEstimadaMin` por faixa,
-  RF22) e a **pergunta de saída pendente** (`perguntaId`, `tentativa`,
+- **`filaStore`** guarda a previsão por campus, refeição e dia (a
+  `esperaEstimadaMin` por faixa entra com o RF22) e a **pergunta de saída
+  pendente** (`perguntaId`, `tentativa`,
   `expiraEm`) e o próximo `perguntaDevidaEm`. Seguindo a decisão 7 da #66,
   a raiz consulta `GET /api/fila/pergunta-pendente/` **ao abrir o app, ao
   voltar ao primeiro plano, no horário de `perguntaDevidaEm`** e, enquanto
@@ -528,14 +639,34 @@ trata erros (RNF04, ADR 0007)."]
   **Ao mudar a adesão** (`POST`/`DELETE /api/gamificacao/adesao/`), a store
   recarrega o progresso e o ranking e pede ao `avaliacoesStore` que descarte
   os comentários guardados, porque a Bandeja de Ouro de quem desligou some
-  na hora (RF27.1).
+  na hora (RF27.1). Desde a FE-12, o progresso e cada ranking guardam a
+  situação (`carregando`, `carregado`, `indisponivel` no 501 ou `erro`), com
+  a resposta validada contra o OpenAPI. Com pontos novos, o progresso fica
+  marcado como desatualizado (`progressoDesatualizado`) e é pedido de novo na
+  próxima vez que a tela abrir. Ao mudar a adesão, a store grava o novo
+  `participaRanking` assim que o servidor confirma, recarrega o progresso sem
+  voltar a "carregando" (se o recarregamento falhar, mantém o que tinha e o
+  marca como desatualizado) e recarrega só os rankings já abertos; um segundo
+  toque é ignorado enquanto a mudança não termina. Progresso, rankings e o
+  erro da adesão são limpos no logout e no 401, e uma resposta que chega
+  depois disso, ou depois de um pedido mais novo, é descartada.
 - **Pontos recebidos (decisão 7 da #66, RF24.2).** Não há endpoint de
   pontos: as respostas de check-in, de resposta de saída e de avaliação
   trazem o mesmo bloco
   `"pontos": {"total", "contribuicao", "avaliacaoLiberada", "bonusSemana"}`.
   `filaStore` e `avaliacoesStore` repassam esse bloco à `gamificacaoStore`
   (setas "pontos recebidos"), que mostra o `PontosAviso` quando `total > 0`
-  e marca o progresso como desatualizado.
+  e marca o progresso como desatualizado. Desde a FE-10 (#171), o
+  `PontosAviso` é um aviso flutuante na raiz, acima da barra inferior no
+  celular: "+N pontos" ("+1 ponto" quando o total é 1), numa região
+  `role="status"` só com o texto e o "×" ao lado; some sozinho em 4 segundos
+  ou no "×", e um aviso novo substitui o anterior. O `CheckinBotao` e o
+  `AvaliacaoWidget` não repetem o aviso. A store guarda só `total`,
+  `contribuicao` e `avaliacaoLiberada`, os três obrigatórios e inteiros não
+  negativos, como no `ResultadoPontuacao` do `openapi.yaml` (o `bonusSemana`
+  entra com a BE-E6); um bloco fora disso é ignorado e registrado no
+  console, sem desfazer o check-in ou a avaliação já gravados. O logout e o
+  401 limpam a store.
 - **Bandeja de Ouro nas respostas públicas (decisão 12 da #66).** Cada linha
   do ranking e cada autor de comentário traz o campo opcional
   `distintivo`: `null` ou
@@ -564,14 +695,17 @@ formaliza os padrões nele observados e os estende para a Release 2:
 - **Campus como parâmetro de rota, não só de estado**: `/campus/:campusId`
   permite compartilhar/favoritar o link de um campus. A raiz `/` resolve o
   campus pela RN04 (escolha manual depois da última detecção → campus
-  detectado → campus lembrado → seletor) e leva à tela do campus.
+  detectado → campus lembrado) e leva à tela do campus; na primeira visita,
+  sem nenhum campus, leva às boas-vindas (#285), e não ao seletor.
 
 | Rota | View | Observação |
 |---|---|---|
-| `/` | — (redireciona) | Resolve o campus pela RN04 e vai para `/campus/:campusId`, ou para o seletor |
-| `/campus` | `SeletorCampus` | Quando a RN04 não resolve nenhum campus |
+| `/` | — (redireciona) | Resolve o campus pela RN04 e vai para `/campus/:campusId`; na primeira visita, para as boas-vindas, que têm o "Entrar na conta" e a escolha do campus (sem a localização, 2 interações até o cardápio: "Agora não" e o campus, RNF03, #285) |
+| `/campus` | `SeletorCampus` | Quando a RN04 não resolve nenhum campus; destino do "Trocar" da tela do campus |
 | `/campus/:campusId` | `CampusView` | Tela do campus (RF20). Destino do login (RF03.4) |
-| `/cardapio/:campusId`, `/fila` | — (redireciona) | Rotas do MVP mantidas só para links antigos |
+| `/cardapio` | — (redireciona) | Rota do MVP mantida para links antigos: vai para a tela do campus lembrado ou, sem campus, para `/campus` |
+| `/fila` | `FilaTelaView` | Tela "Fila do RU": a previsão de pico e o check-in do campus lembrado (RF12, RF13), com a mesma seção `FilaView` da tela do campus, sem o cardápio. Destino do item "Fila" das navegações; sem campus, `/campus` |
+| `/cardapio/:campusId` | — (redireciona) | Link antigo: aceita o id ou o nome antigo (`darcy`, `ceilandia`, `gama`, `planaltina`, `fal`, os `pk` 1 a 5) e abre aquele campus, nunca o lembrado; outro valor cai no 404 |
 | `/avaliacoes` | `AvaliacoesView` | Histórico (RF16) |
 | `/progresso` | `ProgressoView` | **Nova.** Meu progresso (RF26.2) |
 | `/ranking/:campusId` | `RankingView` | **Nova.** Pública (RF27.2) |
@@ -599,11 +733,11 @@ separação por app do backend (RNF06):
 
 | Store | Responsabilidade | Persistência |
 |---|---|---|
-| `authStore` | Sessão do usuário: apelido, tipo de usuário e `avisoPrivacidadePendente`, lidos de `GET /api/sessao/`. Login, logout, cadastro e reenvio de confirmação. **Sem token** (ADR 0007) | Nenhuma no PWA: a sessão está no cookie `HttpOnly`; a store é recarregada ao abrir o app |
+| `authStore` | Sessão do usuário: apelido, tipo de usuário e `avisoPrivacidadePendente`, lidos de `GET /api/sessao/`. Login com e-mail institucional e senha (`entrar(emailInstitucional, senha)`, ADR 0016), logout, cadastro, reenvio de confirmação (pelo e-mail ou pelo token) e pedido de recuperação de senha pelo e-mail. **Sem token** (ADR 0007) | Nenhuma no PWA: a sessão está no cookie `HttpOnly`; a store é recarregada ao abrir o app |
 | `preferenciasStore` | Campus lembrado, escolha manual depois da última detecção, campus detectado, refeição selecionada, filtros de marcador e dieta, "Agora não" do aviso de localização | `localStorage` (RF07, RF08, RF09, RF19, RN04), exceto o campus detectado (memória) |
-| `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, semana, dia, refeição e filtros (inclui `refeicaoEncerrada`) | Em memória |
-| `avaliacoesStore` | Resumo do dia (notas de todas as refeições, `GET /api/avaliacoes/resumo/`), comentários com `distintivo` e envio/edição da avaliação do usuário | Em memória |
-| `filaStore` | Previsão (com espera estimada), check-in e pergunta de saída pendente | Em memória; nunca guarda coordenadas (RI09) |
+| `cardapioStore` | Cache do cardápio já filtrado pela API (ADR 0005), por campus, dia, refeição e filtros, com erro e carregamento por pedido; a resposta que depende do relógio e a de "não publicado" valem 5 minutos, e a lista de campi (`GET /api/campi/`, com `carregandoCampi` e `erroCampi`) | Em memória |
+| `avaliacoesStore` | Resumo do dia (notas de todas as refeições, `GET /api/avaliacoes/resumo/`), resumo da semana da `HomeView` (um resumo do dia por dia da semana, #259), comentários com `distintivo` e envio/edição da avaliação do usuário | Em memória |
+| `filaStore` | Previsão por campus, refeição e dia (a espera estimada entra com o RF22), check-in e pergunta de saída pendente | Em memória; nunca guarda coordenadas (RI09) |
 | `gamificacaoStore` | Progresso, adesão ao ranking, posição própria por campus, posição do semestre anterior, Bandeja de Ouro própria, ranking por campus e último bloco `pontos` | Em memória |
 
 Critério de decisão: **o que precisa sobreviver a um recarregamento de
@@ -628,12 +762,12 @@ sequenceDiagram
   participant BE as Backend API
 
   V->>CV: Abre a tela do campus
-  CV->>CS: carregarCardapio(campus, semana, dia, refeição, filtros)
+  CV->>CS: carregarRefeicao({ campus, dia, refeicao, marcadores, dieta }, { forcar })
   alt cache válido
     CS-->>CV: retorna dados em cache
-  else sem cache
+  else sem cache, cache vencido ou forcar
     CS->>AC: solicita dados
-    AC->>BE: GET /api/cardapio/?campus=&semana=&dia=&refeicao=&marcadores=&dieta= [HTTPS]
+    AC->>BE: GET /api/cardapio/?campus=&dia=&refeicao=&marcadores=&dieta= [HTTPS]
     BE-->>AC: 200 OK (JSON do cardápio)
     AC-->>CS: repassa resposta
     CS-->>CS: atualiza cache
@@ -647,7 +781,38 @@ Exposição do Cardápio: campus, semana, dia e refeição (opcional, com a
 padrão da RN05) e, como parâmetros de consulta, os marcadores selecionados e
 a dieta, lidos da `preferenciasStore`. O backend devolve o cardápio já
 filtrado; por isso o cache do `cardapioStore` é por combinação de campus,
-semana, dia, refeição e filtros.
+dia, refeição e filtros (a `semana` do contrato não é mandada: as abas são
+da semana vigente). O pedido sem dia ou sem refeição, que o backend resolve
+pelo relógio (RN05), e a resposta "não publicado" valem 5 minutos; a
+resposta também fica guardada pelo dia e pela refeição que trouxe, e essa
+vale pela sessão. O mesmo pedido feito duas vezes ao mesmo tempo sai uma
+vez só.
+
+Desde a FE-08, a seção do cardápio da `CampusView` segue esse fluxo: a
+dieta e os marcadores vão com os nomes do backend (`sem_filtro`,
+`ovolactovegetariano`, `vegetariano_estrito`; `leite_e_derivados`,
+`trigo_gluten` etc.), e filtros salvos com os nomes antigos são convertidos ao
+abrir o app. O filtro no cliente saiu: os pratos com marcador selecionado
+continuam na tela, sinalizados (`contemMarcadorSelecionado`), e a categoria
+sem opção mostra o aviso (`semOpcaoCompativel`, RF08). O `SeletorRefeicao`
+mostra a nota de cada refeição pelo resumo do dia; se o resumo responder
+501 (um backend sem a rota), mostra café, almoço e jantar sem nota, e uma refeição que o
+dia não serve aparece como "Esta refeição não é servida neste dia". O dia
+sem serviço vem pelo campo `semServico` (proposto ao backend na revisão do
+PR #219; o simulado já o manda) ou por uma `data` diferente do dia pedido. Um
+400 com filtros salvos oferece "Limpar filtros" em vez de "Tentar
+novamente". O cartão "Cardápio de hoje" da `HomeView` usa o mesmo
+`GET /api/cardapio/`, com o campus e o dia de hoje, e deixa o backend
+resolver a refeição pelo relógio; a nota do cartão vem do resumo do dia. A
+semana inteira por campus (`/cardapio/<campus>/`), do MVP, saiu da store e
+do simulado (#251), porque só o simulado a respondia. Os cartões "Avaliações" e
+"Satisfação da semana" da `HomeView` não têm rota própria: o backend só tem o
+resumo do dia, e o `GET /api/avaliacoes/resumo/` só com o campus devolve o
+dia corrente. A `avaliacoesStore` pede o resumo de cada dia da semana
+(segunda a domingo) e junta a média, ponderada pela quantidade, e a
+quantidade; se um dia falhar, os cartões dizem que não foi possível carregar
+as avaliações da semana (#259). O formato de semana do MVP (o resumo da
+semana) e a lista `GET /api/avaliacoes/` saíram da store e do simulado.
 
 O `apiClient` é o único ponto que conhece a URL base da API, envia o
 cookie de sessão e o cabeçalho CSRF nas escritas, e trata erros de forma
@@ -858,8 +1023,10 @@ sequenceDiagram
   própria `ConfirmarEmailView` quando o token já expirou (acima), e pela
   `LoginView`, quando alguém tenta entrar com credenciais corretas numa
   conta ainda não confirmada — nesse caso a tela de login, não a de
-  cadastro, é quem oferece o reenvio (RF02). As duas chamam o mesmo
-  `authStore.reenviarConfirmacao()`, evitando duplicar a lógica.
+  cadastro, é quem oferece o reenvio (RF02), com o mesmo e-mail institucional
+  digitado no login (ADR 0016). As duas chamam o mesmo
+  `authStore.reenviarConfirmacao()` (`{ emailInstitucional }` ou `{ token }`),
+  evitando duplicar a lógica.
 - **O frontend não decide se um formato de matrícula/SIAPE ou e-mail é
   válido — ele só reflete a resposta do backend.** As regras de validação
   (checagem dos 3 primeiros dígitos da matrícula, sequências rejeitadas nos
@@ -1081,12 +1248,13 @@ sequenceDiagram
 |---|---|---|
 | `CampusView` | RF20, RF03.4, RN04, RN05 | ✅ 4d |
 | `CardapioView` (seção cardápio da `CampusView`) | RF05, RF06, RF07 | — |
-| `FilaView` (seção fila da `CampusView`) / `FilaPrevisao` | RF13, RF21, RF22, L08 | — |
-| `EsperaEstimada` | RF22 | — |
+| `FilaView` (seção fila da `CampusView`) / `FilaPrevisao` | RF13, RN05, RN06, RF21, RF22, L08 | — |
+| `EsperaEstimada` | RF22 (ainda não implementado) | — |
 | `RefeicaoEncerrada` | RN05, RF20.3 | — |
 | `SeletorCampus` / `CampusDetectadoAviso` | RF07.2, RF20.2, RN04 | ✅ 4d |
 | `AvisoExecutivo` | RF20.4, RI08, L11 | — |
 | `AbasSemana` | RF07.1, RF18 | — |
+| `SeletorRefeicao` | RF07, RF20.3 | — |
 | `FiltroCardapio` | RF08, RF09 | — |
 | `AvaliacaoWidget` | RF15, RF15.2, RI01, RI10 | — |
 | `AvaliacoesView` | RF16 | — |

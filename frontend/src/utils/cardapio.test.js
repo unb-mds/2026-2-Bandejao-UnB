@@ -1,87 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import {
-  filtrarCategorias,
+  diasDaSemanaVigente,
   formatarNota,
   refeicaoPadrao,
   resumoRefeicao,
+  destaqueDaRefeicao,
   selecaoPadrao,
 } from './cardapio'
 
-const p = (nome, ...marcadores) => ({ nome, marcadores })
-const CATEGORIAS = [
-  { rotulo: 'Bebidas', dieta: 'todas', pratos: [p('Suco de caju')] },
-  {
-    rotulo: 'Prato Principal — Padrão',
-    dieta: 'padrao',
-    pratos: [p('Bife', 'suino'), p('Frango')],
-  },
-  {
-    rotulo: 'Prato Principal — Ovolactovegetariano',
-    dieta: 'ovolacto',
-    pratos: [p('Omelete', 'ovo', 'leite')],
-  },
-  { rotulo: 'Prato Principal — Vegetariano Estrito', dieta: 'vegano', pratos: [p('Tofu', 'soja')] },
-  { rotulo: 'Guarnição', dieta: 'todas', pratos: [p('Purê', 'leite')] },
-  { rotulo: 'Acompanhamentos', dieta: 'todas', pratos: [p('Arroz'), p('Feijão')] },
-  { rotulo: 'Salada', dieta: 'todas', pratos: [p('Folhas')] },
-]
-
-const rotulos = (categorias) => categorias.map((c) => c.rotulo)
 const aLas = (hhmm) => {
   const [h, m] = hhmm.split(':').map(Number)
   return new Date(2026, 8, 28, h, m)
 }
-
-describe('filtrarCategorias — dieta (RF09)', () => {
-  it('sem filtro exibe todas as linhas', () => {
-    expect(filtrarCategorias(CATEGORIAS)).toHaveLength(CATEGORIAS.length)
-  })
-
-  it('ovolactovegetariano oculta só a linha padrão', () => {
-    const visiveis = rotulos(filtrarCategorias(CATEGORIAS, { dieta: 'ovolacto' }))
-    expect(visiveis).not.toContain('Prato Principal — Padrão')
-    expect(visiveis).toContain('Prato Principal — Ovolactovegetariano')
-    expect(visiveis).toContain('Prato Principal — Vegetariano Estrito')
-    expect(visiveis).toContain('Salada')
-  })
-
-  it('vegetariano estrito mantém só a linha vegana e as comuns', () => {
-    const visiveis = rotulos(filtrarCategorias(CATEGORIAS, { dieta: 'vegano' }))
-    expect(visiveis).toEqual([
-      'Bebidas',
-      'Prato Principal — Vegetariano Estrito',
-      'Guarnição',
-      'Acompanhamentos',
-      'Salada',
-    ])
-  })
-})
-
-describe('filtrarCategorias — marcadores (RF08)', () => {
-  it('oculta os pratos que contêm um marcador selecionado', () => {
-    const [, padrao] = filtrarCategorias(CATEGORIAS, { marcadores: ['suino'] })
-    expect(padrao.pratos.map((prato) => prato.nome)).toEqual(['Frango'])
-  })
-
-  it('mantém a categoria vazia para exibir "sem opção compatível"', () => {
-    const guarnicao = filtrarCategorias(CATEGORIAS, { marcadores: ['leite'] }).find(
-      (c) => c.rotulo === 'Guarnição',
-    )
-    expect(guarnicao.pratos).toEqual([])
-  })
-
-  it('combina dieta e marcadores', () => {
-    const resultado = filtrarCategorias(CATEGORIAS, { dieta: 'vegano', marcadores: ['soja'] })
-    const vegana = resultado.find((c) => c.dieta === 'vegano')
-    expect(vegana.pratos).toEqual([])
-    expect(resultado.some((c) => c.dieta === 'padrao')).toBe(false)
-  })
-
-  it('não altera os dados originais', () => {
-    filtrarCategorias(CATEGORIAS, { marcadores: ['suino', 'leite'] })
-    expect(CATEGORIAS[1].pratos).toHaveLength(2)
-  })
-})
 
 describe('refeicaoPadrao (RF07)', () => {
   const TODAS = ['cafe', 'almoco', 'jantar']
@@ -115,8 +45,8 @@ describe('selecaoPadrao', () => {
   })
 
   it('sem cardápio hoje, seleciona o próximo dia disponível', () => {
-    const domingo = new Date(2026, 8, 27, 12, 0)
-    expect(selecaoPadrao(semana, domingo)).toEqual({ data: '2026-09-28', refeicao: 'cafe' })
+    const diaAntes = new Date(2026, 8, 27, 12, 0)
+    expect(selecaoPadrao(semana, diaAntes)).toEqual({ data: '2026-09-28', refeicao: 'cafe' })
   })
 
   it('semana sem dias não seleciona nada', () => {
@@ -124,20 +54,75 @@ describe('selecaoPadrao', () => {
   })
 })
 
-describe('resumoRefeicao', () => {
+describe('resumoRefeicao (formato do GET /api/cardapio/)', () => {
+  const categoria = (nome, ...descricoes) => ({
+    nome,
+    semOpcaoCompativel: false,
+    pratos: descricoes.map((descricao) => ({
+      descricao,
+      marcadores: [],
+      contemMarcadorSelecionado: false,
+    })),
+  })
+
   it('resume prato principal, acompanhamentos e salada', () => {
-    expect(resumoRefeicao(CATEGORIAS)).toEqual([
+    const almoco = [
+      categoria('Bebidas', 'Suco de caju'),
+      categoria('Prato principal', 'Bife', 'Frango'),
+      categoria('Prato principal ovolactovegetariano', 'Omelete'),
+      categoria('Guarnição', 'Purê'),
+      categoria('Acompanhamentos', 'Arroz', 'Feijão'),
+      categoria('Salada', 'Folhas'),
+    ]
+    expect(resumoRefeicao(almoco)).toEqual([
       { rotulo: 'Prato principal', texto: 'Bife, Frango' },
       { rotulo: 'Acompanham.', texto: 'Arroz, Feijão' },
       { rotulo: 'Salada', texto: 'Folhas' },
     ])
   })
 
-  it('no café da manhã usa as primeiras categorias', () => {
+  it.each([
+    ['com "— Padrão" no nome', 'Prato principal — Padrão'],
+    ['só "Prato principal"', 'Prato principal'],
+    ['em maiúsculas, sem acento', 'PRATO PRINCIPAL PADRAO'],
+  ])(
+    'prato principal: fica com o padrão mesmo se o vegetariano vier antes (%s)',
+    (_caso, nomeDoPadrao) => {
+      const almoco = [
+        categoria('Prato principal — Ovolactovegetariano', 'Omelete'),
+        categoria('Prato principal — Vegetariano estrito', 'Tofu'),
+        categoria(nomeDoPadrao, 'Bife'),
+        categoria('Acompanhamentos', 'Arroz'),
+      ]
+
+      expect(resumoRefeicao(almoco)[0]).toEqual({ rotulo: 'Prato principal', texto: 'Bife' })
+    },
+  )
+
+  it('prato principal: sem o padrão, fica com o primeiro que tiver prato', () => {
+    const almoco = [
+      categoria('Prato principal — Ovolactovegetariano', 'Omelete'),
+      categoria('Acompanhamentos', 'Arroz'),
+    ]
+
+    expect(resumoRefeicao(almoco)[0]).toEqual({ rotulo: 'Prato principal', texto: 'Omelete' })
+  })
+
+  it('aceita os nomes em maiúsculas e no singular, como nos PDFs', () => {
+    const almoco = [
+      categoria('PRATO PRINCIPAL PADRÃO', 'Bife'),
+      categoria('ACOMPANHAMENTO', 'Arroz'),
+      categoria('SALADAS', 'Folhas'),
+    ]
+    expect(resumoRefeicao(almoco).map((l) => l.texto)).toEqual(['Bife', 'Arroz', 'Folhas'])
+  })
+
+  it('no café da manhã usa as primeiras categorias com pratos', () => {
     const cafe = [
-      { rotulo: 'Bebidas', dieta: 'todas', pratos: [p('Café')] },
-      { rotulo: 'Complemento — Ovolactovegetariano', dieta: 'ovolacto', pratos: [p('Pão')] },
-      { rotulo: 'Fruta', dieta: 'todas', pratos: [p('Mamão')] },
+      categoria('Bebidas', 'Café'),
+      categoria('Vazia'),
+      categoria('Complemento — Ovolactovegetariano', 'Pão'),
+      categoria('Fruta', 'Mamão'),
     ]
     expect(resumoRefeicao(cafe).map((l) => l.rotulo)).toEqual(['Bebidas', 'Complemento', 'Fruta'])
   })
@@ -147,5 +132,169 @@ describe('formatarNota', () => {
   it('usa vírgula decimal e traço quando não há nota', () => {
     expect(formatarNota(4.2857)).toBe('4,3')
     expect(formatarNota(null)).toBe('–')
+  })
+})
+
+describe('diasDaSemanaVigente (AbasSemana, RF07.1)', () => {
+  const SEMANA = [
+    '2026-09-28',
+    '2026-09-29',
+    '2026-09-30',
+    '2026-10-01',
+    '2026-10-02',
+    '2026-10-03',
+    '2026-10-04',
+  ]
+
+  it('de segunda a domingo da semana atual (7 abas)', () => {
+    expect(diasDaSemanaVigente(new Date(2026, 8, 30, 12))).toEqual(SEMANA)
+  })
+
+  it('na segunda já inclui o domingo da mesma semana', () => {
+    expect(diasDaSemanaVigente(new Date(2026, 8, 28, 0, 0))).toEqual(SEMANA)
+  })
+
+  it('no domingo, mostra a semana corrente com o domingo', () => {
+    expect(diasDaSemanaVigente(new Date(2026, 9, 4, 23, 59))).toEqual(SEMANA)
+  })
+
+  it('na virada de domingo para segunda, já passa para a semana seguinte', () => {
+    expect(diasDaSemanaVigente(new Date(2026, 9, 5, 0, 0))).toEqual([
+      '2026-10-05',
+      '2026-10-06',
+      '2026-10-07',
+      '2026-10-08',
+      '2026-10-09',
+      '2026-10-10',
+      '2026-10-11',
+    ])
+  })
+})
+
+describe('selecaoPadrao no domingo', () => {
+  const domingo = new Date(2026, 9, 4, 12, 0)
+
+  it('com cardápio no domingo (Darcy), seleciona o domingo', () => {
+    const semana = [
+      { data: '2026-10-03', refeicoes: [{ tipo: 'almoco' }] },
+      { data: '2026-10-04', refeicoes: [{ tipo: 'cafe' }, { tipo: 'almoco' }, { tipo: 'jantar' }] },
+    ]
+    expect(selecaoPadrao(semana, domingo)).toEqual({ data: '2026-10-04', refeicao: 'almoco' })
+  })
+})
+
+describe('destaqueDaRefeicao (destaque do cardápio no desktop, FE-23)', () => {
+  const prato = (descricao, contemMarcadorSelecionado = false) => ({
+    descricao,
+    marcadores: contemMarcadorSelecionado ? ['ovo'] : [],
+    contemMarcadorSelecionado,
+  })
+  const categoria = (nome, ...pratos) => ({
+    nome,
+    pratos: pratos.map((p) => (typeof p === 'string' ? prato(p) : p)),
+    semOpcaoCompativel: pratos.length > 0 && pratos.every((p) => p.contemMarcadorSelecionado),
+  })
+  const almoco = (...principais) => [
+    categoria('Bebidas', 'Suco de caju'),
+    ...principais,
+    categoria('Acompanhamentos', 'Arroz', 'Feijão'),
+    categoria('Salada', 'Folhas'),
+  ]
+
+  it('destaca o primeiro prato do principal padrão, com acompanhamentos e salada no resumo', () => {
+    const categorias = almoco(
+      categoria('Prato principal — Ovolactovegetariano', 'Omelete'),
+      categoria('Prato principal — Padrão', 'Bife', 'Frango'),
+    )
+
+    expect(destaqueDaRefeicao(categorias)).toEqual({
+      prato: 'Bife',
+      resumo: 'Arroz, Feijão · Folhas',
+    })
+  })
+
+  it('pula o prato que contém um marcador evitado (RF08)', () => {
+    const categorias = almoco(
+      categoria('Prato principal — Padrão', prato('Almôndegas', true), 'Frango'),
+    )
+
+    expect(destaqueDaRefeicao(categorias).prato).toBe('Frango')
+  })
+
+  it('sem opção compatível no padrão, destaca a de outra linha', () => {
+    const categorias = almoco(
+      categoria('Prato principal — Padrão', prato('Almôndegas', true)),
+      categoria('Prato principal — Vegetariano estrito', 'Tofu'),
+    )
+
+    expect(destaqueDaRefeicao(categorias).prato).toBe('Tofu')
+  })
+
+  it('nenhum prato principal compatível: sem destaque', () => {
+    const categorias = almoco(
+      categoria('Prato principal — Padrão', prato('Almôndegas', true)),
+      categoria('Prato principal — Ovolactovegetariano', prato('Omelete', true)),
+    )
+
+    expect(destaqueDaRefeicao(categorias)).toBeNull()
+  })
+
+  it('o resumo também deixa de fora os pratos com marcador evitado', () => {
+    const categorias = [
+      categoria('Prato principal', 'Bife'),
+      categoria('Acompanhamentos', 'Arroz', prato('Farofa', true)),
+      categoria('Salada', prato('Maionese', true)),
+    ]
+
+    expect(destaqueDaRefeicao(categorias)).toEqual({ prato: 'Bife', resumo: 'Arroz' })
+  })
+
+  it('alérgenos indisponíveis e algum marcador evitado: sem destaque, para não sugerir um prato sem saber', () => {
+    const categorias = almoco(categoria('Prato principal', 'Bife'))
+
+    expect(destaqueDaRefeicao(categorias, { semAlergenos: true, evitando: true })).toBeNull()
+    expect(destaqueDaRefeicao(categorias, { semAlergenos: true, evitando: false }).prato).toBe(
+      'Bife',
+    )
+  })
+
+  it('refeição sem prato principal (café da manhã): destaca a primeira categoria com prato', () => {
+    const cafe = [categoria('Bebidas', 'Café com leite'), categoria('Fruta', 'Mamão')]
+
+    expect(destaqueDaRefeicao(cafe)).toEqual({ prato: 'Café com leite', resumo: '' })
+  })
+
+  it('só uma das condições (alérgenos indisponíveis ou marcador evitado) não tira o destaque', () => {
+    const categorias = almoco(categoria('Prato principal', 'Bife'))
+
+    expect(destaqueDaRefeicao(categorias, { semAlergenos: true }).prato).toBe('Bife')
+    expect(destaqueDaRefeicao(categorias, { evitando: true }).prato).toBe('Bife')
+  })
+
+  it.each([
+    ['"Prato principal"', 'Prato principal'],
+    ['com espaço no fim', 'Prato principal '],
+  ])('o padrão sem "padrão" no nome (%s) vem antes das outras linhas', (_caso, nome) => {
+    const categorias = [
+      categoria('Prato principal — Vegetariano estrito', 'Tofu'),
+      categoria(nome, 'Bife'),
+    ]
+
+    expect(destaqueDaRefeicao(categorias).prato).toBe('Bife')
+  })
+
+  it('no resumo, só as categorias que começam com acompanhamento ou salada', () => {
+    const categorias = [
+      categoria('Prato principal', 'Bife'),
+      categoria('Molho para salada', 'Vinagrete'),
+      categoria('Salada', 'Folhas'),
+    ]
+
+    expect(destaqueDaRefeicao(categorias).resumo).toBe('Folhas')
+  })
+
+  it('sem pratos: sem destaque', () => {
+    expect(destaqueDaRefeicao([])).toBeNull()
+    expect(destaqueDaRefeicao([categoria('Prato principal')])).toBeNull()
   })
 })
