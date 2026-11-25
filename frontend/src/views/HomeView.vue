@@ -715,12 +715,11 @@ async function sair() {
   display: none;
 }
 
-@media (max-width: 1023px) {
-  .hoje-arte { max-width: 160px; margin: 12px auto 0; }
+.hoje-arte {
+  display: none;
 }
 
 @media (min-width: 1024px) {
-  .hoje-arte { display: none; }
   .cabecalho-inicio {
     min-height: 112px;
     padding: 24px clamp(28px, 4vw, 62px);

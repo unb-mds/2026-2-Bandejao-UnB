@@ -532,21 +532,41 @@ function limparFiltros() {
   color: var(--texto-claro);
 }
 
-/* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
+/* Destaque da refeição (protótipo mobile). */
 .destaque {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
-  align-items: center;
+  grid-template-columns: minmax(0, 54fr) minmax(0, 38fr);
+  align-items: end;
   gap: 12px;
-  padding: 16px;
+  padding: 20px;
   margin: 12px 16px;
-  color: var(--branco-100, #fff);
+  color: #fff;
   background: var(--verde-escuro);
-  border-radius: var(--raio-lg);
+  border-radius: var(--raio-xl);
 }
-.destaque-prato { font-weight: 900; }
-.destaque-resumo { font-size: 12px; }
+.destaque-texto {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.destaque-prato {
+  font: 900 20px / 1.2 var(--fonte-titulo);
+  margin-top: 8px;
+}
+.destaque-resumo {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--branco-60);
+}
+@media (max-width: 1023px) {
+  .destaque-arte {
+    width: 100%;
+    height: 92px;
+    aspect-ratio: auto;
+  }
+}
 
+/* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
 @media (min-width: 1024px) {
   /* Dias e refeição viram duas pílulas claras sobre o creme. */
   .cabecalho-cardapio {
