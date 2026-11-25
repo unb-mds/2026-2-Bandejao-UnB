@@ -7,9 +7,9 @@ import { usePreferenciasStore } from '@/stores/preferencias'
 import { reiniciarSimulacao } from '@/services/mock/servidor'
 import { ITENS_NAVEGACAO, ITENS_NAVEGACAO_TOPO, itemAtivo } from '@/constants/navegacao'
 import App from '@/App.vue'
+import BarraLateral from './BarraLateral.vue'
 import NavegacaoInferior from './NavegacaoInferior.vue'
 import NavegacaoTopo from './NavegacaoTopo.vue'
-import BarraLateral from './BarraLateral.vue'
 
 async function montar(componente, caminho = '/cardapio') {
   const pinia = createPinia()
@@ -236,5 +236,17 @@ describe('App: navegação do topo', () => {
     await flushPromises()
 
     expect(wrapper.findComponent(NavegacaoTopo).exists()).toBe(false)
+  })
+})
+
+describe('Tela "Fila do RU" (/fila)', () => {
+  it('as três navegações marcam "Fila", não "Cardápio"', async () => {
+    const { wrapper } = await montar(App, '/fila')
+
+    for (const componente of [BarraLateral, NavegacaoTopo, NavegacaoInferior]) {
+      const atuais = wrapper.getComponent(componente).findAll('nav a[aria-current="page"]')
+      expect(atuais).toHaveLength(1)
+      expect(atuais[0].text().trim()).toMatch(/^Fila/)
+    }
   })
 })

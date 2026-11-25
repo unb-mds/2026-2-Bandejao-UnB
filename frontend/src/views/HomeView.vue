@@ -293,9 +293,9 @@ async function sair() {
             <span class="ponto" />
             <span class="rotulo">Fila</span>
           </div>
-          <p class="pequeno-valor">Em breve</p>
+          <p class="pequeno-valor">Consultar</p>
           <p class="pequeno-legenda">previsão de pico</p>
-          <p class="pequeno-rodape pequeno-rodape--suave">Na próxima versão</p>
+          <p class="pequeno-rodape pequeno-rodape--suave">Ver fila do RU</p>
         </RouterLink>
 
         <!-- Avaliações -->
@@ -737,7 +737,10 @@ async function sair() {
 }
 
 /* ─── Desktop (FE-23, protótipo desktop) ─────────────────────────────── */
-.topo-desktop,
+.topo-desktop {
+  display: none;
+}
+
 .hoje-arte {
   display: none;
 }

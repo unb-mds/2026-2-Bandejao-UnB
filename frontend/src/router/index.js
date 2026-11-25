@@ -12,10 +12,10 @@ import { useAuthStore } from '@/stores/auth'
  * boas-vindas. Nenhuma rota exige login: ações restritas mostram um convite
  * ao login dentro da própria tela (RF05, RI06).
  */
-function telaDoCampusLembrado(destinoSemCampus, hash = '') {
+function telaDoCampusLembrado(destinoSemCampus) {
   const campusId = usePreferenciasStore().campusId
   if (!campusId) return { name: destinoSemCampus, params: {} }
-  return { name: 'campus-tela', params: { campusId: String(campusId) }, hash }
+  return { name: 'campus-tela', params: { campusId: String(campusId) } }
 }
 
 function telaDoCampusDoLinkAntigo(to) {
@@ -79,9 +79,12 @@ export const routes = [
     meta: { title: 'Avaliações', requerCampus: true },
   },
   {
+    // Tela própria da fila (previsão e check-in) do campus lembrado; na
+    // primeira visita, a escolha do campus (exigirCampus).
     path: '/fila',
     name: 'fila',
-    redirect: () => telaDoCampusLembrado('campus', '#fila'),
+    component: () => import('@/views/FilaTelaView.vue'),
+    meta: { title: 'Fila do RU', requerCampus: true },
   },
   {
     // Sem campus na rota: o ranking do campus lembrado, ou a escolha na própria tela.

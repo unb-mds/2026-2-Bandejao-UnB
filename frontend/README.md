@@ -110,8 +110,8 @@ declaradas no próprio script, e o `defineProps`, içado para fora do `setup()`,
 | RF17 Paleta e tipografia únicas | `src/assets/base.css` |
 | RNF05 PWA instalável (manifest + service worker) | `public/`, `src/pwa.js` |
 
-A **Fila** (RF11–RF13) é da Release 2: a tela existe, para manter a navegação do protótipo,
-mas mostra "Em breve".
+A **Fila do RU** (`/fila`, RF12 e RF13) mostra a previsão de pico e o check-in do campus
+lembrado; a mesma seção aparece embaixo do cardápio, na tela do campus.
 
 ## Navegação
 
@@ -120,7 +120,7 @@ mas mostra "Em breve".
   │             └─(escolhe o campus)┐
   └(campus salvo)──────────────────► /campus/:campusId ──► /inicio
                                                               ├─► /cardapio
-                                                              ├─► /fila       (Em breve)
+                                                              ├─► /fila       (Fila do RU)
                                                               └─► /avaliacoes
 ```
 

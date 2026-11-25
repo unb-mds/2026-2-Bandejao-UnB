@@ -94,7 +94,6 @@ describe('roteamento', () => {
 
   it.each([
     ['/cardapio', { name: 'campus-tela', params: { campusId: '1' } }],
-    ['/fila', { name: 'campus-tela', params: { campusId: '1' }, hash: '#fila' }],
     ['/cardapio/3', { name: 'campus-tela', params: { campusId: '3' } }],
   ])('com campus lembrado, %s redireciona para a tela do campus', async (caminho, destino) => {
     const { router } = await montarEm(caminho, { campus: 1 })
@@ -125,6 +124,15 @@ describe('roteamento', () => {
       expect(aviso).not.toHaveBeenCalled()
     },
   )
+
+  it('com campus lembrado, /fila abre a tela "Fila do RU", não o cardápio', async () => {
+    const { router, wrapper } = await montarEm('/fila', { campus: 1 })
+
+    expect(router.currentRoute.value.name).toBe('fila')
+    await vi.waitFor(() => expect(wrapper.find('h1').text()).toBe('Fila do RU'))
+    await vi.waitFor(() => expect(wrapper.find('[aria-labelledby="titulo-fila"]').exists()).toBe(true))
+    expect(wrapper.find('[aria-labelledby="titulo-cardapio"]').exists()).toBe(false)
+  })
 
   it.each([['/cardapio'], ['/fila']])(
     'sem campus lembrado, %s leva à escolha do campus',
