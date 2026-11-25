@@ -1318,3 +1318,428 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Recheck, texto gerado pela IA: conflito do `AI-USAGE.md` resolvido mantendo as entradas do #302 e do #301; os "Primeiros passos" seguem o #289 (escolha do campus na própria tela de boas-vindas, com os passos 2 e 3 unidos); a navegação segue o #301 e o #302 (barra inferior, barra do topo e barra lateral, **Perfil**, **Fila do RU** e **Ranking**, e os caminhos para sair e abrir **Meu progresso**); o Início com a nota média e a **Satisfação da semana**; a previsão de pico do #305. Conferido contra `BoasVindasView`, `BarraLateral`, `navegacao.js`, `NavegacaoInferior`, `NavegacaoTopo`, `HomeView`, `FilaTelaView` e `FilaView` na `develop`. O site não foi conferido no navegador depois desta mudança.
 - Revisão humana do recheck: [recheck de AlvaroBento12](COLE_AQUI_O_LINK_DO_RECHECK)
 - Situação: ajustes do recheck aplicados; aguardando nova revisão.
+
+## Uso de Inteligência Artificial em Atividades Não Relacionadas Diretamente à Implementação
+
+Além dos usos de Inteligência Artificial registrados durante a implementação do software e nos Pull Requests, o projeto Bandejão UnB contou com o auxílio de ferramentas de IA em diferentes etapas do seu desenvolvimento, incluindo prototipação, identidade visual, documentação, arquitetura de software, planejamento e gerenciamento das sprints.
+
+Esta seção tem como objetivo documentar esses usos, evidenciando a finalidade de cada ferramenta, a participação dos integrantes e os limites estabelecidos para sua utilização.
+
+### 1. Design, identidade visual e prototipação
+
+#### 1.1. Construção do protótipo interativo
+
+- **Ferramenta utilizada:** Figma Make.
+- **Responsável:** Alana Feitosa.
+- **Finalidade:** Construção do protótipo interativo da aplicação Bandejão UnB.
+
+A construção do protótipo contou inicialmente com a colaboração de um designer externo à equipe, que elaborou algumas das primeiras telas da aplicação. Essas telas serviram como referência para o desenvolvimento das demais interfaces e para o estabelecimento de uma direção visual para o projeto.
+
+A partir dessas referências, Alana utilizou a Inteligência Artificial do Figma Make como ferramenta de apoio à construção do protótipo interativo, orientando a geração das interfaces de acordo com as necessidades do projeto.
+
+A utilização da ferramenta envolveu:
+
+- Construção de novas telas a partir das referências visuais existentes;
+- Organização dos elementos das interfaces;
+- Construção de fluxos interativos de navegação;
+- Exploração de alternativas de apresentação das funcionalidades;
+- Adequação das interfaces à proposta visual do Bandejão UnB;
+- Representação visual dos requisitos funcionais;
+- Refinamento da disposição dos componentes das telas.
+
+O protótipo não foi elaborado exclusivamente pela ferramenta de IA, uma vez que sua construção partiu de referências produzidas por um profissional de design, das orientações fornecidas por Alana e dos requisitos discutidos pela equipe.
+
+#### 1.2. Atualização e evolução do protótipo interativo
+
+- **Ferramenta utilizada:** Figma Make.
+- **Responsável:** Alana Feitosa.
+- **Finalidade:** Manutenção e evolução do protótipo ao longo das sprints.
+
+Com a evolução do projeto, especialmente após os feedbacks recebidos durante a Release 1 e as alterações realizadas nos documentos de requisitos, tornou-se necessário atualizar o protótipo para representar as novas funcionalidades e decisões do grupo.
+
+O Figma Make continuou sendo utilizado como ferramenta de apoio nesse processo, auxiliando em atividades como:
+
+- Atualização das telas existentes;
+- Inclusão de novas funcionalidades no protótipo;
+- Adequação dos fluxos de navegação às mudanças nos requisitos;
+- Representação das funcionalidades de gamificação;
+- Representação das telas relacionadas ao progresso do usuário e ao ranking;
+- Refinamento da experiência visual da aplicação;
+- Adequação das interfaces às versões desktop e mobile;
+- Manutenção da consistência visual entre as diferentes telas.
+
+As alterações foram orientadas pelas necessidades do projeto e pelas decisões humanas, sendo a IA utilizada como instrumento de prototipação e refinamento visual.
+
+#### 1.3. Criação da logo do projeto
+
+- **Ferramenta utilizada:** Inteligência Artificial do Canva.
+- **Responsável:** Alana Feitosa.
+- **Finalidade:** Criação da logo do Bandejão UnB.
+
+A ferramenta de Inteligência Artificial disponibilizada pelo Canva foi utilizada no processo de criação da logo do projeto.
+
+Seu uso teve como objetivo auxiliar na construção de uma identidade visual própria para a aplicação, considerando a temática do Restaurante Universitário, a proposta do produto e a necessidade de estabelecer uma identidade visual reconhecível.
+
+A ferramenta foi utilizada para auxiliar na geração de propostas visuais e na exploração de possibilidades para a representação gráfica do projeto.
+
+A definição da proposta visual e a seleção do resultado utilizado permaneceram sob responsabilidade humana.
+
+### 2. Documentação de gerenciamento do projeto
+
+#### 2.1. Review e retrospectiva das sprints
+
+- **Ferramenta utilizada:** ChatGPT, da OpenAI.
+- **Responsável:** Alana Feitosa — Scrum Master.
+- **Artefato:** `docs/reviews-sprints/sprint_review_mds.md`.
+- **Finalidade:** Apoio na atualização, organização e formatação da documentação de review e retrospectiva das sprints.
+
+O ChatGPT foi utilizado como ferramenta de apoio à atualização do documento de review e retrospectiva das sprints do projeto.
+
+Para a realização dessa atividade, foram disponibilizados à ferramenta:
+
+- A versão anterior do documento de review e retrospectiva;
+- As atas das reuniões semanais;
+- Informações referentes ao andamento das sprints;
+- O contexto das atividades realizadas pela equipe;
+- As issues registradas no GitHub;
+- O histórico de commits do repositório;
+- A avaliação geral sobre o planejamento, a divisão das atividades e as dificuldades enfrentadas durante as sprints.
+
+A avaliação geral fornecida por Alana destacou que as sprints apresentaram um bom planejamento e uma divisão adequada das responsabilidades entre os integrantes, sendo o gerenciamento do tempo o principal ponto de dificuldade ao longo do desenvolvimento.
+
+A ferramenta auxiliou na consolidação dessas informações, na organização do conteúdo por sprint, na elaboração de sugestões de feedback individual para validação e na formatação do documento em Markdown, mantendo a estrutura da documentação anteriormente existente.
+
+Entre as atividades realizadas com o auxílio da ferramenta, destacam-se:
+
+- Organização das informações referentes a cada sprint;
+- Estruturação das tabelas de retrospectiva;
+- Consolidação dos pontos positivos e das dificuldades identificadas;
+- Organização das propostas de melhoria;
+- Padronização dos títulos e seções;
+- Formatação das referências aos registros do projeto;
+- Manutenção da consistência estrutural do documento.
+
+As sugestões de feedback individual elaboradas com auxílio da ferramenta não constituem transcrições literais das falas dos integrantes e devem ser validadas pela equipe.
+
+A responsabilidade pela revisão, validação e publicação do documento permanece com a Scrum Master.
+
+#### 2.2. Conversão das atas de reunião para PDF
+
+- **Ferramenta utilizada:** ChatGPT, da OpenAI.
+- **Responsável:** Alana Feitosa — Scrum Master.
+- **Artefatos:** Atas de reunião disponibilizadas em `docs/atas-reunioes/`.
+- **Finalidade:** Conversão e padronização do formato dos documentos.
+
+As primeiras atas das reuniões do projeto foram originalmente elaboradas em documentos no formato DOCX, contendo os registros das discussões, decisões, responsabilidades, participantes e encaminhamentos das reuniões realizadas pela equipe.
+
+O ChatGPT foi utilizado como ferramenta de apoio à conversão desses documentos para o formato PDF, visando à disponibilização das atas no repositório e na documentação do projeto.
+
+A utilização da ferramenta nessa atividade teve caráter operacional, estando relacionada à transformação do formato dos arquivos.
+
+O conteúdo original das atas, incluindo as informações referentes às reuniões, foi elaborado e registrado pela Scrum Master.
+
+A ferramenta não foi responsável pela condução das reuniões, pela definição das decisões registradas ou pela atribuição das responsabilidades presentes nas atas.
+
+### 3. Documentação de arquitetura de software
+
+#### 3.1. Estruturação e formatação da documentação de arquitetura
+
+- **Ferramenta utilizada:** Claude, da Anthropic.
+- **Responsáveis:** Todos os integrantes da equipe.
+- **Metodologia de documentação:** C4 Model.
+- **Finalidade:** Apoio na organização, estruturação e formatação da documentação arquitetural.
+
+Durante a elaboração da documentação de arquitetura do Bandejão UnB, todos os integrantes utilizaram o Claude como ferramenta de apoio à organização e representação das decisões arquiteturais do sistema.
+
+A elaboração da arquitetura foi dividida de acordo com as responsabilidades estabelecidas pela equipe:
+
+| Integrante | Área de atuação |
+| :--- | :--- |
+| Alana Feitosa | Frontend / Scrum Master |
+| Corina | Frontend |
+| Álvaro | Backend / Product Owner |
+| Cristiano | Backend |
+| Josué | Banco de Dados |
+| Luís | Banco de Dados |
+
+Conforme estabelecido nas reuniões do grupo, os níveis 1 e 2 do C4 Model foram trabalhados coletivamente, enquanto os níveis 3 e 4 foram divididos de acordo com as áreas de atuação dos integrantes.
+
+O Claude foi utilizado como ferramenta auxiliar durante esse processo, contribuindo para:
+
+- Organização das informações arquiteturais;
+- Estruturação dos documentos;
+- Padronização da apresentação dos diferentes níveis do C4 Model;
+- Formatação dos conteúdos em Markdown;
+- Organização das descrições dos elementos arquiteturais;
+- Representação das responsabilidades dos componentes;
+- Identificação de possíveis inconsistências entre documentos;
+- Melhoria da clareza e legibilidade da documentação.
+
+A definição da arquitetura não foi delegada à ferramenta. Os integrantes permaneceram responsáveis pelas decisões relacionadas à estrutura do sistema e à sua respectiva área de atuação.
+
+#### 3.2. Criação dos diagramas de arquitetura
+
+- **Ferramenta utilizada:** Claude, da Anthropic.
+- **Responsáveis:** Todos os integrantes da equipe.
+- **Finalidade:** Auxílio na criação, formatação e representação gráfica dos diagramas arquiteturais.
+
+O Claude também foi utilizado na criação dos diagramas presentes na documentação de arquitetura, auxiliando na transformação das definições técnicas discutidas pela equipe em representações estruturadas segundo o C4 Model.
+
+A utilização da ferramenta contemplou os diferentes níveis de abstração da arquitetura:
+
+| Nível | Representação | Utilização da IA |
+| :--- | :--- | :--- |
+| Nível 1 | Contexto | Apoio na representação do sistema, dos usuários e das relações com elementos externos. |
+| Nível 2 | Contêineres | Apoio na representação das principais partes da aplicação e das relações entre elas. |
+| Nível 3 | Componentes | Apoio na organização e representação dos componentes internos de cada área do sistema. |
+| Nível 4 | Código e detalhamento | Apoio na representação das estruturas e dos fluxos técnicos específicos de cada área. |
+
+A ferramenta auxiliou na elaboração e formatação dos diagramas a partir das informações, definições e orientações fornecidas pelos integrantes.
+
+Os membros responsáveis por cada área permaneceram encarregados de analisar a coerência dos diagramas e verificar sua correspondência com a arquitetura definida para o projeto.
+
+#### 3.3. Atualização dos diagramas e manutenção da coerência arquitetural
+
+- **Ferramenta utilizada:** Claude, da Anthropic.
+- **Responsáveis:** Todos os integrantes da equipe.
+- **Finalidade:** Apoio na atualização da documentação arquitetural ao longo das sprints.
+
+Após a apresentação da Release 1, o projeto passou por alterações nos requisitos, nas funcionalidades e nas decisões arquiteturais, especialmente em relação à Release 2.
+
+Essas alterações exigiram revisões em diferentes documentos e diagramas da arquitetura.
+
+O Claude foi utilizado como ferramenta de apoio na atualização dessas representações, considerando mudanças relacionadas a:
+
+- Fluxos de cadastro e autenticação;
+- Detecção e seleção de campus;
+- Consulta ao cardápio;
+- Funcionamento da fila e dos check-ins;
+- Estimativa de espera;
+- Avaliações das refeições;
+- Privacidade dos usuários;
+- Gamificação;
+- Pontuação;
+- Ranking;
+- Progresso do usuário;
+- Bandeja de Ouro;
+- Comunicação entre frontend, backend e banco de dados.
+
+A ferramenta auxiliou na organização e representação das alterações, bem como na identificação de possíveis divergências entre os diferentes níveis do C4 Model.
+
+As decisões técnicas que motivaram essas atualizações foram discutidas e definidas pelos integrantes, não sendo estabelecidas autonomamente pela IA.
+
+### 4. Documento de Visão
+
+#### 4.1. Elaboração da versão inicial
+
+- **Responsável:** Alana Feitosa.
+- **Referência utilizada:** Template de Documento de Visão da IBM.
+- **Utilização de IA:** Não utilizada na elaboração da versão inicial.
+
+A primeira versão do Documento de Visão do Bandejão UnB foi elaborada integralmente de forma manual por Alana Feitosa, utilizando como referência o template de Documento de Visão da IBM.
+
+A elaboração considerou a proposta do projeto, os requisitos apresentados pela professora, as discussões realizadas entre os integrantes e as necessidades identificadas para a aplicação.
+
+É importante distinguir essa etapa das revisões posteriores do documento, uma vez que a utilização de Inteligência Artificial ocorreu durante seu processo de revisão e atualização, e não durante a elaboração da versão inicial.
+
+#### 4.2. Revisão e redução do Documento de Visão
+
+- **Ferramenta utilizada:** Claude, da Anthropic.
+- **Skill utilizada:** `grill-with-docs`.
+- **Responsáveis:** Equipe do projeto.
+- **Finalidade:** Revisão, simplificação e redução da extensão do Documento de Visão.
+
+Após a elaboração da versão inicial e a evolução das discussões referentes ao projeto, identificou-se a necessidade de tornar o Documento de Visão mais objetivo, reduzindo sua extensão e evitando informações excessivamente detalhadas ou redundantes.
+
+Para auxiliar nesse processo, foi utilizado o Claude em conjunto com a skill `grill-with-docs`.
+
+A utilização dessa skill permitiu conduzir um processo de revisão baseado em questionamentos sobre o conteúdo existente, auxiliando a equipe na identificação de informações que poderiam ser reorganizadas, simplificadas ou removidas.
+
+A ferramenta foi utilizada para apoiar atividades como:
+
+- Análise da estrutura do documento existente;
+- Identificação de informações redundantes;
+- Identificação de trechos excessivamente detalhados;
+- Revisão da organização das seções;
+- Formulação de questionamentos sobre o conteúdo;
+- Auxílio na simplificação da linguagem;
+- Redução da extensão do documento;
+- Preservação das informações essenciais à compreensão do produto;
+- Verificação da coerência com as demais documentações.
+
+A utilização da skill não teve como objetivo permitir que a ferramenta definisse autonomamente a visão do produto.
+
+As decisões referentes à permanência, alteração ou remoção de informações foram de responsabilidade humana, considerando os objetivos do projeto e as orientações recebidas durante a disciplina.
+
+### 5. Atualização das demais documentações do projeto
+
+#### 5.1. Revisão e atualização dos documentos de requisitos
+
+- **Ferramenta utilizada:** Claude, da Anthropic.
+- **Finalidade:** Apoio na atualização, organização e simplificação dos documentos de requisitos.
+
+Com a evolução do projeto e os feedbacks recebidos durante a Release 1, a equipe identificou a necessidade de revisar os requisitos funcionais, os requisitos não funcionais e os critérios de aceite da aplicação.
+
+O Claude foi utilizado como ferramenta de apoio à organização dessas alterações, contribuindo para:
+
+- Reestruturação dos requisitos;
+- Simplificação de descrições excessivamente extensas;
+- Organização dos critérios de aceite;
+- Identificação de possíveis redundâncias;
+- Padronização da linguagem utilizada;
+- Melhoria da clareza das especificações;
+- Verificação da correspondência entre os requisitos e as funcionalidades planejadas.
+
+A definição dos requisitos e dos critérios de aceite permaneceu sob responsabilidade da equipe, considerando as exigências da disciplina e as necessidades do produto.
+
+#### 5.2. Atualização e manutenção das documentações complementares
+
+- **Ferramenta utilizada:** Claude, da Anthropic.
+- **Finalidade:** Apoio na atualização e manutenção da documentação técnica e organizacional do projeto.
+
+O Claude foi utilizado ao longo das sprints como ferramenta auxiliar na atualização das demais documentações do Bandejão UnB.
+
+Seu uso esteve relacionado principalmente à organização das informações existentes, à representação das decisões discutidas pela equipe e à manutenção da coerência entre os diferentes artefatos do projeto.
+
+Esse apoio contemplou documentações relacionadas a:
+
+- Documento de Visão;
+- Documento de Requisitos;
+- Glossário;
+- Architecture Decision Records (ADRs);
+- Documentação de arquitetura;
+- Contratos de comunicação entre as áreas;
+- Documentações referentes às releases;
+- Documentações de planejamento e organização do projeto.
+
+Entre as principais atividades realizadas com o auxílio da ferramenta, destacam-se:
+
+- Formatação dos documentos;
+- Organização das seções e subseções;
+- Padronização da apresentação das informações;
+- Auxílio na atualização de conteúdos existentes;
+- Identificação de possíveis inconsistências;
+- Organização das justificativas das decisões técnicas;
+- Adequação da documentação às mudanças realizadas no projeto;
+- Auxílio na manutenção da rastreabilidade entre os artefatos.
+
+A ferramenta não foi utilizada como autoridade para determinar decisões técnicas.
+
+No caso dos ADRs, por exemplo, o auxílio da IA esteve relacionado à organização e documentação das decisões, dos contextos e das justificativas discutidas pelos integrantes, e não à realização autônoma dessas escolhas.
+
+### 6. Planejamento e gerenciamento do projeto
+
+#### 6.1. Estruturação do planejamento das sprints
+
+- **Ferramenta utilizada:** Claude, da Anthropic.
+- **Finalidade:** Apoio na organização e estruturação do planejamento das atividades.
+
+O Claude foi utilizado como ferramenta de apoio ao planejamento do projeto, auxiliando na organização das atividades necessárias para o desenvolvimento do Bandejão UnB.
+
+Sua utilização esteve relacionada à transformação das necessidades e prioridades discutidas pela equipe em estruturas de planejamento mais organizadas.
+
+Entre as atividades apoiadas pela ferramenta, encontram-se:
+
+- Organização das atividades previstas para cada sprint;
+- Estruturação das etapas de desenvolvimento;
+- Organização das demandas por área de atuação;
+- Decomposição de atividades mais complexas;
+- Identificação de possíveis dependências entre tarefas;
+- Organização da sequência de execução das atividades;
+- Adequação do planejamento às mudanças no escopo do projeto.
+
+As prioridades, responsabilidades e objetivos das sprints foram estabelecidos pelos integrantes, considerando as atribuições do Product Owner, da Scrum Master e das áreas de desenvolvimento.
+
+#### 6.2. Auxílio na estruturação de prazos
+
+- **Ferramenta utilizada:** Claude, da Anthropic.
+- **Finalidade:** Apoio na organização dos prazos e na distribuição temporal das atividades.
+
+A ferramenta também foi utilizada para auxiliar na estruturação dos prazos do projeto, considerando as atividades planejadas, as dependências entre as áreas e as datas de entrega estabelecidas pela disciplina.
+
+Esse apoio incluiu:
+
+- Organização dos prazos das atividades;
+- Distribuição das demandas ao longo das sprints;
+- Estruturação das etapas necessárias para as releases;
+- Identificação de possíveis sobreposições de atividades;
+- Apoio na reorganização do planejamento diante de alterações no projeto;
+- Auxílio na priorização das atividades considerando o tempo disponível.
+
+As sugestões apresentadas pela ferramenta não foram consideradas determinações obrigatórias.
+
+A definição final dos prazos permaneceu sob responsabilidade da equipe, considerando sua disponibilidade, a complexidade das tarefas e as exigências acadêmicas.
+
+Embora a IA tenha auxiliado na estruturação do planejamento, o gerenciamento efetivo do tempo continuou sendo uma responsabilidade humana e constituiu um dos principais desafios identificados nas retrospectivas das sprints.
+
+#### 6.3. Organização e atualização do backlog
+
+- **Ferramenta utilizada:** Claude, da Anthropic.
+- **Finalidade:** Apoio na estruturação e organização das atividades do backlog.
+
+A ferramenta foi utilizada como apoio à organização das demandas do projeto, auxiliando na representação estruturada das atividades necessárias para atender aos requisitos e às prioridades estabelecidas.
+
+O auxílio esteve relacionado à organização das tarefas, à identificação de dependências e à adequação do planejamento às diferentes etapas do desenvolvimento.
+
+A definição das prioridades do backlog, das funcionalidades que deveriam ser implementadas e das alterações de escopo permaneceu sob responsabilidade do Product Owner e da equipe.
+
+### 7. Limites da utilização de Inteligência Artificial
+
+A utilização de Inteligência Artificial nas atividades descritas nesta seção ocorreu como forma de apoio à execução do projeto, não substituindo a participação dos integrantes ou suas responsabilidades.
+
+A equipe estabeleceu como princípio que as ferramentas de IA não deveriam realizar autonomamente decisões técnicas relacionadas ao desenvolvimento do Bandejão UnB.
+
+Dessa forma, permaneceram sob responsabilidade humana:
+
+- A definição da visão do produto;
+- A identificação das necessidades dos usuários;
+- A definição dos requisitos funcionais e não funcionais;
+- A escolha das tecnologias utilizadas;
+- A definição da arquitetura de software;
+- A avaliação dos trade-offs técnicos;
+- A definição das regras de negócio;
+- A priorização das funcionalidades;
+- A definição dos critérios de aceite;
+- A organização das responsabilidades dos integrantes;
+- A aprovação dos prazos e do planejamento;
+- A validação dos fluxos de navegação;
+- A seleção das propostas visuais;
+- A revisão e aprovação das documentações.
+
+As ferramentas foram utilizadas principalmente como instrumentos de formatação, organização, representação visual, questionamento, estruturação de informações e apoio ao planejamento.
+
+As sugestões apresentadas pelas ferramentas estiveram sujeitas à análise crítica dos integrantes e não possuíam caráter decisório.
+
+### 8. Resumo consolidado da utilização de IA
+
+| Ferramenta | Atividade | Natureza da utilização | Responsável |
+| :--- | :--- | :--- | :--- |
+| Figma Make | Construção do protótipo interativo | Prototipação assistida a partir de referências humanas | Alana |
+| Figma Make | Atualização do protótipo | Evolução e refinamento das interfaces | Alana |
+| Figma Make | Fluxos de navegação | Representação visual e interativa | Alana |
+| Figma Make | Interfaces desktop e mobile | Apoio à adaptação visual | Alana |
+| Canva AI | Criação da logo | Geração e exploração de propostas visuais | Alana |
+| ChatGPT | Review e retrospectiva das sprints | Consolidação, sugestões de feedback e formatação em Markdown | Alana |
+| ChatGPT | Primeiras atas de reunião | Conversão de DOCX para PDF | Alana |
+| Claude | Documentação de arquitetura | Estruturação e formatação | Todos os integrantes |
+| Claude | Diagramas C4 | Criação e representação gráfica assistida | Todos os integrantes |
+| Claude | Atualização da arquitetura | Manutenção e verificação de coerência documental | Todos os integrantes |
+| Claude + `grill-with-docs` | Documento de Visão | Questionamento, revisão e redução do documento original | Equipe |
+| Claude | Documento de Requisitos | Organização, atualização e formatação | Equipe |
+| Claude | Critérios de aceite | Apoio à simplificação e estruturação | Equipe |
+| Claude | ADRs | Organização e registro de decisões humanas | Equipe |
+| Claude | Documentações complementares | Atualização, estruturação e padronização | Equipe |
+| Claude | Planejamento das sprints | Apoio à organização das atividades | Equipe |
+| Claude | Gerenciamento de prazos | Apoio à estruturação temporal das atividades | Equipe |
+| Claude | Backlog | Apoio à organização das demandas | Equipe |
+
+### 9. Considerações finais
+
+A utilização de Inteligência Artificial no Bandejão UnB esteve presente em diferentes etapas do ciclo de desenvolvimento, não se restringindo à implementação do código.
+
+Seu uso teve como principais objetivos reduzir o esforço empregado em atividades repetitivas, facilitar a representação de informações, auxiliar na estruturação das documentações, apoiar o planejamento e contribuir para a evolução visual do produto.
+
+A equipe buscou utilizar essas ferramentas de maneira consciente, mantendo a responsabilidade humana sobre as decisões e reconhecendo a necessidade de revisar e validar os conteúdos produzidos com auxílio de IA.
+
+A utilização das ferramentas não elimina a responsabilidade individual ou coletiva dos integrantes sobre os artefatos produzidos, as decisões tomadas e os resultados apresentados durante a disciplina de Métodos de Desenvolvimento de Software.
+A utilização das ferramentas não elimina a responsabilidade individual ou coletiva dos integrantes sobre os artefatos produzidos, as decisões tomadas e os resultados apresentados durante a disciplina de Métodos de Desenvolvimento de Software.
