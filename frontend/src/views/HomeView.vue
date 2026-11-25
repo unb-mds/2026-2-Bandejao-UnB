@@ -113,7 +113,22 @@ const notaHoje = computed(() => {
   return resumoDoDia.find((r) => r.tipo === tipoHoje.value)?.media ?? null
 })
 
-const resumo = computed(() => avaliacoes.resumoPorCampus[campusId.value] ?? null)
+/**
+ * Semana dos cartões "Avaliações" e "Satisfação da semana" (#259): montada na
+ * store com o resumo de cada dia. Na falha, os cartões dizem que não
+ * carregou, em vez de "sem avaliações ainda".
+ */
+const semana = computed(() => avaliacoes.estadoDaSemana(campusId.value))
+const resumo = computed(() => semana.value?.resumo ?? null)
+const erroSemana = computed(() => semana.value?.situacao === 'erro')
+const carregandoSemana = computed(() => !semana.value || semana.value.situacao === 'carregando')
+/** Só com a semana carregada o cartão mostra contagem, gráfico e média: antes, seria um falso "0 avaliações". */
+const semanaPronta = computed(() => !erroSemana.value && !carregandoSemana.value)
+const legendaAvaliacoes = computed(() => {
+  if (erroSemana.value) return 'Não foi possível carregar'
+  if (carregandoSemana.value) return 'carregando…'
+  return resumo.value?.media != null ? '/ 5 · esta semana' : 'sem avaliações ainda'
+})
 const barras = computed(() => {
   const dias = resumo.value?.dias ?? []
   const maior = Math.max(...dias.map((d) => d.media ?? 0))
@@ -131,7 +146,7 @@ watch(
     if (!id) return
     cardapio.carregarRefeicao({ campus: id, dia: hoje })
     avaliacoes.carregarResumoDoDia(id, hoje)
-    avaliacoes.carregarResumo(id)
+    avaliacoes.carregarResumoDaSemana(id)
   },
   { immediate: true },
 )
@@ -334,7 +349,10 @@ async function sair() {
         </RouterLink>
 
         <!-- Avaliações -->
-        <RouterLink :to="{ name: 'avaliacoes' }" class="cartao cartao-clicavel cartao-pequeno">
+        <RouterLink
+          :to="{ name: 'avaliacoes' }"
+          class="cartao cartao-clicavel cartao-pequeno cartao-avaliacoes"
+        >
           <div class="pequeno-topo">
             <IconeSvg
               nome="estrela"
@@ -345,11 +363,9 @@ async function sair() {
             <span class="rotulo">Avaliações</span>
           </div>
           <p class="pequeno-valor">{{ formatarNota(resumo?.media) }}</p>
-          <p class="pequeno-legenda">
-            {{ resumo?.media ? '/ 5 · esta semana' : 'sem avaliações ainda' }}
-          </p>
+          <p class="pequeno-legenda">{{ legendaAvaliacoes }}</p>
           <div class="pequeno-rodape">
-            <EstrelasNota :valor="resumo?.media ?? 0" :tamanho="11" />
+            <EstrelasNota v-if="resumo?.media != null" :valor="resumo.media" :tamanho="11" />
           </div>
         </RouterLink>
       </div>
@@ -358,10 +374,14 @@ async function sair() {
       <RouterLink :to="{ name: 'avaliacoes' }" class="cartao cartao-clicavel cartao-semana">
         <div class="semana-topo">
           <p class="titulo-secao">Satisfação da semana</p>
-          <span class="contagem">{{ resumo?.quantidade ?? 0 }} avaliações</span>
+          <span v-if="semanaPronta" class="contagem">{{ resumo.quantidade }} avaliações</span>
         </div>
 
-        <div class="grafico" role="img" aria-label="Nota média por dia da semana">
+        <p v-if="erroSemana" class="semana-erro" role="alert">
+          Não foi possível carregar as avaliações da semana.
+        </p>
+        <p v-else-if="carregandoSemana" class="semana-carregando">carregando…</p>
+        <div v-else class="grafico" role="img" aria-label="Nota média por dia da semana">
           <div v-for="barra in barras" :key="barra.dia" class="barra-coluna">
             <span class="barra-valor">{{ barra.media ? formatarNota(barra.media) : '–' }}</span>
             <div
@@ -373,8 +393,8 @@ async function sair() {
           </div>
         </div>
 
-        <div class="semana-media">
-          <EstrelasNota :valor="resumo?.media ?? 0" :tamanho="13" />
+        <div v-if="semanaPronta" class="semana-media">
+          <EstrelasNota v-if="resumo?.media != null" :valor="resumo.media" :tamanho="13" />
           <span class="semana-nota">{{ formatarNota(resumo?.media) }} / 5</span>
           <span class="semana-legenda">média geral</span>
         </div>
@@ -748,6 +768,12 @@ async function sair() {
   font-size: 14px;
   font-weight: 900;
   color: var(--texto-escuro);
+}
+
+.semana-erro,
+.semana-carregando {
+  font-size: 12px;
+  color: var(--texto-suave);
 }
 
 .semana-legenda {
