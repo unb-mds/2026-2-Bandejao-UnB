@@ -972,12 +972,15 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 
 ## BD-E5 — Consultas dos indicadores de adesão (RNF09)
 
-- Ferramenta: Claude (Anthropic).
-- Apoio: `docs/arquitetura/banco-de-dados/indicadores-adesao-bd-e5.md` (quatro consultas, definições e como rodar na VM) e `backend/tests/test_indicadores_adesao_bd_e5.py`, que lê as consultas do próprio documento e as executa sobre dados de resposta conhecida.
-- Decisões que a equipe deve confirmar: a RNF09 não diz a base das porcentagens 3 e 4; o documento usa todas as contas com `status = 'ativo'`, e as contagens que a consulta devolve permitem refazer a conta com outra base. O indicador 3 sai 0% até a BE-E6 gravar `sequencia_atual`.
-- Validação local: teste com 6 casos no SQLite; oito mutações nas consultas (`>=` virando `>`, filtro de conta, `LEFT JOIN` virando `JOIN`, base sem filtro de status, número de semanas, estado da pergunta, limiar da sequência, valor do ranking) derrubam o teste. O MySQL 8.4 não rodou na máquina local; o job `testes-mysql` do CI é quem confere.
-- Pendente: rodar as consultas uma vez no MySQL da produção e anotar a data e o resultado.
-- Revisão humana: pendente.
+- Ferramenta: Claude (Anthropic). PR: [#283](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/283).
+- Apoio: `docs/arquitetura/banco-de-dados/indicadores-adesao-bd-e5.md` (quatro consultas, definições, avisos e como rodar na VM) e `backend/tests/test_indicadores_adesao_bd_e5.py`, que lê as consultas do próprio documento e as executa sobre dados de resposta conhecida.
+- Decisões que a equipe deve confirmar: a RNF09 não diz a base das porcentagens 3 e 4; o documento usa todas as contas com `status = 'ativo'`. Medir só entre quem fez check-in muda também o numerador, e por isso o documento traz o trecho de `WHERE` (testado) para essa variante, em vez de dizer que as contagens bastam. Os indicadores 1 e 3 saem 0% até a BE-E1 gravar a `PERGUNTA_SAIDA` e a BE-E6 gravar `sequencia_atual`, e o 3 pode superestimar depois, porque nada zera a coluna; ambos os avisos estão no documento.
+- Ajustes da [segunda revisão](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/283) de AlvaroBento12, código gerado pela IA: acesso pelo usuário próprio de banco (não mais o root); `SET @inicio` pelo dia de Brasília (`UTC_TIMESTAMP() - 3 h`) e janela de 28 datas, casando com o divisor de 4 semanas; fixture com contas e check-ins que distinguem os indicadores 3 e 4, a ponta de hoje e a conta suspensa no indicador 2; `SET @inicio` conferido pelo teste (formato, deslocamento de Brasília, dias e semanas ligados a `retencao_semanas`; no `testes-mysql`, o comando roda de verdade); contagens `COALESCE` no banco vazio.
+- TDD: na primeira versão o teste e o documento vieram no mesmo commit (não se aplicou). Nos ajustes da revisão, o commit `test(banco): fixture mais discriminante e SET @inicio ligado aos parâmetros...` vem antes do `fix(banco): ajustes da segunda revisão...` e falha contra o documento anterior (9 casos vermelhos).
+- Validação local: 9 casos passando e 1 pulado no SQLite (o pulado é o do `SET @inicio` no MySQL, que só roda no job `testes-mysql`); 21 mutações nas consultas e no `SET` (`>=` virando `>`, filtro de conta, `LEFT JOIN` virando `JOIN` nas consultas 1 e 3, base sem filtro de status nas consultas 3 e 4, `JOIN` só de contas ativas na 2, número de semanas, estado da pergunta, limiar da sequência, ranking trocado pela sequência, `ROUND` com 0 e com 1 casa, corte da ponta da janela, variante sem filtro de data, `SET` com 14 e 28 dias, com `NULL`, com `CURDATE()` e sem o deslocamento de 3 h) derrubam o teste, todas. Na primeira versão a mensagem do commit dizia que sete de oito mutações caíam (a oitava era texto de prosa) e este arquivo dizia oito; o número certo daquela versão era sete. O MySQL 8.4 não rodou na máquina local; o job `testes-mysql` do CI é quem confere.
+- Pendente: rodar as quatro consultas, já com o SQL final, no MySQL da produção e registrar data e resultado na seção "Execução em produção" do documento.
+- Revisão humana: revisões de AlvaroBento12 no #283 (primeira e segunda rodadas); ajustes da segunda aplicados.
+- Situação: ajustes aplicados; aguardando o recheck e a execução em produção.
 
 ## FE-16 — Checklist de qualidade no celular e no desktop
 
