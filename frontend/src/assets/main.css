@@ -36,6 +36,92 @@
   }
 }
 
+/* Desktop (FE-23, protótipo desktop): o cabeçalho verde vira a faixa de
+   112 px das telas internas, e o conteúdo fica no creme, com as margens do
+   protótipo. A lateral (BarraLateral) já mostra a marca e a navegação. */
+@media (min-width: 1024px) {
+  .cabecalho {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 112px;
+    padding: 22px clamp(28px, 4vw, 62px);
+  }
+  .conteudo {
+    padding: 27px clamp(28px, 4vw, 62px) 50px;
+    background: var(--creme);
+  }
+  /* Subtítulos sobre o verde com contraste AA (o branco a 40% fica em 3,6). */
+  .tela:not(.tela-formulario) .cabecalho .subtitulo-tela,
+  .tela:not(.tela-formulario) .cabecalho .subtitulo {
+    font-size: 13px;
+    color: var(--branco-75);
+  }
+  /* Com o botão de voltar, ele fica à esquerda do título, como no protótipo. */
+  .cabecalho:has(> .voltar:not(.voltar--rotulo)) {
+    display: grid;
+    grid-template-columns: 43px minmax(0, 1fr);
+    align-content: center;
+    column-gap: 18px;
+  }
+  .cabecalho:has(> .voltar:not(.voltar--rotulo)) > .voltar {
+    grid-row: 1 / span 3;
+    align-self: center;
+    margin: 0;
+  }
+  .cabecalho:has(> .voltar:not(.voltar--rotulo)) > :not(.voltar) {
+    grid-column: 2;
+  }
+}
+
+/* Escolha do campus com a lateral (campus já escolhido, vindo de "Trocar",
+   FE-23): vira uma tela interna comum, sem o lado verde nem os passos. As
+   classes são do SeletorCampus; a regra fica aqui porque depende do App. */
+@media (min-width: 1024px) {
+  .app.app--lateral .tela-campus {
+    display: flex;
+    flex-direction: column;
+  }
+  .app.app--lateral .cabecalho-campus {
+    justify-content: center;
+    padding: 22px clamp(28px, 4vw, 62px);
+  }
+  .app.app--lateral .cabecalho-campus .marca,
+  .app.app--lateral .cabecalho-campus .sobretitulo,
+  .app.app--lateral .tela-campus .conteudo > .so-desktop,
+  .app.app--lateral .passos {
+    display: none;
+  }
+  .app.app--lateral .cabecalho-campus .titulo-tela {
+    font-size: clamp(28px, 2.5vw, 37px);
+    line-height: 1;
+  }
+  .app.app--lateral .cabecalho-campus .titulo-tela br {
+    display: none;
+  }
+  .app.app--lateral .cabecalho-campus .subtitulo {
+    margin-top: 8px;
+  }
+  .app.app--lateral .tela-campus .conteudo {
+    justify-content: flex-start;
+    padding: 27px clamp(28px, 4vw, 62px) 50px;
+  }
+}
+
+/* Rótulo pequeno em maiúsculas acima dos títulos (o "eyebrow" do protótipo). */
+.sobretitulo {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--texto-rotulo);
+}
+.fundo-escuro .sobretitulo {
+  color: var(--branco-60);
+}
+
 /* A partir do tablet, o cartão cresce com o conteúdo e quem rola é a página
    (`.area-tela`, no App.vue): numa janela baixa, o fim do formulário continua
    alcançável e com barra de rolagem. O `!important` vence a regra genérica
@@ -50,6 +136,50 @@
     border-radius: var(--raio-xl);
     overflow: hidden;
     box-shadow: 0 8px 32px rgba(10, 26, 12, 0.12);
+  }
+}
+
+/* Desktop (FE-23): as telas de conta ficam à direita do lado verde
+   (AsideConta, no App.vue), sem cartão, com o cabeçalho claro do protótipo. */
+@media (min-width: 1024px) {
+  .tela-formulario {
+    width: 100%;
+    max-width: 470px;
+    margin: auto;
+    padding: 48px 0;
+    border-radius: 0;
+    overflow: visible;
+    box-shadow: none;
+    background: transparent;
+  }
+  .tela-formulario .cabecalho {
+    min-height: 0;
+    padding: 0 0 28px;
+    background: transparent;
+  }
+  .tela-formulario .cabecalho .voltar {
+    margin-bottom: 52px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--texto-suave);
+  }
+  .tela-formulario .cabecalho :focus-visible {
+    outline-color: var(--verde-escuro);
+  }
+  .tela-formulario .titulo-tela {
+    font-size: 44px;
+    color: var(--verde-escuro);
+  }
+  .tela-formulario .subtitulo-tela {
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--texto-suave);
+  }
+  .tela-formulario .conteudo {
+    flex: 0 0 auto;
+    overflow: visible;
+    padding: 0;
+    background: transparent;
   }
 }
 
@@ -79,6 +209,15 @@
   font-size: 24px;
   line-height: 1.25;
   color: #fff;
+}
+
+/* Depois da regra base: com a mesma especificidade, quem vem depois vale. */
+@media (min-width: 1024px) {
+  .titulo-tela {
+    font-size: clamp(28px, 2.5vw, 37px);
+    line-height: 1;
+    letter-spacing: -0.045em;
+  }
 }
 
 .subtitulo-tela {

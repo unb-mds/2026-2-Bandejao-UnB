@@ -91,6 +91,18 @@ export function dataPorExtenso(agora = new Date()) {
   return `${DIAS_LONGOS[agora.getDay()]}, ${agora.getDate()} de ${MESES[agora.getMonth()]} de ${agora.getFullYear()}`
 }
 
+/** Saudação da barra do topo da Início no desktop (FE-23). */
+export function saudacao(agora = new Date()) {
+  const hora = agora.getHours()
+  if (hora < 12) return 'Bom dia'
+  return hora < 18 ? 'Boa tarde' : 'Boa noite'
+}
+
+/** "Segunda, 23 de novembro": a data por extenso sem "-feira" e sem o ano. */
+export function dataCurta(agora = new Date()) {
+  return `${DIAS_LONGOS[agora.getDay()].replace('-feira', '')}, ${agora.getDate()} de ${MESES[agora.getMonth()]}`
+}
+
 /** Instante ISO completo → "agora", "há 5 min", "há 2h", "ontem", "há 3 dias". */
 export function tempoRelativo(instanteISO, agora = new Date()) {
   const minutos = Math.floor((agora - new Date(instanteISO)) / 60000)
