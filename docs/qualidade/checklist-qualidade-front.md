@@ -43,16 +43,16 @@ Primeira visita, sem conta, contando os toques no aviso de localização (RF19) 
 
 | Caminho | Interações | Celular | Desktop |
 |---|---|---|---|
-| Sem permissão: "Agora não" → "Continuar sem login" → campus | 3 (a Release 2 prevê 2) | ❌ (bug 1) | ❌ (bug 1) |
-| Com permissão: "Permitir localização" → pedido do navegador → "Continuar sem login" → campus | 4 (a Release 2 prevê 2) | ⏸ (pendência 1) | ⏸ (pendência 1) |
+| Sem permissão: "Agora não" → campus | 2 | ✅ | ✅ |
+| Com permissão: "Permitir localização" → pedido do navegador → campus | 3 (a Release 2 prevê 2) | ⏸ (pendência 1) | ⏸ (pendência 1) |
 | Visita seguinte (campus lembrado, RN04) | 0 | ✅ | ✅ |
 
 As duas causas são diferentes:
 
-- **Sem permissão (bug 1):** a interação a mais é o "Continuar sem login" da boas-vindas, entre o "Agora não" e a escolha do campus. Não depende de nenhum EXTRA; é um desvio da Release 2 atual. O caminho fica dentro do limite geral de 3 do RNF03, mas não da conta da Release 2.
+- **Sem permissão (bug 1, corrigido na #285):** a interação a mais era o "Continuar sem login" da boas-vindas, entre o "Agora não" e a escolha do campus. A boas-vindas passou a ter a escolha do campus no lugar dele, e o caminho fica em 2 interações, como pede a Release 2.
 - **Com permissão (pendência 1):** a detecção do campus pela localização (RF20.1, FE-E3) é EXTRA 3 e não foi feita. Por isso, permitir a localização não leva ao campus em que a pessoa está, e o caminho segue o mesmo do sem permissão, com o pedido do navegador a mais. Só a FE-E3 leva esse caminho às 2 interações.
 
-Os dois casos estão marcados no `qualidade.spec.js` com `test.fail()`: quando forem resolvidos, o teste acusa, para este checklist ser atualizado.
+Só o caso com permissão está marcado no `qualidade.spec.js` com `test.fail()`: quando a FE-E3 entrar, o teste acusa, para este checklist ser atualizado. O caso sem permissão é um teste comum.
 
 ## 3. Guia de estilo (RF17)
 
@@ -97,6 +97,6 @@ Preencher com o número da versão, quem conferiu e a data. Problema encontrado 
 
 | Achado | Requisito | Situação |
 |---|---|---|
-| Bug 1. Sem permitir a localização, a primeira visita leva 3 interações até o cardápio, e a Release 2 prevê 2 ("Continuar sem login" a mais) | RNF03 | #285 |
+| Bug 1. Sem permitir a localização, a primeira visita levava 3 interações até o cardápio, e a Release 2 prevê 2 ("Continuar sem login" a mais) | RNF03 | #285, corrigido no PR #289 |
 | Bug 2. Cores e raios fora dos tokens do guia de estilo | RF17 | #286 |
-| Pendência 1. Com a localização permitida, 4 interações até o cardápio, porque a detecção do campus não foi feita | RNF03, RF20.1 | EXTRA 3 (FE-E3), sem issue nesta release |
+| Pendência 1. Com a localização permitida, 3 interações até o cardápio, porque a detecção do campus não foi feita | RNF03, RF20.1 | EXTRA 3 (FE-E3), sem issue nesta release |

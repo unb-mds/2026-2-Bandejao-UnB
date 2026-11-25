@@ -1024,6 +1024,30 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
 - Validação depois dos ajustes: o spec rodado contra o servidor simulado, com uma cópia que troca a conta e o prato da fixture pelos do simulado: os testes sem login, o controle e a primeira visita passaram, e os dois `test.fail()` falharam onde deviam. O teste com login não roda no simulado, que perde a sessão ao recarregar; na pilha real, [run do `ponta-a-ponta`](https://github.com/unb-mds/2026-2-Bandejao-UnB/actions/runs/45439504101). `npm run lint:ci` sem achados.
 - Situação: ajustes da revisão aplicados; aguardando o recheck.
 
+## #285 — Primeira visita em 2 interações sem a localização (RNF03)
+
+- Issue: [#285](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/285). PR: [#289](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/289). Relacionada: FE-16 ([#192](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/192), PR [#287](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/287)).
+- Ferramenta: Claude (Anthropic), em 24/11/2026. O código foi gerado pela IA; os commits foram aplicados pelo autor do PR.
+- Apoio:
+  - a `BoasVindasView` passou a ter a escolha do campus (os campi de `GET /api/campi/`, com "Carregando campi…", a falha com "Tentar novamente" e a lista vazia, como o `SeletorCampus`), no lugar do "Continuar sem login"; a escolha fica lembrada (RN04) e leva à tela do campus. O "Entrar na conta" continua;
+  - sem permitir a localização, a primeira visita fica com 2 interações até o cardápio: "Agora não" e o campus, como pede o RNF03 da Release 2 (o RF19 já dizia que, depois do "Agora não", o sistema segue com o seletor);
+  - o teste de roteamento "2 toques: continuar → campus" virou "1 toque na boas-vindas"; comentário do `router/index.js` e tabela de rotas do C4 atualizados.
+- TDD: `e4a8975` (testes, 6 falhando) → `e54a40e` (código) → `6605b4c` (docs).
+- Validação local (antes da revisão): `npm run lint:ci` sem achados, `npm run test:ci` com 1.067 testes passando (96,38% de linhas / 92,74% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos. Boas-vindas conferida no navegador a 360 px, sem rolar para o lado.
+- FE-16 (#287): já está na `develop`. Neste PR o `frontend/e2e/qualidade.spec.js` e o `docs/qualidade/checklist-qualidade-front.md` foram atualizados para o caminho de 2 interações (ver os ajustes da revisão abaixo).
+- Revisão humana: revisão de AlvaroBento12 neste PR, com dois ajustes que bloqueiam o merge, cinco importantes e sugestões.
+- Ajustes da revisão, código gerado pela IA:
+  - **`develop` trazida:** conflito resolvido neste `AI-USAGE.md` (as entradas da FE-16 e da #285 ficaram);
+  - **e2e e checklist (FE-16):** o `qualidade.spec.js` agora conta "Agora não" e o campus (2), sem o "Continuar sem login", e o `test.fail()` do caminho sem a localização saiu, com o comentário passando para o teste da primeira visita; a tela `/boas-vindas` espera um botão de campus, para a largura ser medida com a grade carregada. No checklist, o caminho sem permissão é 2 interações (✅), o com permissão 3 (pendência 1), e o bug 1 aparece como corrigido neste PR;
+  - **paisagem:** `overflow-y: auto` na boas-vindas e `flex-shrink: 0` em `.marca` e `.acoes`, para a grade e o "Tentar novamente" não ficarem cortados em 640×360;
+  - **toque no lugar errado:** a área dos campi reserva a altura da grade (`.area-campi`, `min-height: 150px`, 3 fileiras de botões), para o "Entrar na conta" não subir quando os campi carregam;
+  - **contraste (WCAG AA):** `--branco-70` na nota (carregando, erro, lista vazia e rodapé) e no rótulo `.chamada-campus`, e uma borda no "Tentar novamente";
+  - **testes:** "Carregando campi…" e a lista vazia cobertos (desligar o ramo ou apagar o texto derruba um teste); a visita seguinte agora é simulada com pinia e router novos na raiz; o aviso perde o `open` depois do "Agora não"; o teste dos campi confere os 5 (com a Fazenda Água Limpa); `timeout` maior no `vi.waitFor` do teste do RNF03;
+  - **textos:** C4 (`SeletorCampus` não é mais o destino da primeira escolha, a `BoasVindasView` usa stores e API, e a raiz sem campus vai para as boas-vindas), docblock da view, "Fluxo da primeira visita" no `router/index.js` e o diagrama do `frontend/README.md`.
+- Validação depois dos ajustes: `npm run lint:ci` sem achados, `npm run test:ci` com 1.069 testes passando (96,38% de linhas / 92,79% de ramos), `npm run build` sem erro e `npx prettier --check` sem achados nos arquivos mexidos.
+- Pendente (não foi feito no ambiente da IA): rodar o e2e de novo (`qualidade.spec.js`, Playwright) e conferir a boas-vindas a 360×640 e 640×360 no navegador, com os campi carregando e carregados. O resultado entra aqui.
+- Situação: ajustes da revisão aplicados; aguardando o recheck do AlvaroBento12, o e2e e a conferência visual.
+
 ## #259 — Início: cartões "Avaliações" e "Satisfação da semana" pelo resumo do dia
 
 - Issue: [#259](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/259). PR: [#288](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/288). Relacionada: [#251](https://github.com/unb-mds/2026-2-Bandejao-UnB/issues/251) (PR [#257](https://github.com/unb-mds/2026-2-Bandejao-UnB/pull/257)).
@@ -1124,3 +1148,17 @@ Cada entrada deve informar a tarefa/PR, a ferramenta utilizada, o apoio recebido
   - este registro, com o link do PR, a validação e a revisão;
   - comentário do script: o usuário da aplicação perde o que tiver nos três nomes, e o papel, só o `GRANT` sem escape.
 - Situação: aprovado; sugestões aplicadas, aguardando o recheck. A #250 fica aberta até conferir o `SHOW GRANTS` na VM, depois da release; com o `DB_NAME` recomendado (`bandejao`), nada muda lá.
+
+### Complemento da revisao do PR #289 - integracao com FE-23
+
+- Ferramenta: ChatGPT (OpenAI), em 24/11/2026.
+- Apoio: resolucao dos conflitos com a develop em AI-USAGE.md e BoasVindasView.vue, preservando os registros das duas branches e integrando a escolha direta do campus ao novo design da FE-23.
+- Ajuste das cores da selecao de campus para o fundo claro no desktop.
+- Validacao local: lint sem erros ou avisos, 1125 testes aprovados em 44 arquivos e build sem erros.
+- Cobertura: 96,53% de linhas, 93,07% de ramos, 95,41% de funcoes e 95,56% de instrucoes.
+- BoasVindasView.vue: 100% de cobertura e 7 testes especificos aprovados.
+- Validacao visual com backend simulado: 360x640, 640x360 e desktop.
+- Rolagem vertical em paisagem confirmada pela autora.
+- Pendente: conferencia visual da estabilidade do login durante o carregamento dos campi.
+- E2E com backend real nao executado localmente por indisponibilidade do Docker; aguardando CI.
+- Os comandos sugeridos pela IA foram executados pela autora.

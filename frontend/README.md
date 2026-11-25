@@ -117,7 +117,8 @@ mas mostra "Em breve".
 
 ```
 / ──(1ª visita)──► /boas-vindas ──► /login ──► /cadastro ──► /confirmar-email
-  └(campus salvo)► /cardapio            └────► /campus ──► /inicio
+  │             └─(escolhe o campus)┐
+  └(campus salvo)──────────────────► /campus/:campusId ──► /inicio
                                                               ├─► /cardapio
                                                               ├─► /fila       (Em breve)
                                                               └─► /avaliacoes
