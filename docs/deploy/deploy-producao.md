@@ -198,6 +198,9 @@ SQL
 
 O resultado certo tem só `SELECT, INSERT, UPDATE, DELETE, CREATE, DROP,
 REFERENCES, INDEX, ALTER` no banco `bandejao`, e nenhum `ALL PRIVILEGES`. Se
+o `DB_NAME` tiver `_` ou `%`, eles aparecem escapados no nome do banco
+(`ru_db` sai como `` `ru\\_db`.* ``: a saída do cliente dobra a barra); veja
+[Nome do banco no GRANT](#nome-do-banco-no-grant). Se
 aparecer `ALL PRIVILEGES`, ou se o log mostrar `[bandejao] ERRO`, rode o
 script à mão, como em [Banco](#banco); ele sai com erro se algo falhar. Antes
 de haver dados reais, também dá para apagar o volume e subir de novo (`docker
@@ -289,16 +292,51 @@ SET DEFAULT ROLE 'equipe_moderacao' TO '<usuário>'@'%';
 
 Para tirar o acesso: `DROP USER '<usuário>'@'%';`.
 
-Se o `.env.db` ganhar o usuário da equipe depois da primeira subida, ou se o
-script mudar, recrie o `db` para ele ler o `.env.db` e rode o script de novo.
-O `--wait` espera o banco ficar `healthy`; sem ele, o script pode rodar antes
-de o MySQL aceitar conexões. O script pode rodar quantas vezes for preciso e
-sai com erro (status 1, com `[bandejao] ERRO`) se algum comando falhar:
+Se o `.env.db` mudar (por exemplo, ganhar o usuário da equipe depois da
+primeira subida), recrie o `db` para ele ler o arquivo e rode o script de
+novo. O `--wait` espera o banco ficar `healthy`; sem ele, o script pode rodar
+antes de o MySQL aceitar conexões. O script pode rodar quantas vezes for
+preciso e sai com erro (status 1, com `[bandejao] ERRO`) se algum comando
+falhar:
 
 ```bash
 docker compose up -d --force-recreate --wait db
 docker compose exec db sh /docker-entrypoint-initdb.d/10-usuarios.sh
 ```
+
+Se mudar só o script, não precisa recriar o `db`: a pasta `db/init/` entra
+inteira no container, e o `git pull` já atualiza o arquivo. Basta rodar a
+segunda linha.
+
+### Nome do banco no GRANT
+
+No `GRANT` de banco, o `_` e o `%` do nome são curingas: um `GRANT` em
+`` `ru_db`.* `` vale também para `ruXdb`, `ru-db` etc., e o `DB_USER`, que
+tem `CREATE` e `DROP`, poderia criar e apagar bancos com esses nomes. Por
+isso o `10-usuarios.sh` dá os privilégios com o nome escapado
+(`` `ru\_db`.* ``), que vale só para o banco da aplicação (#250).
+
+Até a #250, o script dava os `GRANT`s sem o escape. Com o `DB_NAME`
+recomendado (`bandejao`, sem `_` nem `%`), isso não muda nada. Se o `DB_NAME`
+da VM tiver `_` ou `%`, aplique a correção depois do deploy que a trouxe
+(o CD já faz o backup do banco antes de subir; confira o
+`~/backups/deploy-<data>-<commit>.sql.gz`). O script tira os `GRANT`s antigos,
+sem escape, e dá os novos. Como só o script mudou, não precisa recriar o
+`db`:
+
+```bash
+cd ~/2026-2-Bandejao-UnB
+ls -lt ~/backups/ | head -3
+docker compose exec db sh /docker-entrypoint-initdb.d/10-usuarios.sh
+docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' <<'SQL'
+SHOW GRANTS FOR '<DB_USER>'@'%';
+SHOW GRANTS FOR 'equipe_moderacao';
+SQL
+```
+
+Nas duas respostas, o nome do banco precisa aparecer só escapado (com a barra
+dobrada pela saída do cliente, como `` `ru\\_db`.* ``), e nenhuma linha com
+`` `ru_db`.* ``.
 
 ### Conexão com o banco (TLS)
 
